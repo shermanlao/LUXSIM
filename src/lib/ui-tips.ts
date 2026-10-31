@@ -20,4 +20,19 @@ export const UI_TIPS: UiTipSeed[] = [
     title: "Room height",
     body: "Standalone ceiling height in millimetres. Applies to the selected room (polygon or rectangle) and to the next room you draw or create.",
   },
+  {
+    helpKey: "room.maintenanceFactor",
+    title: "Maintenance factor",
+    body: "Multiplier (0.5–1) applied to calculated lux for maintained illuminance checks against EN 12464-1 assist targets. Typical office value 0.8.",
+  },
+  {
+    helpKey: "room.en12464",
+    title: "EN 12464-1 assist",
+    body: "Optional maintained illuminance / uniformity / UGR targets for pass-fail hints after Calculate. Design assist only — not certification.",
+  },
+  {
+    helpKey: "export.dialuxVerification",
+    title: "DIALux verification zip",
+    body: "Downloads rooms.json, schedule.csv, luminaire IES/LDT, geometry.dxf, and results CSV for cross-checking in desktop DIALux. No proprietary project file.",
+  },
 ];

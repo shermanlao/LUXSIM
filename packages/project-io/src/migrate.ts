@@ -1,4 +1,5 @@
-import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2 } from "./types";
+import { defaultMaintenanceFactor } from "./en12464";
+import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2, RoomV2 } from "./types";
 import type { CalcResults } from "../../solver/src/types";
 import { rectPolygon } from "./geometry";
 
@@ -74,6 +75,8 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
           interreflection: scene.calcOptions.interreflection,
           bounces: scene.calcOptions.bounces,
           computeUgr: scene.calcOptions.computeUgr,
+          maintenanceFactor: defaultMaintenanceFactor(),
+          en12464TemplateId: "",
         },
       },
     ],
@@ -128,6 +131,24 @@ function normalizeCamera3d(
   };
 }
 
+function normalizeRoomCalc(calc: RoomV2["calc"] | undefined): RoomV2["calc"] {
+  return {
+    gridSpacing: calc?.gridSpacing ?? 0.5,
+    interreflection: calc?.interreflection ?? true,
+    bounces: calc?.bounces ?? 2,
+    computeUgr: calc?.computeUgr ?? true,
+    maintenanceFactor: calc?.maintenanceFactor ?? defaultMaintenanceFactor(),
+    en12464TemplateId: calc?.en12464TemplateId ?? "",
+  };
+}
+
+function normalizeRoom(room: RoomV2): RoomV2 {
+  return {
+    ...room,
+    calc: normalizeRoomCalc(room.calc),
+  };
+}
+
 export function normalizeScene(scene: unknown): ProjectSceneV2 {
   if (isSceneV2(scene)) {
     return {
@@ -135,7 +156,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
       underlays: scene.underlays ?? [],
       fixtureLibraryIds: scene.fixtureLibraryIds ?? [],
       instances: scene.instances ?? [],
-      rooms: scene.rooms ?? [],
+      rooms: (scene.rooms ?? []).map(normalizeRoom),
       storeys: scene.storeys?.length ? scene.storeys : defaultSceneV2().storeys,
       ui: {
         activeStoreyId:

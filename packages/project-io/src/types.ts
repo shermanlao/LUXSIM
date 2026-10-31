@@ -56,6 +56,10 @@ export interface RoomV2 {
     interreflection: boolean;
     bounces: number;
     computeUgr: boolean;
+    /** Maintenance factor for maintained illuminance checks (0.5–1). Default 0.8. */
+    maintenanceFactor?: number;
+    /** EN 12464-1 assist template id; see en12464.ts */
+    en12464TemplateId?: string;
   };
 }
 

@@ -128,3 +128,136 @@ a {
   padding: 0.75rem 0.9rem;
   font-size: 0.88rem;
 }
+
+/* Editor workspace chrome (LUXSIM-branded; not third-party CAD clone) */
+.editor-shell {
+  min-height: calc(100dvh - 7.5rem);
+}
+
+.editor-toolbar {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 88%, white);
+  border-radius: 2px;
+  padding: 0.65rem 0.85rem;
+}
+
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(260px, 300px);
+  gap: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+@media (max-width: 1024px) {
+  .editor-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editor-rail {
+  background: var(--bg-deep);
+  color: #e8eef2;
+  border-right: 1px solid color-mix(in srgb, var(--bg-deep) 80%, var(--accent-2));
+  padding: 0.75rem;
+  overflow-y: auto;
+  max-height: calc(100dvh - 10rem);
+}
+
+.editor-rail .label {
+  color: #9fb0bb;
+}
+
+.editor-rail .btn-secondary {
+  border-color: #3d5563;
+  color: #e8eef2;
+  background: #162630;
+}
+
+.editor-rail .btn-secondary:hover {
+  background: #1f3542;
+}
+
+.editor-rail .btn-accent {
+  border-color: var(--accent);
+}
+
+.editor-rail .input {
+  background: #12202a;
+  border-color: #3d5563;
+  color: #f0f4f6;
+}
+
+.editor-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #dfe8ed;
+}
+
+.editor-viewbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 92%, var(--accent-2));
+  color: #eef3f6;
+}
+
+.editor-viewbar .view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.editor-viewbar .view-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-viewbar .view-tab.is-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  color: #fff;
+}
+
+.editor-props {
+  border-left: 1px solid var(--line);
+  padding: 0.75rem;
+  overflow-y: auto;
+  max-height: calc(100dvh - 10rem);
+  background: color-mix(in srgb, var(--panel) 95%, white);
+}
+
+.pass-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+}
+
+.pass-badge.ok {
+  background: color-mix(in srgb, var(--ok) 18%, white);
+  color: var(--ok);
+}
+
+.pass-badge.fail {
+  background: #fde8e8;
+  color: #8b2e2e;
+}

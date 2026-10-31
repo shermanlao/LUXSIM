@@ -1,6 +1,8 @@
 # Editor workflow
 
-The project editor (`BuildingEditor` / `ProjectEditor`) and app chrome (`AppShell`) use the **full browser width** — no `max-w-7xl` cap — so the 3D viewport and side panels expand with the window.
+The project editor is **`BuildingEditor`** (`ProjectSceneV2`). Legacy v1 `ProjectEditor` lives under `src/components/editor/_legacy/` for reference only.
+
+`BuildingEditor` and app chrome (`AppShell`) use the **full browser width** — no `max-w-7xl` cap — so the 3D viewport and side panels expand with the window.
 
 **Autosave** writes name / scene / results about 800 ms after you stop changing them, and on tab hide. Only fields that actually changed are PATCHed. **Save now** flushes immediately. See [AUTOSAVE.md](./AUTOSAVE.md). View tab and last 3D orbit (`ui.camera3d`) are included when a save runs.
 

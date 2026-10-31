@@ -1,7 +1,7 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
@@ -21,6 +21,9 @@ import {
   type ResultsV2,
   type Vec2,
   type ViewMode,
+  EN12464_TEMPLATES,
+  evaluateEn12464,
+  clampMf,
 } from "@luxsim/project-io";
 import {
   buildLuxsimProject,
@@ -39,6 +42,15 @@ import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
 import { HelpTip } from "@/components/HelpTip";
+import {
+  IconCalibrate,
+  IconDrawRoom,
+  IconRect,
+  IconSelect,
+  IconView3d,
+  IconViewElevation,
+  IconViewTop,
+} from "./EditorGlyphs";
 
 const BuildingScene3D = dynamic(
   () => import("./BuildingScene3D").then((m) => m.BuildingScene3D),
@@ -146,6 +158,14 @@ export function BuildingEditor({
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
   const activeRoom = scene.rooms.find((r) => r.id === scene.ui.activeRoomId) ?? null;
   const activeResults = activeRoom ? results.byRoomId[activeRoom.id] ?? null : null;
+  const en12464Check = useMemo(() => {
+    if (!activeRoom || !activeResults) return null;
+    return evaluateEn12464(
+      activeResults,
+      activeRoom.calc.en12464TemplateId,
+      clampMf(activeRoom.calc.maintenanceFactor)
+    );
+  }, [activeRoom, activeResults]);
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
   const underlayUrl = underlay
@@ -365,6 +385,8 @@ export function BuildingEditor({
             interreflection: true,
             bounces: 2,
             computeUgr: true,
+            maintenanceFactor: activeRoom?.calc.maintenanceFactor ?? 0.8,
+            en12464TemplateId: activeRoom?.calc.en12464TemplateId ?? "",
           },
         },
       ],
@@ -701,7 +723,29 @@ export function BuildingEditor({
     [library, scene.fixtureLibraryIds]
   );
 
+  async function onExportDialuxVerification() {
+    for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
+    const names: Record<string, string> = {};
+    for (const l of library) names[l.id] = l.name;
+    await exportDialuxPack({
+      projectName: name,
+      scene: sceneWithView(scene),
+      results,
+      sourceFiles: sourceCache,
+      luminaireNames: names,
+    });
+    setStatus("DIALux verification zip downloaded");
+  }
+
   const viewMode = scene.ui.viewMode;
+
+  const viewTabs: { mode: ViewMode; label: string; icon: ReactElement }[] = [
+    { mode: "top", label: "Top", icon: <IconViewTop /> },
+    { mode: "bottom", label: "Bottom", icon: <IconViewTop /> },
+    { mode: "front", label: "Front", icon: <IconViewElevation /> },
+    { mode: "side", label: "Side", icon: <IconViewElevation /> },
+    { mode: "persp3d", label: "3D", icon: <IconView3d /> },
+  ];
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -818,15 +862,15 @@ export function BuildingEditor({
   );
 
   return (
-    <div className="w-full px-4 py-6 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex-1 min-w-[220px]">
+    <div className="editor-shell w-full px-2 sm:px-4 py-4 space-y-3">
+      <div className="editor-toolbar flex flex-wrap items-end justify-between gap-3">
+        <div className="flex-1 min-w-[200px]">
           <label className="label" htmlFor="projectName">
             Project
           </label>
           <input
             id="projectName"
-            className="input display text-2xl !py-2"
+            className="input display text-xl sm:text-2xl !py-2"
             value={name}
             onChange={(e) => setName(e.target.value)}
           />
@@ -835,7 +879,9 @@ export function BuildingEditor({
           <button className="btn btn-secondary" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save now"}
           </button>
-          <span className="text-[10px] text-[var(--muted)]">Autosaves after you pause</span>
+          <span className="text-[10px] text-[var(--muted)] hidden sm:inline">
+            Autosaves after you pause
+          </span>
           <button
             className="btn btn-secondary"
             disabled={calculating}
@@ -849,15 +895,14 @@ export function BuildingEditor({
         </div>
       </div>
 
-      <p className="disclaimer">
-        Multi-storey design assist. Upload fixtures to the list, then drag onto a room. Not
-        tender-certified.
+      <p className="disclaimer text-xs sm:text-sm">
+        Multi-storey design assist — Top / Front / Side / 3D in one workspace. Not tender-certified.
       </p>
 
-      <div className="grid lg:grid-cols-[280px_1fr_300px] gap-4">
-        {/* Left: building + import */}
-        <aside className="panel p-4 space-y-3 self-start max-h-[85vh] overflow-y-auto">
-          <h2 className="font-semibold">Building</h2>
+      <div className="editor-workspace">
+        {/* Left tools rail */}
+        <aside className="editor-rail space-y-3">
+          <h2 className="font-semibold text-sm text-white/95">Building</h2>
           <button className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
             Add storey
           </button>
@@ -911,59 +956,25 @@ export function BuildingEditor({
             ))}
           </ul>
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">Room height</h3>
-              <HelpTip helpKey="tool.roomHeight" />
-            </div>
-            <label className="label" htmlFor="roomHeightMm">
-              Height (mm)
-            </label>
-            <input
-              id="roomHeightMm"
-              className="input"
-              type="number"
-              min={500}
-              step={100}
-              data-help-key="tool.roomHeight"
-              value={roomHeightMm}
-              onChange={(e) => {
-                const raw = e.target.value;
-                setRoomHeightMm(raw);
-                const next = Number(raw) / 1000;
-                if (!(next >= 0.5) || !activeRoom) return;
-                const roomId = activeRoom.id;
-                patchScene((s) => ({
-                  ...s,
-                  rooms: s.rooms.map((r) =>
-                    r.id === roomId ? { ...r, heightM: next } : r
-                  ),
-                }));
-              }}
-            />
-            <p className="text-[10px] text-[var(--muted)]">
-              Applies to the selected room and to the next room you draw or create.
-            </p>
-          </div>
-
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <h3 className="font-semibold text-sm">Tools</h3>
+          <div className="border-t border-white/15 pt-3 space-y-2">
+            <h3 className="font-semibold text-sm text-white/95">Tools</h3>
             {(
               [
-                ["select", "Select / move", null],
-                ["drawRoom", "Draw room", "tool.drawRoom"],
-                ["calibrate", "Calibrate scale", null],
+                ["select", "Select / move", null, IconSelect] as const,
+                ["drawRoom", "Draw room", "tool.drawRoom", IconDrawRoom] as const,
+                ["calibrate", "Calibrate scale", null, IconCalibrate] as const,
               ] as const
-            ).map(([tool, label, helpKey]) => (
+            ).map(([tool, label, helpKey, Icon]) => (
               <div key={tool} className="flex items-center gap-1">
                 <button
                   type="button"
                   data-help-key={helpKey ?? undefined}
-                  className={`btn w-full !text-xs ${
+                  className={`btn w-full !text-xs justify-start ${
                     scene.ui.tool === tool ? "btn-accent" : "btn-secondary"
                   }`}
                   onClick={() => patchScene((s) => ({ ...s, ui: { ...s.ui, tool } }))}
                 >
+                  <Icon className="w-4 h-4 shrink-0 opacity-90" />
                   {label}
                 </button>
                 {helpKey && <HelpTip helpKey={helpKey} />}
@@ -1008,9 +1019,10 @@ export function BuildingEditor({
               <button
                 type="button"
                 data-help-key="tool.drawRect"
-                className="btn btn-secondary w-full !text-xs"
+                className="btn btn-secondary w-full !text-xs justify-start"
                 onClick={createRectRoom}
               >
+                <IconRect className="w-4 h-4 shrink-0 opacity-90" />
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
@@ -1019,8 +1031,8 @@ export function BuildingEditor({
             </div>
           </div>
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <h3 className="font-semibold text-sm">Import plan</h3>
+          <div className="border-t border-white/15 pt-3 space-y-2">
+            <h3 className="font-semibold text-sm text-white/95">Import plan</h3>
             <input
               ref={planRef}
               className="input text-xs"
@@ -1059,42 +1071,32 @@ export function BuildingEditor({
           <FalseColorLegend results={activeResults} />
         </aside>
 
-        {/* Center */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["top", "Top"],
-                ["bottom", "Bottom"],
-                ["front", "Front"],
-                ["side", "Side"],
-                ["persp3d", "3D"],
-              ] as const
-            ).map(([mode, label]) => (
+        <section className="editor-center">
+          <div className="editor-viewbar">
+            {viewTabs.map(({ mode, label, icon }) => (
               <button
                 key={mode}
                 type="button"
-                className={`btn !py-1.5 !px-3 !text-xs ${
-                  viewMode === mode ? "btn-accent" : "btn-secondary"
-                }`}
+                className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
                 onClick={() =>
                   patchScene((s) => ({
                     ...s,
                     ui: {
                       ...s.ui,
-                      viewMode: mode as ViewMode,
-                      // Keep last 3D orbit when leaving / returning to persp3d
+                      viewMode: mode,
                       camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
                     },
                   }))
                 }
               >
+                {icon}
                 {label}
               </button>
             ))}
           </div>
 
-          {viewport}
+          <div className="flex-1 min-h-0 p-2 space-y-2 overflow-y-auto">
+            {viewport}
 
           {activeResults && (
             <div className="panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
@@ -1188,11 +1190,220 @@ export function BuildingEditor({
               </tbody>
             </table>
           </div>
-        </div>
+          </div>
+        </section>
 
-        {/* Right: fixtures */}
-        <aside className="panel p-4 space-y-3 self-start max-h-[85vh] overflow-y-auto">
-          <h2 className="font-semibold">Fixture library</h2>
+        <aside className="editor-props space-y-3">
+          <h2 className="font-semibold text-sm">Properties</h2>
+          {activeRoom ? (
+            <div className="space-y-2 border border-[var(--line)] p-3 bg-white/70">
+              <p className="text-xs font-semibold">{activeRoom.name}</p>
+              <div className="flex items-center justify-between">
+                <label className="label mb-0" htmlFor="roomHeightMm">
+                  Height (mm)
+                </label>
+                <HelpTip helpKey="tool.roomHeight" />
+              </div>
+              <input
+                id="roomHeightMm"
+                className="input"
+                type="number"
+                min={500}
+                step={100}
+                data-help-key="tool.roomHeight"
+                value={roomHeightMm}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setRoomHeightMm(raw);
+                  const next = Number(raw) / 1000;
+                  if (!(next >= 0.5)) return;
+                  const roomId = activeRoom.id;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === roomId ? { ...r, heightM: next } : r
+                    ),
+                  }));
+                }}
+              />
+              <label className="label">Workplane (m)</label>
+              <input
+                className="input"
+                type="number"
+                step={0.05}
+                min={0}
+                value={activeRoom.workplaneHeightM}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (!Number.isFinite(next)) return;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id ? { ...r, workplaneHeightM: next } : r
+                    ),
+                  }));
+                }}
+              />
+              {(["floor", "ceiling", "walls"] as const).map((face) => (
+                <div key={face}>
+                  <label className="label">ρ {face}</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step={0.05}
+                    min={0}
+                    max={1}
+                    value={activeRoom.reflectance[face]}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      patchScene((s) => ({
+                        ...s,
+                        rooms: s.rooms.map((r) =>
+                          r.id === activeRoom.id
+                            ? {
+                                ...r,
+                                reflectance: { ...r.reflectance, [face]: v },
+                              }
+                            : r
+                        ),
+                      }));
+                    }}
+                  />
+                </div>
+              ))}
+              <label className="label">Grid spacing (m)</label>
+              <input
+                className="input"
+                type="number"
+                step={0.1}
+                min={0.2}
+                value={activeRoom.calc.gridSpacing}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!(v >= 0.2)) return;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id
+                        ? { ...r, calc: { ...r.calc, gridSpacing: v } }
+                        : r
+                    ),
+                  }));
+                }}
+              />
+              <div className="flex items-center justify-between gap-1">
+                <label className="label mb-0">Maintenance factor</label>
+                <HelpTip helpKey="room.maintenanceFactor" />
+              </div>
+              <input
+                className="input"
+                type="number"
+                step={0.05}
+                min={0.5}
+                max={1}
+                data-help-key="room.maintenanceFactor"
+                value={clampMf(activeRoom.calc.maintenanceFactor)}
+                onChange={(e) => {
+                  const v = clampMf(Number(e.target.value));
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id
+                        ? { ...r, calc: { ...r.calc, maintenanceFactor: v } }
+                        : r
+                    ),
+                  }));
+                }}
+              />
+              <div className="flex items-center justify-between gap-1">
+                <label className="label mb-0">EN 12464-1 assist</label>
+                <HelpTip helpKey="room.en12464" />
+              </div>
+              <select
+                className="select"
+                data-help-key="room.en12464"
+                value={activeRoom.calc.en12464TemplateId ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id
+                        ? { ...r, calc: { ...r.calc, en12464TemplateId: id } }
+                        : r
+                    ),
+                  }));
+                }}
+              >
+                {EN12464_TEMPLATES.map((t) => (
+                  <option key={t.id || "none"} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {en12464Check && (
+                <div className="text-xs space-y-1 pt-1 border-t border-[var(--line)]">
+                  <p className="text-[var(--muted)]">Maintained Ēm {en12464Check.maintainedEave.toFixed(0)} lx</p>
+                  <PassRow label="Em" check={en12464Check.checks.em} />
+                  <PassRow label="Uo" check={en12464Check.checks.uo} />
+                  <PassRow label="UGR" check={en12464Check.checks.ugr} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets.</p>
+          )}
+
+          {selected && (
+            <div className="border border-[var(--line)] p-3 space-y-2 bg-white/70">
+              <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
+              <input
+                className="input"
+                value={selected.name}
+                onChange={(e) =>
+                  patchScene((s) => ({
+                    ...s,
+                    instances: s.instances.map((i) =>
+                      i.instanceId === selected.instanceId
+                        ? { ...i, name: e.target.value }
+                        : i
+                    ),
+                  }))
+                }
+              />
+              {(["x", "y", "z"] as const).map((axis) => (
+                <div key={axis}>
+                  <label className="label">{axis.toUpperCase()} (m)</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step={0.1}
+                    value={selected.position[axis]}
+                    onChange={(e) =>
+                      patchScene((s) => ({
+                        ...s,
+                        instances: s.instances.map((i) =>
+                          i.instanceId === selected.instanceId
+                            ? {
+                                ...i,
+                                position: {
+                                  ...i.position,
+                                  [axis]: Number(e.target.value),
+                                },
+                              }
+                            : i
+                        ),
+                      }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="border-t border-[var(--line)] pt-3 space-y-2">
+            <h3 className="font-semibold text-sm">Fixture library</h3>
           <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3">
             <label className="label">Upload IES / LDT</label>
             <input
@@ -1252,53 +1463,7 @@ export function BuildingEditor({
               <li className="text-xs text-[var(--muted)]">No fixtures in project yet.</li>
             )}
           </ul>
-
-          {selected && (
-            <div className="border-t border-[var(--line)] pt-3 space-y-2">
-              <p className="text-xs uppercase text-[var(--muted)]">Selected</p>
-              <input
-                className="input"
-                value={selected.name}
-                onChange={(e) =>
-                  patchScene((s) => ({
-                    ...s,
-                    instances: s.instances.map((i) =>
-                      i.instanceId === selected.instanceId
-                        ? { ...i, name: e.target.value }
-                        : i
-                    ),
-                  }))
-                }
-              />
-              {(["x", "y", "z"] as const).map((axis) => (
-                <div key={axis}>
-                  <label className="label">{axis.toUpperCase()} (m)</label>
-                  <input
-                    className="input"
-                    type="number"
-                    step={0.1}
-                    value={selected.position[axis]}
-                    onChange={(e) =>
-                      patchScene((s) => ({
-                        ...s,
-                        instances: s.instances.map((i) =>
-                          i.instanceId === selected.instanceId
-                            ? {
-                                ...i,
-                                position: {
-                                  ...i.position,
-                                  [axis]: Number(e.target.value),
-                                },
-                              }
-                            : i
-                        ),
-                      }))
-                    }
-                  />
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
 
           <div className="border-t border-[var(--line)] pt-3 space-y-2">
             <h3 className="font-semibold text-sm">Export</h3>
@@ -1327,43 +1492,15 @@ export function BuildingEditor({
               Save .luxsim
             </button>
             <button
-              className="btn btn-secondary w-full"
-              onClick={async () => {
-                for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
-                const names: Record<string, string> = {};
-                for (const l of library) names[l.id] = l.name;
-                await exportDialuxPack({
-                  projectName: name,
-                  scene: {
-                    version: 1,
-                    room: {
-                      width: 8,
-                      depth: 6,
-                      height: 2.8,
-                      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
-                      workplaneHeight: 0.75,
-                    },
-                    gridSpacing: 0.5,
-                    luminaires: scene.instances.map((i) => ({
-                      instanceId: i.instanceId,
-                      luminaireId: i.luminaireId,
-                      name: i.name,
-                      position: i.position,
-                      rotationDeg: i.rotationDeg,
-                    })),
-                    calcOptions: {
-                      interreflection: true,
-                      bounces: 2,
-                      computeUgr: true,
-                    },
-                  },
-                  sourceFiles: sourceCache,
-                  luminaireNames: names,
-                });
-              }}
+              className="btn btn-accent w-full"
+              data-help-key="export.dialuxVerification"
+              onClick={() => void onExportDialuxVerification()}
             >
-              DIALux pack (zip)
+              DIALux verification (zip)
             </button>
+            <p className="text-[10px] text-[var(--muted)]">
+              Multi-room geometry, IES/LDT, DXF, and results CSV for desktop DIALux cross-check.
+            </p>
           </div>
         </aside>
       </div>
@@ -1383,6 +1520,34 @@ function Stat({ label, value }: { label: string; value: string }) {
     <div>
       <div className="label">{label}</div>
       <div className="text-lg font-semibold">{value}</div>
+    </div>
+  );
+}
+
+function PassRow({
+  label,
+  check,
+}: {
+  label: string;
+  check: { pass: boolean | null; target: number | null; actual: number | null };
+}) {
+  if (check.pass === null) return null;
+  const detail =
+    check.actual != null && check.target != null
+      ? label === "Uo"
+        ? `${check.actual.toFixed(2)} / ${check.target}`
+        : label === "UGR"
+          ? `${check.actual.toFixed(1)} / ${check.target}`
+          : `${check.actual.toFixed(0)} / ${check.target} lx`
+      : "";
+  return (
+    <div className="flex items-center justify-between gap-2">
+      <span>
+        {label} {detail && <span className="text-[var(--muted)]">({detail})</span>}
+      </span>
+      <span className={`pass-badge ${check.pass ? "ok" : "fail"}`}>
+        {check.pass ? "pass" : "fail"}
+      </span>
     </div>
   );
 }

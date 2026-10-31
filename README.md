@@ -20,7 +20,7 @@ See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 1. New project → import plan (optional) → draw rooms (click corners or L×W)  
 2. Upload IES/LDT into fixture list (does **not** auto-place)  
 3. Drag fixtures onto rooms (Top / Front / Side / 3D)  
-4. Calculate → export full PDF / `.luxsim` / DIALux pack  
+4. Calculate → export full PDF / `.luxsim` / **DIALux verification zip** (multi-room geometry + DXF + CSV)  
 
 ## Scripts
 

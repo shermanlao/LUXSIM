@@ -18,6 +18,15 @@ export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
 export { buildDialuxPack } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
 export {
+  EN12464_TEMPLATES,
+  evaluateEn12464,
+  getEn12464Template,
+  defaultMaintenanceFactor,
+  clampMf,
+} from "./en12464";
+export type { En12464Template, En12464Check } from "./en12464";
+export { buildVerificationDxf } from "./dxf-export";
+export {
   defaultSceneV2,
   migrateSceneV1toV2,
   normalizeScene,
