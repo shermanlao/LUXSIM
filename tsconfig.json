@@ -19,7 +19,10 @@
       }
     ],
     "paths": {
-      "@/*": ["./src/*"]
+      "@/*": ["./src/*"],
+      "@luxsim/photometry": ["./packages/photometry/src/index.ts"],
+      "@luxsim/solver": ["./packages/solver/src/index.ts"],
+      "@luxsim/project-io": ["./packages/project-io/src/index.ts"]
     }
   },
   "include": [

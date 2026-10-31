@@ -1,36 +1,36 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# LUXSIM
 
-## Getting Started
+Browser lighting design assist with **multi-storey / multi-room** projects, plan & IFC import, drag-and-drop fixtures, 2D/3D views, client-side lux calculation, and DIALux-style PDF reports.
 
-First, run the development server:
+## Quick start
 
 ```bash
+npm install
+npx prisma migrate dev
+npm run db:seed
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Demo: `demo@luxsim.local` / `demo1234`
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Workflow
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 
-## Learn More
+1. New project → import plan (optional) → draw rooms (click corners or L×W)  
+2. Upload IES/LDT into fixture list (does **not** auto-place)  
+3. Drag fixtures onto rooms (Top / Front / Side / 3D)  
+4. Calculate → export full PDF / `.luxsim` / DIALux pack  
 
-To learn more about Next.js, take a look at the following resources:
+## Scripts
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Dev server |
+| `npm test` | Unit tests |
+| `npm run build` | Production build |
+| `npm run db:seed` | Seed demo user + multi-room project |
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Docs
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md)
