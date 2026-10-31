@@ -14,7 +14,9 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - Client solver: direct illuminance, simplified interreflection, simplified UGR, LPD
 - False-color overlay + PDF / `.luxsim` / **DIALux verification zip** (multi-room geometry + DXF + results CSV)
 - CAD point-to-point room draw (typed mm polar lock) + L×W rectangle at origin; 3D extrudes the floor polygon
-- **EN 12464-1 assist templates** + maintenance factor (default **0.80**) + Em / Uo / UGR pass-fail hints (not certification)
+- **EN 12464-1 assist** — task / surrounding / background targets; **CIE 97 MF breakdown**; pass-fail hints (not certification)
+- **CIE 171 skeleton** — analytical direct self-tests in `packages/solver/src/cie171/`
+- **AB golden room** — [`docs/ab-golden-room/`](./ab-golden-room/) for Dialux evo manual compare
 - **Workflow mode bar** (Construction / Light / Calculation / Export) with panel filters
 - Fixture **rotation** control + Top view heading arrow
 

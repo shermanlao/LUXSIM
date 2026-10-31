@@ -10,6 +10,8 @@
 | [DIALUX_INTEROP.md](./DIALUX_INTEROP.md) | Imports, exports, report, `.evo` status |
 | [DIALUX_GAP.md](./DIALUX_GAP.md) | Feature gap vs DIALux evo + CAD room-draw spec |
 | [AB_NOTES.md](./AB_NOTES.md) | DIALux vs LUXSIM AB test notes and comparability |
+| [CERTIFICATION.md](./CERTIFICATION.md) | Phase 0–2 certification-oriented roadmap (non-claims) |
+| [ab-golden-room/README.md](./ab-golden-room/README.md) | Fixed AB room spec + LUXSIM expected Em/Uo/UGR |
 | [SOLVER.md](./SOLVER.md) | Client solver notes |
 | [SERVER_SOLVER_MIGRATION.md](./SERVER_SOLVER_MIGRATION.md) | Deferred server calc |
 | [E2E_SMOKE.md](./E2E_SMOKE.md) | Final manual smoke checklist |

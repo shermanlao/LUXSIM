@@ -1,6 +1,7 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import type { CalcResults, RoomSpec } from "../../solver/src/types";
 import type { EditorWorkflowMode } from "./editor-workflow";
+import type { MfBreakdown } from "./maintenance-factor";
 
 /** @deprecated v1 — use ProjectSceneV2 */
 export interface SceneLuminaire {
@@ -63,6 +64,8 @@ export interface RoomV2 {
     maintenanceFactor?: number;
     /** EN 12464-1 assist template id; see en12464.ts */
     en12464TemplateId?: string;
+    /** CIE 97-style MF components (product overrides overall MF when set) */
+    mfBreakdown?: Partial<MfBreakdown>;
   };
 }
 

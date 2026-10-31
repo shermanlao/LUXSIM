@@ -1,4 +1,4 @@
-import { defaultMaintenanceFactor } from "./en12464";
+import { defaultMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
 import { normalizeWorkflowMode } from "./editor-workflow";
 import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2, RoomV2 } from "./types";
 import type { CalcResults } from "../../solver/src/types";
@@ -142,6 +142,7 @@ function normalizeRoomCalc(calc: RoomV2["calc"] | undefined): RoomV2["calc"] {
     computeUgr: calc?.computeUgr ?? true,
     maintenanceFactor: calc?.maintenanceFactor ?? defaultMaintenanceFactor(),
     en12464TemplateId: calc?.en12464TemplateId ?? "",
+    mfBreakdown: calc?.mfBreakdown ? normalizeMfBreakdown(calc.mfBreakdown) : undefined,
   };
 }
 

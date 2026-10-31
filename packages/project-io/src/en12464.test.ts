@@ -11,7 +11,7 @@ const baseResults: CalcResults = {
     nx: 2,
     ny: 2,
     z: 0.75,
-    lux: [400, 420, 410, 430],
+    lux: [650, 650, 650, 650],
   },
   summary: {
     eave: 650,
@@ -32,19 +32,39 @@ const baseResults: CalcResults = {
 };
 
 describe("evaluateEn12464", () => {
-  it("passes office targets when maintained lux is sufficient", () => {
-    const check = evaluateEn12464(baseResults, "office", clampMf(0.8))!;
-    expect(check.checks.em.pass).toBe(true);
+  it("passes office task targets when maintained lux is sufficient", () => {
+    const check = evaluateEn12464({
+      templateId: "office",
+      maintenanceFactor: clampMf(0.8),
+      taskResults: baseResults,
+    })!;
+    expect(check.checks.taskEm.pass).toBe(true);
     expect(check.maintainedEave).toBeCloseTo(650 * 0.8, 1);
     expect(check.overallPass).toBe(true);
   });
 
-  it("fails when maintained eave is below template", () => {
-    const low: CalcResults = {
+  it("evaluates surrounding when secondary results provided", () => {
+    const surrounding: CalcResults = {
       ...baseResults,
-      summary: { ...baseResults.summary, eave: 400, emin: 200, uo: 0.5 },
+      summary: { ...baseResults.summary, eave: 400, emin: 350 },
     };
-    const check = evaluateEn12464(low, "office", 0.8)!;
-    expect(check.checks.em.pass).toBe(false);
+    const check = evaluateEn12464({
+      templateId: "office",
+      maintenanceFactor: 0.8,
+      taskResults: baseResults,
+      surroundingResults: surrounding,
+    })!;
+    expect(check.checks.surroundingEm.target).toBe(300);
+    expect(check.checks.surroundingEm.pass).toBe(true);
+  });
+
+  it("honest null surrounding without secondary grid", () => {
+    const check = evaluateEn12464({
+      templateId: "office",
+      maintenanceFactor: 0.8,
+      taskResults: baseResults,
+    })!;
+    expect(check.checks.surroundingEm.pass).toBeNull();
+    expect(check.checks.surroundingEm.note).toMatch(/Single workplane|Surrounding target/i);
   });
 });

@@ -1,0 +1,11 @@
+metric,value,unit,notes
+eave_lx,186.11,lx,task plane average (initial)
+emin_lx,59.49,lx,inside polygon clip
+emax_lx,405.56,lx,
+uo,0.32,ratio,Emin/Em maintained uses same ratio
+ugr,27.73,,CIE 117 assist — not certified
+maintained_eave_lx,148.89,lx,eave * MF 0.8 for Dialux MF compare
+lpd_w_m2,3.0,W/m2,
+total_watts,60,W,
+area_m2,20,m2,
+solver_version,luxsim-phase1,,"regenerate if direct/interreflection/UGR changes"

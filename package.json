@@ -10,6 +10,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "test": "vitest run",
+    "ab-golden:refresh": "tsx scripts/refresh-ab-golden.ts",
     "test:watch": "vitest",
     "postinstall": "prisma generate"
   },

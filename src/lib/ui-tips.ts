@@ -22,8 +22,8 @@ export const UI_TIPS: UiTipSeed[] = [
   },
   {
     helpKey: "room.maintenanceFactor",
-    title: "Maintenance factor",
-    body: "Multiplier (0.5–1) applied to calculated lux for maintained illuminance checks against EN 12464-1 assist targets. Typical office value 0.8.",
+    title: "Maintenance factor (CIE 97)",
+    body: "LLMF × LSF × LMF × RSMF (each 0.5–1), product clamped 0.5–1. Default product ≈ 0.80. Applies to maintained EN 12464 assist checks only — the lux solver uses initial lamp output.",
   },
   {
     helpKey: "room.en12464",

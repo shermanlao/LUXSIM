@@ -24,6 +24,9 @@ import {
   EN12464_TEMPLATES,
   evaluateEn12464,
   clampMf,
+  resolveMaintenanceFactor,
+  normalizeMfBreakdown,
+  DEFAULT_MF_BREAKDOWN,
   WORKFLOW_MODES,
   getDialuxPackWarnings,
   type EditorWorkflowMode,
@@ -167,11 +170,12 @@ export function BuildingEditor({
   const activeResults = activeRoom ? results.byRoomId[activeRoom.id] ?? null : null;
   const en12464Check = useMemo(() => {
     if (!activeRoom || !activeResults) return null;
-    return evaluateEn12464(
-      activeResults,
-      activeRoom.calc.en12464TemplateId,
-      clampMf(activeRoom.calc.maintenanceFactor)
-    );
+    return evaluateEn12464({
+      templateId: activeRoom.calc.en12464TemplateId,
+      maintenanceFactor: activeRoom.calc.maintenanceFactor,
+      mfBreakdown: activeRoom.calc.mfBreakdown,
+      taskResults: activeResults,
+    });
   }, [activeRoom, activeResults]);
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
@@ -1397,32 +1401,92 @@ export function BuildingEditor({
                 }}
               />
               <div className="flex items-center justify-between gap-1">
-                <label className="label mb-0">Maintenance factor</label>
+                <label className="label mb-0">Maintenance factor (CIE 97)</label>
                 <HelpTip helpKey="room.maintenanceFactor" />
               </div>
-              <input
-                className="input"
-                type="number"
-                step={0.05}
-                min={0.5}
-                max={1}
-                data-help-key="room.maintenanceFactor"
-                value={clampMf(activeRoom.calc.maintenanceFactor)}
-                onChange={(e) => {
-                  const v = clampMf(Number(e.target.value));
-                  patchScene((s) => ({
-                    ...s,
-                    rooms: s.rooms.map((r) =>
-                      r.id === activeRoom.id
-                        ? { ...r, calc: { ...r.calc, maintenanceFactor: v } }
-                        : r
-                    ),
-                  }));
-                }}
-              />
+              {(
+                [
+                  ["llmf", "LLMF (lamp lumen)"],
+                  ["lsf", "LSF (luminaire surface)"],
+                  ["lmf", "LMF (lamp survival)"],
+                  ["rsmf", "RSMF (room surfaces)"],
+                ] as const
+              ).map(([key, lbl]) => {
+                const bd = normalizeMfBreakdown(activeRoom.calc.mfBreakdown);
+                return (
+                  <div key={key}>
+                    <label className="label">{lbl}</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step={0.01}
+                      min={0.5}
+                      max={1}
+                      value={bd[key]}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        patchScene((s) => ({
+                          ...s,
+                          rooms: s.rooms.map((r) => {
+                            if (r.id !== activeRoom.id) return r;
+                            const nextBd = normalizeMfBreakdown({
+                              ...r.calc.mfBreakdown,
+                              ...bd,
+                              [key]: v,
+                            });
+                            const resolved = resolveMaintenanceFactor({
+                              mfBreakdown: nextBd,
+                              useBreakdown: true,
+                            });
+                            return {
+                              ...r,
+                              calc: {
+                                ...r.calc,
+                                mfBreakdown: nextBd,
+                                maintenanceFactor: resolved.mf,
+                              },
+                            };
+                          }),
+                        }));
+                      }}
+                    />
+                  </div>
+                );
+              })}
               <p className="text-[10px] text-[var(--muted)]">
-                Fixed MF default 0.80 (matches typical DIALux site preset). Used for maintained lux checks only — solver uses initial lamp output.
+                Product MF{" "}
+                <strong>
+                  {resolveMaintenanceFactor({
+                    maintenanceFactor: activeRoom.calc.maintenanceFactor,
+                    mfBreakdown: activeRoom.calc.mfBreakdown,
+                  }).mf.toFixed(3)}
+                </strong>{" "}
+                (LLMF×LSF×LMF×RSMF, clamped 0.5–1). Used for maintained EN checks only — solver uses initial output.
               </p>
+              <details className="text-xs">
+                <summary className="cursor-pointer text-[var(--muted)]">Override overall MF</summary>
+                <input
+                  className="input mt-1"
+                  type="number"
+                  step={0.05}
+                  min={0.5}
+                  max={1}
+                  data-help-key="room.maintenanceFactor"
+                  value={clampMf(activeRoom.calc.maintenanceFactor)}
+                  onChange={(e) => {
+                    const v = clampMf(Number(e.target.value));
+                    patchScene((s) => ({
+                      ...s,
+                      rooms: s.rooms.map((r) =>
+                        r.id === activeRoom.id
+                          ? { ...r, calc: { ...r.calc, maintenanceFactor: v, mfBreakdown: undefined } }
+                          : r
+                      ),
+                    }));
+                  }}
+                />
+              </details>
               <div className="flex items-center justify-between gap-1">
                 <label className="label mb-0">EN 12464-1 assist</label>
                 <HelpTip helpKey="room.en12464" />
@@ -1452,8 +1516,9 @@ export function BuildingEditor({
               {en12464Check && (
                 <div className="text-xs space-y-1 pt-1 border-t border-[var(--line)]">
                   <p className="text-[var(--muted)]">Maintained Ēm {en12464Check.maintainedEave.toFixed(0)} lx</p>
-                  <PassRow label="Em" check={en12464Check.checks.em} />
-                  <PassRow label="Uo" check={en12464Check.checks.uo} />
+                  <PassRow label="Task Em" check={en12464Check.checks.taskEm} />
+                  <PassRow label="Task Uo" check={en12464Check.checks.taskUo} />
+                  <PassRow label="Surr. Em" check={en12464Check.checks.surroundingEm} />
                   <PassRow label="UGR" check={en12464Check.checks.ugr} />
                 </div>
               )}
@@ -1685,17 +1750,29 @@ function PassRow({
   check,
 }: {
   label: string;
-  check: { pass: boolean | null; target: number | null; actual: number | null };
+  check: { pass: boolean | null; target: number | null; actual: number | null; note?: string };
 }) {
-  if (check.pass === null) return null;
+  if (check.pass === null && check.target == null && !check.note) return null;
   const detail =
     check.actual != null && check.target != null
-      ? label === "Uo"
+      ? label.includes("Uo")
         ? `${check.actual.toFixed(2)} / ${check.target}`
-        : label === "UGR"
+        : label.includes("UGR")
           ? `${check.actual.toFixed(1)} / ${check.target}`
           : `${check.actual.toFixed(0)} / ${check.target} lx`
-      : "";
+      : check.target != null
+        ? `target ${check.target}${label.includes("UGR") ? "" : " lx"}`
+        : "";
+  if (check.pass === null) {
+    return (
+      <div className="flex flex-col gap-0.5 text-[var(--muted)]">
+        <span>
+          {label} {detail && `(${detail})`} — not evaluated
+        </span>
+        {check.note && <span className="text-[10px]">{check.note}</span>}
+      </div>
+    );
+  }
   return (
     <div className="flex items-center justify-between gap-2">
       <span>

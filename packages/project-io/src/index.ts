@@ -23,10 +23,24 @@ export {
   EN12464_TEMPLATES,
   evaluateEn12464,
   getEn12464Template,
-  defaultMaintenanceFactor,
-  clampMf,
 } from "./en12464";
-export type { En12464Template, En12464Check } from "./en12464";
+export type { En12464Template, En12464Check, En12464ZoneCheck } from "./en12464";
+export {
+  DEFAULT_MF_BREAKDOWN,
+  clampMf,
+  clampMfComponent,
+  defaultMaintenanceFactor,
+  normalizeMfBreakdown,
+  productMf,
+  resolveMaintenanceFactor,
+} from "./maintenance-factor";
+export type { MfBreakdown } from "./maintenance-factor";
+export {
+  GOLDEN_FIXTURES,
+  GOLDEN_LUXSIM_EXPECTED,
+  GOLDEN_ROOM,
+  GOLDEN_ROOM_ID,
+} from "./ab-golden-room";
 export { buildVerificationDxf } from "./dxf-export";
 export {
   defaultSceneV2,

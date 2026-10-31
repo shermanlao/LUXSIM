@@ -1,6 +1,7 @@
 import JSZip from "jszip";
 import type { CalcResults } from "../../solver/src/types";
 import { clampMf, evaluateEn12464 } from "./en12464";
+import { resolveMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
 import { buildVerificationDxf } from "./dxf-export";
 import { roomBounds } from "./geometry";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
@@ -92,6 +93,7 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
           workplaneHeightM: room.workplaneHeightM,
           reflectance: room.reflectance,
           maintenanceFactor: clampMf(room.calc.maintenanceFactor),
+          mfBreakdown: normalizeMfBreakdown(room.calc.mfBreakdown),
           en12464TemplateId: room.calc.en12464TemplateId ?? "",
           calc: room.calc,
         })),
@@ -264,8 +266,18 @@ function buildResultsSummaryCsv(
 
   const rows = scene.rooms.map((room) => {
     const calc = results?.byRoomId?.[room.id];
-    const mf = clampMf(room.calc.maintenanceFactor);
-    const en = calc ? evaluateEn12464(calc, room.calc.en12464TemplateId, mf) : null;
+    const mf = resolveMaintenanceFactor({
+      maintenanceFactor: room.calc.maintenanceFactor,
+      mfBreakdown: room.calc.mfBreakdown,
+    }).mf;
+    const en = calc
+      ? evaluateEn12464({
+          templateId: room.calc.en12464TemplateId,
+          maintenanceFactor: room.calc.maintenanceFactor,
+          mfBreakdown: room.calc.mfBreakdown,
+          taskResults: calc,
+        })
+      : null;
     const s = calc?.summary;
     const roomGridCount = calc
       ? collectMeasurePoints(
@@ -285,8 +297,8 @@ function buildResultsSummaryCsv(
       mf.toFixed(2),
       en ? en.maintainedEave.toFixed(2) : s ? (s.eave * mf).toFixed(2) : "",
       csvEscape(en?.templateLabel ?? ""),
-      boolCsv(en?.checks.em.pass ?? null),
-      boolCsv(en?.checks.uo.pass ?? null),
+      boolCsv(en?.checks.taskEm.pass ?? null),
+      boolCsv(en?.checks.taskUo.pass ?? null),
       boolCsv(en?.checks.ugr.pass ?? null),
       boolCsv(en?.overallPass ?? null),
       String(roomGridCount),
