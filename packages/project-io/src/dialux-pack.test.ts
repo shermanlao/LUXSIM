@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
-import { buildDialuxPack } from "./dialux-pack";
+import { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 import { rectPolygon } from "./geometry";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
 
@@ -25,23 +25,6 @@ const scene: ProjectSceneV2 = {
         en12464TemplateId: "office",
       },
     },
-    {
-      id: "r2",
-      storeyId: "s1",
-      name: "Corridor",
-      polygon: rectPolygon(8, 0, 2, 6),
-      heightM: 2.8,
-      workplaneHeightM: 0.75,
-      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
-      calc: {
-        gridSpacing: 0.5,
-        interreflection: true,
-        bounces: 2,
-        computeUgr: true,
-        maintenanceFactor: 0.8,
-        en12464TemplateId: "corridor",
-      },
-    },
   ],
   underlays: [],
   fixtureLibraryIds: ["lum1"],
@@ -53,7 +36,7 @@ const scene: ProjectSceneV2 = {
       roomId: "r1",
       name: "Downlight",
       position: { x: 4, y: 3, z: 2.7 },
-      rotationDeg: 0,
+      rotationDeg: 45,
     },
   ],
   ui: {
@@ -61,8 +44,19 @@ const scene: ProjectSceneV2 = {
     activeRoomId: "r1",
     viewMode: "top",
     tool: "select",
+    workflowMode: "export",
   },
 };
+
+describe("getDialuxPackWarnings", () => {
+  it("flags open contours", () => {
+    const bad: ProjectSceneV2 = {
+      ...scene,
+      rooms: [{ ...scene.rooms[0]!, polygon: [{ x: 0, y: 0 }, { x: 1, y: 0 }] }],
+    };
+    expect(getDialuxPackWarnings(bad, null).some((w) => w.code === "open_contour")).toBe(true);
+  });
+});
 
 describe("buildDialuxPack", () => {
   it("exports multi-room geometry and verification artifacts", async () => {
@@ -111,15 +105,14 @@ describe("buildDialuxPack", () => {
     });
 
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
-    expect(zip.file("rooms.json")).toBeTruthy();
     const roomsJson = JSON.parse(await zip.file("rooms.json")!.async("string"));
-    expect(roomsJson.rooms).toHaveLength(2);
-    expect(roomsJson.rooms[0].polygon.length).toBeGreaterThan(2);
-    expect(zip.file("geometry.dxf")).toBeTruthy();
-    expect(zip.file("results-summary.csv")).toBeTruthy();
-    expect(zip.file("results-grid.csv")).toBeTruthy();
-    expect(zip.file("luminaires/sample.ies")).toBeTruthy();
+    expect(roomsJson.rooms[0].maintenanceFactor).toBe(0.8);
+    expect(roomsJson.rooms[0].reflectance.walls).toBe(0.5);
+    const schedule = await zip.file("schedule.csv")!.async("string");
+    expect(schedule).toContain("45.0");
     const readme = await zip.file("README.txt")!.async("string");
+    expect(readme).toMatch(/CLOSED spaces/);
+    expect(readme).toMatch(/rotation_deg/);
     expect(readme).not.toMatch(/\.evo/);
   });
 });

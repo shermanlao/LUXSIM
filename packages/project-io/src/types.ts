@@ -1,5 +1,6 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import type { CalcResults, RoomSpec } from "../../solver/src/types";
+import type { EditorWorkflowMode } from "./editor-workflow";
 
 /** @deprecated v1 — use ProjectSceneV2 */
 export interface SceneLuminaire {
@@ -24,6 +25,8 @@ export interface SceneJson {
 }
 
 export type ViewMode = "top" | "bottom" | "front" | "side" | "persp3d";
+
+export type { EditorWorkflowMode } from "./editor-workflow";
 
 /** Three.js orbit camera pose (y-up) for persp3d restore */
 export interface Camera3dView {
@@ -118,6 +121,8 @@ export interface ProjectSceneV2 {
     activeRoomId: string | null;
     viewMode: ViewMode;
     tool: "select" | "drawRoom" | "calibrate";
+    /** Workflow mode bar (Construction → Light → Calculation → Export) */
+    workflowMode?: EditorWorkflowMode;
     /** Last 3D orbit pose; restored when opening / switching back to 3D */
     camera3d?: Camera3dView | null;
   };

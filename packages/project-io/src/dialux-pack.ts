@@ -5,6 +5,59 @@ import { buildVerificationDxf } from "./dxf-export";
 import { roomBounds } from "./geometry";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
 
+export interface DialuxPackWarning {
+  code: string;
+  message: string;
+}
+
+/** Pre-flight checks before exporting a DIALux verification pack. */
+export function getDialuxPackWarnings(
+  scene: ProjectSceneV2,
+  results: ResultsV2 | null
+): DialuxPackWarning[] {
+  const warnings: DialuxPackWarning[] = [];
+  if (!scene.rooms.length) {
+    warnings.push({
+      code: "no_rooms",
+      message: "No rooms — draw closed room polygons before exporting.",
+    });
+  }
+  for (const room of scene.rooms) {
+    if (room.polygon.length < 3) {
+      warnings.push({
+        code: "open_contour",
+        message: `Room “${room.name}” has fewer than 3 corners — DIALux needs a closed space.`,
+      });
+    }
+  }
+  if (!scene.instances.length) {
+    warnings.push({
+      code: "no_luminaires",
+      message: "No placed fixtures — schedule.csv will be empty.",
+    });
+  }
+  for (const inst of scene.instances) {
+    if (!inst.roomId) {
+      warnings.push({
+        code: "unassigned_fixture",
+        message: `Fixture “${inst.name}” is not inside a room.`,
+      });
+    }
+  }
+  if (!results || !Object.keys(results.byRoomId).length) {
+    warnings.push({
+      code: "no_results",
+      message: "No calculation results — run Calc first for results CSV comparison.",
+    });
+  }
+  warnings.push({
+    code: "dialux_general",
+    message:
+      "In desktop DIALux use normal (non-emergency-only) luminaires and a closed room volume; open contours fail lighting calc.",
+  });
+  return warnings;
+}
+
 export interface DialuxPackInput {
   projectName: string;
   scene: ProjectSceneV2;
@@ -38,9 +91,11 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
           heightM: room.heightM,
           workplaneHeightM: room.workplaneHeightM,
           reflectance: room.reflectance,
+          maintenanceFactor: clampMf(room.calc.maintenanceFactor),
+          en12464TemplateId: room.calc.en12464TemplateId ?? "",
           calc: room.calc,
         })),
-        note: "Recreate rooms in desktop DIALux using polygon vertices, then import luminaires and schedule.csv.",
+        note: "Each room must be a closed polygon (≥3 corners). Set DIALux maintenance factor to maintenanceFactor (default 0.80).",
       },
       null,
       2
@@ -102,27 +157,40 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
     })
   );
 
+  const packWarnings = getDialuxPackWarnings(scene, results);
+
   zip.file(
     "README.txt",
     [
       "LUXSIM → DIALux verification pack",
       "",
+      "Before opening in desktop DIALux:",
+      "  • Rooms must be CLOSED spaces (polygon with area). Open contours / width=0 fail calc.",
+      "  • Work at room/space level — not site-only view — when placing luminaires.",
+      "  • Use normal luminaires; emergency-only fixtures may fail calculation.",
+      "  • Match maintenance factor MF in DIALux to rooms.json maintenanceFactor (default 0.80).",
+      "  • Apply rotation_deg from schedule.csv — required for asymmetric IES/LDT.",
+      "",
+      "LUXSIM pre-check:",
+      ...packWarnings.map((w) => `  • ${w.message}`),
+      "",
       "Contents:",
-      "  rooms.json       — multi-room/storey geometry and reflectances",
-      "  schedule.csv     — fixture positions (world metres, Z up)",
+      "  rooms.json       — heights, reflectance (ρ), maintenanceFactor, polygons",
+      "  schedule.csv     — x/y/z + rotation_deg + luminaire files",
       "  luminaires/      — IES/LDT source files",
       "  geometry.dxf     — walls (room outlines), fixtures, calc grid points",
-      "  results-summary.csv — per-room averages + EN 12464 assist checks",
-      "  results-grid.csv — grid point lux (when calculated)",
+      "  results-summary.csv — initial lux + maintained columns (MF from LUXSIM)",
+      "  results-grid.csv — grid point lux (when LUXSIM results exist)",
       "",
       "Workflow:",
-      "1. Import geometry.dxf or trace rooms from rooms.json in desktop DIALux.",
+      "1. Import geometry.dxf or trace closed rooms from rooms.json.",
       "2. Import luminaire files from luminaires/.",
-      "3. Place fixtures using schedule.csv coordinates.",
-      "4. Compare DIALux results to results-summary.csv / results-grid.csv.",
+      "3. Place fixtures using schedule.csv (position + rotation_deg).",
+      "4. Set DIALux MF ≈ rooms.json maintenanceFactor; compare to results-summary.csv.",
       "",
+      "LUXSIM uses simplified direct + box interreflection — expect divergence from DIALux radiosity.",
       "This pack does not include a native proprietary project file.",
-      "See docs/DIALUX_INTEROP.md.",
+      "See docs/DIALUX_INTEROP.md and docs/AB_NOTES.md.",
     ].join("\n")
   );
 

@@ -13,10 +13,12 @@ export type {
   DxfEntity,
   AnyScene,
   Vec2,
+  EditorWorkflowMode,
 } from "./types";
-export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
-export { buildDialuxPack } from "./dialux-pack";
+export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
+export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
+export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
 export {
   EN12464_TEMPLATES,
   evaluateEn12464,

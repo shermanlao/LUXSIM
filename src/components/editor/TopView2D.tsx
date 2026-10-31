@@ -557,6 +557,37 @@ export function TopView2D({
                 stroke="#fff"
                 strokeWidth={1}
               />
+              {(() => {
+                const len = selected ? 14 : 10;
+                const rad = (inst.rotationDeg * Math.PI) / 180;
+                const x2 = Math.cos(rad) * len;
+                const y2 = -Math.sin(rad) * len;
+                return (
+                  <>
+                    <line
+                      x1={0}
+                      y1={0}
+                      x2={x2}
+                      y2={y2}
+                      stroke={selected ? "#fff" : "#1f6f8b"}
+                      strokeWidth={selected ? 2 : 1.5}
+                      strokeLinecap="round"
+                    />
+                    <circle cx={x2} cy={y2} r={2} fill={selected ? "#fff" : "#1f6f8b"} />
+                    {selected && (
+                      <text
+                        x={x2 + 4}
+                        y={y2 - 4}
+                        fill="#fff"
+                        fontSize={9}
+                        fontFamily="system-ui,sans-serif"
+                      >
+                        {Math.round(inst.rotationDeg)}°
+                      </text>
+                    )}
+                  </>
+                );
+              })()}
             </g>
           );
         })}

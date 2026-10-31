@@ -261,3 +261,63 @@ a {
   background: #fde8e8;
   color: #8b2e2e;
 }
+
+.editor-modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 88%, var(--accent-2));
+  color: #eef3f6;
+}
+
+.editor-modebar .mode-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+  text-align: left;
+}
+
+.editor-modebar .mode-step:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-modebar .mode-step.is-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+}
+
+.editor-mode-hint {
+  flex: 1;
+  min-width: 180px;
+  font-size: 0.78rem;
+  color: #b8c8d0;
+  padding: 0.35rem 0.5rem;
+  align-self: center;
+}
+
+.editor-panel-dim {
+  opacity: 0.45;
+  pointer-events: none;
+  max-height: 12rem;
+  overflow: hidden;
+}
+
+.workflow-banner {
+  border-left: 3px solid var(--accent-2);
+  background: #e8f4f8;
+  color: #1a4554;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.82rem;
+}

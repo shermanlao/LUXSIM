@@ -1,4 +1,5 @@
 import { defaultMaintenanceFactor } from "./en12464";
+import { normalizeWorkflowMode } from "./editor-workflow";
 import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2, RoomV2 } from "./types";
 import type { CalcResults } from "../../solver/src/types";
 import { rectPolygon } from "./geometry";
@@ -39,6 +40,7 @@ export function defaultSceneV2(): ProjectSceneV2 {
       activeRoomId: null,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
     },
   };
@@ -96,6 +98,7 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
       activeRoomId: roomId,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
     },
   };
@@ -164,6 +167,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         activeRoomId: scene.ui?.activeRoomId ?? null,
         viewMode: normalizeViewMode(scene.ui?.viewMode),
         tool: scene.ui?.tool ?? "select",
+        workflowMode: normalizeWorkflowMode(scene.ui?.workflowMode),
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
       },
     };

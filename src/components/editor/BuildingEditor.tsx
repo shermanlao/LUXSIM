@@ -24,6 +24,9 @@ import {
   EN12464_TEMPLATES,
   evaluateEn12464,
   clampMf,
+  WORKFLOW_MODES,
+  getDialuxPackWarnings,
+  type EditorWorkflowMode,
 } from "@luxsim/project-io";
 import {
   buildLuxsimProject,
@@ -47,6 +50,10 @@ import {
   IconDrawRoom,
   IconRect,
   IconSelect,
+  IconModeCalculation,
+  IconModeConstruction,
+  IconModeExport,
+  IconModeLight,
   IconView3d,
   IconViewElevation,
   IconViewTop,
@@ -497,6 +504,23 @@ export function BuildingEditor({
     setStatus(`Placed in ${room.name}`);
   }
 
+  function updateInstanceRotation(instanceId: string, rotationDeg: number) {
+    patchScene((s) => ({
+      ...s,
+      instances: s.instances.map((i) =>
+        i.instanceId === instanceId ? { ...i, rotationDeg } : i
+      ),
+    }));
+    const inst = scene.instances.find((i) => i.instanceId === instanceId);
+    if (inst?.roomId) {
+      setResults((r) => {
+        const next = { ...r, byRoomId: { ...r.byRoomId } };
+        delete next.byRoomId[inst.roomId!];
+        return next;
+      });
+    }
+  }
+
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
     patchScene((s) => ({
       ...s,
@@ -724,18 +748,57 @@ export function BuildingEditor({
   );
 
   async function onExportDialuxVerification() {
+    const toExport = sceneWithView(scene);
+    const warnings = getDialuxPackWarnings(toExport, results);
+    const blocking = warnings.filter((w) => w.code === "no_rooms" || w.code === "open_contour");
+    if (blocking.length) {
+      setStatus(blocking.map((w) => w.message).join(" "));
+      return;
+    }
     for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
     const names: Record<string, string> = {};
     for (const l of library) names[l.id] = l.name;
     await exportDialuxPack({
       projectName: name,
-      scene: sceneWithView(scene),
+      scene: toExport,
       results,
       sourceFiles: sourceCache,
       luminaireNames: names,
     });
-    setStatus("DIALux verification zip downloaded");
+    const soft = warnings.filter((w) => w.code !== "dialux_general").map((w) => w.message);
+    setStatus(
+      soft.length
+        ? `Verification zip downloaded. Note: ${soft[0]}`
+        : "DIALux verification zip downloaded — see README.txt in the zip."
+    );
   }
+
+  const workflow: EditorWorkflowMode = scene.ui.workflowMode ?? "construction";
+  const workflowMeta = WORKFLOW_MODES.find((m) => m.id === workflow)!;
+
+  function setWorkflowMode(mode: EditorWorkflowMode) {
+    patchScene((s) => {
+      let ui = { ...s.ui, workflowMode: mode };
+      if (mode === "light" && !s.ui.activeRoomId) {
+        const first = s.rooms.find((r) => r.storeyId === s.ui.activeStoreyId);
+        if (first) ui = { ...ui, activeRoomId: first.id };
+      }
+      if (mode === "light" || mode === "calculation" || mode === "export") {
+        ui = { ...ui, tool: "select" };
+      }
+      return { ...s, ui };
+    });
+    if (mode === "light" && !activeRoom) {
+      setStatus("Light mode: select a room in the building tree (space view) to place fixtures.");
+    }
+  }
+
+  const modeIcons: Record<EditorWorkflowMode, ReactElement> = {
+    construction: <IconModeConstruction className="w-4 h-4" />,
+    light: <IconModeLight className="w-4 h-4" />,
+    calculation: <IconModeCalculation className="w-4 h-4" />,
+    export: <IconModeExport className="w-4 h-4" />,
+  };
 
   const viewMode = scene.ui.viewMode;
 
@@ -896,8 +959,31 @@ export function BuildingEditor({
       </div>
 
       <p className="disclaimer text-xs sm:text-sm">
-        Multi-storey design assist — Top / Front / Side / 3D in one workspace. Not tender-certified.
+        Multi-storey design assist — workflow modes mirror desktop CAD steps. Not tender-certified.
       </p>
+
+      <div className="editor-modebar" role="tablist" aria-label="Workflow mode">
+        {WORKFLOW_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="tab"
+            aria-selected={workflow === m.id}
+            className={`mode-step ${workflow === m.id ? "is-active" : ""}`}
+            onClick={() => setWorkflowMode(m.id)}
+          >
+            {modeIcons[m.id]}
+            {m.label}
+          </button>
+        ))}
+        <span className="editor-mode-hint">{workflowMeta.hint}</span>
+      </div>
+
+      {workflow === "light" && !activeRoom && (
+        <p className="workflow-banner">
+          Select a room in the building tree — luminaire placement needs a closed space (room view), not site-only.
+        </p>
+      )}
 
       <div className="editor-workspace">
         {/* Left tools rail */}
@@ -956,7 +1042,11 @@ export function BuildingEditor({
             ))}
           </ul>
 
-          <div className="border-t border-white/15 pt-3 space-y-2">
+          <div
+            className={`border-t border-white/15 pt-3 space-y-2 ${
+              workflow !== "construction" ? "editor-panel-dim" : ""
+            }`}
+          >
             <h3 className="font-semibold text-sm text-white/95">Tools</h3>
             {(
               [
@@ -1031,7 +1121,11 @@ export function BuildingEditor({
             </div>
           </div>
 
-          <div className="border-t border-white/15 pt-3 space-y-2">
+          <div
+            className={`border-t border-white/15 pt-3 space-y-2 ${
+              workflow !== "construction" ? "editor-panel-dim" : ""
+            }`}
+          >
             <h3 className="font-semibold text-sm text-white/95">Import plan</h3>
             <input
               ref={planRef}
@@ -1068,7 +1162,9 @@ export function BuildingEditor({
             )}
           </div>
 
-          <FalseColorLegend results={activeResults} />
+          <div className={workflow !== "calculation" ? "editor-panel-dim" : ""}>
+            <FalseColorLegend results={activeResults} />
+          </div>
         </aside>
 
         <section className="editor-center">
@@ -1099,7 +1195,11 @@ export function BuildingEditor({
             {viewport}
 
           {activeResults && (
-            <div className="panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+            <div
+              className={`panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm ${
+                workflow !== "calculation" ? "opacity-70" : ""
+              }`}
+            >
               <Stat label="Eave" value={`${activeResults.summary.eave.toFixed(0)} lx`} />
               <Stat
                 label="Emin / Uo"
@@ -1196,7 +1296,11 @@ export function BuildingEditor({
         <aside className="editor-props space-y-3">
           <h2 className="font-semibold text-sm">Properties</h2>
           {activeRoom ? (
-            <div className="space-y-2 border border-[var(--line)] p-3 bg-white/70">
+            <div
+              className={`space-y-2 border border-[var(--line)] p-3 bg-white/70 ${
+                workflow !== "construction" && workflow !== "calculation" ? "editor-panel-dim" : ""
+              }`}
+            >
               <p className="text-xs font-semibold">{activeRoom.name}</p>
               <div className="flex items-center justify-between">
                 <label className="label mb-0" htmlFor="roomHeightMm">
@@ -1316,6 +1420,9 @@ export function BuildingEditor({
                   }));
                 }}
               />
+              <p className="text-[10px] text-[var(--muted)]">
+                Fixed MF default 0.80 (matches typical DIALux site preset). Used for maintained lux checks only — solver uses initial lamp output.
+              </p>
               <div className="flex items-center justify-between gap-1">
                 <label className="label mb-0">EN 12464-1 assist</label>
                 <HelpTip helpKey="room.en12464" />
@@ -1356,7 +1463,11 @@ export function BuildingEditor({
           )}
 
           {selected && (
-            <div className="border border-[var(--line)] p-3 space-y-2 bg-white/70">
+            <div
+              className={`border border-[var(--line)] p-3 space-y-2 bg-white/70 ${
+                workflow !== "light" && workflow !== "construction" ? "editor-panel-dim" : ""
+              }`}
+            >
               <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
               <input
                 className="input"
@@ -1399,10 +1510,51 @@ export function BuildingEditor({
                   />
                 </div>
               ))}
+              <div>
+                <label className="label">Rotation (°)</label>
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    type="number"
+                    step={1}
+                    value={selected.rotationDeg}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      updateInstanceRotation(selected.instanceId, v);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary !px-2 !text-xs"
+                    onClick={() =>
+                      updateInstanceRotation(selected.instanceId, selected.rotationDeg - 90)
+                    }
+                  >
+                    −90°
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary !px-2 !text-xs"
+                    onClick={() =>
+                      updateInstanceRotation(selected.instanceId, selected.rotationDeg + 90)
+                    }
+                  >
+                    +90°
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--muted)] mt-1">
+                  Arrow on Top view shows photometric rotation (IES C0 = +X at 0°).
+                </p>
+              </div>
             </div>
           )}
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
+          <div
+            className={`border-t border-[var(--line)] pt-3 space-y-2 ${
+              workflow !== "light" && workflow !== "construction" ? "editor-panel-dim" : ""
+            }`}
+          >
             <h3 className="font-semibold text-sm">Fixture library</h3>
           <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3">
             <label className="label">Upload IES / LDT</label>
@@ -1465,7 +1617,11 @@ export function BuildingEditor({
           </ul>
           </div>
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
+          <div
+            className={`border-t border-[var(--line)] pt-3 space-y-2 ${
+              workflow !== "export" ? "editor-panel-dim" : ""
+            }`}
+          >
             <h3 className="font-semibold text-sm">Export</h3>
             <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
               Full PDF report

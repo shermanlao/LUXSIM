@@ -33,6 +33,6 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "export.dialuxVerification",
     title: "DIALux verification zip",
-    body: "Downloads rooms.json, schedule.csv, luminaire IES/LDT, geometry.dxf, and results CSV for cross-checking in desktop DIALux. No proprietary project file.",
+    body: "Downloads rooms.json (height, ρ, MF 0.80 default), schedule.csv with rotation_deg, IES/LDT, geometry.dxf, and results CSV. In desktop DIALux use closed rooms, normal luminaires, and match MF. Read README.txt inside the zip.",
   },
 ];
