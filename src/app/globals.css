@@ -315,9 +315,367 @@ a {
 }
 
 .workflow-banner {
-  border-left: 3px solid var(--accent-2);
-  background: #e8f4f8;
-  color: #1a4554;
-  padding: 0.5rem 0.75rem;
+  border-left: 3px solid var(--accent);
+  background: #2a3842;
+  color: #c5d4dc;
+  padding: 0.45rem 0.75rem;
   font-size: 0.82rem;
+}
+
+/* ——— Dark CAD editor shell (project routes only) ——— */
+main:has(.cad-editor-root) {
+  padding: 0 !important;
+  max-width: none !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body:has(.cad-editor-root) footer {
+  display: none;
+}
+
+body:has(.cad-editor-root) header {
+  background: #121c24;
+  border-bottom-color: #2a3842;
+  color: #e8eef2;
+}
+
+body:has(.cad-editor-root) header a.display {
+  color: #f0f4f6;
+}
+
+body:has(.cad-editor-root) header nav {
+  color: #b8c8d0;
+}
+
+.cad-editor-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 3.25rem);
+  width: 100%;
+}
+
+.cad-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #141e26;
+  color: #e8eef2;
+}
+
+.cad-file-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  background: #0f171d;
+  border-bottom: 1px solid #2a3842;
+}
+
+.cad-file-bar .cad-project-input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 420px;
+  background: #1a2832;
+  border: 1px solid #3d5563;
+  color: #fff;
+  padding: 0.4rem 0.65rem;
+  font-size: 1.05rem;
+  font-family: var(--font-display);
+}
+
+.cad-file-bar .cad-disclaimer {
+  font-size: 0.72rem;
+  color: #8fa3ad;
+  max-width: 280px;
+}
+
+.cad-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  background: #1c2a34;
+  border-bottom: 2px solid #2a3842;
+}
+
+.cad-ribbon__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: none;
+  border-right: 1px solid #2a3842;
+  background: transparent;
+  color: #b8c8d0;
+  cursor: pointer;
+}
+
+.cad-ribbon__mode:hover {
+  background: #243540;
+  color: #fff;
+}
+
+.cad-ribbon__mode.is-active {
+  background: linear-gradient(180deg, #c45c26 0%, #a34a1e 100%);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 #ffd4b8;
+}
+
+.cad-ribbon__hint {
+  flex: 1;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.78rem;
+  color: #8fa3ad;
+  align-self: center;
+  min-width: 160px;
+}
+
+.cad-ribbon__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-left: 1px solid #2a3842;
+}
+
+.cad-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 288px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .cad-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cad-left,
+.cad-right {
+  background: #17222b;
+  border-color: #2a3842;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cad-left {
+  border-right: 1px solid #2a3842;
+  padding: 0.65rem;
+}
+
+.cad-right {
+  border-left: 1px solid #2a3842;
+  padding: 0.65rem;
+}
+
+.cad-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #0a1218;
+}
+
+.cad-tree-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.25rem 0.45rem;
+  border-radius: 2px;
+  font-size: 0.82rem;
+  color: #c5d4dc;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.cad-tree-btn:hover {
+  background: #243540;
+}
+
+.cad-tree-btn.is-storey-active {
+  background: #2a3842;
+  font-weight: 600;
+  color: #fff;
+}
+
+.cad-tree-btn.is-room-active {
+  color: #ffb088;
+  font-weight: 600;
+}
+
+.cad-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fa3ad;
+  margin: 0.65rem 0 0.35rem;
+}
+
+.cad-panel-hidden {
+  display: none !important;
+}
+
+.cad-props-card {
+  background: #1a2832;
+  border: 1px solid #3d5563;
+  padding: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.cad-props-card .input,
+.cad-props-card .select {
+  background: #12202a;
+  border-color: #3d5563;
+  color: #f0f4f6;
+}
+
+.cad-props-card .label {
+  color: #9fb0bb;
+}
+
+.cad-fixtures-table {
+  width: 100%;
+  font-size: 0.78rem;
+  border-collapse: collapse;
+}
+
+.cad-fixtures-table th {
+  text-align: left;
+  color: #8fa3ad;
+  font-weight: 600;
+  padding: 0.35rem;
+  border-bottom: 1px solid #2a3842;
+}
+
+.cad-fixtures-table td {
+  padding: 0.35rem;
+  border-bottom: 1px solid #243540;
+}
+
+.cad-fixtures-table tr.is-selected {
+  background: #2a3842;
+}
+
+.cad-results-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem 1.5rem;
+  padding: 0.55rem 0.85rem;
+  background: #0f171d;
+  border-top: 2px solid #c45c26;
+  min-height: 4.25rem;
+}
+
+.cad-results-strip__room {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.cad-results-strip__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa3ad;
+}
+
+.cad-results-strip__room-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.cad-results-strip__muted {
+  font-size: 0.78rem;
+  color: #8fa3ad;
+}
+
+.cad-results-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.75rem;
+  flex: 1;
+  align-items: center;
+}
+
+.cad-metric__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa3ad;
+}
+
+.cad-metric__assist {
+  margin-left: 0.35rem;
+  font-size: 0.6rem;
+  color: #6a858f;
+}
+
+.cad-metric__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.cad-metric__sub {
+  font-size: 0.68rem;
+  color: #8fa3ad;
+}
+
+.cad-status-bar {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.72rem;
+  color: #8fa3ad;
+  background: #0a1014;
+  border-top: 1px solid #243540;
+}
+
+.cad-editor .btn-secondary {
+  background: #243540;
+  border-color: #4a6270;
+  color: #e8eef2;
+}
+
+.cad-editor .btn-secondary:hover {
+  background: #2f4552;
+}
+
+.cad-editor .pass-badge.ok {
+  background: #1e3d2e;
+  color: #7dcea0;
+}
+
+.cad-editor .pass-badge.fail {
+  background: #4a2525;
+  color: #f5a5a5;
+}
+
+.cad-viewport-wrap {
+  flex: 1;
+  min-height: 280px;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+  min-height: 0;
+}
+
+.cad-viewport-wrap .panel {
+  flex: 1;
+  min-height: 320px;
+  border-color: #2a3842;
 }

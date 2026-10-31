@@ -23,8 +23,8 @@ export const WORKFLOW_MODES: {
   },
   {
     id: "export",
-    label: "Export",
-    hint: "PDF, .luxsim, or DIALux verification zip.",
+    label: "Documentation",
+    hint: "Reports, .luxsim, DIALux verification zip.",
   },
 ];
 

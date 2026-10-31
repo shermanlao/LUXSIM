@@ -2,7 +2,9 @@
 
 The project editor is **`BuildingEditor`** (`ProjectSceneV2`). Legacy v1 `ProjectEditor` lives under `src/components/editor/_legacy/` for reference only.
 
-`BuildingEditor` and app chrome (`AppShell`) use the **full browser width** — no `max-w-7xl` cap — so the 3D viewport and side panels expand with the window.
+On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-bleed layout (footer hidden), top file bar + **workflow ribbon** (Construction → Light → Calculation → Documentation), left building tree + tools, centre viewport with view tabs, right properties/library/export by mode, and a bottom **results strip** (Ēm, maintained Ēm, Uo, UGR, LPD, EN assist).
+
+`BuildingEditor` and app chrome use the **full browser width** — no `max-w-7xl` cap — so the 3D viewport and side panels expand with the window.
 
 **Autosave** writes name / scene / results about 800 ms after you stop changing them, and on tab hide. Only fields that actually changed are PATCHed. **Save now** flushes immediately. See [AUTOSAVE.md](./AUTOSAVE.md). View tab and last 3D orbit (`ui.camera3d`) are included when a save runs.
 
@@ -15,4 +17,4 @@ The project editor is **`BuildingEditor`** (`ProjectSceneV2`). Legacy v1 `Projec
 5. **Upload IES/LDT** — appears in fixture list only.
 6. **Drag** fixture onto a room (Top / Front / Side / 3D).
 7. **Calculate** active room or all rooms (client-side).
-8. **Export** full PDF report, `.luxsim`, or DIALux pack.
+8. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.

@@ -44,6 +44,7 @@ import {
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { EditorResultsStrip } from "./EditorResultsStrip";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
@@ -829,11 +830,17 @@ export function BuildingEditor({
   }, [fullscreen]);
 
   const viewport = (
-    <div className={fullscreen ? "fixed inset-0 z-[100] bg-[#0f1c24]" : "panel relative overflow-hidden"}>
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[100] bg-[#0f1c24]"
+          : "panel relative overflow-hidden flex-1 min-h-[320px] bg-[#0a1218] border-[#2a3842]"
+      }
+    >
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
-          className="btn btn-secondary !py-1.5 !px-3 !text-xs !bg-white/90"
+          className="btn btn-secondary !py-1.5 !px-3 !text-xs"
           onClick={() => setFullscreen((v) => !v)}
         >
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
@@ -929,80 +936,74 @@ export function BuildingEditor({
   );
 
   return (
-    <div className="editor-shell w-full px-2 sm:px-4 py-4 space-y-3">
-      <div className="editor-toolbar flex flex-wrap items-end justify-between gap-3">
-        <div className="flex-1 min-w-[200px]">
-          <label className="label" htmlFor="projectName">
-            Project
-          </label>
-          <input
-            id="projectName"
-            className="input display text-xl sm:text-2xl !py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <button className="btn btn-secondary" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save now"}
+    <div className="cad-editor">
+      <header className="cad-file-bar">
+        <span className="text-[10px] uppercase tracking-widest text-[#8fa3ad] shrink-0">Project</span>
+        <input
+          id="projectName"
+          className="cad-project-input"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          aria-label="Project name"
+        />
+        <p className="cad-disclaimer hidden lg:block">
+          Design assist · not tender-certified · verify in DIALux
+        </p>
+        <div className="flex flex-wrap gap-2 items-center ml-auto">
+          <button className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
+            {saving ? "Saving…" : "Save"}
           </button>
-          <span className="text-[10px] text-[var(--muted)] hidden sm:inline">
-            Autosaves after you pause
-          </span>
           <button
-            className="btn btn-secondary"
+            className="btn btn-secondary !text-xs"
             disabled={calculating}
             onClick={() => void runCalc(false)}
           >
             Calc room
           </button>
-          <button className="btn btn-accent" disabled={calculating} onClick={() => void runCalc(true)}>
+          <button
+            className="btn btn-accent !text-xs"
+            disabled={calculating}
+            onClick={() => void runCalc(true)}
+          >
             {calculating ? "Calculating…" : "Calc all"}
           </button>
         </div>
-      </div>
+      </header>
 
-      <p className="disclaimer text-xs sm:text-sm">
-        Multi-storey design assist — workflow modes mirror desktop CAD steps. Not tender-certified.
-      </p>
-
-      <div className="editor-modebar" role="tablist" aria-label="Workflow mode">
+      <nav className="cad-ribbon" role="tablist" aria-label="Workflow mode">
         {WORKFLOW_MODES.map((m) => (
           <button
             key={m.id}
             type="button"
             role="tab"
             aria-selected={workflow === m.id}
-            className={`mode-step ${workflow === m.id ? "is-active" : ""}`}
+            className={`cad-ribbon__mode ${workflow === m.id ? "is-active" : ""}`}
             onClick={() => setWorkflowMode(m.id)}
           >
             {modeIcons[m.id]}
             {m.label}
           </button>
         ))}
-        <span className="editor-mode-hint">{workflowMeta.hint}</span>
-      </div>
+        <span className="cad-ribbon__hint">{workflowMeta.hint}</span>
+      </nav>
 
       {workflow === "light" && !activeRoom && (
-        <p className="workflow-banner">
-          Select a room in the building tree — luminaire placement needs a closed space (room view), not site-only.
-        </p>
+        <p className="workflow-banner">Select a room in the building tree — luminaires need a closed space.</p>
       )}
 
-      <div className="editor-workspace">
-        {/* Left tools rail */}
-        <aside className="editor-rail space-y-3">
-          <h2 className="font-semibold text-sm text-white/95">Building</h2>
+      <div className="cad-body">
+        <aside className="cad-left space-y-1">
+          <p className="cad-section-title">Building</p>
           <button className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
             Add storey
           </button>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-0.5">
             {scene.storeys.map((st) => (
               <li key={st.id}>
                 <button
                   type="button"
-                  className={`w-full text-left px-2 py-1 rounded ${
-                    st.id === scene.ui.activeStoreyId ? "bg-[#e8eef2] font-medium" : ""
+                  className={`cad-tree-btn ${
+                    st.id === scene.ui.activeStoreyId ? "is-storey-active" : ""
                   }`}
                   onClick={() =>
                     patchScene((s) => ({
@@ -1012,19 +1013,17 @@ export function BuildingEditor({
                   }
                 >
                   {st.name}{" "}
-                  <span className="text-[var(--muted)] text-xs">
-                    ({st.elevationM.toFixed(1)} m)
-                  </span>
+                  <span className="text-[#8fa3ad] text-xs">({st.elevationM.toFixed(1)} m)</span>
                 </button>
-                <ul className="ml-3 border-l border-[var(--line)] pl-2">
+                <ul className="ml-2 border-l border-[#3d5563] pl-1">
                   {scene.rooms
                     .filter((r) => r.storeyId === st.id)
                     .map((r) => (
                       <li key={r.id}>
                         <button
                           type="button"
-                          className={`w-full text-left text-xs py-0.5 ${
-                            r.id === scene.ui.activeRoomId ? "text-[var(--accent)]" : ""
+                          className={`cad-tree-btn text-xs ${
+                            r.id === scene.ui.activeRoomId ? "is-room-active" : ""
                           }`}
                           onClick={() =>
                             patchScene((s) => ({
@@ -1047,8 +1046,8 @@ export function BuildingEditor({
           </ul>
 
           <div
-            className={`border-t border-white/15 pt-3 space-y-2 ${
-              workflow !== "construction" ? "editor-panel-dim" : ""
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "construction" ? "cad-panel-hidden" : ""
             }`}
           >
             <h3 className="font-semibold text-sm text-white/95">Tools</h3>
@@ -1126,11 +1125,11 @@ export function BuildingEditor({
           </div>
 
           <div
-            className={`border-t border-white/15 pt-3 space-y-2 ${
-              workflow !== "construction" ? "editor-panel-dim" : ""
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "construction" ? "cad-panel-hidden" : ""
             }`}
           >
-            <h3 className="font-semibold text-sm text-white/95">Import plan</h3>
+            <p className="cad-section-title">Import plan</p>
             <input
               ref={planRef}
               className="input text-xs"
@@ -1166,12 +1165,12 @@ export function BuildingEditor({
             )}
           </div>
 
-          <div className={workflow !== "calculation" ? "editor-panel-dim" : ""}>
+          <div className={workflow !== "calculation" ? "cad-panel-hidden" : "pt-2"}>
             <FalseColorLegend results={activeResults} />
           </div>
         </aside>
 
-        <section className="editor-center">
+        <section className="cad-center">
           <div className="editor-viewbar">
             {viewTabs.map(({ mode, label, icon }) => (
               <button
@@ -1195,54 +1194,24 @@ export function BuildingEditor({
             ))}
           </div>
 
-          <div className="flex-1 min-h-0 p-2 space-y-2 overflow-y-auto">
+          <div className="cad-viewport-wrap">
             {viewport}
+          </div>
 
-          {activeResults && (
-            <div
-              className={`panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm ${
-                workflow !== "calculation" ? "opacity-70" : ""
-              }`}
-            >
-              <Stat label="Eave" value={`${activeResults.summary.eave.toFixed(0)} lx`} />
-              <Stat
-                label="Emin / Uo"
-                value={`${activeResults.summary.emin.toFixed(0)} / ${activeResults.summary.uo.toFixed(2)}`}
-              />
-              <Stat
-                label="UGR"
-                value={
-                  activeResults.summary.ugr != null
-                    ? activeResults.summary.ugr.toFixed(1)
-                    : "—"
-                }
-              />
-              <Stat
-                label="LPD"
-                value={
-                  activeResults.summary.lpd != null
-                    ? `${activeResults.summary.lpd.toFixed(2)} W/m²`
-                    : "—"
-                }
-              />
-            </div>
-          )}
-
-          <div className="panel overflow-hidden">
-            <div className="px-4 py-3 border-b border-[var(--line)] flex justify-between">
-              <h2 className="font-semibold text-sm">Fixtures in project</h2>
-              <span className="text-xs text-[var(--muted)]">
-                {scene.instances.length} placed
-              </span>
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-[#eef3f6] text-left text-xs text-[var(--muted)]">
+          <div
+            className={`px-2 pb-2 max-h-40 overflow-auto ${
+              workflow !== "light" && workflow !== "calculation" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Fixtures in project ({scene.instances.length})</p>
+            <table className="cad-fixtures-table">
+              <thead>
                 <tr>
-                  <th className="p-2">#</th>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Room</th>
-                  <th className="p-2">Pos</th>
-                  <th className="p-2" />
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>Room</th>
+                  <th>Pos</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -1251,22 +1220,22 @@ export function BuildingEditor({
                   return (
                     <tr
                       key={inst.instanceId}
-                      className={`border-t border-[var(--line)] cursor-pointer ${
-                        inst.instanceId === selectedId ? "bg-orange-50" : ""
+                      className={`cursor-pointer ${
+                        inst.instanceId === selectedId ? "is-selected" : ""
                       }`}
                       onClick={() => setSelectedId(inst.instanceId)}
                     >
-                      <td className="p-2">{idx + 1}</td>
-                      <td className="p-2">{inst.name}</td>
-                      <td className="p-2">{room?.name ?? "—"}</td>
-                      <td className="p-2 text-xs tabular-nums">
+                      <td>{idx + 1}</td>
+                      <td>{inst.name}</td>
+                      <td>{room?.name ?? "—"}</td>
+                      <td className="tabular-nums text-[#8fa3ad]">
                         {inst.position.x.toFixed(1)}, {inst.position.y.toFixed(1)},{" "}
                         {inst.position.z.toFixed(1)}
                       </td>
-                      <td className="p-2 text-right">
+                      <td className="text-right">
                         <button
                           type="button"
-                          className="text-xs text-red-700"
+                          className="text-xs text-[#f5a5a5]"
                           onClick={(e) => {
                             e.stopPropagation();
                             patchScene((s) => ({
@@ -1286,23 +1255,22 @@ export function BuildingEditor({
                 })}
                 {!scene.instances.length && (
                   <tr>
-                    <td colSpan={5} className="p-4 text-[var(--muted)]">
-                      Drag fixtures from the list onto a room.
+                    <td colSpan={5} className="text-[#8fa3ad] py-2">
+                      Drag fixtures from the library onto a room.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-          </div>
         </section>
 
-        <aside className="editor-props space-y-3">
-          <h2 className="font-semibold text-sm">Properties</h2>
+        <aside className="cad-right space-y-2">
+          <p className="cad-section-title">Properties</p>
           {activeRoom ? (
             <div
-              className={`space-y-2 border border-[var(--line)] p-3 bg-white/70 ${
-                workflow !== "construction" && workflow !== "calculation" ? "editor-panel-dim" : ""
+              className={`cad-props-card space-y-2 ${
+                workflow !== "construction" && workflow !== "calculation" ? "cad-panel-hidden" : ""
               }`}
             >
               <p className="text-xs font-semibold">{activeRoom.name}</p>
@@ -1529,8 +1497,8 @@ export function BuildingEditor({
 
           {selected && (
             <div
-              className={`border border-[var(--line)] p-3 space-y-2 bg-white/70 ${
-                workflow !== "light" && workflow !== "construction" ? "editor-panel-dim" : ""
+              className={`cad-props-card space-y-2 ${
+                workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
               }`}
             >
               <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
@@ -1616,12 +1584,12 @@ export function BuildingEditor({
           )}
 
           <div
-            className={`border-t border-[var(--line)] pt-3 space-y-2 ${
-              workflow !== "light" && workflow !== "construction" ? "editor-panel-dim" : ""
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
             }`}
           >
-            <h3 className="font-semibold text-sm">Fixture library</h3>
-          <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3">
+            <p className="cad-section-title">Fixture library</p>
+          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
             <label className="label">Upload IES / LDT</label>
             <input
               ref={fileRef}
@@ -1664,7 +1632,7 @@ export function BuildingEditor({
                   e.dataTransfer.setData("application/x-luxsim-luminaire", lum.id);
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className="border border-[var(--line)] p-2 bg-white cursor-grab active:cursor-grabbing"
+                className="border border-[#3d5563] p-2 bg-[#243540] cursor-grab active:cursor-grabbing rounded-sm"
               >
                 <div className="text-sm font-medium">{lum.name}</div>
                 <div className="text-[10px] text-[var(--muted)] mb-1">
@@ -1683,11 +1651,11 @@ export function BuildingEditor({
           </div>
 
           <div
-            className={`border-t border-[var(--line)] pt-3 space-y-2 ${
-              workflow !== "export" ? "editor-panel-dim" : ""
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "export" ? "cad-panel-hidden" : ""
             }`}
           >
-            <h3 className="font-semibold text-sm">Export</h3>
+            <p className="cad-section-title">Documentation &amp; export</p>
             <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
               Full PDF report
             </button>
@@ -1726,21 +1694,26 @@ export function BuildingEditor({
         </aside>
       </div>
 
-      {status && <p className="text-sm text-[var(--muted)]">{status}</p>}
-      {assets.length > 0 && (
-        <p className="text-xs text-[var(--muted)]">
-          Assets: {assets.map((a) => a.fileName).join(", ")}
-        </p>
-      )}
-    </div>
-  );
-}
+      <EditorResultsStrip
+        results={activeResults}
+        en12464Check={en12464Check}
+        maintenanceFactor={
+          activeRoom
+            ? resolveMaintenanceFactor({
+                maintenanceFactor: activeRoom.calc.maintenanceFactor,
+                mfBreakdown: activeRoom.calc.mfBreakdown,
+              }).mf
+            : 0.8
+        }
+        roomName={activeRoom?.name ?? null}
+      />
 
-function Stat({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+      <div className="cad-status-bar">
+        {status || "Autosave on pause · Top view: drop fixtures into rooms"}
+        {assets.length > 0 && (
+          <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
+        )}
+      </div>
     </div>
   );
 }

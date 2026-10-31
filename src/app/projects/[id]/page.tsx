@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getUserOrgId } from "@/lib/session";
 import { parseProjectResults, parseProjectScene } from "@/lib/project-scene";
 import { BuildingEditor } from "@/components/editor/BuildingEditor";
+import { CadEditorRoot } from "@/components/editor/CadEditorRoot";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -35,7 +36,8 @@ export default async function ProjectPage({ params }: Props) {
   }
 
   return (
-    <BuildingEditor
+    <CadEditorRoot>
+      <BuildingEditor
       projectId={project.id}
       initialName={project.name}
       initialScene={scene}
@@ -46,6 +48,7 @@ export default async function ProjectPage({ params }: Props) {
         fileName: a.fileName,
         metaJson: a.metaJson,
       }))}
-    />
+      />
+    </CadEditorRoot>
   );
 }

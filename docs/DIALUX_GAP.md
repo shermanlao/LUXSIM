@@ -5,7 +5,8 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 ## Already in LUXSIM
 
 - Multi-storey / multi-room projects (`ProjectSceneV2`)
-- **Workspace chrome** on `BuildingEditor`: left tools rail, centre viewport with Top / Front / Side / 3D tabs, right properties (room + fixture + export)
+- **Dark CAD workspace** on project routes: workflow ribbon, 3-pane layout, bottom results strip (Ēm / Uo / UGR / MF / LPD)
+- **Workflow ribbon** (Construction / Light / Calculation / Documentation) with panel filters
 - Plan underlays: image / PDF / DXF; DWG stored with convert-to-DXF message
 - Lightweight IFC storey / `IfcSpace` import
 - Two-point scale calibration
@@ -17,7 +18,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **EN 12464-1 assist** — task / surrounding / background targets; **CIE 97 MF breakdown**; pass-fail hints (not certification)
 - **CIE 171 skeleton** — analytical direct self-tests in `packages/solver/src/cie171/`
 - **AB golden room** — [`docs/ab-golden-room/`](./ab-golden-room/) for Dialux evo manual compare
-- **Workflow mode bar** (Construction / Light / Calculation / Export) with panel filters
+- **Workflow mode bar** (Construction / Light / Calculation / Documentation) with panel filters
 - Fixture **rotation** control + Top view heading arrow
 
 ## Missing or thinner (by domain)
