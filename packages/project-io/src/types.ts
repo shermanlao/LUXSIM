@@ -112,6 +112,17 @@ export interface FixtureInstance {
   rotationDeg: number;
 }
 
+/** RCP / schedule fixture code → org luminaire (exact/alias only; stored on project scene). */
+export interface FixtureCodeMapRule {
+  id: string;
+  /** Normalized primary code (see normalizeFixtureCode in app lib). */
+  codeNorm: string;
+  aliases: string[];
+  luminaireId: string;
+  match: "exact" | "alias";
+  active: boolean;
+}
+
 export interface ProjectSceneV2 {
   version: 2;
   storeys: Storey[];
@@ -119,6 +130,8 @@ export interface ProjectSceneV2 {
   underlays: Underlay[];
   fixtureLibraryIds: string[];
   instances: FixtureInstance[];
+  /** Fixture code map rules for RCP/schedule import pipelines (project-scoped). */
+  fixtureCodeMap?: FixtureCodeMapRule[];
   ui: {
     activeStoreyId: string;
     activeRoomId: string | null;

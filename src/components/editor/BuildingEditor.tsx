@@ -51,6 +51,7 @@ import {
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
+import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
@@ -837,6 +838,17 @@ export function BuildingEditor({
     () => library.filter((l) => scene.fixtureLibraryIds.includes(l.id)),
     [library, scene.fixtureLibraryIds]
   );
+
+  const codeMapLuminaires = useMemo(() => {
+    return library
+      .filter((l) => scene.fixtureLibraryIds.includes(l.id))
+      .map((l) => ({
+        id: l.id,
+        name: l.name,
+        originalName: l.originalName ?? null,
+        catalogNumber: photoCache[l.id]?.catalogNumber ?? null,
+      }));
+  }, [library, scene.fixtureLibraryIds, photoCache]);
 
   async function onExportDialuxVerification() {
     const toExport = sceneWithView(scene);
@@ -1668,6 +1680,14 @@ export function BuildingEditor({
                 </p>
               </div>
             </div>
+          )}
+
+          {workflow === "light" && (
+            <FixtureCodeMapPanel
+              rules={scene.fixtureCodeMap ?? []}
+              luminaires={codeMapLuminaires}
+              onChange={(rules) => patchScene((s) => ({ ...s, fixtureCodeMap: rules }))}
+            />
           )}
 
           {workflow === "light" && (

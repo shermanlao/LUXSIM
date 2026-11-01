@@ -8,6 +8,7 @@ export type {
   Storey,
   Underlay,
   FixtureInstance,
+  FixtureCodeMapRule,
   ViewMode,
   Camera3dView,
   DxfEntity,

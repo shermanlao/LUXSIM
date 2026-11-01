@@ -6,6 +6,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 - Multi-storey / multi-room projects (`ProjectSceneV2`)
 - **Rect / line fixture arrays** — `arrange-array` + shared `writeFixtureInstances` batch path
+- **Fixture code map** — schedule codes (e.g. DL-01) → project luminaire via exact/alias rules on `scene.fixtureCodeMap` (no fuzzy match)
 - **Dark CAD workspace** on project routes: workflow ribbon, 3-pane layout, bottom results strip (Ēm / Uo / UGR / MF / LPD)
 - **Workflow ribbon** (Construction / Light / Calculation / Documentation) with panel filters
 - Plan underlays: image / PDF / DXF; DWG stored with convert-to-DXF message
@@ -50,6 +51,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 - No manufacturer catalog
 - **Rectangular / line arrays** in Light mode (Arrange · array panel; preview on Top view). Circular / polygonal arrays not yet.
+- **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous (PDF/OCR import not yet)
 - No automatic placement (intentionally out of v2 scope)
 - `rotationDeg` stored; **BuildingEditor** rotation control + Top view arrow; included in DIALux schedule.csv
 - No lighting scenes / dimming
