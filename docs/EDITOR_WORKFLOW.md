@@ -15,6 +15,6 @@ On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-ble
 3. **Calibrate** — tool → set real distance → click two points (uniform scale; does not distort the plan).
 4. **Draw rooms** — Draw room on Top or Bottom: left-click corners, type mm to lock the next length (polar circle), click the start point to close. For a quick rectangle, enter L×W (mm) and create at `(0, 0)`, then drag with Select / move. See [ROOM_DRAW.md](./ROOM_DRAW.md).
 5. **Upload IES/LDT** — appears in fixture list only.
-6. **Drag** fixture onto a room (Top / Front / Side / 3D).
-7. **Calculate** active room or all rooms (client-side).
+6. **Drag** fixture onto a room (Top / Front / Side / 3D), or use **Light → Arrange · array** (rectangular / line grid, Preview on Top, Apply).
+7. **Calculate** active room or all rooms (client-side). Optional **Calc after place** when applying an array (or enable before drag-drop).
 8. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.

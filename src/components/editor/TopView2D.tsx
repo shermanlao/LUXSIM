@@ -30,6 +30,8 @@ type Props = {
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
   /** Persist native pixel size (and migrate legacy scale) for older underlays. */
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
+  /** Array tool preview positions (world m, Top plan). */
+  arrayPreview?: { x: number; y: number; rotationDeg: number }[];
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -52,6 +54,7 @@ export function TopView2D({
   onSelectRoom,
   onCalibratePoints,
   onUnderlaySourceSize,
+  arrayPreview = [],
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -517,6 +520,39 @@ export function TopView2D({
             strokeWidth={1.5}
           />
         )}
+
+        {arrayPreview.map((ghost, idx) => {
+          const s = toScreen(ghost.x, ghost.y);
+          const rad = (ghost.rotationDeg * Math.PI) / 180;
+          const len = 10;
+          const x2 = Math.cos(rad) * len;
+          const y2 = -Math.sin(rad) * len;
+          return (
+            <g key={`ghost_${idx}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none">
+              <rect
+                x={-7}
+                y={-7}
+                width={14}
+                height={14}
+                fill="none"
+                stroke="#7ec8e3"
+                strokeWidth={1.5}
+                strokeDasharray="3 2"
+                opacity={0.85}
+              />
+              <line
+                x1={0}
+                y1={0}
+                x2={x2}
+                y2={y2}
+                stroke="#7ec8e3"
+                strokeWidth={1.2}
+                strokeDasharray="2 2"
+                opacity={0.85}
+              />
+            </g>
+          );
+        })}
 
         {instances.map((inst) => {
           const s = toScreen(inst.position.x, inst.position.y);

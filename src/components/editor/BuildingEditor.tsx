@@ -5,14 +5,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
-  clipResultsToPolygon,
   findRoomAt,
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
   rectPolygon,
-  roomToCalcOptions,
   translatePolygon,
   underlayWorldSize,
   type Camera3dView,
@@ -37,6 +35,13 @@ import {
   exportLuxsimFile,
 } from "@/lib/exports-client";
 import { runSolverClient } from "@/lib/run-solver";
+import { planFixtureArray } from "@/lib/arrange-array";
+import type { ArrayParams } from "@/lib/arrange-array";
+import {
+  runClientCalcForRooms,
+  writeFixtureInstances,
+  type WriteInstancesCalcDeps,
+} from "@/lib/write-instances";
 import {
   patchProjectMinimal,
   projectPatchDiff,
@@ -45,6 +50,7 @@ import {
 } from "@/lib/project-autosave";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
+import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
@@ -147,6 +153,11 @@ export function BuildingEditor({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [calcAfterPlace, setCalcAfterPlace] = useState(false);
+  const [arrayPreview, setArrayPreview] = useState<{ x: number; y: number; rotationDeg: number }[] | null>(
+    null
+  );
+  const [arrayApplying, setArrayApplying] = useState(false);
   const [calibDist, setCalibDist] = useState("5");
   const [rectLenMm, setRectLenMm] = useState("6000");
   const [rectWidMm, setRectWidMm] = useState("4000");
@@ -265,6 +276,14 @@ export function BuildingEditor({
     }
     return data.photometric as PhotometricData;
   }
+
+  const writeCalcDeps = useCallback((): WriteInstancesCalcDeps => {
+    return {
+      ensurePhotometry,
+      getWatts: (luminaireId) => library.find((l) => l.id === luminaireId)?.watts,
+      runSolver: runSolverClient,
+    };
+  }, [library, photoCache]);
 
   useEffect(() => {
     for (const id of scene.fixtureLibraryIds) {
@@ -482,31 +501,46 @@ export function BuildingEditor({
     }
     const lib = library.find((l) => l.id === luminaireId);
     const photo = photoCache[luminaireId];
-    const instanceId = nid("inst");
     const mountZ = z ?? room.heightM - 0.1;
-    patchScene((s) => ({
-      ...s,
-      instances: [
-        ...s.instances,
-        {
-          instanceId,
-          luminaireId,
-          storeyId: s.ui.activeStoreyId,
-          roomId: room.id,
-          name: lib?.name ?? photo?.description ?? "Fixture",
-          position: { x, y, z: mountZ },
-          rotationDeg: 0,
-        },
-      ],
-      ui: { ...s.ui, activeRoomId: room.id },
-    }));
-    setSelectedId(instanceId);
-    setResults((r) => {
-      const next = { ...r, byRoomId: { ...r.byRoomId } };
-      delete next.byRoomId[room.id];
-      return next;
-    });
-    setStatus(`Placed in ${room.name}`);
+    void (async () => {
+      try {
+        const latest = latestRef.current;
+        const out = await writeFixtureInstances(
+          {
+            scene: latest.scene,
+            results: latest.results,
+            drafts: [
+              {
+                luminaireId,
+                storeyId: latest.scene.ui.activeStoreyId,
+                roomId: room.id,
+                name: lib?.name ?? photo?.description ?? "Fixture",
+                position: { x, y, z: mountZ },
+                rotationDeg: 0,
+              },
+            ],
+            options: {
+              runCalc: calcAfterPlace,
+              calcScope: "room",
+            },
+          },
+          writeCalcDeps()
+        );
+        setScene(out.scene);
+        setResults(out.results);
+        setSelectedId(out.instanceIds[0] ?? null);
+        setStatus(
+          calcAfterPlace
+            ? `Placed in ${room.name} · calculated`
+            : `Placed in ${room.name}`
+        );
+        if (calcAfterPlace) {
+          await save(out.scene, out.results, latest.name);
+        }
+      } catch (e) {
+        setStatus(e instanceof Error ? e.message : "Placement failed");
+      }
+    })();
   }
 
   function updateInstanceRotation(instanceId: string, rotationDeg: number) {
@@ -699,26 +733,15 @@ export function BuildingEditor({
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
-      const nextByRoom = { ...results.byRoomId };
-      for (const room of rooms) {
-        const inst = scene.instances.filter((i) => i.roomId === room.id);
-        if (!inst.length) {
-          setStatus(`Room “${room.name}” has no fixtures`);
-          continue;
-        }
-        const photometry: Record<string, PhotometricData> = {};
-        const watts: Record<string, number | null | undefined> = {};
-        for (const i of inst) {
-          const p = await ensurePhotometry(i.luminaireId);
-          if (p) photometry[i.luminaireId] = p;
-          watts[i.luminaireId] = library.find((l) => l.id === i.luminaireId)?.watts;
-        }
-        const opts = roomToCalcOptions(room, inst, photometry, watts);
-        let calc = await runSolverClient(opts);
-        calc = clipResultsToPolygon(room, calc);
-        nextByRoom[room.id] = calc;
+      const missing = rooms.filter(
+        (r) => !scene.instances.some((i) => i.roomId === r.id)
+      );
+      if (missing.length === rooms.length) {
+        setStatus(`Room “${rooms[0]!.name}” has no fixtures`);
+        return;
       }
-      const nextResults = { version: 2 as const, byRoomId: nextByRoom };
+      const roomIds = rooms.map((r) => r.id);
+      const nextResults = await runClientCalcForRooms(scene, results, roomIds, writeCalcDeps());
       setResults(nextResults);
       setStatus("Calculation complete (client-side)");
       await save(scene, nextResults, name);
@@ -726,6 +749,69 @@ export function BuildingEditor({
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
       setCalculating(false);
+    }
+  }
+
+  async function applyFixtureArray(params: ArrayParams, luminaireId: string) {
+    if (!activeRoom) {
+      setStatus("Select a room for the array");
+      return;
+    }
+    const plan = planFixtureArray(activeRoom, params);
+    if (!plan.inside.length) {
+      setStatus("No array points inside room — adjust spacing or wall offset");
+      return;
+    }
+    if (plan.skippedOutside > 0) {
+      const ok = window.confirm(
+        `${plan.skippedOutside} point(s) fall outside the room and will be skipped. Place ${plan.inside.length} fixture(s)?`
+      );
+      if (!ok) return;
+    }
+
+    const lib = library.find((l) => l.id === luminaireId);
+    const photo = photoCache[luminaireId];
+    const mountZ = activeRoom.heightM - 0.1;
+    const drafts = plan.inside.map((p) => ({
+      luminaireId,
+      storeyId: scene.ui.activeStoreyId,
+      roomId: activeRoom.id,
+      name: lib?.name ?? photo?.description ?? "Fixture",
+      position: { x: p.x, y: p.y, z: mountZ },
+      rotationDeg: p.rotationDeg,
+    }));
+
+    setArrayApplying(true);
+    try {
+      const latest = latestRef.current;
+      const out = await writeFixtureInstances(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          drafts,
+          options: {
+            runCalc: calcAfterPlace,
+            calcScope: "room",
+          },
+        },
+        writeCalcDeps()
+      );
+      setScene(out.scene);
+      setResults(out.results);
+      setArrayPreview(null);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      setStatus(
+        `Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${
+          calcAfterPlace ? " · calculated" : ""
+        }`
+      );
+      if (calcAfterPlace) {
+        await save(out.scene, out.results, latest.name);
+      }
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Array apply failed");
+    } finally {
+      setArrayApplying(false);
     }
   }
 
@@ -866,6 +952,7 @@ export function BuildingEditor({
           }
           onCalibratePoints={onCalibrate}
           onUnderlaySourceSize={persistUnderlaySourceSize}
+          arrayPreview={arrayPreview ?? undefined}
         />
       )}
       {viewMode === "front" && (
@@ -1581,6 +1668,20 @@ export function BuildingEditor({
                 </p>
               </div>
             </div>
+          )}
+
+          {workflow === "light" && (
+            <FixtureArrayPanel
+              room={activeRoom}
+              luminaires={projectFixtures.map((l) => ({ id: l.id, name: l.name }))}
+              preview={arrayPreview}
+              onPreviewChange={setArrayPreview}
+              calcAfterPlace={calcAfterPlace}
+              onCalcAfterPlaceChange={setCalcAfterPlace}
+              applying={arrayApplying}
+              onApply={(params, luminaireId) => void applyFixtureArray(params, luminaireId)}
+              onCancel={() => setArrayPreview(null)}
+            />
           )}
 
           <div
