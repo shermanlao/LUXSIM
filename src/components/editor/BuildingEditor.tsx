@@ -42,6 +42,7 @@ import {
   type WriteInstancesCalcDeps,
 } from "@/lib/write-instances";
 import { commitAcceptedRcpProposals } from "@/lib/rcp-commit";
+import { commitScheduleImport, type ScheduleImportRow } from "@/lib/schedule-csv";
 import {
   focusActiveRoomAfterPlacement,
   postPlaceCalcStatusSuffix,
@@ -57,6 +58,7 @@ import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { RcpDetectPanel } from "./RcpDetectPanel";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
+import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
@@ -165,6 +167,10 @@ export function BuildingEditor({
     null
   );
   const [arrayApplying, setArrayApplying] = useState(false);
+  const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
+  const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
+  const [scheduleCommitting, setScheduleCommitting] = useState(false);
+  const [calcAfterSchedule, setCalcAfterSchedule] = useState(false);
   const [rcpDetecting, setRcpDetecting] = useState(false);
   const [rcpCommitting, setRcpCommitting] = useState(false);
   const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
@@ -954,6 +960,55 @@ export function BuildingEditor({
       setStatus(e instanceof Error ? e.message : "Commit failed");
     } finally {
       setRcpCommitting(false);
+    }
+  }
+
+  async function runScheduleCommit(options: { calcAfterCommit: boolean }) {
+    setScheduleCommitting(true);
+    try {
+      const latest = latestRef.current;
+      const out = await commitScheduleImport(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          rows: scheduleRows,
+          luminaireNames: luminaireNameMap(),
+          runCalc: options.calcAfterCommit,
+        },
+        writeCalcDeps()
+      );
+      if (out.blockedReason) {
+        setStatus(out.blockedReason);
+        return;
+      }
+      setScene(out.scene);
+      setResults(out.results);
+      if (out.instanceIds.length === 0) {
+        setStatus(
+          out.skippedOutside.length
+            ? `No fixtures placed — ${out.skippedOutside.length} outside room`
+            : "Nothing to commit"
+        );
+        return;
+      }
+      let msg = `Schedule import: ${out.instanceIds.length} fixture(s) / 已匯入 ${out.instanceIds.length} 個燈具`;
+      if (out.skippedOutside.length) {
+        msg += ` · skipped ${out.skippedOutside.length} outside`;
+      }
+      if (options.calcAfterCommit && out.calcFailed) {
+        msg += out.calcErrorMessage
+          ? ` · ${out.calcErrorMessage}`
+          : " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+      } else if (options.calcAfterCommit) {
+        msg += " · calculated / 已計算";
+      }
+      setStatus(msg);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      await save(out.scene, out.results, latest.name);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Schedule commit failed");
+    } finally {
+      setScheduleCommitting(false);
     }
   }
 
@@ -1954,6 +2009,24 @@ export function BuildingEditor({
               scene={scene}
               committing={rcpCommitting}
               onCommit={(opts) => runRcpCommit(opts)}
+            />
+          )}
+
+          {workflow === "light" && (
+            <ScheduleImportPanel
+              room={activeRoom}
+              rooms={scene.rooms.filter((r) => r.storeyId === scene.ui.activeStoreyId)}
+              storeyId={scene.ui.activeStoreyId}
+              codeMapRules={scene.fixtureCodeMap ?? []}
+              luminaireNames={codeMapLuminaireNames}
+              rows={scheduleRows}
+              onRowsChange={setScheduleRows}
+              parseErrors={scheduleParseErrors}
+              onParseErrorsChange={setScheduleParseErrors}
+              calcAfterCommit={calcAfterSchedule}
+              onCalcAfterCommitChange={setCalcAfterSchedule}
+              committing={scheduleCommitting}
+              onCommit={(opts) => void runScheduleCommit(opts)}
             />
           )}
 
