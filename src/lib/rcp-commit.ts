@@ -2,7 +2,10 @@ import { findRoomAt, type FixtureCodeMapRule, type ProjectSceneV2, type RcpDetec
 import { lookupFixtureCode } from "@/lib/fixture-code-map";
 import { acceptedForCommitCandidates } from "@/lib/rcp-confirm";
 import {
-  runClientCalcForRooms,
+  focusActiveRoomAfterPlacement,
+  runPostPlaceCalcForRooms,
+} from "@/lib/post-place-calc";
+import {
   type FixtureInstanceDraft,
   type WriteInstancesCalcDeps,
   writeFixtureInstances,
@@ -35,6 +38,8 @@ export type CommitRcpResult = {
   affectedRoomIds: string[];
   skippedOutside: RcpCommitSkippedOutside[];
   calcFailed: boolean;
+  calcErrorMessage?: string;
+  missingLuminaireIds: string[];
 };
 
 export function countDetectSourcedInstances(scene: ProjectSceneV2, storeyId: string): number {
@@ -150,6 +155,7 @@ export async function commitAcceptedRcpProposals(
       affectedRoomIds: [],
       skippedOutside: plan.skippedOutside,
       calcFailed: false,
+      missingLuminaireIds: [],
     };
   }
 
@@ -180,24 +186,36 @@ export async function commitAcceptedRcpProposals(
 
   let results = out.results;
   let calcFailed = false;
+  let calcErrorMessage: string | undefined;
+  let missingLuminaireIds: string[] = [];
   if (input.options.runCalc) {
-    try {
-      const roomIdsToCalc =
-        (input.options.calcScope ?? "room") === "all"
-          ? out.scene.rooms.map((r) => r.id)
-          : out.affectedRoomIds;
-      results = await runClientCalcForRooms(out.scene, results, roomIdsToCalc, deps);
-    } catch {
-      calcFailed = true;
-    }
+    const roomIdsToCalc =
+      (input.options.calcScope ?? "room") === "all"
+        ? out.scene.rooms.map((r) => r.id)
+        : out.affectedRoomIds;
+    const calc = await runPostPlaceCalcForRooms(
+      out.scene,
+      results,
+      roomIdsToCalc,
+      deps,
+      { luminaireNames: input.luminaireNames }
+    );
+    results = calc.results;
+    calcFailed = calc.calcFailed;
+    calcErrorMessage = calc.errorMessage;
+    missingLuminaireIds = calc.missingLuminaireIds;
   }
 
+  const sceneWithFocus = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+
   return {
-    scene: out.scene,
+    scene: sceneWithFocus,
     results,
     instanceIds: out.instanceIds,
     affectedRoomIds: out.affectedRoomIds,
     skippedOutside: plan.skippedOutside,
     calcFailed,
+    calcErrorMessage,
+    missingLuminaireIds,
   };
 }

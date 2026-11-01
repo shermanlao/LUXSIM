@@ -134,6 +134,57 @@ describe("writeFixtureInstances", () => {
     expect(runSolver).toHaveBeenCalledTimes(1);
     expect(out.results.byRoomId[roomId]?.summary.eave).toBe(200);
   });
+
+  it("keeps instances when post-place calc fails", async () => {
+    let scene = defaultSceneV2();
+    const roomId = "room_calc_fail";
+    scene = {
+      ...scene,
+      rooms: [
+        {
+          id: roomId,
+          storeyId: scene.ui.activeStoreyId,
+          name: "Calc",
+          polygon: rectPolygon(0, 0, 4, 4),
+          heightM: 2.8,
+          workplaneHeightM: 0.75,
+          reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+          calc: { gridSpacing: 0.5, maintenanceFactor: 0.8, en12464TemplateId: "" },
+        },
+      ],
+      fixtureLibraryIds: ["lum_1"],
+      instances: [],
+    };
+
+    const out = await writeFixtureInstances(
+      {
+        scene,
+        results: { version: 2, byRoomId: {} },
+        drafts: [
+          {
+            luminaireId: "lum_1",
+            storeyId: scene.ui.activeStoreyId,
+            roomId,
+            name: "A",
+            position: { x: 2, y: 2, z: 2.7 },
+            rotationDeg: 0,
+          },
+        ],
+        options: { runCalc: true, calcScope: "room" },
+      },
+      {
+        ensurePhotometry: async () => ({}) as PhotometricData,
+        getWatts: () => 30,
+        runSolver: vi.fn(async () => {
+          throw new Error("solver fail");
+        }),
+      }
+    );
+
+    expect(out.scene.instances).toHaveLength(1);
+    expect(out.calcFailed).toBe(true);
+    expect(out.results.byRoomId[roomId]).toBeUndefined();
+  });
 });
 
 describe("clearResultsForRooms", () => {

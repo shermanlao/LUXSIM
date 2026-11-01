@@ -38,11 +38,15 @@ import { runSolverClient } from "@/lib/run-solver";
 import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
 import {
-  runClientCalcForRooms,
   writeFixtureInstances,
   type WriteInstancesCalcDeps,
 } from "@/lib/write-instances";
 import { commitAcceptedRcpProposals } from "@/lib/rcp-commit";
+import {
+  focusActiveRoomAfterPlacement,
+  postPlaceCalcStatusSuffix,
+  runPostPlaceCalcForRooms,
+} from "@/lib/post-place-calc";
 import {
   patchProjectMinimal,
   projectPatchDiff,
@@ -295,6 +299,12 @@ export function BuildingEditor({
     };
   }, [library, photoCache]);
 
+  const luminaireNameMap = useCallback((): Record<string, string> => {
+    const names: Record<string, string> = {};
+    for (const l of library) names[l.id] = l.name;
+    return names;
+  }, [library]);
+
   useEffect(() => {
     for (const id of scene.fixtureLibraryIds) {
       if (!photoCache[id]) void ensurePhotometry(id);
@@ -536,17 +546,21 @@ export function BuildingEditor({
           },
           writeCalcDeps()
         );
-        setScene(out.scene);
+        const nextScene = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+        setScene(nextScene);
         setResults(out.results);
         setSelectedId(out.instanceIds[0] ?? null);
-        setStatus(
+        const calcNote = postPlaceCalcStatusSuffix(
+          {
+            results: out.results,
+            calcFailed: out.calcFailed ?? false,
+            missingLuminaireIds: out.missingLuminaireIds ?? [],
+            errorMessage: out.calcErrorMessage,
+          },
           calcAfterPlace
-            ? `Placed in ${room.name} · calculated`
-            : `Placed in ${room.name}`
         );
-        if (calcAfterPlace) {
-          await save(out.scene, out.results, latest.name);
-        }
+        setStatus(`Placed in ${room.name}${calcNote}`);
+        await save(nextScene, out.results, latest.name);
       } catch (e) {
         setStatus(e instanceof Error ? e.message : "Placement failed");
       }
@@ -834,10 +848,20 @@ export function BuildingEditor({
         return;
       }
       const roomIds = rooms.map((r) => r.id);
-      const nextResults = await runClientCalcForRooms(scene, results, roomIds, writeCalcDeps());
-      setResults(nextResults);
-      setStatus("Calculation complete (client-side)");
-      await save(scene, nextResults, name);
+      const calc = await runPostPlaceCalcForRooms(
+        scene,
+        results,
+        roomIds,
+        writeCalcDeps(),
+        { luminaireNames: luminaireNameMap() }
+      );
+      setResults(calc.results);
+      if (calc.calcFailed) {
+        setStatus(calc.errorMessage ?? "Calculation failed / 計算失敗");
+        return;
+      }
+      setStatus("Calculation complete (client-side) / 客戶端計算完成");
+      await save(scene, calc.results, name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
@@ -917,7 +941,9 @@ export function BuildingEditor({
         msg += ` · skipped ${out.skippedOutside.length} outside room`;
       }
       if (options.calcAfterCommit && out.calcFailed) {
-        msg += " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+        msg += out.calcErrorMessage
+          ? ` · ${out.calcErrorMessage}`
+          : " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
       } else if (options.calcAfterCommit) {
         msg += " · calculated / 已計算";
       }
@@ -975,18 +1001,22 @@ export function BuildingEditor({
         },
         writeCalcDeps()
       );
-      setScene(out.scene);
+      const nextScene = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+      setScene(nextScene);
       setResults(out.results);
       setArrayPreview(null);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
-      setStatus(
-        `Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${
-          calcAfterPlace ? " · calculated" : ""
-        }`
+      const calcNote = postPlaceCalcStatusSuffix(
+        {
+          results: out.results,
+          calcFailed: out.calcFailed ?? false,
+          missingLuminaireIds: out.missingLuminaireIds ?? [],
+          errorMessage: out.calcErrorMessage,
+        },
+        calcAfterPlace
       );
-      if (calcAfterPlace) {
-        await save(out.scene, out.results, latest.name);
-      }
+      setStatus(`Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${calcNote}`);
+      await save(nextScene, out.results, latest.name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Array apply failed");
     } finally {

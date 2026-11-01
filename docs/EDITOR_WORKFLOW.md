@@ -17,7 +17,7 @@ On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-ble
 5. **Upload IES/LDT** — appears in fixture list only.
 6. **Drag** fixture onto a room (Top / Front / Side / 3D), or use **Light → Arrange · array** (rectangular / line grid, Preview on Top, Apply).
 7. **Code map** (Light mode): define schedule codes → luminaire rules on the project scene (`fixtureCodeMap` JSON, autosaved). Optional CSV `code,luminaireId`. Test lookup shows mapped / ambiguous / unmapped — pipelines must not guess.
-8. **Detect from plan / 從圖則偵測** (Light): local OCR on the raster underlay → `rcpProposals`. **Confirm table**: edit code/position, accept/reject, **Accept all mapped / 接受已對應**; autosaved statuses through `edited`. **Commit accepted / 提交已接受**: writes `FixtureInstance[]` via F1.4 `writeFixtureInstances` for accepted+mapped rows inside room outlines (skips outside with warning); proposals → `committed`; optional **Replace prior detect fixtures** and **Calc after commit** (calc errors do not roll back instances).
+8. **Detect from plan / 從圖則偵測** (Light): local OCR → confirm table → **Commit accepted** writes fixtures (F2.4). Optional **Calc after commit / 提交後計算** and **Arrange · Calc after place** share **`runPostPlaceCalcForRooms`** (same client solver as **Calc room/all**): updates `ResultsV2` for the bottom **Ēm / Uo / UGR / LPD / EN assist** strip and false-colour views; missing IES/LDT lists luminaire names; calc errors do not remove placed instances (F2.6).
 9. **Calculate** active room or all rooms (client-side). Optional **Calc after place** when applying an array (or enable before drag-drop).
 10. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.
 

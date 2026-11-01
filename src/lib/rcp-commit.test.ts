@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { FixtureCodeMapRule, ProjectSceneV2, RcpDetectionProposal, RoomV2 } from "@luxsim/project-io";
+import type { PhotometricData } from "@luxsim/photometry";
 import { createCodeMapRule } from "@/lib/fixture-code-map";
 import { acceptedForCommitCandidates, setProposalStatus } from "@/lib/rcp-confirm";
-import { planRcpCommit } from "./rcp-commit";
+import { commitAcceptedRcpProposals, planRcpCommit } from "./rcp-commit";
 
 function baseProposal(overrides: Partial<RcpDetectionProposal> = {}): RcpDetectionProposal {
   return {
@@ -149,5 +150,95 @@ describe("planRcpCommit", () => {
     expect(plan.drafts).toHaveLength(0);
     expect(plan.skippedOutside).toHaveLength(1);
     expect(plan.skippedOutside[0]!.proposalId).toBe("out");
+  });
+});
+
+describe("commitAcceptedRcpProposals runCalc", () => {
+  const rules: FixtureCodeMapRule[] = [
+    createCodeMapRule({ codeRaw: "DL-01", luminaireId: "lum_a", match: "exact" }),
+  ];
+  const rooms = [roomRect("r1", 0, 0, 10, 10)];
+
+  it("populates results for affected room when runCalc true", async () => {
+    const proposals = [
+      setProposalStatus(baseProposal({ id: "p1", pointM: { x: 2, y: 2 } }), "accepted"),
+    ];
+    const scene: ProjectSceneV2 = {
+      ...emptyScene(rooms),
+      fixtureCodeMap: rules,
+      fixtureLibraryIds: ["lum_a"],
+      rcpProposals: proposals,
+    };
+
+    const runSolver = vi.fn(async () => ({
+      version: 1 as const,
+      summary: { eave: 220, emin: 180, emax: 260, uo: 0.82, ugr: 16, lpd: 1.2 },
+      grid: {
+        originX: 0,
+        originY: 0,
+        spacing: 0.5,
+        nx: 1,
+        ny: 1,
+        z: 0.75,
+        lux: [220],
+      },
+    }));
+
+    const out = await commitAcceptedRcpProposals(
+      {
+        scene,
+        results: { version: 2, byRoomId: {} },
+        proposals,
+        rules,
+        luminaireNames: { lum_a: "Downlight A" },
+        options: { runCalc: true, calcScope: "room" },
+      },
+      {
+        ensurePhotometry: async () => ({}) as PhotometricData,
+        getWatts: () => 25,
+        runSolver,
+      }
+    );
+
+    expect(out.instanceIds).toHaveLength(1);
+    expect(out.scene.instances).toHaveLength(1);
+    expect(out.results.byRoomId.r1?.summary.eave).toBe(220);
+    expect(out.calcFailed).toBe(false);
+    expect(out.scene.ui.activeRoomId).toBe("r1");
+    expect(out.scene.rcpProposals?.[0]?.status).toBe("committed");
+  });
+
+  it("keeps instances when solver throws and flags calcFailed", async () => {
+    const proposals = [
+      setProposalStatus(baseProposal({ id: "p1", pointM: { x: 3, y: 3 } }), "accepted"),
+    ];
+    const scene: ProjectSceneV2 = {
+      ...emptyScene(rooms),
+      fixtureCodeMap: rules,
+      fixtureLibraryIds: ["lum_a"],
+      rcpProposals: proposals,
+    };
+
+    const out = await commitAcceptedRcpProposals(
+      {
+        scene,
+        results: { version: 2, byRoomId: {} },
+        proposals,
+        rules,
+        luminaireNames: { lum_a: "Downlight A" },
+        options: { runCalc: true },
+      },
+      {
+        ensurePhotometry: async () => ({}) as PhotometricData,
+        getWatts: () => 25,
+        runSolver: vi.fn(async () => {
+          throw new Error("solver boom");
+        }),
+      }
+    );
+
+    expect(out.scene.instances).toHaveLength(1);
+    expect(out.calcFailed).toBe(true);
+    expect(out.results.byRoomId.r1).toBeUndefined();
   });
 });

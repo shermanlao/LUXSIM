@@ -9,6 +9,7 @@ import {
 } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
 import { runSolverClient } from "@/lib/run-solver";
+import { runPostPlaceCalcForRooms } from "@/lib/post-place-calc";
 
 export type FixtureInstanceDraft = {
   instanceId?: string;
@@ -139,6 +140,9 @@ export async function writeFixtureInstances(
   results: ResultsV2;
   instanceIds: string[];
   affectedRoomIds: string[];
+  calcFailed?: boolean;
+  calcErrorMessage?: string;
+  missingLuminaireIds?: string[];
 }> {
   if (!input.drafts.length) {
     return {
@@ -157,13 +161,31 @@ export async function writeFixtureInstances(
 
   let results = clearResultsForRooms(input.results, affectedRoomIds);
 
+  let calcFailed: boolean | undefined;
+  let calcErrorMessage: string | undefined;
+  let missingLuminaireIds: string[] | undefined;
+
   if (input.options.runCalc) {
     const roomIdsToCalc =
       input.options.calcScope === "all"
         ? scene.rooms.map((r: RoomV2) => r.id)
         : affectedRoomIds;
-    results = await runClientCalcForRooms(scene, results, roomIdsToCalc, deps);
+    const calc = await runPostPlaceCalcForRooms(scene, results, roomIdsToCalc, deps);
+    results = calc.results;
+    if (calc.calcFailed) {
+      calcFailed = true;
+      calcErrorMessage = calc.errorMessage;
+      missingLuminaireIds = calc.missingLuminaireIds;
+    }
   }
 
-  return { scene, results, instanceIds, affectedRoomIds };
+  return {
+    scene,
+    results,
+    instanceIds,
+    affectedRoomIds,
+    calcFailed,
+    calcErrorMessage,
+    missingLuminaireIds,
+  };
 }
