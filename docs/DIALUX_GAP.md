@@ -44,6 +44,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 - **PDF RCP**: uploaded PDF kept as asset; selected page rasterized to PNG (`pageRasterAssetId`, `rasterDpi`, pixel size on underlay) for Top/3D — not `<img src=pdf>`
 - **RCP OCR (F2.2)**: Light mode **Detect from plan** — local tesseract proposals (`rcpProposals` on scene); no cloud by default
+- **RCP confirm (F2.3)**: human review table (code map column, accept/reject, edit code → `codeNorm`); autosaved proposals only — **Commit accepted** disabled until F2.4 instance write
 - DXF is display-only (no snap / convert-to-room)
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)
@@ -53,7 +54,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 - No manufacturer catalog
 - **Rectangular / line arrays** in Light mode (Arrange · array panel; preview on Top view). Circular / polygonal arrays not yet.
-- **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous (PDF/OCR import not yet)
+- **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous on accepted OCR rows (F2.3); instance commit from accepted proposals is F2.4
 - No automatic placement (intentionally out of v2 scope)
 - `rotationDeg` stored; **BuildingEditor** rotation control + Top view arrow; included in DIALux schedule.csv
 - No lighting scenes / dimming

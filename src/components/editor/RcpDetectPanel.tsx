@@ -1,11 +1,27 @@
 "use client";
 
-import type { RcpDetectionProposal } from "@luxsim/project-io";
+import { useMemo, useState } from "react";
+import type { FixtureCodeMapRule, RcpDetectionProposal } from "@luxsim/project-io";
+import {
+  acceptAllMappedProposals,
+  acceptProposals,
+  getProposalMapDisplay,
+  normalizeProposalCode,
+  rejectProposals,
+  setProposalStatus,
+  summarizeRcpConfirm,
+  updateProposalPointM,
+} from "@/lib/rcp-confirm";
 
 type Props = {
   disabled?: boolean;
   detecting: boolean;
   proposals: RcpDetectionProposal[];
+  codeMapRules: FixtureCodeMapRule[];
+  luminaireNames: Record<string, string>;
+  selectedId: string | null;
+  onSelectId: (id: string | null) => void;
+  onProposalsChange: (next: RcpDetectionProposal[]) => void;
   showOverlay: boolean;
   onShowOverlayChange: (v: boolean) => void;
   onDetect: () => void;
@@ -16,11 +32,46 @@ export function RcpDetectPanel({
   disabled,
   detecting,
   proposals,
+  codeMapRules,
+  luminaireNames,
+  selectedId,
+  onSelectId,
+  onProposalsChange,
   showOverlay,
   onShowOverlayChange,
   onDetect,
   lastWarnings,
 }: Props) {
+  const [checked, setChecked] = useState<Set<string>>(() => new Set());
+
+  const summary = useMemo(
+    () => summarizeRcpConfirm(proposals, codeMapRules),
+    [proposals, codeMapRules]
+  );
+
+  function patchOne(id: string, patch: (p: RcpDetectionProposal) => RcpDetectionProposal) {
+    onProposalsChange(proposals.map((p) => (p.id === id ? patch(p) : p)));
+  }
+
+  function toggleCheck(id: string) {
+    setChecked((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function acceptChecked() {
+    if (!checked.size) return;
+    onProposalsChange(acceptProposals(proposals, checked));
+  }
+
+  function rejectChecked() {
+    if (!checked.size) return;
+    onProposalsChange(rejectProposals(proposals, checked));
+  }
+
   return (
     <div className="cad-props-card space-y-2">
       <p className="cad-section-title !mt-0">Detect from plan · 從圖則偵測</p>
@@ -42,8 +93,14 @@ export function RcpDetectPanel({
           ))}
         </ul>
       )}
+
       {proposals.length > 0 && (
         <>
+          <p className="text-[11px] text-[#c5d4dc]">
+            Accept {summary.accepted + summary.edited} · Reject {summary.rejected} · Blocked{" "}
+            {summary.unmappedBlocked} unmapped/ambiguous · Ready {summary.readyForCommit}
+          </p>
+
           <label className="flex items-center gap-2 text-xs text-[#c5d4dc] cursor-pointer">
             <input
               type="checkbox"
@@ -52,31 +109,137 @@ export function RcpDetectPanel({
             />
             Show markers on Top / 顯示 Top 標記
           </label>
-          <div className="max-h-36 overflow-y-auto border border-[#3d5563] rounded-sm">
-            <table className="cad-fixtures-table">
+
+          <div className="max-h-52 overflow-auto border border-[#3d5563] rounded-sm">
+            <table className="cad-fixtures-table text-[10px]">
               <thead>
                 <tr>
+                  <th />
                   <th>Code</th>
+                  <th>Map</th>
+                  <th>X m</th>
+                  <th>Y m</th>
                   <th>Conf.</th>
-                  <th>x (m)</th>
-                  <th>y (m)</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
-                {proposals.map((p) => (
-                  <tr key={p.id}>
-                    <td>{p.codeRaw}</td>
-                    <td>{(p.confidence * 100).toFixed(0)}%</td>
-                    <td className="tabular-nums">{p.pointM?.x.toFixed(2) ?? "—"}</td>
-                    <td className="tabular-nums">{p.pointM?.y.toFixed(2) ?? "—"}</td>
-                  </tr>
-                ))}
+                {proposals.map((p) => {
+                  const map = getProposalMapDisplay(p, codeMapRules, luminaireNames);
+                  const rowSelected = selectedId === p.id;
+                  const dim = p.status === "rejected";
+                  return (
+                    <tr
+                      key={p.id}
+                      className={`${rowSelected ? "is-selected" : ""} ${dim ? "opacity-50" : ""}`}
+                      onClick={() => onSelectId(p.id)}
+                    >
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={checked.has(p.id)}
+                          onChange={() => toggleCheck(p.id)}
+                        />
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          className="input !text-[10px] !py-0.5 w-16"
+                          value={p.codeRaw}
+                          onChange={(e) =>
+                            patchOne(p.id, (row) => normalizeProposalCode(row, e.target.value))
+                          }
+                        />
+                        <span className="text-[#8fa3ad] ml-1">{p.status}</span>
+                      </td>
+                      <td
+                        className={
+                          map.display === "mapped"
+                            ? "text-[#7dcea0]"
+                            : map.display === "ambiguous"
+                              ? "text-[#ffb088]"
+                              : "text-[#f5a5a5]"
+                        }
+                      >
+                        {map.label}
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          className="input !text-[10px] !py-0.5 w-14 tabular-nums"
+                          value={p.pointM?.x.toFixed(2) ?? ""}
+                          onChange={(e) => {
+                            const x = Number(e.target.value);
+                            const y = p.pointM?.y ?? 0;
+                            if (!Number.isFinite(x)) return;
+                            patchOne(p.id, (row) => updateProposalPointM(row, { x, y }));
+                          }}
+                        />
+                      </td>
+                      <td onClick={(e) => e.stopPropagation()}>
+                        <input
+                          className="input !text-[10px] !py-0.5 w-14 tabular-nums"
+                          value={p.pointM?.y.toFixed(2) ?? ""}
+                          onChange={(e) => {
+                            const y = Number(e.target.value);
+                            const x = p.pointM?.x ?? 0;
+                            if (!Number.isFinite(y)) return;
+                            patchOne(p.id, (row) => updateProposalPointM(row, { x, y }));
+                          }}
+                        />
+                      </td>
+                      <td className="tabular-nums">{(p.confidence * 100).toFixed(0)}%</td>
+                      <td onClick={(e) => e.stopPropagation()} className="whitespace-nowrap">
+                        <button
+                          type="button"
+                          className="text-[10px] text-[#7dcea0] mr-1"
+                          onClick={() => patchOne(p.id, (row) => setProposalStatus(row, "accepted"))}
+                        >
+                          ✓
+                        </button>
+                        <button
+                          type="button"
+                          className="text-[10px] text-[#f5a5a5]"
+                          onClick={() => patchOne(p.id, (row) => setProposalStatus(row, "rejected"))}
+                        >
+                          ✕
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
-          <p className="text-[10px] text-[#8fa3ad]">
-            Proposals only — confirm &amp; place fixtures in a later step (F2.4).
-          </p>
+
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary !text-[10px]"
+              onClick={() => onProposalsChange(acceptAllMappedProposals(proposals, codeMapRules))}
+            >
+              Accept all mapped / 接受已對應
+            </button>
+            <button type="button" className="btn btn-secondary !text-[10px]" onClick={acceptChecked}>
+              Accept selected
+            </button>
+            <button type="button" className="btn btn-secondary !text-[10px]" onClick={rejectChecked}>
+              Reject selected
+            </button>
+          </div>
+
+          <button
+            type="button"
+            className="btn btn-secondary w-full !text-xs opacity-60 cursor-not-allowed"
+            disabled
+            title="F2.4 — commit accepted proposals to room fixtures (coming soon)"
+          >
+            Commit accepted / 提交已接受（F2.4 稍後）
+          </button>
+          {summary.unmappedBlocked > 0 && (
+            <p className="text-[10px] text-[#ffb088]">
+              {summary.unmappedBlocked} accepted/edited row(s) blocked — fix code map or edit code
+              before commit.
+            </p>
+          )}
         </>
       )}
     </div>

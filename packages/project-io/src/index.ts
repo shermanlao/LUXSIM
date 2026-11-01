@@ -10,6 +10,7 @@ export type {
   FixtureInstance,
   FixtureCodeMapRule,
   RcpDetectionProposal,
+  RcpProposalStatus,
   ViewMode,
   Camera3dView,
   DxfEntity,

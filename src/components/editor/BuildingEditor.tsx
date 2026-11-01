@@ -163,6 +163,7 @@ export function BuildingEditor({
   const [rcpDetecting, setRcpDetecting] = useState(false);
   const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
   const [showRcpOverlay, setShowRcpOverlay] = useState(true);
+  const [selectedRcpId, setSelectedRcpId] = useState<string | null>(null);
   const [calibDist, setCalibDist] = useState("5");
   const [rectLenMm, setRectLenMm] = useState("6000");
   const [rectWidMm, setRectWidMm] = useState("4000");
@@ -974,6 +975,12 @@ export function BuildingEditor({
       }));
   }, [library, scene.fixtureLibraryIds, photoCache]);
 
+  const codeMapLuminaireNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const l of codeMapLuminaires) names[l.id] = l.name;
+    return names;
+  }, [codeMapLuminaires]);
+
   async function onExportDialuxVerification() {
     const toExport = sceneWithView(scene);
     const warnings = getDialuxPackWarnings(toExport, results);
@@ -1091,6 +1098,7 @@ export function BuildingEditor({
           arrayPreview={arrayPreview ?? undefined}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
+          selectedRcpId={selectedRcpId}
         />
       )}
       {viewMode === "front" && (
@@ -1836,6 +1844,11 @@ export function BuildingEditor({
               disabled={!underlay || (!underlay.pageRasterAssetId && underlay.kind !== "image")}
               detecting={rcpDetecting}
               proposals={scene.rcpProposals ?? []}
+              codeMapRules={scene.fixtureCodeMap ?? []}
+              luminaireNames={codeMapLuminaireNames}
+              selectedId={selectedRcpId}
+              onSelectId={setSelectedRcpId}
+              onProposalsChange={(next) => patchScene((s) => ({ ...s, rcpProposals: next }))}
               showOverlay={showRcpOverlay}
               onShowOverlayChange={setShowRcpOverlay}
               onDetect={() => void runRcpDetect()}

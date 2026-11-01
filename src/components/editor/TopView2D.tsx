@@ -34,6 +34,7 @@ type Props = {
   arrayPreview?: { x: number; y: number; rotationDeg: number }[];
   rcpProposals?: RcpDetectionProposal[];
   showRcpOverlay?: boolean;
+  selectedRcpId?: string | null;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -59,6 +60,7 @@ export function TopView2D({
   arrayPreview = [],
   rcpProposals = [],
   showRcpOverlay = false,
+  selectedRcpId = null,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -527,12 +529,29 @@ export function TopView2D({
 
         {showRcpOverlay &&
           rcpProposals.map((p) => {
-            if (!p.pointM) return null;
+            if (!p.pointM || p.status === "rejected") return null;
             const s = toScreen(p.pointM.x, p.pointM.y);
+            const selected = p.id === selectedRcpId;
+            const accepted = p.status === "accepted" || p.status === "edited";
             return (
               <g key={p.id} pointerEvents="none">
-                <circle cx={s.x} cy={s.y} r={7} fill="#9b59b6" fillOpacity={0.35} stroke="#e8d4ff" strokeWidth={1.5} />
-                <text x={s.x + 9} y={s.y - 6} fill="#e8d4ff" fontSize={9} fontFamily="system-ui,sans-serif">
+                <circle
+                  cx={s.x}
+                  cy={s.y}
+                  r={selected ? 10 : 7}
+                  fill={accepted ? "#27ae60" : "#9b59b6"}
+                  fillOpacity={selected ? 0.55 : 0.35}
+                  stroke={selected ? "#fff" : "#e8d4ff"}
+                  strokeWidth={selected ? 2.5 : 1.5}
+                />
+                <text
+                  x={s.x + (selected ? 12 : 9)}
+                  y={s.y - 6}
+                  fill={selected ? "#fff" : "#e8d4ff"}
+                  fontSize={selected ? 10 : 9}
+                  fontFamily="system-ui,sans-serif"
+                  fontWeight={selected ? "700" : "400"}
+                >
                   {p.codeRaw}
                 </text>
               </g>

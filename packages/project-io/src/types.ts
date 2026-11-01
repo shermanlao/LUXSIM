@@ -132,6 +132,8 @@ export interface FixtureCodeMapRule {
 }
 
 /** OCR / vision proposal — not a placed fixture until F2.4 commit. */
+export type RcpProposalStatus = "pending" | "accepted" | "rejected" | "edited";
+
 export interface RcpDetectionProposal {
   id: string;
   underlayId?: string;
@@ -141,7 +143,7 @@ export interface RcpDetectionProposal {
   pointPx?: { x: number; y: number };
   pointM?: { x: number; y: number };
   confidence: number;
-  status: "pending";
+  status: RcpProposalStatus;
 }
 
 export interface ProjectSceneV2 {
