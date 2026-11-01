@@ -6,7 +6,7 @@ LUXSIM projects use `ProjectSceneV2` (`version: 2`) stored in `Project.sceneJson
 
 - **Storeys** — elevation + default height
 - **Rooms** — polygon on a storey (metres), reflectance, calc settings (`maintenanceFactor`, optional `en12464TemplateId`). Drawn CAD-style or via L×W; see [ROOM_DRAW.md](./ROOM_DRAW.md).
-- **Underlays** — image / PDF / DXF / IFC reference on a storey. Image underlays store `sourceWidthPx` / `sourceHeightPx` and a uniform `metersPerUnit` (meters per pixel) so the plan keeps the import file’s aspect ratio; calibration scales both axes equally. Shown on Top / Bottom / 3D (3D texture faces up).
+- **Underlays** — image / PDF / DXF / IFC reference on a storey. PDF pages are rasterized to a derived PNG asset (`pageRasterAssetId`, `rasterDpi`, pixel dimensions). Image underlays store `sourceWidthPx` / `sourceHeightPx` and a uniform `metersPerUnit` (meters per pixel) so the plan keeps the import file’s aspect ratio; calibration scales both axes equally. Shown on Top / Bottom / 3D (3D texture faces up).
 - **fixtureLibraryIds** — org luminaires linked into the project (upload does **not** place instances)
 - **instances** — placed fixtures with `roomId` / `storeyId`
 - **fixtureCodeMap** (optional) — RCP/schedule code → `luminaireId` rules for import pipelines; see `src/lib/fixture-code-map.ts`

@@ -95,6 +95,14 @@ export interface Underlay {
   orientationMigrated?: boolean;
   /** DXF entities cached for render */
   dxfEntities?: DxfEntity[];
+  /** PDF source page (0-based) used for raster underlay */
+  pageIndex?: number;
+  /** Derived PNG/WebP asset for Top/3D display */
+  pageRasterAssetId?: string;
+  /** DPI used when rasterizing the current page */
+  rasterDpi?: number;
+  /** Total pages in linked PDF asset */
+  pdfPageCount?: number;
 }
 
 export interface DxfEntity {

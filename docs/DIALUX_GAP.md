@@ -9,7 +9,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **Fixture code map** — schedule codes (e.g. DL-01) → project luminaire via exact/alias rules on `scene.fixtureCodeMap` (no fuzzy match)
 - **Dark CAD workspace** on project routes: workflow ribbon, 3-pane layout, bottom results strip (Ēm / Uo / UGR / MF / LPD)
 - **Workflow ribbon** (Construction / Light / Calculation / Documentation) with panel filters
-- Plan underlays: image / PDF / DXF; DWG stored with convert-to-DXF message
+- Plan underlays: image / PDF (server raster → PNG for Top/3D) / DXF; DWG stored with convert-to-DXF message
 - Lightweight IFC storey / `IfcSpace` import
 - Two-point scale calibration
 - IES / LDT upload → project fixture list (does **not** auto-place)
@@ -42,6 +42,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Plans / BIM
 
+- **PDF RCP**: uploaded PDF kept as asset; selected page rasterized to PNG (`pageRasterAssetId`, `rasterDpi`, pixel size on underlay) for Top/3D — not `<img src=pdf>`
 - DXF is display-only (no snap / convert-to-room)
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)

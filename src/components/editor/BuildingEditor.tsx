@@ -192,8 +192,10 @@ export function BuildingEditor({
   }, [activeRoom, activeResults]);
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
-  const underlayUrl = underlay
-    ? `/api/projects/${projectId}/assets/${underlay.assetId}/file`
+  const underlayDisplayAssetId =
+    underlay?.pageRasterAssetId ?? underlay?.assetId ?? null;
+  const underlayUrl = underlayDisplayAssetId
+    ? `/api/projects/${projectId}/assets/${underlayDisplayAssetId}/file`
     : null;
   const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
 
@@ -614,16 +616,32 @@ export function BuildingEditor({
       }
 
       const asset = data.asset as AssetRow;
-      setAssets((a) => [asset, ...a]);
+      const rasterAsset = data.rasterAsset as AssetRow | null | undefined;
+      const raster = data.raster as
+        | {
+            widthPx: number;
+            heightPx: number;
+            rasterDpi: number;
+            pageCount: number;
+            pageIndex: number;
+          }
+        | null
+        | undefined;
+      setAssets((a) => [
+        ...(rasterAsset ? [rasterAsset] : []),
+        asset,
+        ...a,
+      ]);
       const meta = JSON.parse(asset.metaJson || "{}") as {
         entities?: DxfEntity[];
         widthPx?: number;
         heightPx?: number;
+        pageCount?: number;
       };
       const pixelSize =
         asset.kind === "image" ? await readImagePixelSize(file) : null;
-      const sourceWidthPx = pixelSize?.width ?? meta.widthPx;
-      const sourceHeightPx = pixelSize?.height ?? meta.heightPx;
+      let sourceWidthPx = pixelSize?.width ?? raster?.widthPx ?? meta.widthPx;
+      let sourceHeightPx = pixelSize?.height ?? raster?.heightPx ?? meta.heightPx;
       const metersPerUnit =
         sourceWidthPx && sourceHeightPx
           ? initialMetersPerPixel(sourceWidthPx, sourceHeightPx)
@@ -647,11 +665,24 @@ export function BuildingEditor({
             sourceHeightPx,
             orientationMigrated: true,
             dxfEntities: meta.entities,
+            pageIndex: raster?.pageIndex ?? 0,
+            pageRasterAssetId: rasterAsset?.id,
+            rasterDpi: raster?.rasterDpi,
+            pdfPageCount: raster?.pageCount ?? meta.pageCount,
           },
         ],
       }));
       if (asset.kind === "dwg") {
         setStatus(data.warnings?.[0] || "DWG stored — upload DXF for linework");
+      } else if (asset.kind === "pdf") {
+        const tip = data.warnings?.includes("PDF rasterized for display")
+          ? "PDF rasterized for display — use calibrate tool for scale"
+          : "PDF imported — use calibrate tool for scale";
+        setStatus(
+          data.warnings?.filter((w: string) => w !== "PDF rasterized for display").length
+            ? `${tip} (${data.warnings.filter((w: string) => w !== "PDF rasterized for display").join("; ")})`
+            : tip
+        );
       } else if (asset.kind === "image" && !(sourceWidthPx && sourceHeightPx)) {
         setStatus("Plan imported, but image size could not be read — re-import if distorted.");
       } else {
@@ -682,6 +713,60 @@ export function BuildingEditor({
       ui: { ...s.ui, tool: "select" },
     }));
     setStatus(`Calibrated: ${real} m across selection`);
+  }
+
+  async function setPdfUnderlayPage(pageIndex: number) {
+    if (!underlay || underlay.kind !== "pdf") return;
+    setUploading(true);
+    setStatus(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/assets/${underlay.assetId}/pdf-raster`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageIndex }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "PDF page raster failed");
+        return;
+      }
+      const rasterAsset = data.rasterAsset as AssetRow;
+      const raster = data.raster as {
+        widthPx: number;
+        heightPx: number;
+        rasterDpi: number;
+        pageCount: number;
+        pageIndex: number;
+      };
+      setAssets((a) => [rasterAsset, ...a.filter((x) => x.id !== rasterAsset.id)]);
+      patchScene((s) => ({
+        ...s,
+        underlays: s.underlays.map((u) =>
+          u.id === underlay.id
+            ? {
+                ...u,
+                pageIndex: raster.pageIndex,
+                pageRasterAssetId: rasterAsset.id,
+                rasterDpi: raster.rasterDpi,
+                pdfPageCount: raster.pageCount,
+                sourceWidthPx: raster.widthPx,
+                sourceHeightPx: raster.heightPx,
+              }
+            : u
+        ),
+      }));
+      const extra = (data.warnings as string[] | undefined)?.join("; ");
+      setStatus(
+        extra
+          ? `PDF page ${raster.pageIndex + 1} rasterized — ${extra}`
+          : `PDF page ${raster.pageIndex + 1} rasterized for display`
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   const persistUnderlaySourceSize = useCallback(
@@ -1261,6 +1346,29 @@ export function BuildingEditor({
                   }
                 />
               </div>
+            )}
+            {underlay?.kind === "pdf" && (underlay.pdfPageCount ?? 0) > 1 && (
+              <div>
+                <label className="label">PDF page</label>
+                <select
+                  className="select !text-xs"
+                  value={underlay.pageIndex ?? 0}
+                  disabled={uploading}
+                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}
+                >
+                  {Array.from({ length: underlay.pdfPageCount ?? 1 }, (_, i) => (
+                    <option key={i} value={i}>
+                      Page {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {underlay?.kind === "pdf" && underlay.rasterDpi && (
+              <p className="text-[10px] text-[#8fa3ad]">
+                Raster {underlay.sourceWidthPx}×{underlay.sourceHeightPx}px @{" "}
+                {underlay.rasterDpi} DPI
+              </p>
             )}
           </div>
 
