@@ -10,7 +10,7 @@ LUXSIM projects use `ProjectSceneV2` (`version: 2`) stored in `Project.sceneJson
 - **fixtureLibraryIds** — org luminaires linked into the project (upload does **not** place instances)
 - **instances** — placed fixtures with `roomId` / `storeyId`
 - **fixtureCodeMap** (optional) — RCP/schedule code → `luminaireId` rules; see `src/lib/fixture-code-map.ts`
-- **rcpProposals** (optional) — pending OCR code detections from plan raster (F2.2)
+- **rcpProposals** (optional) — OCR code detections from plan raster (F2.2); after F2.4 commit, rows may be `committed` and linked instances carry `rcpProposalId`
 - **ui** — editor chrome: `activeStoreyId`, `activeRoomId`, `viewMode`, `tool`, `workflowMode` (`construction` | `light` | `calculation` | `export`), optional `camera3d`. Saved with the project.
 
 ## Results

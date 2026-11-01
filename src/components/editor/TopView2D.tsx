@@ -529,7 +529,7 @@ export function TopView2D({
 
         {showRcpOverlay &&
           rcpProposals.map((p) => {
-            if (!p.pointM || p.status === "rejected") return null;
+            if (!p.pointM || p.status === "rejected" || p.status === "committed") return null;
             const s = toScreen(p.pointM.x, p.pointM.y);
             const selected = p.id === selectedRcpId;
             const accepted = p.status === "accepted" || p.status === "edited";

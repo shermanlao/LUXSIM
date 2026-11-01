@@ -18,6 +18,7 @@ export type FixtureInstanceDraft = {
   name: string;
   position: { x: number; y: number; z: number };
   rotationDeg: number;
+  rcpProposalId?: string;
 };
 
 export type WriteInstancesOptions = {
@@ -73,6 +74,7 @@ export function mergeInstanceDrafts(
       name: d.name,
       position: d.position,
       rotationDeg: d.rotationDeg,
+      ...(d.rcpProposalId ? { rcpProposalId: d.rcpProposalId } : {}),
     };
   });
 

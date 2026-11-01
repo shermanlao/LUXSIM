@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { FixtureCodeMapRule, RcpDetectionProposal } from "@luxsim/project-io";
+import { planRcpCommit } from "@/lib/rcp-commit";
 import {
   acceptAllMappedProposals,
   acceptProposals,
@@ -12,6 +12,7 @@ import {
   summarizeRcpConfirm,
   updateProposalPointM,
 } from "@/lib/rcp-confirm";
+import type { FixtureCodeMapRule, ProjectSceneV2, RcpDetectionProposal } from "@luxsim/project-io";
 
 type Props = {
   disabled?: boolean;
@@ -26,6 +27,12 @@ type Props = {
   onShowOverlayChange: (v: boolean) => void;
   onDetect: () => void;
   lastWarnings: string[];
+  scene: ProjectSceneV2;
+  committing?: boolean;
+  onCommit: (options: {
+    replaceExistingFromDetect: boolean;
+    calcAfterCommit: boolean;
+  }) => void | Promise<void>;
 };
 
 export function RcpDetectPanel({
@@ -41,8 +48,13 @@ export function RcpDetectPanel({
   onShowOverlayChange,
   onDetect,
   lastWarnings,
+  scene,
+  committing = false,
+  onCommit,
 }: Props) {
   const [checked, setChecked] = useState<Set<string>>(() => new Set());
+  const [replaceDetect, setReplaceDetect] = useState(false);
+  const [calcAfterCommit, setCalcAfterCommit] = useState(false);
 
   const summary = useMemo(
     () => summarizeRcpConfirm(proposals, codeMapRules),
@@ -67,10 +79,49 @@ export function RcpDetectPanel({
     onProposalsChange(acceptProposals(proposals, checked));
   }
 
+  function handleCommitClick() {
+    const plan = planRcpCommit({
+      proposals,
+      rules: codeMapRules,
+      rooms: scene.rooms,
+      storeyId: scene.ui.activeStoreyId,
+      luminaireNames,
+      scene,
+    });
+    if (!plan.drafts.length) {
+      window.alert(
+        plan.skippedOutside.length
+          ? `No fixtures inside a room. ${plan.skippedOutside.length} point(s) outside room outline. / 沒有在房間內的點。`
+          : "No accepted+mapped proposals to commit. / 沒有可提交的已接受項目。"
+      );
+      return;
+    }
+
+    let msg = `Place ${plan.drafts.length} fixture(s) from accepted RCP rows? / 從已接受的圖則列建立 ${plan.drafts.length} 個燈具？`;
+    if (plan.skippedOutside.length) {
+      msg += `\n\nSkip ${plan.skippedOutside.length} point(s) outside all rooms:\n${plan.skippedOutside
+        .slice(0, 8)
+        .map((s) => `· ${s.codeRaw} @ (${s.x.toFixed(2)}, ${s.y.toFixed(2)}) m`)
+        .join("\n")}${plan.skippedOutside.length > 8 ? "\n…" : ""}`;
+    }
+    if (!window.confirm(msg)) return;
+
+    if (replaceDetect && plan.detectSourcedOnStorey > 0) {
+      const ok = window.confirm(
+        `Replace ${plan.detectSourcedOnStorey} existing detect-placed fixture(s) on this storey? / 取代本層 ${plan.detectSourcedOnStorey} 個先前由偵測放置的燈具？`
+      );
+      if (!ok) return;
+    }
+
+    void onCommit({ replaceExistingFromDetect: replaceDetect, calcAfterCommit });
+  }
+
   function rejectChecked() {
     if (!checked.size) return;
     onProposalsChange(rejectProposals(proposals, checked));
   }
+
+  const canCommit = summary.readyForCommit > 0 && !committing;
 
   return (
     <div className="cad-props-card space-y-2">
@@ -226,13 +277,37 @@ export function RcpDetectPanel({
             </button>
           </div>
 
+          <label className="flex items-center gap-2 text-[10px] text-[#c5d4dc] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={replaceDetect}
+              onChange={(e) => setReplaceDetect(e.target.checked)}
+            />
+            Replace prior detect fixtures / 取代先前偵測燈具
+          </label>
+          <label className="flex items-center gap-2 text-[10px] text-[#c5d4dc] cursor-pointer">
+            <input
+              type="checkbox"
+              checked={calcAfterCommit}
+              onChange={(e) => setCalcAfterCommit(e.target.checked)}
+            />
+            Calc after commit / 提交後計算
+          </label>
+
           <button
             type="button"
-            className="btn btn-secondary w-full !text-xs opacity-60 cursor-not-allowed"
-            disabled
-            title="F2.4 — commit accepted proposals to room fixtures (coming soon)"
+            className="btn btn-accent w-full !text-xs"
+            disabled={!canCommit}
+            title={
+              summary.readyForCommit === 0
+                ? "Accept mapped rows first / 請先接受已對應列"
+                : undefined
+            }
+            onClick={handleCommitClick}
           >
-            Commit accepted / 提交已接受（F2.4 稍後）
+            {committing
+              ? "Committing… / 提交中…"
+              : `Commit accepted (${summary.readyForCommit}) / 提交已接受 (${summary.readyForCommit})`}
           </button>
           {summary.unmappedBlocked > 0 && (
             <p className="text-[10px] text-[#ffb088]">

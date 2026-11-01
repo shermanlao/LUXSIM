@@ -106,6 +106,9 @@ export function summarizeRcpConfirm(
     else if (p.status === "pending") pending += 1;
     else if (p.status === "accepted") accepted += 1;
     else if (p.status === "edited") edited += 1;
+    else if (p.status === "committed") {
+      /* committed rows no longer count toward review buckets */
+    }
 
     const ready = proposalReadyForCommit(p, rules);
     if (ready.ready) readyForCommit += 1;

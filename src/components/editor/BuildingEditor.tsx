@@ -42,6 +42,7 @@ import {
   writeFixtureInstances,
   type WriteInstancesCalcDeps,
 } from "@/lib/write-instances";
+import { commitAcceptedRcpProposals } from "@/lib/rcp-commit";
 import {
   patchProjectMinimal,
   projectPatchDiff,
@@ -161,6 +162,7 @@ export function BuildingEditor({
   );
   const [arrayApplying, setArrayApplying] = useState(false);
   const [rcpDetecting, setRcpDetecting] = useState(false);
+  const [rcpCommitting, setRcpCommitting] = useState(false);
   const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
   const [showRcpOverlay, setShowRcpOverlay] = useState(true);
   const [selectedRcpId, setSelectedRcpId] = useState<string | null>(null);
@@ -875,6 +877,57 @@ export function BuildingEditor({
       setStatus(e instanceof Error ? e.message : "Detect failed");
     } finally {
       setRcpDetecting(false);
+    }
+  }
+
+  async function runRcpCommit(options: {
+    replaceExistingFromDetect: boolean;
+    calcAfterCommit: boolean;
+  }) {
+    setRcpCommitting(true);
+    try {
+      const latest = latestRef.current;
+      const out = await commitAcceptedRcpProposals(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          proposals: latest.scene.rcpProposals ?? [],
+          rules: latest.scene.fixtureCodeMap ?? [],
+          luminaireNames: codeMapLuminaireNames,
+          options: {
+            replaceExistingFromDetect: options.replaceExistingFromDetect,
+            runCalc: options.calcAfterCommit,
+            calcScope: "room",
+          },
+        },
+        writeCalcDeps()
+      );
+      setScene(out.scene);
+      setResults(out.results);
+      if (out.instanceIds.length === 0) {
+        setStatus(
+          out.skippedOutside.length
+            ? `No fixtures placed — ${out.skippedOutside.length} outside room`
+            : "Nothing to commit"
+        );
+        return;
+      }
+      let msg = `Committed ${out.instanceIds.length} fixture(s) from RCP / 已提交 ${out.instanceIds.length} 個燈具`;
+      if (out.skippedOutside.length) {
+        msg += ` · skipped ${out.skippedOutside.length} outside room`;
+      }
+      if (options.calcAfterCommit && out.calcFailed) {
+        msg += " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+      } else if (options.calcAfterCommit) {
+        msg += " · calculated / 已計算";
+      }
+      setStatus(msg);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      await save(out.scene, out.results, latest.name);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Commit failed");
+    } finally {
+      setRcpCommitting(false);
     }
   }
 
@@ -1853,6 +1906,9 @@ export function BuildingEditor({
               onShowOverlayChange={setShowRcpOverlay}
               onDetect={() => void runRcpDetect()}
               lastWarnings={rcpWarnings}
+              scene={scene}
+              committing={rcpCommitting}
+              onCommit={(opts) => runRcpCommit(opts)}
             />
           )}
 

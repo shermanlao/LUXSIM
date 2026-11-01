@@ -118,6 +118,8 @@ export interface FixtureInstance {
   name: string;
   position: { x: number; y: number; z: number };
   rotationDeg: number;
+  /** Present when placed via RCP detect commit (F2.4). */
+  rcpProposalId?: string;
 }
 
 /** RCP / schedule fixture code → org luminaire (exact/alias only; stored on project scene). */
@@ -132,7 +134,12 @@ export interface FixtureCodeMapRule {
 }
 
 /** OCR / vision proposal — not a placed fixture until F2.4 commit. */
-export type RcpProposalStatus = "pending" | "accepted" | "rejected" | "edited";
+export type RcpProposalStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "edited"
+  | "committed";
 
 export interface RcpDetectionProposal {
   id: string;
