@@ -1015,7 +1015,12 @@ export function BuildingEditor({
         },
         calcAfterPlace
       );
-      setStatus(`Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${calcNote}`);
+      const estimateNote = params.estimateByTargetEm
+        ? " · Estimate only — run Calc for final Ēm / 估算 — 請用 Calc 確認"
+        : "";
+      setStatus(
+        `Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${calcNote}${estimateNote}`
+      );
       await save(nextScene, out.results, latest.name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Array apply failed");
@@ -1045,6 +1050,16 @@ export function BuildingEditor({
   const projectFixtures = useMemo(
     () => library.filter((l) => scene.fixtureLibraryIds.includes(l.id)),
     [library, scene.fixtureLibraryIds]
+  );
+
+  const arrayLuminaireOptions = useMemo(
+    () =>
+      projectFixtures.map((l) => ({
+        id: l.id,
+        name: l.name,
+        fluxLm: l.lumens ?? photoCache[l.id]?.luminousFlux ?? null,
+      })),
+    [projectFixtures, photoCache]
   );
 
   const codeMapLuminaires = useMemo(() => {
@@ -1953,7 +1968,7 @@ export function BuildingEditor({
           {workflow === "light" && (
             <FixtureArrayPanel
               room={activeRoom}
-              luminaires={projectFixtures.map((l) => ({ id: l.id, name: l.name }))}
+              luminaires={arrayLuminaireOptions}
               preview={arrayPreview}
               onPreviewChange={setArrayPreview}
               calcAfterPlace={calcAfterPlace}

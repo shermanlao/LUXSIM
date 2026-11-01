@@ -11,6 +11,8 @@ export type ArrayParams = {
   spacingY: number;
   wallOffset: number;
   rotationDeg: number;
+  /** Set when grid came from target-Ēm estimator (F1.2). */
+  estimateByTargetEm?: boolean;
 };
 
 export type ArrayPoint = { x: number; y: number; rotationDeg: number };
