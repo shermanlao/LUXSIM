@@ -131,6 +131,19 @@ export interface FixtureCodeMapRule {
   active: boolean;
 }
 
+/** OCR / vision proposal — not a placed fixture until F2.4 commit. */
+export interface RcpDetectionProposal {
+  id: string;
+  underlayId?: string;
+  codeRaw: string;
+  codeNorm?: string;
+  bboxPx?: { x0: number; y0: number; x1: number; y1: number };
+  pointPx?: { x: number; y: number };
+  pointM?: { x: number; y: number };
+  confidence: number;
+  status: "pending";
+}
+
 export interface ProjectSceneV2 {
   version: 2;
   storeys: Storey[];
@@ -140,6 +153,8 @@ export interface ProjectSceneV2 {
   instances: FixtureInstance[];
   /** Fixture code map rules for RCP/schedule import pipelines (project-scoped). */
   fixtureCodeMap?: FixtureCodeMapRule[];
+  /** Pending RCP code detections from plan OCR (F2.2). */
+  rcpProposals?: RcpDetectionProposal[];
   ui: {
     activeStoreyId: string;
     activeRoomId: string | null;

@@ -9,6 +9,7 @@ export type {
   Underlay,
   FixtureInstance,
   FixtureCodeMapRule,
+  RcpDetectionProposal,
   ViewMode,
   Camera3dView,
   DxfEntity,

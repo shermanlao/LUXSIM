@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, ProjectSceneV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import {
   findRoomAt,
   isCloseToStart,
@@ -32,6 +32,8 @@ type Props = {
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
   /** Array tool preview positions (world m, Top plan). */
   arrayPreview?: { x: number; y: number; rotationDeg: number }[];
+  rcpProposals?: RcpDetectionProposal[];
+  showRcpOverlay?: boolean;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -55,6 +57,8 @@ export function TopView2D({
   onCalibratePoints,
   onUnderlaySourceSize,
   arrayPreview = [],
+  rcpProposals = [],
+  showRcpOverlay = false,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -520,6 +524,20 @@ export function TopView2D({
             strokeWidth={1.5}
           />
         )}
+
+        {showRcpOverlay &&
+          rcpProposals.map((p) => {
+            if (!p.pointM) return null;
+            const s = toScreen(p.pointM.x, p.pointM.y);
+            return (
+              <g key={p.id} pointerEvents="none">
+                <circle cx={s.x} cy={s.y} r={7} fill="#9b59b6" fillOpacity={0.35} stroke="#e8d4ff" strokeWidth={1.5} />
+                <text x={s.x + 9} y={s.y - 6} fill="#e8d4ff" fontSize={9} fontFamily="system-ui,sans-serif">
+                  {p.codeRaw}
+                </text>
+              </g>
+            );
+          })}
 
         {arrayPreview.map((ghost, idx) => {
           const s = toScreen(ghost.x, ghost.y);

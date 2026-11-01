@@ -17,7 +17,8 @@ On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-ble
 5. **Upload IES/LDT** — appears in fixture list only.
 6. **Drag** fixture onto a room (Top / Front / Side / 3D), or use **Light → Arrange · array** (rectangular / line grid, Preview on Top, Apply).
 7. **Code map** (Light mode): define schedule codes → luminaire rules on the project scene (`fixtureCodeMap` JSON, autosaved). Optional CSV `code,luminaireId`. Test lookup shows mapped / ambiguous / unmapped — pipelines must not guess.
-8. **Calculate** active room or all rooms (client-side). Optional **Calc after place** when applying an array (or enable before drag-drop).
-9. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.
+8. **Detect from plan / 從圖則偵測** (Light): local OCR on the raster underlay → `rcpProposals` (code + approximate x/y); toggle Top markers; does **not** place fixtures yet.
+9. **Calculate** active room or all rooms (client-side). Optional **Calc after place** when applying an array (or enable before drag-drop).
+10. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.
 
 **Persistence:** fixture code map rules live in **`ProjectSceneV2.fixtureCodeMap`** (project `sceneJson`), not a separate DB table — they travel with `.luxsim` export and autosave.

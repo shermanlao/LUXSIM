@@ -50,6 +50,7 @@ import {
 } from "@/lib/project-autosave";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
+import { RcpDetectPanel } from "./RcpDetectPanel";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { TopView2D } from "./TopView2D";
@@ -159,6 +160,9 @@ export function BuildingEditor({
     null
   );
   const [arrayApplying, setArrayApplying] = useState(false);
+  const [rcpDetecting, setRcpDetecting] = useState(false);
+  const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
+  const [showRcpOverlay, setShowRcpOverlay] = useState(true);
   const [calibDist, setCalibDist] = useState("5");
   const [rectLenMm, setRectLenMm] = useState("6000");
   const [rectWidMm, setRectWidMm] = useState("4000");
@@ -838,6 +842,41 @@ export function BuildingEditor({
     }
   }
 
+  async function runRcpDetect() {
+    if (!underlay?.pageRasterAssetId && underlay?.kind !== "image") {
+      setStatus("Import a rasterized PDF or image plan first");
+      return;
+    }
+    if (!underlay?.sourceWidthPx || !underlay.sourceHeightPx) {
+      setStatus("Plan raster size unknown — re-import the underlay");
+      return;
+    }
+    setRcpDetecting(true);
+    setRcpWarnings([]);
+    setStatus("Detecting fixture codes (local OCR)…");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/rcp-detect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ underlayId: underlay.id, allowCloud: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "Detect failed");
+        return;
+      }
+      patchScene((s) => ({ ...s, rcpProposals: data.proposals ?? [] }));
+      setRcpWarnings(data.warnings ?? []);
+      setShowRcpOverlay(true);
+      const n = (data.proposals as unknown[])?.length ?? 0;
+      setStatus(n ? `Detected ${n} code proposal(s) (local OCR)` : "No codes detected — see warnings");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Detect failed");
+    } finally {
+      setRcpDetecting(false);
+    }
+  }
+
   async function applyFixtureArray(params: ArrayParams, luminaireId: string) {
     if (!activeRoom) {
       setStatus("Select a room for the array");
@@ -1050,6 +1089,8 @@ export function BuildingEditor({
           onCalibratePoints={onCalibrate}
           onUnderlaySourceSize={persistUnderlaySourceSize}
           arrayPreview={arrayPreview ?? undefined}
+          rcpProposals={scene.rcpProposals ?? []}
+          showRcpOverlay={showRcpOverlay && workflow === "light"}
         />
       )}
       {viewMode === "front" && (
@@ -1788,6 +1829,18 @@ export function BuildingEditor({
                 </p>
               </div>
             </div>
+          )}
+
+          {workflow === "light" && (
+            <RcpDetectPanel
+              disabled={!underlay || (!underlay.pageRasterAssetId && underlay.kind !== "image")}
+              detecting={rcpDetecting}
+              proposals={scene.rcpProposals ?? []}
+              showOverlay={showRcpOverlay}
+              onShowOverlayChange={setShowRcpOverlay}
+              onDetect={() => void runRcpDetect()}
+              lastWarnings={rcpWarnings}
+            />
           )}
 
           {workflow === "light" && (

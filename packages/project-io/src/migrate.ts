@@ -161,6 +161,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
       fixtureLibraryIds: scene.fixtureLibraryIds ?? [],
       instances: scene.instances ?? [],
       fixtureCodeMap: scene.fixtureCodeMap ?? [],
+      rcpProposals: scene.rcpProposals ?? [],
       rooms: (scene.rooms ?? []).map(normalizeRoom),
       storeys: scene.storeys?.length ? scene.storeys : defaultSceneV2().storeys,
       ui: {

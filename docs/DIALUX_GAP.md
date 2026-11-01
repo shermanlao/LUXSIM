@@ -43,6 +43,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 ### Plans / BIM
 
 - **PDF RCP**: uploaded PDF kept as asset; selected page rasterized to PNG (`pageRasterAssetId`, `rasterDpi`, pixel size on underlay) for Top/3D — not `<img src=pdf>`
+- **RCP OCR (F2.2)**: Light mode **Detect from plan** — local tesseract proposals (`rcpProposals` on scene); no cloud by default
 - DXF is display-only (no snap / convert-to-room)
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)
