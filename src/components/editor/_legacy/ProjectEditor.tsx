@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import type { CalcResults, LuminaireInstance } from "@luxsim/solver";
 import type { SceneJson } from "@luxsim/project-io";
+import { migrateSceneV1toV2 } from "@luxsim/project-io";
 import { runSolverClient } from "@/lib/run-solver";
 import {
   buildLuxsimProject,
@@ -12,10 +13,10 @@ import {
   exportLuxsimFile,
   exportPdfReport,
 } from "@/lib/exports-client";
-import { FalseColorLegend } from "./FalseColorLegend";
+import { FalseColorLegend } from "../FalseColorLegend";
 
 const SceneViewer = dynamic(
-  () => import("./SceneViewer").then((m) => m.SceneViewer),
+  () => import("../SceneViewer").then((m) => m.SceneViewer),
   {
     ssr: false,
     loading: () => (
@@ -328,9 +329,15 @@ export function ProjectEditor({
     for (const lum of scene.luminaires) {
       await ensurePhotometry(lum.luminaireId);
     }
+    const v2 = migrateSceneV1toV2(scene);
+    const roomId = v2.rooms[0]?.id;
     await exportDialuxPack({
       projectName: name,
-      scene,
+      scene: v2,
+      results:
+        results && roomId
+          ? { version: 2, byRoomId: { [roomId]: results } }
+          : null,
       sourceFiles: sourceCache,
       luminaireNames: names,
     });

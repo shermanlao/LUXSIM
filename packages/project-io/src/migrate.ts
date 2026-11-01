@@ -1,4 +1,6 @@
-import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2 } from "./types";
+import { defaultMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
+import { normalizeWorkflowMode } from "./editor-workflow";
+import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2, RoomV2 } from "./types";
 import type { CalcResults } from "../../solver/src/types";
 import { rectPolygon } from "./geometry";
 
@@ -38,6 +40,7 @@ export function defaultSceneV2(): ProjectSceneV2 {
       activeRoomId: null,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
     },
   };
@@ -74,6 +77,8 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
           interreflection: scene.calcOptions.interreflection,
           bounces: scene.calcOptions.bounces,
           computeUgr: scene.calcOptions.computeUgr,
+          maintenanceFactor: defaultMaintenanceFactor(),
+          en12464TemplateId: "",
         },
       },
     ],
@@ -93,6 +98,7 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
       activeRoomId: roomId,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
     },
   };
@@ -128,6 +134,25 @@ function normalizeCamera3d(
   };
 }
 
+function normalizeRoomCalc(calc: RoomV2["calc"] | undefined): RoomV2["calc"] {
+  return {
+    gridSpacing: calc?.gridSpacing ?? 0.5,
+    interreflection: calc?.interreflection ?? true,
+    bounces: calc?.bounces ?? 2,
+    computeUgr: calc?.computeUgr ?? true,
+    maintenanceFactor: calc?.maintenanceFactor ?? defaultMaintenanceFactor(),
+    en12464TemplateId: calc?.en12464TemplateId ?? "",
+    mfBreakdown: calc?.mfBreakdown ? normalizeMfBreakdown(calc.mfBreakdown) : undefined,
+  };
+}
+
+function normalizeRoom(room: RoomV2): RoomV2 {
+  return {
+    ...room,
+    calc: normalizeRoomCalc(room.calc),
+  };
+}
+
 export function normalizeScene(scene: unknown): ProjectSceneV2 {
   if (isSceneV2(scene)) {
     return {
@@ -135,7 +160,9 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
       underlays: scene.underlays ?? [],
       fixtureLibraryIds: scene.fixtureLibraryIds ?? [],
       instances: scene.instances ?? [],
-      rooms: scene.rooms ?? [],
+      fixtureCodeMap: scene.fixtureCodeMap ?? [],
+      rcpProposals: scene.rcpProposals ?? [],
+      rooms: (scene.rooms ?? []).map(normalizeRoom),
       storeys: scene.storeys?.length ? scene.storeys : defaultSceneV2().storeys,
       ui: {
         activeStoreyId:
@@ -143,6 +170,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         activeRoomId: scene.ui?.activeRoomId ?? null,
         viewMode: normalizeViewMode(scene.ui?.viewMode),
         tool: scene.ui?.tool ?? "select",
+        workflowMode: normalizeWorkflowMode(scene.ui?.workflowMode),
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
       },
     };

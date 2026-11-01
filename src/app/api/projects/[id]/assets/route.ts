@@ -1,8 +1,14 @@
 import { NextResponse } from "next/server";
+import fs from "fs/promises";
 import { parseDxfEntities, dxfBounds, importIfcText } from "@luxsim/project-io";
 import { prisma } from "@/lib/prisma";
 import { requireOrgContext } from "@/lib/session";
-import { saveBinaryFile, saveTextFile } from "@/lib/storage";
+import { absolutePath, saveBinaryFile, saveTextFile } from "@/lib/storage";
+import {
+  createPdfRasterAsset,
+  PdfEncryptedError,
+  PdfInvalidError,
+} from "@/lib/pdf-raster-ingest";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -71,6 +77,20 @@ export async function POST(req: Request, { params }: Params) {
     let fileKey: string;
     let ifcScene = null;
     let warnings: string[] = [];
+    let rasterAsset: Awaited<ReturnType<typeof createPdfRasterAsset>>["rasterAsset"] | null =
+      null;
+    let rasterInfo: {
+      widthPx: number;
+      heightPx: number;
+      rasterDpi: number;
+      pageCount: number;
+      pageIndex: number;
+    } | null = null;
+    let pdfBuffer: Buffer | null = null;
+    const pageIndexRaw = form.get("pageIndex");
+    const initialPdfPage = Number.isFinite(Number(pageIndexRaw))
+      ? Math.max(0, Math.floor(Number(pageIndexRaw)))
+      : 0;
 
     if (kind === "dxf" || kind === "ifc") {
       const text = await file.text();
@@ -97,6 +117,9 @@ export async function POST(req: Request, { params }: Params) {
     } else {
       const buf = Buffer.from(await file.arrayBuffer());
       fileKey = await saveBinaryFile("assets", file.name, buf);
+      if (kind === "pdf") {
+        pdfBuffer = buf;
+      }
     }
 
     const asset = await prisma.projectAsset.create({
@@ -109,7 +132,54 @@ export async function POST(req: Request, { params }: Params) {
       },
     });
 
-    return NextResponse.json({ asset, ifcScene, warnings });
+    if (kind === "pdf" && pdfBuffer) {
+      try {
+        const { rasterAsset: ra, raster } = await createPdfRasterAsset({
+          projectId: id,
+          pdfAssetId: asset.id,
+          pdfFileName: file.name,
+          pdfBuffer,
+          pageIndex: initialPdfPage,
+        });
+        rasterAsset = ra;
+        rasterInfo = {
+          widthPx: raster.widthPx,
+          heightPx: raster.heightPx,
+          rasterDpi: raster.rasterDpi,
+          pageCount: raster.pageCount,
+          pageIndex: raster.pageIndex,
+        };
+        meta.pageCount = raster.pageCount;
+        meta.lastPageIndex = raster.pageIndex;
+        meta.lastRasterAssetId = ra.id;
+        meta.rasterDpi = raster.rasterDpi;
+        meta.widthPx = raster.widthPx;
+        meta.heightPx = raster.heightPx;
+        warnings = [...warnings, ...raster.warnings, "PDF rasterized for display"];
+        await prisma.projectAsset.update({
+          where: { id: asset.id },
+          data: { metaJson: JSON.stringify(meta) },
+        });
+      } catch (e) {
+        if (e instanceof PdfEncryptedError || e instanceof PdfInvalidError) {
+          await prisma.projectAsset.delete({ where: { id: asset.id } });
+          await fs.unlink(absolutePath(fileKey)).catch(() => undefined);
+          return NextResponse.json({ error: e.message }, { status: 400 });
+        }
+        throw e;
+      }
+    }
+
+    return NextResponse.json({
+      asset: {
+        ...asset,
+        metaJson: JSON.stringify(meta),
+      },
+      rasterAsset,
+      raster: rasterInfo,
+      ifcScene,
+      warnings,
+    });
   } catch (e) {
     if (e instanceof Error && e.message === "UNAUTHORIZED") {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });

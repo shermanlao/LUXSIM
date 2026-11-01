@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, ProjectSceneV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import {
   findRoomAt,
   isCloseToStart,
@@ -30,6 +30,11 @@ type Props = {
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
   /** Persist native pixel size (and migrate legacy scale) for older underlays. */
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
+  /** Array tool preview positions (world m, Top plan). */
+  arrayPreview?: { x: number; y: number; rotationDeg: number }[];
+  rcpProposals?: RcpDetectionProposal[];
+  showRcpOverlay?: boolean;
+  selectedRcpId?: string | null;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -52,6 +57,10 @@ export function TopView2D({
   onSelectRoom,
   onCalibratePoints,
   onUnderlaySourceSize,
+  arrayPreview = [],
+  rcpProposals = [],
+  showRcpOverlay = false,
+  selectedRcpId = null,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -518,6 +527,70 @@ export function TopView2D({
           />
         )}
 
+        {showRcpOverlay &&
+          rcpProposals.map((p) => {
+            if (!p.pointM || p.status === "rejected" || p.status === "committed") return null;
+            const s = toScreen(p.pointM.x, p.pointM.y);
+            const selected = p.id === selectedRcpId;
+            const accepted = p.status === "accepted" || p.status === "edited";
+            return (
+              <g key={p.id} pointerEvents="none">
+                <circle
+                  cx={s.x}
+                  cy={s.y}
+                  r={selected ? 10 : 7}
+                  fill={accepted ? "#27ae60" : "#9b59b6"}
+                  fillOpacity={selected ? 0.55 : 0.35}
+                  stroke={selected ? "#fff" : "#e8d4ff"}
+                  strokeWidth={selected ? 2.5 : 1.5}
+                />
+                <text
+                  x={s.x + (selected ? 12 : 9)}
+                  y={s.y - 6}
+                  fill={selected ? "#fff" : "#e8d4ff"}
+                  fontSize={selected ? 10 : 9}
+                  fontFamily="system-ui,sans-serif"
+                  fontWeight={selected ? "700" : "400"}
+                >
+                  {p.codeRaw}
+                </text>
+              </g>
+            );
+          })}
+
+        {arrayPreview.map((ghost, idx) => {
+          const s = toScreen(ghost.x, ghost.y);
+          const rad = (ghost.rotationDeg * Math.PI) / 180;
+          const len = 10;
+          const x2 = Math.cos(rad) * len;
+          const y2 = -Math.sin(rad) * len;
+          return (
+            <g key={`ghost_${idx}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none">
+              <rect
+                x={-7}
+                y={-7}
+                width={14}
+                height={14}
+                fill="none"
+                stroke="#7ec8e3"
+                strokeWidth={1.5}
+                strokeDasharray="3 2"
+                opacity={0.85}
+              />
+              <line
+                x1={0}
+                y1={0}
+                x2={x2}
+                y2={y2}
+                stroke="#7ec8e3"
+                strokeWidth={1.2}
+                strokeDasharray="2 2"
+                opacity={0.85}
+              />
+            </g>
+          );
+        })}
+
         {instances.map((inst) => {
           const s = toScreen(inst.position.x, inst.position.y);
           const selected = inst.instanceId === selectedId;
@@ -557,6 +630,37 @@ export function TopView2D({
                 stroke="#fff"
                 strokeWidth={1}
               />
+              {(() => {
+                const len = selected ? 14 : 10;
+                const rad = (inst.rotationDeg * Math.PI) / 180;
+                const x2 = Math.cos(rad) * len;
+                const y2 = -Math.sin(rad) * len;
+                return (
+                  <>
+                    <line
+                      x1={0}
+                      y1={0}
+                      x2={x2}
+                      y2={y2}
+                      stroke={selected ? "#fff" : "#1f6f8b"}
+                      strokeWidth={selected ? 2 : 1.5}
+                      strokeLinecap="round"
+                    />
+                    <circle cx={x2} cy={y2} r={2} fill={selected ? "#fff" : "#1f6f8b"} />
+                    {selected && (
+                      <text
+                        x={x2 + 4}
+                        y={y2 - 4}
+                        fill="#fff"
+                        fontSize={9}
+                        fontFamily="system-ui,sans-serif"
+                      >
+                        {Math.round(inst.rotationDeg)}°
+                      </text>
+                    )}
+                  </>
+                );
+              })()}
             </g>
           );
         })}

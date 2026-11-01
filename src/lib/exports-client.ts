@@ -5,6 +5,8 @@ import {
   serializeLuxsim,
   type AnyScene,
   type LuxsimProjectFile,
+  type ProjectSceneV2,
+  type ResultsV2,
   type SceneJson,
 } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
@@ -112,12 +114,13 @@ export function exportLuxsimFile(project: LuxsimProjectFile) {
 
 export async function exportDialuxPack(opts: {
   projectName: string;
-  scene: SceneJson;
+  scene: ProjectSceneV2;
+  results: ResultsV2 | null;
   sourceFiles: Record<string, { filename: string; text: string }>;
   luminaireNames: Record<string, string>;
 }) {
   const blob = await buildDialuxPack(opts);
-  downloadBlob(`${sanitize(opts.projectName)}-dialux-pack.zip`, blob);
+  downloadBlob(`${sanitize(opts.projectName)}-dialux-verification.zip`, blob);
 }
 
 export function buildLuxsimProject(opts: {
