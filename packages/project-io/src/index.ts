@@ -8,15 +8,43 @@ export type {
   Storey,
   Underlay,
   FixtureInstance,
+  FixtureCodeMapRule,
+  RcpDetectionProposal,
+  RcpProposalStatus,
   ViewMode,
   Camera3dView,
   DxfEntity,
   AnyScene,
   Vec2,
+  EditorWorkflowMode,
 } from "./types";
-export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
-export { buildDialuxPack } from "./dialux-pack";
+export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
+export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
+export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
+export {
+  EN12464_TEMPLATES,
+  evaluateEn12464,
+  getEn12464Template,
+} from "./en12464";
+export type { En12464Template, En12464Check, En12464ZoneCheck } from "./en12464";
+export {
+  DEFAULT_MF_BREAKDOWN,
+  clampMf,
+  clampMfComponent,
+  defaultMaintenanceFactor,
+  normalizeMfBreakdown,
+  productMf,
+  resolveMaintenanceFactor,
+} from "./maintenance-factor";
+export type { MfBreakdown } from "./maintenance-factor";
+export {
+  GOLDEN_FIXTURES,
+  GOLDEN_LUXSIM_EXPECTED,
+  GOLDEN_ROOM,
+  GOLDEN_ROOM_ID,
+} from "./ab-golden-room";
+export { buildVerificationDxf } from "./dxf-export";
 export {
   defaultSceneV2,
   migrateSceneV1toV2,
