@@ -7,6 +7,11 @@ export {
   EVO_REFERENCE_MEMBER_ORDER,
 } from "./build-evo";
 export { defaultEvoFixtureRoot } from "./patch-project-data";
+export {
+  archiveUniqueNameFromXml,
+  archiveUuidMatchesProjectInfo,
+  projectInfoFromDat,
+} from "./identity";
 export type { EvoZipMemberMeta } from "./assemble-evo";
 export type { BuildDialuxEvoInput, BuildDialuxEvoResult } from "./build-evo";
 export {

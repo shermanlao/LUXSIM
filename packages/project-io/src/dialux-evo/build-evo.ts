@@ -1,5 +1,4 @@
 import { readFileSync } from "fs";
-import { randomUUID } from "crypto";
 import path from "path";
 import type { ProjectSceneV2 } from "../types";
 import {
@@ -8,6 +7,11 @@ import {
   loadReferenceProjectDataDat,
   patchProjectDataDat,
 } from "./patch-project-data";
+import {
+  archiveUniqueNameFromXml,
+  formatDialuxArchiveCreateTime,
+  formatDialuxArchiveModifiedTimeLocal,
+} from "./identity";
 import {
   assembleEvoZip,
   defaultEvoReferenceZipPath,
@@ -31,21 +35,36 @@ export interface BuildDialuxEvoResult {
   roomCount: number;
 }
 
-export function patchArchiveInfoXml(xml: string, input: BuildDialuxEvoInput): string {
-  const now = new Date();
-  const unique = randomUUID();
-  return xml
-    .replace(/<Title>[^<]*<\/Title>/, `<Title>${escapeXml(input.projectName)}</Title>`)
+export interface PatchArchiveInfoInput {
+  projectName: string;
+  description?: string;
+  /** Template UniqueName — preserved unchanged in XML and STEP #151. */
+  archiveUniqueName: string;
+  templateXml: string;
+}
+
+export function patchArchiveInfoXml(xml: string, input: PatchArchiveInfoInput): string {
+  const title = escapeXml(input.projectName);
+  let out = xml
+    .replace(/<Title>[^<]*<\/Title>/, `<Title>${title}</Title>`)
     .replace(
-      /<Description>[^<]*<\/Description>/,
-      `<Description>${escapeXml(
-        input.description ??
-          `Exported from LUXSIM — AED-180297 L9M reference hand-off (evo 12.1).`
-      )}</Description>`
-    )
-    .replace(/<UniqueName>[^<]*<\/UniqueName>/, `<UniqueName>${unique}</UniqueName>`)
-    .replace(/<CreateTime>[^<]*<\/CreateTime>/, `<CreateTime>${now.toISOString()}</CreateTime>`)
-    .replace(/<ModifiedTime>[^<]*<\/ModifiedTime>/, `<ModifiedTime>${now.toISOString()}</ModifiedTime>`);
+      /<UniqueName>[^<]*<\/UniqueName>/,
+      `<UniqueName>${escapeXml(input.archiveUniqueName)}</UniqueName>`
+    );
+
+  if (input.description) {
+    const desc = escapeXml(input.description);
+    out = out.replace(/<Description>[^<]*<\/Description>/, `<Description>${desc}</Description>`);
+    const now = new Date();
+    out = out
+      .replace(/<CreateTime>[^<]*<\/CreateTime>/, `<CreateTime>${formatDialuxArchiveCreateTime(now)}</CreateTime>`)
+      .replace(
+        /<ModifiedTime>[^<]*<\/ModifiedTime>/,
+        `<ModifiedTime>${formatDialuxArchiveModifiedTimeLocal(now, 8 * 60)}</ModifiedTime>`
+      );
+  }
+
+  return out;
 }
 
 function escapeXml(s: string): string {
@@ -63,21 +82,36 @@ export async function buildDialuxEvo(input: BuildDialuxEvoInput): Promise<BuildD
   }
 
   const referenceZip = input.referenceZipPath ?? defaultEvoReferenceZipPath();
+  const archiveXmlPath = path.join(input.fixtureRoot, "ArchiveInfo/ArchiveInfo.xml");
+  const templateArchiveXml = readFileSync(archiveXmlPath, "utf8");
+  const archiveUniqueName = archiveUniqueNameFromXml(templateArchiveXml);
+
   const templateDat = loadReferenceProjectDataDat(input.fixtureRoot);
   const patched = patchProjectDataDat(
     templateDat,
     input.projectName,
     rooms,
     input.description,
-    { geometry: "off" }
+    {
+      geometry: "off",
+      archiveUniqueName,
+      archiveDescription: input.description,
+      refreshFileNameTime: Boolean(input.description),
+    }
   );
 
-  const archiveXmlPath = path.join(input.fixtureRoot, "ArchiveInfo/ArchiveInfo.xml");
-  const archiveXml = patchArchiveInfoXml(readFileSync(archiveXmlPath, "utf8"), input);
+  const archiveXml = patchArchiveInfoXml(templateArchiveXml, {
+    projectName: input.projectName,
+    description: input.description,
+    archiveUniqueName,
+    templateXml: templateArchiveXml,
+  });
+
+  const datBytes = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(patched.dat, "utf8")]);
 
   const zipBytes = assembleEvoZip(referenceZip, {
     "ArchiveInfo/ArchiveInfo.xml": Buffer.from(archiveXml, "utf8"),
-    "Project/ProjectData/ProjectData.dat": Buffer.from(patched.dat, "utf8"),
+    "Project/ProjectData/ProjectData.dat": datBytes,
   });
 
   const blob = new Blob([zipBytes], { type: "application/octet-stream" });

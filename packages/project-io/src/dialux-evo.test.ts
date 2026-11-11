@@ -3,8 +3,22 @@ import JSZip from "jszip";
 import { writeFileSync, mkdtempSync, rmSync, readFileSync } from "fs";
 import { tmpdir } from "os";
 import path from "path";
+import { execFileSync } from "child_process";
 import { assembleEvoZip } from "./dialux-evo/assemble-evo";
+
+const EVO_VALIDATE_SCRIPT = path.join(
+  process.cwd(),
+  "packages/project-io/scripts/evo-validate-layout.py"
+);
+
+function assertSequentialZipLayout(filePath: string): void {
+  const out = execFileSync("python3", [EVO_VALIDATE_SCRIPT, filePath], { encoding: "utf8" });
+  const errors = JSON.parse(out) as string[];
+  expect(errors).toEqual([]);
+}
 import {
+  archiveUuidMatchesProjectInfo,
+  archiveUniqueNameFromXml,
   buildDialuxEvo,
   defaultEvoFixtureRoot,
   defaultEvoReferenceZipPath,
@@ -65,6 +79,8 @@ describe("buildDialuxEvo", () => {
     const out = path.join(work, "clone.evo");
     writeFileSync(out, assembleEvoZip(defaultEvoReferenceZipPath(), {}));
     try {
+      assertSequentialZipLayout(out);
+      expect(readFileSync(out)).toEqual(readFileSync(defaultEvoReferenceZipPath()));
       const ref = readEvoZipMemberMeta(defaultEvoReferenceZipPath());
       const got = readEvoZipMemberMeta(out);
       expect(got.map((m) => m.filename)).toEqual([...EVO_REFERENCE_MEMBER_ORDER]);
@@ -88,6 +104,11 @@ describe("buildDialuxEvo", () => {
       fixtureRoot,
     });
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const workMeta = mkdtempSync(path.join(tmpdir(), "evo-built-"));
+    const built = path.join(workMeta, "built.evo");
+    writeFileSync(built, Buffer.from(await blob.arrayBuffer()));
+    assertSequentialZipLayout(built);
+    rmSync(workMeta, { recursive: true, force: true });
     for (const member of EVO_ARCHIVE_MEMBERS) {
       if (member.endsWith("/")) {
         expect(zip.folder(member.replace(/\/$/, "")), member).toBeTruthy();
@@ -113,9 +134,11 @@ describe("buildDialuxEvo", () => {
     });
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     const dat = await zip.file("Project/ProjectData/ProjectData.dat")!.async("string");
+    const xml = await zip.file("ArchiveInfo/ArchiveInfo.xml")!.async("string");
+    expect(archiveUuidMatchesProjectInfo(xml, dat)).toBe(true);
     expect(datStepHeaderValid(dat)).toBe(true);
     expect(contourIntegrityIssues(dat)).toHaveLength(0);
-    expect(dat.length).toBeGreaterThan(203_000);
+    expect(dat.length).toBeGreaterThan(204_000);
     expect(dat.length).toBeLessThan(205_000);
     expect(datContainsRoomName(dat, "Server Room")).toBe(true);
     expect(datContainsRoomName(dat, "Open Office")).toBe(true);
@@ -148,7 +171,12 @@ describe("buildDialuxEvo", () => {
     }
   });
 
-  it("updates ArchiveInfo title", async () => {
+  it("preserves template Archive UniqueName in XML and STEP #151", async () => {
+    const templateXml = readFileSync(
+      path.join(fixtureRoot, "ArchiveInfo/ArchiveInfo.xml"),
+      "utf8"
+    );
+    const templateUuid = archiveUniqueNameFromXml(templateXml);
     const { blob } = await buildDialuxEvo({
       projectName: "My LUXSIM Export",
       scene: nineRoomScene(),
@@ -156,7 +184,9 @@ describe("buildDialuxEvo", () => {
     });
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     const xml = await zip.file("ArchiveInfo/ArchiveInfo.xml")!.async("string");
+    const dat = await zip.file("Project/ProjectData/ProjectData.dat")!.async("string");
+    expect(xml).toContain(`<UniqueName>${templateUuid}</UniqueName>`);
+    expect(archiveUuidMatchesProjectInfo(xml, dat)).toBe(true);
     expect(xml).toContain("<Title>My LUXSIM Export</Title>");
-    expect(xml).toContain("5.12.1.7275");
   });
 });

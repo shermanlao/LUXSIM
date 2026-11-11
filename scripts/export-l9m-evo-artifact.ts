@@ -40,19 +40,22 @@ async function main() {
     });
   });
 
-  const { blob } = await buildDialuxEvo({
+  const { blob, warnings } = await buildDialuxEvo({
     projectName: "AED-180297 L9M",
     scene,
     fixtureRoot: defaultEvoFixtureRoot(),
-    description:
-      "Nine-room L9M floor exported from LUXSIM (2.8 m ceiling, 0.75 m workplane). Luminaires not encoded in this build.",
   });
 
   const outDir = "/opt/cursor/artifacts";
   mkdirSync(outDir, { recursive: true });
   const outPath = path.join(outDir, "AED-180297_L9M_from_LUXSIM.evo");
+  const notePath = path.join(outDir, "AED-180297_L9M_from_LUXSIM_R5_NOTES.md");
   writeFileSync(outPath, Buffer.from(await blob.arrayBuffer()));
-  console.log("Wrote", outPath);
+  console.log("Wrote", outPath, "warnings:", warnings);
+  writeFileSync(
+    notePath,
+    `# R5 identity-safe export\n\nSee PR #3 exporter. Regenerate diff with:\n\n\`\`\`bash\npython3 scripts/evo-diff-vs-official.py ${outPath}\n\`\`\`\n`
+  );
 }
 
 void main();

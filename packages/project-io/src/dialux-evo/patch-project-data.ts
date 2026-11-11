@@ -9,6 +9,10 @@ import {
   TEMPLATE_SLOT_INNER_VERTICES,
   TEMPLATE_SLOT_OUTER_VERTICES,
 } from "./constants";
+import {
+  formatDialuxStepFileTime,
+  projectInfoFromDat,
+} from "./identity";
 
 export interface EvoRoomInput {
   room: RoomV2;
@@ -20,6 +24,12 @@ export type EvoPatchGeometryMode = "off" | "contours";
 export interface PatchProjectDataOptions {
   /** Contours/origins require Scenegraph sync; default `off` keeps reference geometry loadable. */
   geometry?: EvoPatchGeometryMode;
+  /** Template archive UUID — must match ArchiveInfo UniqueName (unchanged by default). */
+  archiveUniqueName?: string;
+  /** When set, sync FILE_DESCRIPTION, #151, and STEP header; omit to leave header/#151 descriptions as template. */
+  archiveDescription?: string;
+  /** Refresh FILE_NAME time with DIALux `dd/mm/yyyy` format (only when header is patched). */
+  refreshFileNameTime?: boolean;
 }
 
 export interface PatchProjectDataResult {
@@ -58,17 +68,46 @@ function escapeStepString(value: string): string {
   return value.replace(/%/g, "%25").replace(/;/g, "%3B");
 }
 
-function patchHeader(dat: string, projectName: string, description: string): string {
-  const now = new Date();
-  const iso = now.toISOString();
-  const fileName = escapeStepString(`${projectName}.evo`);
-  const desc = escapeStepString(description);
-  return dat
-    .replace(
-      /FILE_DESCRIPTION \([^)]+\);/,
-      `FILE_DESCRIPTION ('${projectName.replace(/'/g, "''")}', '${desc}');`
-    )
-    .replace(/FILE_NAME \([^)]+\);/, `FILE_NAME ('${fileName}', '', '${iso.replace(/\.\d{3}Z$/, "Z")}');`);
+function patchHeaderSynced(
+  dat: string,
+  projectName: string,
+  descriptionPlain: string,
+  refreshFileNameTime: boolean
+): string {
+  const desc = escapeStepString(descriptionPlain);
+  const title = projectName.replace(/'/g, "''");
+  let out = dat.replace(
+    /FILE_DESCRIPTION \([^)]+\);/,
+    `FILE_DESCRIPTION ('${title}', '${desc}');`
+  );
+  if (refreshFileNameTime) {
+    const info = projectInfoFromDat(dat);
+    const fileStem = info.title.replace(/\s+/g, "_");
+    const fileName = escapeStepString(`${fileStem}.evo`);
+    const time = formatDialuxStepFileTime(new Date());
+    out = out.replace(/FILE_NAME \([^)]+\);/, `FILE_NAME ('${fileName}', '', '${time}');`);
+  }
+  return out;
+}
+
+/** Patch #151 title/description/archive uuid while preserving project uuid and trailing fields. */
+function patchProjectInfoPropertySetSafe(
+  dat: string,
+  archiveUniqueName: string,
+  title: string,
+  descriptionPlain: string
+): string {
+  const lineRe =
+    /#151 = ProjectInfoPropertySet \(2, '([^']+)', '([^']+)', '([^']+)', '([^']*)', ([^;]+);/;
+  const m = dat.match(lineRe);
+  if (!m) throw new Error("Missing #151 ProjectInfoPropertySet");
+  const titleSafe = title.replace(/'/g, "''");
+  const descStep = escapeStepString(descriptionPlain);
+  const uuidSafe = archiveUniqueName.replace(/'/g, "''");
+  return dat.replace(
+    lineRe,
+    `#151 = ProjectInfoPropertySet (2, '${m[1]}', '${uuidSafe}', '${titleSafe}', '${descStep}', ${m[5]});`
+  );
 }
 
 function patchArchiveTitle(dat: string, _projectName: string): string {
@@ -240,10 +279,14 @@ export function patchProjectDataDat(
 ): PatchProjectDataResult {
   const warnings: string[] = [];
   const geometry = options?.geometry ?? "off";
+  const archiveUniqueName = options?.archiveUniqueName;
   if (geometry === "off") {
     warnings.push(
-      "Reference room outlines kept (Scenegraph / ProjectData.xml not regenerated). LUXSIM names, ceiling height, and workplane are still patched."
+      "Reference room outlines kept (Scenegraph / ProjectData.xml not regenerated). Storey/workplane literals preserved from template."
     );
+  }
+  if (!archiveUniqueName) {
+    throw new Error("patchProjectDataDat requires archiveUniqueName from template ArchiveInfo.");
   }
   if (rooms.length > MAX_TEMPLATE_ROOMS) {
     warnings.push(
@@ -252,20 +295,25 @@ export function patchProjectDataDat(
   }
   const slice = rooms.slice(0, MAX_TEMPLATE_ROOMS);
   let dat = templateDat;
-  dat = patchHeader(
-    dat,
-    projectName,
-    description ??
-      `${projectName} exported from LUXSIM (geometry faithful; luminaires not encoded in this build).`
-  );
+  const syncDescription = options?.archiveDescription ?? description;
+  if (syncDescription) {
+    dat = patchHeaderSynced(dat, projectName, syncDescription, options?.refreshFileNameTime ?? false);
+    dat = patchProjectInfoPropertySetSafe(dat, archiveUniqueName, projectName, syncDescription);
+  } else if (projectInfoFromDat(dat).archiveUuid !== archiveUniqueName) {
+    dat = patchProjectInfoPropertySetSafe(
+      dat,
+      archiveUniqueName,
+      projectInfoFromDat(dat).title,
+      projectInfoFromDat(dat).description
+    );
+  }
   if (geometry === "contours") {
     dat = patchContours(dat, slice, warnings);
     dat = patchBuildingOrigins(dat, slice);
+    dat = patchStoreyHeights(dat, slice);
+    dat = patchWorkplaneHeights(dat, slice);
   }
-  dat = patchStoreyHeights(dat, slice);
-  dat = patchWorkplaneHeights(dat, slice);
   dat = patchRoomNames(dat, slice);
-  patchArchiveTitle(dat, projectName);
   if (rooms.length < MAX_TEMPLATE_ROOMS) {
     warnings.push(
       `Exported ${rooms.length} room(s); unused template room slots remain in the archive (open in DIALux and delete extras if needed).`
