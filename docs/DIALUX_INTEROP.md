@@ -14,7 +14,7 @@
 
 | Format | Support |
 |--------|---------|
-| Full PDF report | Cover, summary, per-room, product polar sheets, schedule |
+| Full PDF report | Cover, project summary, luminaire list, room list, calculation objects, per-room summary (properties + results + working plane / false-color), product polar sheets, coordinate schedule |
 | `.luxsim.json` | Native project |
 | DIALux pack zip | IES/LDT + schedule + room.json |
 

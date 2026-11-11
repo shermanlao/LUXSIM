@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
+  gridToFalseColorPngDataUrl,
   clipResultsToPolygon,
   findRoomAt,
   initialMetersPerPixel,
@@ -686,12 +687,21 @@ export function BuildingEditor({
     }
     const wattsById: Record<string, number | null | undefined> = {};
     for (const l of library) wattsById[l.id] = l.watts;
+    const falseColorSnapshots: Record<string, string> = {};
+    for (const room of scene.rooms) {
+      const res = results.byRoomId[room.id];
+      if (!res) continue;
+      const snap = gridToFalseColorPngDataUrl(room, res);
+      if (snap) falseColorSnapshots[room.id] = snap;
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
       results,
       photometry,
       wattsById,
+      falseColorSnapshots,
+      luxsimVersion: "0.1.0",
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }

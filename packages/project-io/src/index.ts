@@ -46,6 +46,13 @@ export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
+export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
+export {
+  aggregateProjectLuminaires,
+  roomLpdFromPolygon,
+  roomPolygonArea,
+  enrichSummaryWithPolygonArea,
+} from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,
   underlayWorldSize,

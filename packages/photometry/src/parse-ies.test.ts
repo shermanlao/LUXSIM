@@ -19,6 +19,12 @@ describe("parseIes", () => {
     expect(data.watts).toBe(30);
   });
 
+  it("treats negative IES lamp lumens as absolute photometry", () => {
+    const hacked = fixture.replace("2000", "-1");
+    const { data } = parseIes(hacked);
+    expect(data.luminousFlux).toBeNull();
+  });
+
   it("samples nadir intensity", () => {
     const { data } = parseIes(fixture);
     const cd = sampleIntensityCd(data, 0, 0);
