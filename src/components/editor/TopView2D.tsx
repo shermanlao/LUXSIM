@@ -13,6 +13,8 @@ import {
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
+import type { PhotometricData } from "@luxsim/photometry";
+import { planSymbolGeom } from "./LuminaireBody";
 
 type Props = {
   scene: ProjectSceneV2;
@@ -30,6 +32,7 @@ type Props = {
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
   /** Persist native pixel size (and migrate legacy scale) for older underlays. */
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
+  photometry?: Record<string, PhotometricData>;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -52,6 +55,7 @@ export function TopView2D({
   onSelectRoom,
   onCalibratePoints,
   onUnderlaySourceSize,
+  photometry,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -548,15 +552,31 @@ export function TopView2D({
                 window.addEventListener("mouseup", up);
               }}
             >
-              <rect
-                x={-8}
-                y={-8}
-                width={16}
-                height={16}
-                fill={selected ? "#c45c26" : "#e8c27a"}
-                stroke="#fff"
-                strokeWidth={1}
-              />
+              {(() => {
+                const { body, rx, ry, hitR } = planSymbolGeom(photometry?.[inst.luminaireId], scale);
+                const fill = selected ? "#c45c26" : body.housing === "black" ? "#2a2a2c" : "#d8d4cc";
+                return (
+                  <>
+                    <circle r={hitR} fill="transparent" />
+                    {body.isCircular ? (
+                      <>
+                        <circle r={rx} fill={fill} stroke="#fff" strokeWidth={0.8} />
+                        <circle r={rx * 0.62} fill="#f3e2b0" />
+                      </>
+                    ) : (
+                      <rect
+                        x={-rx}
+                        y={-ry}
+                        width={rx * 2}
+                        height={ry * 2}
+                        fill={fill}
+                        stroke="#fff"
+                        strokeWidth={0.8}
+                      />
+                    )}
+                  </>
+                );
+              })()}
             </g>
           );
         })}

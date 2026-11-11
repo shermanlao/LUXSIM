@@ -11,11 +11,13 @@ export function SceneViewer({
   results,
   selectedId,
   onSelect,
+  photometry,
 }: {
   scene: SceneJson;
   results: CalcResults | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  photometry?: Record<string, import("@luxsim/photometry").PhotometricData>;
 }) {
   const [fullscreen, setFullscreen] = useState(false);
   /** Survives layout mode changes; Canvas is NOT remounted so orbit stays live */
@@ -77,6 +79,7 @@ export function SceneViewer({
         className={fullscreen ? "h-screen w-screen" : "h-[520px] w-full"}
         viewRef={viewRef}
         initialView={seedView}
+        photometry={photometry}
       />
 
       {fullscreen && (

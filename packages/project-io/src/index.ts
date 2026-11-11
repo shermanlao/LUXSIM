@@ -47,6 +47,8 @@ export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
 export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
+export { luxToRgb, rgbCss, legendStopsForRange, isoluxLevels, buildIsoluxModel, DIALUX_LUX_STOPS } from "./isolux-map";
+export type { IsoluxMode, IsoluxModel } from "./isolux-map";
 export {
   aggregateProjectLuminaires,
   roomLpdFromPolygon,

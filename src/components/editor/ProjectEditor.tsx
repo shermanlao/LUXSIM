@@ -459,6 +459,7 @@ export function ProjectEditor({
             results={results}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            photometry={photoCache}
           />
           {results && (
             <div className="panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">

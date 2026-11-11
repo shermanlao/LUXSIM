@@ -11,6 +11,8 @@ import { roomBounds, underlayWorldSize } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { OrbitViewBridge } from "./OrbitViewBridge";
 import { PlanUnderlay3D } from "./PlanUnderlay3D";
+import type { PhotometricData } from "@luxsim/photometry";
+import { LuminaireBodyMesh } from "./LuminaireBody";
 
 function toThree(x: number, y: number, z: number): [number, number, number] {
   return [x, z, y];
@@ -98,6 +100,7 @@ export function BuildingScene3D({
   onUnderlaySourceSize,
   viewRef,
   initialView,
+  photometry,
 }: {
   scene: ProjectSceneV2;
   results: CalcResults | null;
@@ -110,6 +113,7 @@ export function BuildingScene3D({
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
   viewRef: React.MutableRefObject<Camera3dView | null>;
   initialView: Camera3dView | null;
+  photometry?: Record<string, PhotometricData>;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -240,10 +244,10 @@ export function BuildingScene3D({
                 onSelect(lum.instanceId);
               }}
             >
-              <mesh>
-                <boxGeometry args={[0.35, 0.12, 0.35]} />
-                <meshStandardMaterial color={selected ? "#c45c26" : "#e8c27a"} />
-              </mesh>
+              <LuminaireBodyMesh
+                photo={photometry?.[lum.luminaireId]}
+                selected={selected}
+              />
             </group>
           );
         })}

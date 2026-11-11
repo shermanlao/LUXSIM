@@ -8,6 +8,8 @@ import type { CalcResults } from "@luxsim/solver";
 import type { SceneJson } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { OrbitViewBridge, type Camera3dView } from "./OrbitViewBridge";
+import type { PhotometricData } from "@luxsim/photometry";
+import { LuminaireBodyMesh } from "./LuminaireBody";
 
 export type CameraViewState = Camera3dView;
 
@@ -61,6 +63,7 @@ export function RoomScene({
   className = "h-[520px]",
   viewRef,
   initialView,
+  photometry,
 }: {
   scene: SceneJson;
   results: CalcResults | null;
@@ -69,6 +72,7 @@ export function RoomScene({
   className?: string;
   viewRef: React.MutableRefObject<CameraViewState | null>;
   initialView: CameraViewState | null;
+  photometry?: Record<string, PhotometricData>;
 }) {
   const { width, depth, height } = scene.room;
   const defaultTarget = toThree(width / 2, depth / 2, height * 0.35);
@@ -133,14 +137,10 @@ export function RoomScene({
                 onSelect(lum.instanceId);
               }}
             >
-              <mesh>
-                <boxGeometry args={[0.35, 0.12, 0.35]} />
-                <meshStandardMaterial color={selected ? "#c45c26" : "#e8c27a"} />
-              </mesh>
-              <mesh position={[0, -0.22, 0]}>
-                <coneGeometry args={[0.15, 0.35, 16]} />
-                <meshBasicMaterial color="#f0d48a" transparent opacity={0.35} />
-              </mesh>
+              <LuminaireBodyMesh
+                photo={photometry?.[lum.luminaireId]}
+                selected={selected}
+              />
             </group>
           );
         })}

@@ -172,3 +172,83 @@ describe("buildFullReportPdf", () => {
     expect(summary.lpd).toBeCloseTo(roomLpdFromPolygon(room, scene, { lum: data }, { lum: 30 })!, 4);
   });
 });
+
+describe("Lighting Plan section", () => {
+  function officeScene() {
+    const { data } = parseIes(fixture);
+    const room: RoomV2 = {
+      id: "r1",
+      storeyId: "s1",
+      name: "Office",
+      polygon: rectPolygon(0, 0, 6, 5),
+      heightM: 2.8,
+      workplaneHeightM: 0.75,
+      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+      calc: { gridSpacing: 0.5, interreflection: true, bounces: 2, computeUgr: true },
+    };
+    const inst: FixtureInstance = {
+      instanceId: "i1",
+      luminaireId: "lum",
+      storeyId: "s1",
+      roomId: "r1",
+      name: "DL",
+      position: { x: 3, y: 2.5, z: 2.6 },
+      rotationDeg: 0,
+    };
+    const calc = clipResultsToPolygon(
+      room,
+      calculate(roomToCalcOptions(room, [inst], { lum: data }, { lum: 30 }))
+    );
+    const scene: ProjectSceneV2 = {
+      version: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 3 }],
+      rooms: [room],
+      underlays: [],
+      fixtureLibraryIds: ["lum"],
+      instances: [inst],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", viewMode: "top", tool: "select" },
+    };
+    return { data, room, inst, calc, scene };
+  }
+
+  function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
+    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+  }
+
+  it("includes a Lighting Plan section after Calculation objects", () => {
+    const { data, calc, scene } = officeScene();
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+      wattsById: { lum: 30 },
+      luxsimVersion: "0.1.0",
+    });
+    const text = pdfText(doc);
+    expect(text).toContain("5. Lighting Plan");
+    expect(text).toContain("6. Per-room summary and working plane");
+    expect(text).toContain("Lighting Plan");
+    expect(text).toContain("Scale 1:");
+    expect(text).toContain("Legend");
+    expect(text).toContain("Mounting height 2.60 m");
+    const pages =
+      (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal?.getNumberOfPages?.() ?? 0;
+    expect(pages).toBeGreaterThanOrEqual(11);
+  });
+
+  it("still draws a room plan when there are no fixture instances", () => {
+    const { data, calc, scene, room } = officeScene();
+    scene.instances = [];
+    const doc = buildFullReportPdf({
+      projectName: "Empty fixtures",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+    });
+    const text = pdfText(doc);
+    expect(text).toContain("Lighting Plan");
+    expect(text).toContain(room.name);
+    expect(text).toContain("Scale 1:");
+  });
+});

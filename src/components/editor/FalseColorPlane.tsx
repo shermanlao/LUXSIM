@@ -5,8 +5,8 @@ import * as THREE from "three";
 import type { CalcResults } from "@luxsim/solver";
 import { luxToRgb } from "@/lib/false-color";
 
-function luxToColor(lux: number, max: number): THREE.Color {
-  const [r, g, b] = luxToRgb(lux, max);
+function luxToColor(lux: number): THREE.Color {
+  const [r, g, b] = luxToRgb(lux);
   return new THREE.Color(r, g, b);
 }
 
@@ -26,7 +26,6 @@ export function FalseColorPlane({
       Math.max(grid.ny - 1, 1)
     );
     const colors: number[] = [];
-    const max = Math.max(...grid.lux, 1);
     const wSeg = Math.max(grid.nx - 1, 1);
     const hSeg = Math.max(grid.ny - 1, 1);
     for (let j = 0; j <= hSeg; j += 1) {
@@ -34,7 +33,7 @@ export function FalseColorPlane({
         const ii = Math.min(i, grid.nx - 1);
         const jj = Math.min(j, grid.ny - 1);
         const lux = grid.lux[jj * grid.nx + ii] ?? 0;
-        const c = luxToColor(lux, max);
+        const c = luxToColor(lux);
         colors.push(c.r, c.g, c.b);
       }
     }

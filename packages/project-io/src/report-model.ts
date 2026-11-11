@@ -1,4 +1,5 @@
 import type { PhotometricData } from "../../photometry/src/types";
+import { resolvedFlux } from "../../photometry/src/flux";
 import type { CalcResults } from "../../solver/src/types";
 import { roomAreaM2, roomBounds } from "./geometry";
 import type { FixtureInstance, ProjectSceneV2, RoomV2 } from "./types";
@@ -36,12 +37,11 @@ export function formatReflectancePct(r: number): string {
   return `${(r * 100).toFixed(1)}%`;
 }
 
-/** Display flux without inventing values for absolute photometry IES files. */
+/** Display flux from the file header or from integrating the intensity table. */
 export function formatLuminousFlux(photo: PhotometricData): string {
-  if (photo.luminousFlux != null && photo.luminousFlux > 0) {
-    return `${Math.round(photo.luminousFlux)} lm`;
-  }
-  return "Absolute photometry (flux n/a)";
+  const f = resolvedFlux(photo);
+  if (f != null && f > 0) return `${Math.round(f)} lm`;
+  return "—";
 }
 
 export function efficacyLmPerW(
@@ -70,8 +70,9 @@ export function fluxForLuminaire(
   luminaireId: string,
   photometry: Record<string, PhotometricData>
 ): number | null {
-  const f = photometry[luminaireId]?.luminousFlux;
-  return f != null && Number.isFinite(f) && f > 0 ? f : null;
+  const photo = photometry[luminaireId];
+  if (!photo) return null;
+  return resolvedFlux(photo);
 }
 
 export interface LuminaireAggregateRow {

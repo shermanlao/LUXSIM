@@ -1,20 +1,7 @@
 "use client";
 
 import type { PhotometricData } from "@luxsim/photometry";
-import { sampleIntensityCd } from "@luxsim/photometry";
-
-function curve(
-  photo: PhotometricData,
-  phi: number,
-  samples: number
-): { theta: number; cd: number }[] {
-  const out: { theta: number; cd: number }[] = [];
-  for (let i = 0; i < samples; i += 1) {
-    const theta = (180 * i) / (samples - 1);
-    out.push({ theta, cd: sampleIntensityCd(photo, theta, phi) });
-  }
-  return out;
-}
+import { polarPlane, polarToXY } from "@luxsim/photometry";
 
 export function PolarPreview({
   photo,
@@ -23,49 +10,68 @@ export function PolarPreview({
   photo: PhotometricData;
   size?: number;
 }) {
-  const c0 = curve(photo, 0, 49);
-  const c90 = curve(photo, 90, 49);
-  const maxCd = Math.max(...c0.map((s) => s.cd), ...c90.map((s) => s.cd), 1);
+  const typeB = (photo.verticalAngles[0] ?? 0) < -1e-6;
+  const c0 = polarPlane(photo, 0, 73);
+  const c90 = polarPlane(photo, 90, 73);
+  const c180 = typeB ? [] : polarPlane(photo, 180, 73);
+  const c270 = typeB ? [] : polarPlane(photo, 270, 73);
+  const maxCd = Math.max(
+    1,
+    ...c0.map((s) => s.cd),
+    ...c90.map((s) => s.cd),
+    ...c180.map((s) => s.cd),
+    ...c270.map((s) => s.cd)
+  );
   const cx = size / 2;
-  const cy = size / 2;
-  const rMax = size * 0.4;
+  const cy = size / 2 + 2;
+  const rMax = size * 0.38;
 
-  const toPoints = (samples: { theta: number; cd: number }[]) =>
-    samples
+  const toPoints = (plane: typeof c0, flipX = false) =>
+    plane
       .map((s) => {
-        const r = (s.cd / maxCd) * rMax;
-        const rad = (s.theta * Math.PI) / 180;
-        const x = cx + r * Math.sin(rad);
-        const y = cy + r * Math.cos(rad);
-        return `${x},${y}`;
+        const p = polarToXY(s.gamma, s.cd, maxCd, rMax);
+        return `${cx + (flipX ? -p.x : p.x)},${cy + p.y}`;
       })
       .join(" ");
+
+  const rings = [0.25, 0.5, 0.75, 1].map((f) => (
+    <circle key={f} cx={cx} cy={cy} r={rMax * f} fill="none" stroke="#d5dde2" strokeWidth="0.8" />
+  ));
+  const radials = Array.from({ length: 12 }, (_, i) => {
+    const rad = (i * 30 * Math.PI) / 180;
+    return (
+      <line
+        key={i}
+        x1={cx}
+        y1={cy}
+        x2={cx + rMax * Math.sin(rad)}
+        y2={cy + rMax * Math.cos(rad)}
+        stroke="#e0e7eb"
+        strokeWidth="0.7"
+      />
+    );
+  });
 
   return (
     <svg
       width={size}
-      height={size}
-      viewBox={`0 0 ${size} ${size}`}
+      height={size + 16}
+      viewBox={`0 0 ${size} ${size + 16}`}
       className="bg-white border border-[var(--line)]"
     >
-      <circle cx={cx} cy={cy} r={rMax} fill="none" stroke="#c5d0d6" />
-      <circle cx={cx} cy={cy} r={rMax * 0.5} fill="none" stroke="#e0e7eb" />
-      <line x1={cx} y1={cy - rMax} x2={cx} y2={cy + rMax} stroke="#e0e7eb" />
-      <line x1={cx - rMax} y1={cy} x2={cx + rMax} y2={cy} stroke="#e0e7eb" />
-      <polyline
-        fill="rgba(196,180,80,0.18)"
-        stroke="#8a7a20"
-        strokeWidth="1.5"
-        points={toPoints(c90)}
-      />
-      <polyline
-        fill="rgba(31,111,139,0.12)"
-        stroke="#1f6f8b"
-        strokeWidth="2"
-        points={toPoints(c0)}
-      />
-      <text x={6} y={14} fontSize="10" fill="#5a6b76">
-        C0 / C90 · max {Math.round(maxCd)} cd
+      {rings}
+      {radials}
+      <polyline fill="none" stroke="#c45c26" strokeWidth="1.4" strokeDasharray="3 2" points={toPoints(c90)} />
+      {!typeB && (
+        <polyline fill="none" stroke="#c45c26" strokeWidth="1.4" strokeDasharray="3 2" points={toPoints(c270, true)} />
+      )}
+      <polyline fill="none" stroke="#1f4e79" strokeWidth="2" points={toPoints(c0)} />
+      {!typeB && <polyline fill="none" stroke="#1f4e79" strokeWidth="2" points={toPoints(c180, true)} />}
+      <text x={cx} y={cy + rMax + 10} fontSize="8" fill="#5a6b76" textAnchor="middle">
+        0°
+      </text>
+      <text x={6} y={size + 12} fontSize="9" fill="#5a6b76">
+        C0–C180 / C90–C270 · Imax {Math.round(maxCd)} cd
       </text>
     </svg>
   );

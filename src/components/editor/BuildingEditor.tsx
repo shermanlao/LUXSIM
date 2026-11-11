@@ -746,6 +746,7 @@ export function BuildingEditor({
           dxfEntities={dxfEntities}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
@@ -766,6 +767,7 @@ export function BuildingEditor({
           mode="front"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -789,6 +791,7 @@ export function BuildingEditor({
           mode="side"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -810,6 +813,7 @@ export function BuildingEditor({
           results={activeResults}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y, z) => placeAt(id, x, y, z)}
           className={fullscreen ? "h-screen" : "h-[520px]"}
           underlayUrl={underlayUrl}
