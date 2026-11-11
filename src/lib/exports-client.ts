@@ -110,9 +110,21 @@ export function exportLuxsimFile(project: LuxsimProjectFile) {
   );
 }
 
+export async function exportDialuxEvo(projectId: string, projectName: string): Promise<string[]> {
+  const res = await fetch(`/api/projects/${projectId}/export-evo`);
+  if (!res.ok) {
+    const body = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(body.error ?? `Export failed (${res.status})`);
+  }
+  const warnings = res.headers.get("X-Luxsim-Evo-Warnings") ?? "";
+  const blob = await res.blob();
+  downloadBlob(`${sanitize(projectName)}.evo`, blob);
+  return warnings ? warnings.split(" | ").filter(Boolean) : [];
+}
+
 export async function exportDialuxPack(opts: {
   projectName: string;
-  scene: SceneJson;
+  scene: AnyScene;
   sourceFiles: Record<string, { filename: string; text: string }>;
   luminaireNames: Record<string, string>;
 }) {

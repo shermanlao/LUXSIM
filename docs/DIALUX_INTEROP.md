@@ -14,13 +14,25 @@
 
 | Format | Support |
 |--------|---------|
-| Full PDF report | Cover, summary, per-room, product polar sheets, schedule |
+| Full PDF report | Cover, summary (incl. 3D storey overview), per-room plan + 3D + false-color when calculated, product sheets, schedule |
 | `.luxsim.json` | Native project |
-| DIALux pack zip | IES/LDT + schedule + room.json |
+| DIALux pack zip | v2: `rooms.json` (polygons) + `project.json` + schedule + IES/LDT; v1: `room.json` rectangle |
+| DIALux `.evo` | **Export .evo** builds a DIALux evo **12.1**-shaped zip (same layout as a native save): `ArchiveInfo/`, `Project/ProjectData/ProjectData.dat` (ISO-10303-21 + DIALux schema), `ScenegraphScene`, interaction/output stubs |
 
-## `.evo`
+## `.evo` limits (honest)
 
-Not supported (proprietary). Use DIALux pack bridge.
+- Clones `fixtures/dialux-evo-12.1-reference.evo.zip` (Sherman’s opening Save As). By default **reference room outlines** are kept; LUXSIM **names**, **2.8 m** ceiling, and **0.75 m** workplane are patched in `ProjectData.dat` only. See [DIALUX_EVO_FEASIBILITY.md](./DIALUX_EVO_FEASIBILITY.md).
+- Up to **9 room zones** per export (one DIALux building/storey/room chain per zone — matching the reference multi-room pattern).
+- **Contour patching** only applies when the LUXSIM room polygon has the **same vertex count** as that template slot (e.g. simple 4-corner rooms on 4-vertex slots). Otherwise the reference outline is kept so STEP `StoreyContourRepresentationData` vertex lists stay aligned with their `#1238` / `#1233` reference tuples (required for DIALux evo 12.1 to open the file).
+- Archive must include the empty **`Project/Textures/`** directory entry (like a native Save As).
+- **Luminaire instances and IES inside `.evo`** are not written yet (reference was rooms-only); use PDF/luxsim or place fixtures in DIALux after import.
+- Not tender-certified; open in DIALux evo 12.1+ and verify before issue.
+
+### Load failures
+
+1. **R1:** contour vertex ≠ STEP ref tuples; missing `Project/Textures/`.
+2. **R2:** fixed refs + Textures, but JSZip container unlike Save As and `ProjectData.dat` geometry edits with unchanged `ScenegraphScene` / `ProjectData.xml`.
+3. **R3+:** native zip clone (`packages/project-io/scripts/evo-assemble.py`) + metadata-only STEP patch.
 
 ## Report reference
 

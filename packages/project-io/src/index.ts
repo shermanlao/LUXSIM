@@ -18,6 +18,14 @@ export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
 export { buildDialuxPack } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
 export {
+  buildDialuxEvo,
+  defaultEvoFixtureRoot,
+  EVO_ARCHIVE_MEMBERS,
+  MAX_TEMPLATE_ROOMS,
+  DIALUX_EVO_VERSION,
+} from "./dialux-evo";
+export type { BuildDialuxEvoInput, BuildDialuxEvoResult } from "./dialux-evo";
+export {
   defaultSceneV2,
   migrateSceneV1toV2,
   normalizeScene,
@@ -44,8 +52,16 @@ export { roomToCalcOptions, clipResultsToPolygon } from "./room-adapter";
 export { parseDxfEntities, dxfBounds } from "./dxf";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
-export { buildFullReportPdf } from "./report";
-export type { ReportInput } from "./report";
+export { buildFullReportPdf, planReportSections } from "./report";
+export type { ReportInput, ReportSectionPlan } from "./report";
+export {
+  cameraForRooms,
+  drawRoomPerspective3dOnPdf,
+  drawStoreyPerspective3dOnPdf,
+  pdfIncludes3dDrawingMarkers,
+  projectPoint,
+} from "./view-3d-render";
+export type { CameraPreset } from "./view-3d-render";
 export {
   DEFAULT_PLAN_SPAN_M,
   underlayWorldSize,

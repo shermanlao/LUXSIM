@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ArchiveInfo>
+  <UniqueName>fd46b22e-fd3f-4e27-bfa8-c8c38efd9c3a</UniqueName>
+  <Title>AED-180297 L9M</Title>
+  <Subject></Subject>
+  <Description>Rooms only from furniture layout AED-180297 L9M; true ceiling 2.8 m; no false ceiling; no luminaires</Description>
+  <Creator></Creator>
+  <LastModifiedBy></LastModifiedBy>
+  <Revision></Revision>
+  <Version>5.12.1.7275</Version>
+  <MinCompatibleVersion>5.12.1.0</MinCompatibleVersion>
+  <CreateTime>2026-11-11T07:41:51.5536359Z</CreateTime>
+  <ModifiedTime>2026-11-11T15:41:51.553181+08:00</ModifiedTime>
+  <Branch>mf_Patch1</Branch>
+  <Hash>089142cd0fb</Hash>
+  <VersionHistory>
+    <Version>5.12.1.7275</Version>
+  </VersionHistory>
+</ArchiveInfo>

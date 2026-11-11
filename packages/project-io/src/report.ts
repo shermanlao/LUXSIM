@@ -3,6 +3,11 @@ import type { PhotometricData } from "../../photometry/src/types";
 import { polarPreview } from "../../photometry/src/interpolate";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
 import { roomAreaM2 } from "./geometry";
+import { drawFalseColorOnPdf, drawRoomPlanOnPdf } from "./plan-render";
+import {
+  drawRoomPerspective3dOnPdf,
+  drawStoreyPerspective3dOnPdf,
+} from "./view-3d-render";
 
 export interface ReportInput {
   projectName: string;
@@ -11,13 +16,42 @@ export interface ReportInput {
   results: ResultsV2;
   photometry: Record<string, PhotometricData>;
   wattsById?: Record<string, number | null | undefined>;
-  /** data URLs keyed by roomId */
+  /** Optional pre-rendered PNGs keyed by roomId (browser snapshots). */
   falseColorSnapshots?: Record<string, string>;
+  /** Optional WebGL PNG snapshots keyed by storeyId / roomId (browser export). */
+  threeDSnapshots?: {
+    byStoreyId?: Record<string, string>;
+    byRoomId?: Record<string, string>;
+  };
+}
+
+export interface ReportSectionPlan {
+  tocEntries: string[];
+  productSheetIds: string[];
+  hasProductSection: boolean;
+}
+
+export function planReportSections(input: ReportInput): ReportSectionPlan {
+  const usedIds = [...new Set(input.scene.instances.map((i) => i.luminaireId))];
+  const libraryIds = input.scene.fixtureLibraryIds;
+  const candidateIds = usedIds.length ? usedIds : libraryIds;
+  const productSheetIds = candidateIds.filter((id) => Boolean(input.photometry[id]));
+  const hasProductSection = productSheetIds.length > 0;
+
+  const tocEntries = [
+    "1. Project summary",
+    "2. Room results",
+    ...(hasProductSection ? ["3. Product sheets"] : []),
+    `${hasProductSection ? "4" : "3"}. Luminaire schedule appendix`,
+  ];
+
+  return { tocEntries, productSheetIds, hasProductSection };
 }
 
 export function buildFullReportPdf(input: ReportInput): jsPDF {
   const doc = new jsPDF();
   const date = new Date().toLocaleDateString();
+  const { tocEntries, productSheetIds, hasProductSection } = planReportSections(input);
   let page = 1;
 
   // Cover
@@ -26,7 +60,7 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
   doc.setFontSize(16);
   doc.text(input.projectName, 20, 55);
   doc.setFontSize(11);
-  doc.text(`Organization: ${input.orgName ?? "—"}`, 20, 70);
+  doc.text(`Organization: ${input.orgName?.trim() || "—"}`, 20, 70);
   doc.text(`Date: ${date}`, 20, 78);
   doc.setFontSize(9);
   doc.setTextColor(120);
@@ -44,13 +78,7 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
   doc.setFontSize(16);
   doc.text("Contents", 20, 20);
   doc.setFontSize(11);
-  const toc = [
-    "1. Project summary",
-    "2. Room results",
-    "3. Product sheets",
-    "4. Luminaire schedule appendix",
-  ];
-  toc.forEach((t, i) => doc.text(t, 20, 35 + i * 8));
+  tocEntries.forEach((t, i) => doc.text(t, 20, 35 + i * 8));
   footer(doc, page++);
 
   // Summary
@@ -75,6 +103,45 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
     `Installed power (known): ${totalW.toFixed(0)} W`,
   ];
   lines.forEach((t, i) => doc.text(t, 20, 35 + i * 7));
+
+  let summaryY = 35 + lines.length * 7 + 8;
+  for (const storey of input.scene.storeys) {
+    const roomsOnStorey = input.scene.rooms.filter((r) => r.storeyId === storey.id);
+    if (!roomsOnStorey.length) continue;
+    if (summaryY > 210) {
+      footer(doc, page++);
+      doc.addPage();
+      summaryY = 25;
+    }
+    doc.setFontSize(11);
+    doc.text(`3D perspective — storey ${storey.name}`, 20, summaryY);
+    summaryY += 5;
+    const snap = input.threeDSnapshots?.byStoreyId?.[storey.id];
+    const box = { x: 20, y: summaryY, w: 170, h: 55 };
+    if (snap) {
+      try {
+        doc.addImage(snap, "PNG", box.x, box.y, box.w, box.h);
+      } catch {
+        drawStoreyPerspective3dOnPdf(doc, input.scene, storey.id, box);
+      }
+    } else {
+      drawStoreyPerspective3dOnPdf(doc, input.scene, storey.id, box);
+    }
+    summaryY += box.h + 4;
+    doc.setFontSize(7);
+    doc.setTextColor(120);
+    doc.text(
+      snap
+        ? "Shaded WebGL capture from export (design-assist illustration, not CAD)."
+        : "Vector perspective from room geometry (no WebGL snapshot in this build).",
+      20,
+      summaryY,
+      { maxWidth: 170 }
+    );
+    doc.setTextColor(0);
+    summaryY += 8;
+  }
+
   footer(doc, page++);
 
   // Per room
@@ -91,17 +158,39 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
       37
     );
 
+    doc.setFontSize(11);
+    doc.text("Plan (fixtures)", 20, 48);
+    drawRoomPlanOnPdf(doc, room, input.scene.instances, { x: 20, y: 52, w: 75, h: 55 });
+
+    doc.setFontSize(11);
+    doc.text("3D perspective", 105, 48);
+    const room3dSnap = input.threeDSnapshots?.byRoomId?.[room.id];
+    const room3dBox = { x: 105, y: 52, w: 85, h: 55 };
+    if (room3dSnap) {
+      try {
+        doc.addImage(room3dSnap, "PNG", room3dBox.x, room3dBox.y, room3dBox.w, room3dBox.h);
+      } catch {
+        drawRoomPerspective3dOnPdf(doc, input.scene, room, room3dBox);
+      }
+    } else {
+      drawRoomPerspective3dOnPdf(doc, input.scene, room, room3dBox);
+    }
+
     const res = input.results.byRoomId[room.id];
-    let y = 50;
+    let y = 112;
     doc.setFontSize(12);
     doc.text("Results", 20, y);
     y += 8;
     doc.setFontSize(10);
     if (!res) {
-      doc.text("Not calculated", 20, y);
+      doc.text("Not calculated — run Calculate in LUXSIM", 20, y);
       y += 10;
     } else {
       const s = res.summary;
+      if (input.scene.instances.filter((i) => i.roomId === room.id).length === 0) {
+        doc.text("No luminaires in this room (0 lx workplane).", 20, y);
+        y += 6;
+      }
       doc.text(`Eave ${s.eave.toFixed(1)} lx`, 20, y);
       y += 6;
       doc.text(
@@ -115,6 +204,8 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
         20,
         y
       );
+      y += 6;
+      doc.text(`Calculated ${res.meta.calculatedAt} (client-side)`, 20, y);
       y += 10;
     }
 
@@ -142,29 +233,32 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
     }
 
     const snap = input.falseColorSnapshots?.[room.id];
-    if (snap) {
-      try {
-        if (y > 160) {
-          footer(doc, page++);
-          doc.addPage();
-          y = 20;
+    if (res) {
+      if (y > 155) {
+        footer(doc, page++);
+        doc.addPage();
+        y = 20;
+      }
+      doc.setFontSize(12);
+      doc.text("False-color workplane", 20, y);
+      y += 5;
+      if (snap) {
+        try {
+          doc.addImage(snap, "PNG", 105, y - 2, 85, 48);
+        } catch {
+          drawFalseColorOnPdf(doc, room, res, { x: 105, y: y + 2, w: 85, h: 48 });
         }
-        doc.setFontSize(12);
-        doc.text("False-color workplane", 20, y);
-        y += 4;
-        doc.addImage(snap, "PNG", 20, y, 160, 90);
-      } catch {
-        /* ignore */
+      } else {
+        drawFalseColorOnPdf(doc, room, res, { x: 20, y: y + 2, w: 170, h: 55 });
+        y += 58;
       }
     }
     footer(doc, page++);
   }
 
   // Product sheets
-  const usedIds = [...new Set(input.scene.instances.map((i) => i.luminaireId))];
-  for (const lid of usedIds.length ? usedIds : input.scene.fixtureLibraryIds) {
-    const photo = input.photometry[lid];
-    if (!photo) continue;
+  for (const lid of productSheetIds) {
+    const photo = input.photometry[lid]!;
     doc.addPage();
     doc.setFontSize(14);
     doc.text("3. Product sheet", 20, 20);
@@ -185,26 +279,35 @@ export function buildFullReportPdf(input: ReportInput): jsPDF {
   // Appendix schedule
   doc.addPage();
   doc.setFontSize(14);
-  doc.text("4. Global luminaire schedule", 20, 20);
+  doc.text(
+    `${hasProductSection ? "4" : "3"}. Global luminaire schedule`,
+    20,
+    20
+  );
   doc.setFontSize(9);
   let y = 30;
-  doc.text("#  Name  Storey  Room  X  Y  Z  Rot", 20, y);
-  y += 6;
-  input.scene.instances.forEach((inst, idx) => {
-    if (y > 280) {
-      footer(doc, page++);
-      doc.addPage();
-      y = 20;
-    }
-    const storey = input.scene.storeys.find((s) => s.id === inst.storeyId)?.name ?? "";
-    const room = input.scene.rooms.find((r) => r.id === inst.roomId)?.name ?? "—";
-    doc.text(
-      `${idx + 1}  ${inst.name.slice(0, 18)}  ${storey}  ${room}  ${inst.position.x.toFixed(2)}  ${inst.position.y.toFixed(2)}  ${inst.position.z.toFixed(2)}  ${inst.rotationDeg.toFixed(0)}`,
-      20,
-      y
-    );
-    y += 5;
-  });
+  if (!input.scene.instances.length) {
+    doc.text("No luminaire instances placed.", 20, y);
+    y += 8;
+  } else {
+    doc.text("#  Name  Storey  Room  X  Y  Z  Rot", 20, y);
+    y += 6;
+    input.scene.instances.forEach((inst, idx) => {
+      if (y > 280) {
+        footer(doc, page++);
+        doc.addPage();
+        y = 20;
+      }
+      const storey = input.scene.storeys.find((s) => s.id === inst.storeyId)?.name ?? "";
+      const room = input.scene.rooms.find((r) => r.id === inst.roomId)?.name ?? "—";
+      doc.text(
+        `${idx + 1}  ${inst.name.slice(0, 18)}  ${storey}  ${room}  ${inst.position.x.toFixed(2)}  ${inst.position.y.toFixed(2)}  ${inst.position.z.toFixed(2)}  ${inst.rotationDeg.toFixed(0)}`,
+        20,
+        y
+      );
+      y += 5;
+    });
+  }
   footer(doc, page);
 
   return doc;

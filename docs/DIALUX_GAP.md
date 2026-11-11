@@ -13,7 +13,7 @@ Companion canvas: open `dialux-gap-analysis.canvas.tsx` beside chat.
 - IES / LDT upload → project fixture list (does **not** auto-place)
 - Drag-and-drop placement on Top / Bottom / Front / Side / 3D
 - Client solver: direct illuminance, simplified interreflection, simplified UGR, LPD
-- False-color overlay + PDF / `.luxsim` / DIALux pack zip
+- False-color overlay + PDF / `.luxsim` / DIALux pack zip / **DIALux `.evo`** (evo 12.1 archive shape; see [DIALUX_INTEROP.md](./DIALUX_INTEROP.md))
 - CAD point-to-point room draw (typed mm polar lock) + L×W rectangle at origin; 3D extrudes the floor polygon
 
 ## Missing or thinner (by domain)
@@ -62,7 +62,7 @@ Companion canvas: open `dialux-gap-analysis.canvas.tsx` beside chat.
 - False color yes; isolines / value charts no
 - No raytrace
 - PDF is a fixed template; no DOCX / PPT / CSV / CD layouts
-- No `.evo` write (proprietary)
+- `.evo` geometry export (unofficial); luminaire instances inside `.evo` not encoded yet
 
 ## CAD room draw (implemented)
 
@@ -77,4 +77,4 @@ See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are m
 
 ## Non-claims (unchanged)
 
-Design assist only. Not tender-certified. No proprietary `.evo` write.
+Design assist only. Not tender-certified. `.evo` export is experimental geometry hand-off, not a certified DIALux project writer.

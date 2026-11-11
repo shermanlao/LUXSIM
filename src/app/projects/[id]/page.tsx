@@ -14,10 +14,13 @@ export default async function ProjectPage({ params }: Props) {
   if (!orgId) redirect("/login");
 
   const { id } = await params;
-  const project = await prisma.project.findFirst({
-    where: { id, orgId },
-    include: { assets: true },
-  });
+  const [project, org] = await Promise.all([
+    prisma.project.findFirst({
+      where: { id, orgId },
+      include: { assets: true },
+    }),
+    prisma.org.findUnique({ where: { id: orgId }, select: { name: true } }),
+  ]);
   if (!project) notFound();
 
   const scene = parseProjectScene(project.sceneJson);
@@ -38,6 +41,7 @@ export default async function ProjectPage({ params }: Props) {
     <BuildingEditor
       projectId={project.id}
       initialName={project.name}
+      initialOrgName={org?.name ?? null}
       initialScene={scene}
       initialResults={results}
       initialAssets={project.assets.map((a) => ({

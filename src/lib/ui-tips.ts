@@ -20,4 +20,9 @@ export const UI_TIPS: UiTipSeed[] = [
     title: "Room height",
     body: "Standalone ceiling height in millimetres. Applies to the selected room (polygon or rectangle) and to the next room you draw or create.",
   },
+  {
+    helpKey: "export.dialuxEvo",
+    title: "Export .evo",
+    body: "Builds a DIALux evo 12.1–shaped project zip from your storeys and room polygons (metres, workplane, heights). Luminaire instances are not written into the archive yet—place fixtures in DIALux after import, or use the DIALux pack for IES files. Template supports up to nine room zones per export.",
+  },
 ];

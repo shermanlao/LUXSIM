@@ -1,0 +1,12 @@
+﻿ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION ('Project Name', 'Project Description');
+FILE_NAME ('File Name', 'File Description', 'Build Date from the File');
+FILE_SCHEMA (('DIALux {5%2E12%2E1%2E7275}'));
+ENDSEC;
+DATA;
+#1 = ToolManager (#2, #3, 'ConstructionWorkspace', 'BuildingConstructionMode');
+#2 = ModeStateMemory ((('ConstructionWorkspace', (('ProjectInfoMode', True), ('BuildingConstructionMode', True), ('LightingDesignMode', True), ('ResultMode', True), ('ExportMode', True), ('OutputMode', True), ('PluginSelectionMode', True), ('SettingsMode', False), ('UtilisationSettingsMode', False)))));
+#3 = ToolStateMemory ((('UtilisationSettingsMode', 'NoTool'), ('StreetSchemeOptimizationResultMode', 'NoTool'), ('StreetSchemeLightingDesignMode', 'NoTool'), ('SimpleLightingDesignMode', 'NoTool'), ('SimpleConstructionMode', 'NoTool'), ('SettingsMode', 'NoTool'), ('ResultMode', 'CalculationObjectTool'), ('PluginSelectionMode', 'NoTool'), ('OutputMode', 'OutputTreeTool'), ('OutdoorConstructionMode', 'NoTool'), ('LightingDesignMode', 'LuminaireArrangementTool'), ('ExportMode', 'ViewTool'), ('BuildingConstructionMode', 'SiteTool'), ('ProjectInfoMode', 'ProjectDescriptionTool')));
+ENDSEC;
+END-ISO-10303-21;

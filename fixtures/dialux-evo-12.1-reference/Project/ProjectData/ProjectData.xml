@@ -1,0 +1,2017 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<MetaInfo Version="5.12.1.7275">
+  <PersistenceObject Name="Building">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="BuildingRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CalculationObjectResultTypeConfigurationPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="WorkplaneResultType" IndexInObject="2">
+      <Type Name="Dial.Dialux.PropertySets.Interfaces.WorkplaneResultType" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CalculationParameterContainerRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="ContainerType" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.CalcParamContainerType" IsGeneric="false" />
+    </Member>
+    <Member Name="ValidResultTypes" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.CalcResultType" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CalculationParameterRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="ResulType" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.CalcResultType" IsGeneric="false" />
+    </Member>
+    <Member Name="Rotation" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="HeightOffset" IndexInObject="4">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CalculationRepresentationDataPartConnection">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingPart" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedPart" IndexInObject="3">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CalculationSettingsPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="ExcludeFurnitureDefault" IndexInObject="2">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="SimplifiedFurnitureDefault" IndexInObject="3">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="DirectOnlyDefault" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="VirtualSurfacesOnlyDefault" IndexInObject="5">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ExcludeFurnitureContextDependent" IndexInObject="6">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="SimplifiedFurnitureContextDependent" IndexInObject="7">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="DirectOnlyContextDependent" IndexInObject="8">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="VirtualSurfacesOnlyContextDependent" IndexInObject="9">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ActiveCalculationType" IndexInObject="10">
+      <Type Name="Dial.Dialux.PropertySets.Interfaces.CalculationType" IsGeneric="false" />
+    </Member>
+    <Member Name="ActiveLightSceneCalculationMode" IndexInObject="11">
+      <Type Name="Dial.Dialux.PropertySets.Interfaces.LightSceneCalculationMode" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CommonInformationPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectName" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectDescription" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectPurpose" IndexInObject="4">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CommonUtilisationProfilePropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="IsModified" IndexInObject="2">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="UniqueId" IndexInObject="3">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="IsUserDefined" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Domain" IndexInObject="5">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Application" IndexInObject="6">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="IsInteriorProfile" IndexInObject="7">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="UnifiedGlareRating" IndexInObject="8">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="GlareRating" IndexInObject="9">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceIlluminance" IndexInObject="10">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceIlluminanceForSurroundingArea" IndexInObject="11">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceIlluminanceForBackgroundArea" IndexInObject="12">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="ColourRenderingIndex" IndexInObject="13">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Uniformity" IndexInObject="14">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="WorkingPlaneHeight" IndexInObject="15">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="TaskAreaCylindricHeight" IndexInObject="16">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="DaylightTimeUsage" IndexInObject="17">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="NonDaylightTimeUsage" IndexInObject="18">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="AbsenceFactor" IndexInObject="19">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="PartialOperationFactor" IndexInObject="20">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="TaskAreaMaintenanceFactor" IndexInObject="21">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="LuminaireMaintenanceInterval" IndexInObject="22">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="LampReplacementInterval" IndexInObject="23">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="ImmediateLampReplacement" IndexInObject="24">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="EnvironmentConditions" IndexInObject="25">
+      <Type Name="Dial.Dialux.ProductData.LuminaireDataInterfaces.MaintenanceEnvironmentConditions" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceInterval" IndexInObject="26">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="PollutionCategory" IndexInObject="27">
+      <Type Name="Dial.Dialux.ProductData.LuminaireDataInterfaces.MaintenancePollutionCategory" IsGeneric="false" />
+    </Member>
+    <Member Name="DaylightFactorCalculationGridHeight" IndexInObject="28">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="DaylightFactorCalculationGridMargin" IndexInObject="29">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="UtilisationTimeBegin" IndexInObject="30">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="UtilisationTimeEnd" IndexInObject="31">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="UtilisationDaysPerWeek" IndexInObject="32">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="ReferenceNumber" IndexInObject="33">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="SpecificRequirements" IndexInObject="34">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="CommonlyUsedModifiedMaintenanceIlluminance" IndexInObject="35">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintainedCylindricalIlluminance" IndexInObject="36">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintainedWallIlluminance" IndexInObject="37">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintainedCeilingIlluminance" IndexInObject="38">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="AutomaticIlluminanceLimitCalculation" IndexInObject="39">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="En12464ContextModifiers" IndexInObject="40">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.PropertySets.Interfaces.En12464ContextModifier" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ControlGroup">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+    <Member Name="CreationName" IndexInObject="5">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ControlGroupRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="GroupType" IndexInObject="1">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.ControlGroupType" IsGeneric="false" />
+    </Member>
+    <Member Name="DaylightType" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.ControlGroupDaylightType" IsGeneric="false" />
+    </Member>
+    <Member Name="ControllerId" IndexInObject="3">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="ChannelPurposes" IndexInObject="4">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.String" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="CoordSys3D">
+    <Member Name="Origin" IndexInObject="0">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="XAxis" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="YAxis" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="ZAxis" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="DaylightFactorCalculationGrid">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="DaylightFactorCalculationGridRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="OutputPointCountX" IndexInObject="6">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="OutputPointCountY" IndexInObject="7">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="MultiPolygonSurface" IndexInObject="8">
+      <Type Name="MultiPolygonSurface2D" IsGeneric="false" />
+    </Member>
+    <Member Name="SurfaceParamsPartId" IndexInObject="9">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="IsGridAutomatic" IndexInObject="10">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointsCreationMode" IndexInObject="11">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.GridPointsMode" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointDistanceX" IndexInObject="12">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointsDistanceY" IndexInObject="13">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointCountX" IndexInObject="14">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointsCountY" IndexInObject="15">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointsAdjustOnX" IndexInObject="16">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="GridPointsAdjustOnY" IndexInObject="17">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="IsMeasuringGrid" IndexInObject="18">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="MeasuringRatio" IndexInObject="19">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="GridMeasuringMethod" IndexInObject="20">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.GridMeasuringMethod" IsGeneric="false" />
+    </Member>
+    <Member Name="GridParamsPartId" IndexInObject="21">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Margin" IndexInObject="22">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="DaylightFactorCalculationGridRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="EnergyPerformanceTachometerPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="MaxPowerConsumption" IndexInObject="2">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaxPowerIndicator" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaxPowerCost" IndexInObject="4">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="CurrencyUnit" IndexInObject="5">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="PricePerKwh" IndexInObject="6">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Co2EmissionFactor" IndexInObject="7">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="FalseColorPreviewConfigurationPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowFalseColorPreview" IndexInObject="2">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="FalseColorPreviewConfig" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Double" IsGeneric="false" />
+          <Type Name="Dial.MathTypes.RgbColor" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="FileData">
+    <Member Name="ProjectDirectory" IndexInObject="0">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="TargetFilename" IndexInObject="1">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="SourceFilename" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="FloorSlab">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="FloorSlabRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="GeometricRepresentationDataPartConnection">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingPart" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedPart" IndexInObject="3">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+    </Member>
+    <Member Name="Operation" IndexInObject="4">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.GeometryCombinationOperation" IsGeneric="false" />
+    </Member>
+    <Member Name="SplitOption" IndexInObject="5">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.SplitOptions" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="GlobalColorTablePropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="MetricColorTable" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Double" IsGeneric="false" />
+          <Type Name="System.Int32" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="ImperialColorTable" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Double" IsGeneric="false" />
+          <Type Name="System.Int32" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="DqColorTable" IndexInObject="4">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Double" IsGeneric="false" />
+          <Type Name="System.Int32" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="SupportSteps" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="SupportStep" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="IsMetricColorTableUserDefined" IndexInObject="6">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="IsImperialColorTableUserDefined" IndexInObject="7">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="GlobalSpaceMaintenanceInfo">
+    <Member Name="MaintenanceInfoCallback" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.Maintenance.ISpaceMaintenanceInfoCallback" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceFactor" IndexInObject="1">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceFactorIsDefault" IndexInObject="2">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="InstanceGeometricRepresentation">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="RepresentationData" IndexInObject="1">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.RepresentationData" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="LightScene">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+    <Member Name="IsActive" IndexInObject="5">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="IsDefault" IndexInObject="6">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="LightSceneRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="BurningHoursPerYear" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LightSceneType" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.LightSceneType" IsGeneric="false" />
+    </Member>
+    <Member Name="ConsiderFirstReflection" IndexInObject="3">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ExcludeFurniture" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="LuminaireGroup">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="LuminaireGroupDaylightRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="Time" IndexInObject="1">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ReferenceSkyType" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.DaylightReferenceSkyType" IsGeneric="false" />
+    </Member>
+    <Member Name="UseDirectSun" IndexInObject="3">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="MaterialParams">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="IsUserDefault" IndexInObject="1">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="InternalName" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="DisplayName" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ReadOnly" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Type" IndexInObject="5">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.MaterialType" IsGeneric="false" />
+    </Member>
+    <Member Name="ColorLuminance" IndexInObject="6">
+      <Type Name="System.Single" IsGeneric="false" />
+    </Member>
+    <Member Name="Roughness" IndexInObject="7">
+      <Type Name="System.Single" IsGeneric="false" />
+    </Member>
+    <Member Name="Shininess" IndexInObject="8">
+      <Type Name="System.Single" IsGeneric="false" />
+    </Member>
+    <Member Name="Transparency" IndexInObject="9">
+      <Type Name="System.Single" IsGeneric="false" />
+    </Member>
+    <Member Name="IoR" IndexInObject="10">
+      <Type Name="System.Single" IsGeneric="false" />
+    </Member>
+    <Member Name="ColorBase" IndexInObject="11">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Single" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="TextureLayers" IndexInObject="12">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="TextureLayerParams" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="MinMaxInfoViewElementPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="Minimum" IndexInObject="2">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Maximum" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="MultiPolygonSurface2D">
+    <Member Name="OuterLoops" IndexInObject="0">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+          <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+            <Type Name="System.Double" IsGeneric="false" />
+          </Type>
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="InnerLoops" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+          <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+            <Type Name="System.Double" IsGeneric="false" />
+          </Type>
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="MaterialId" IndexInObject="2">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="NorthArrow">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="NorthArrowRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Height" IndexInObject="6">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="ScaleFactor" IndexInObject="7">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="LeftMaterial" IndexInObject="8">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="RightMaterial" IndexInObject="9">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ObjectCounterIndex">
+    <Member Name="ParentId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="PersistenceName" IndexInObject="1">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ObjectManager">
+    <Member Name="NextObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectIndices" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="ObjectCounterIndex" IsGeneric="false" />
+          <Type Name="System.Int32" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="ObjectCollections" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Type" IsGeneric="false" />
+          <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+            <Type Name="Dial.Dialux.ProjectData.Base.Root" IsGeneric="false" />
+          </Type>
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="NameIndexMap" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Int64" IsGeneric="false" />
+          <Type Name="System.Int32" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="PersistentObjectMaterialAssociation">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="PartIdAssociations" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="PersistentPartIdAssociation" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartAssociations" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.Interfaces.IPartMaterialAssociation" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="PersistentPartIdAssociation">
+    <Member Name="PointOnFace" IndexInObject="0">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="FaceNormal" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartId" IndexInObject="2">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="PersistentPartMaterialAssociationPointOnFace">
+    <Member Name="PartId" IndexInObject="0">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="FaceAssociations" IndexInObject="1">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Int32" IsGeneric="false" />
+          <Type Name="Dial.MathTypes.Vector3D" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="FaceCoordSyses" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.Int32" IsGeneric="false" />
+          <Type Name="CoordSys3D" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="MaterialFaceAssociations" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+          <Type Name="Dial.Dialux.GeometryBase.Material.PersistentMaterialFaceAssociation`1" IsGeneric="true" CountGenericParameter="1">
+            <Type Name="Dial.MathTypes.Vector3D" IsGeneric="false" />
+          </Type>
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="TextureAssociations" IndexInObject="4">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="PersistentTextureAssociation" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="FaceCoordSysesAreWorld" IndexInObject="5">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Project">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ProjectContact">
+    <Member Name="Id" IndexInObject="0">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="Picture" IndexInObject="1">
+      <Type Name="FileData" IsGeneric="false" />
+    </Member>
+    <Member Name="Role" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Description" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Name" IndexInObject="4">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Company" IndexInObject="5">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Address" IndexInObject="6">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Phone" IndexInObject="7">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Fax" IndexInObject="8">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Email" IndexInObject="9">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ProjectInfoPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="TrackingId" IndexInObject="2">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="ProjectName" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ProjectDescription" IndexInObject="4">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ProjectDate" IndexInObject="5">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ProjectAddress" IndexInObject="6">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ProjectContacts" IndexInObject="7">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="ProjectContact" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="ProjectShortDescription" IndexInObject="8">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Image" IndexInObject="9">
+      <Type Name="FileData" IsGeneric="false" />
+    </Member>
+    <Member Name="InternalProjectContacts" IndexInObject="10">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="ProjectContact" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Editor" IndexInObject="11">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Quaternion">
+    <Member Name="W" IndexInObject="0">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="X" IndexInObject="1">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Y" IndexInObject="2">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Z" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ReferenceCoordSysElement">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ReferenceCoordSysElementRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelAggregates">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingObject" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.InstanceObjects.InstanceObject" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedObjects" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="Dial.Dialux.ProjectData.InstanceObjects.InstanceObject" IsGeneric="false" />
+          <Type Name="Dial.Dialux.ProjectData.Relations.AggregationData" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelArrangesElements">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingArrangement" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.InstanceObjects.ArrangementElement" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedElements" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="Dial.Dialux.ProjectData.InstanceObjects.Element" IsGeneric="false" />
+          <Type Name="Dial.Dialux.ProjectData.Relations.ArrangementElementData" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelAssociatesStoreyContourBasedFloorSlab">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingContour" IndexInObject="2">
+      <Type Name="StoreyContour" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedFloorSlab" IndexInObject="3">
+      <Type Name="FloorSlab" IsGeneric="false" />
+    </Member>
+    <Member Name="ContourDefinesFloorSlab" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelAssociatesStoreyContourBasedRoof">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingContour" IndexInObject="2">
+      <Type Name="StoreyContour" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedRoof" IndexInObject="3">
+      <Type Name="Roof" IsGeneric="false" />
+    </Member>
+    <Member Name="ContourDefinesRoof" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="IsDefaultRoof" IndexInObject="5">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelAssociatesStoreyContourBasedSpace">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingContour" IndexInObject="2">
+      <Type Name="StoreyContour" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedSpace" IndexInObject="3">
+      <Type Name="Space" IsGeneric="false" />
+    </Member>
+    <Member Name="ContourDefinesSpace" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelContainedInSpatialStructure">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatingStructure" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.InstanceObjects.SpatialStructureElement" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedElements" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="Dial.Dialux.ProjectData.InstanceObjects.Element" IsGeneric="false" />
+          <Type Name="Dial.Dialux.ProjectData.Relations.ContainedData" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RelDefinesByProperties">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="RelatedObjects" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+          <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinitionData" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="RelatingPropertySet" IndexInObject="3">
+      <Type Name="Dial.Dialux.ProjectData.Base.PropertySetDefinition" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Roof">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Room">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="RoomRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Site">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="SiteRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Longitude" IndexInObject="6">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Latitude" IndexInObject="7">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="TimeZoneSerializedString" IndexInObject="8">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Location" IndexInObject="9">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="SpaceGeometricRepresentation">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="RepresentationData" IndexInObject="1">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.RepresentationData" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="SpaceMaintenancePropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="MaintenanceInfo" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.Maintenance.ISpaceMaintenanceInfo" IsGeneric="false" />
+    </Member>
+    <Member Name="DefaultGlobalMaintenanceFactor" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="SpaceTextRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Text" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="FaceName" IndexInObject="4">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="Height" IndexInObject="5">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Escapement" IndexInObject="6">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Width" IndexInObject="7">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="CharOrientation" IndexInObject="8">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Weight" IndexInObject="9">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextWeight" IsGeneric="false" />
+    </Member>
+    <Member Name="Italic" IndexInObject="10">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Underline" IndexInObject="11">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="StrikeOut" IndexInObject="12">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OutPrecision" IndexInObject="13">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextOutPrecision" IsGeneric="false" />
+    </Member>
+    <Member Name="ClipPrecision" IndexInObject="14">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextClipPrecision" IsGeneric="false" />
+    </Member>
+    <Member Name="Quality" IndexInObject="15">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextQuality" IsGeneric="false" />
+    </Member>
+    <Member Name="Pitch" IndexInObject="16">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextPitch" IsGeneric="false" />
+    </Member>
+    <Member Name="Family" IndexInObject="17">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextFamily" IsGeneric="false" />
+    </Member>
+    <Member Name="RightToLeft" IndexInObject="18">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Alignment" IndexInObject="19">
+      <Type Name="Dial.Dialux.GeometryRepresentationParams.Interfaces.TextAlignment" IsGeneric="false" />
+    </Member>
+    <Member Name="Material" IndexInObject="20">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="ReadOnlyText" IndexInObject="21">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ScaleFactors" IndexInObject="22">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="UserDefinedCoordSys" IndexInObject="23">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StfPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="StfRoomSectionName" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Storey">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContour">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContourBasedFlatRoofRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Length" IndexInObject="6">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Width" IndexInObject="7">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Height" IndexInObject="8">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="Thickness" IndexInObject="9">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContourBasedFlatRoofRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="RoofOverhang" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="TopMaterial" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="BottomMaterial" IndexInObject="5">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="SideMaterial" IndexInObject="6">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContourBasedFloorSlabRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Height" IndexInObject="3">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="TopMaterial" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="BottomMaterial" IndexInObject="5">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="SideMaterial" IndexInObject="6">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContourBasedSpaceRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="HeightType" IndexInObject="3">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.SpaceHeightType" IsGeneric="false" />
+    </Member>
+    <Member Name="Height" IndexInObject="4">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyContourRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Points" IndexInObject="6">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+          <Type Name="System.Double" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+    <Member Name="Material" IndexInObject="7">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="PointMaterials" IndexInObject="8">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="ContourType" IndexInObject="9">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.StoreyContourType" IsGeneric="false" />
+    </Member>
+    <Member Name="IsTemporary" IndexInObject="10">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="FloorMaterial" IndexInObject="11">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="CeilingMaterial" IndexInObject="12">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyElement">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyElementRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableAutomaticRoof" IndexInObject="6">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyElementRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Material" IndexInObject="3">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IPersistentMaterialRef" IsGeneric="false" />
+    </Member>
+    <Member Name="AutomaticOuterContours" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="AutomaticOuterContourOffset" IndexInObject="5">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StoreyRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="Height" IndexInObject="6">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="SupportStep">
+    <Member Name="Value" IndexInObject="0">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="ColorIndex" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="StepType" IndexInObject="2">
+      <Type Name="Dial.Dialux.PropertySets.Interfaces.StepType" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="TextsPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="Texts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.String" IsGeneric="false" />
+          <Type Name="System.String" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="UndoableMaterial">
+    <Member Name="MaterialParams" IndexInObject="0">
+      <Type Name="MaterialParams" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="UtilisationSettingOriginationPropertySet">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="TemplateGuid" IndexInObject="2">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ViewElement">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ViewElementRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="ViewType" IndexInObject="6">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.ViewType" IsGeneric="false" />
+    </Member>
+    <Member Name="Wireframe" IndexInObject="7">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowDwgDrawings" IndexInObject="8">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowAuxiliaryLines" IndexInObject="9">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowSkyBox" IndexInObject="10">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowCoordSys" IndexInObject="11">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowResults" IndexInObject="12">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.ViewResults" IsGeneric="false" />
+    </Member>
+    <Member Name="Screenshot" IndexInObject="13">
+      <Type Name="FileData" IsGeneric="false" />
+    </Member>
+    <Member Name="Thumbnail" IndexInObject="14">
+      <Type Name="FileData" IsGeneric="false" />
+    </Member>
+    <Member Name="CameraOrientation" IndexInObject="15">
+      <Type Name="Quaternion" IsGeneric="false" />
+    </Member>
+    <Member Name="CameraTargetDistance" IndexInObject="16">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="CameraOrthoHeight" IndexInObject="17">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="CameraPerspective" IndexInObject="18">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="HorizontalRange" IndexInObject="19">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="VerticalRange" IndexInObject="20">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="UserViewId" IndexInObject="21">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="WhiteBalanceMethod" IndexInObject="22">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.WhiteBalanceMethod" IsGeneric="false" />
+    </Member>
+    <Member Name="WhitePointTemperature" IndexInObject="23">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="AverageLuminance" IndexInObject="24">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MinimumCorrectedLuminance" IndexInObject="25">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MinimumAverageLuminance" IndexInObject="26">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="MinimumBrightness" IndexInObject="27">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="FixAverageLuminance" IndexInObject="28">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Brightness" IndexInObject="29">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="CameraFieldOfView" IndexInObject="30">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+    <Member Name="FalseColors" IndexInObject="31">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="LightTexturesOff" IndexInObject="32">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="FalseColorsType" IndexInObject="33">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.FalseColorsType" IsGeneric="false" />
+    </Member>
+    <Member Name="RealtimeLight" IndexInObject="34">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="EnergyTachometer" IndexInObject="35">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="FalseColorsInterpolation" IndexInObject="36">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationParams.FalseColorsInterpolation" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowDimensionings" IndexInObject="37">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="RefCoordSys" IndexInObject="38">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="ResetCamera" IndexInObject="39">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowNorthArrow" IndexInObject="40">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="Version" IndexInObject="41">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowChartings" IndexInObject="42">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowCalculationObjects" IndexInObject="43">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowWorkPlanes" IndexInObject="44">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowRoomStamp" IndexInObject="45">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowLightDistribution" IndexInObject="46">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.RepresentationItems.LightDistributionViewMode" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowLeoOrientation" IndexInObject="47">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowRealtimeLight" IndexInObject="48">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="ShowCustomSpaceContours" IndexInObject="49">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="RealtimeLightCount" IndexInObject="50">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="Workplane">
+    <Member Name="ObjectId" IndexInObject="0">
+      <Type Name="System.Int64" IsGeneric="false" />
+    </Member>
+    <Member Name="ObjectGuid" IndexInObject="1">
+      <Type Name="System.Guid" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+    <Member Name="Representation" IndexInObject="3">
+      <Type Name="InstanceGeometricRepresentation" IsGeneric="false" />
+    </Member>
+    <Member Name="MatAssoc" IndexInObject="4">
+      <Type Name="Dial.Dialux.ProjectData.Interfaces.IObjectMaterialAssociation" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="WorkPlaneCalculationSurfaceRepresentationDataPart">
+    <Member Name="ContainingRepresentationData" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.RepresentationData.GeometricRepresentationData" IsGeneric="false" />
+    </Member>
+    <Member Name="PartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="LocalCoordSys" IndexInObject="2">
+      <Type Name="CoordSys3D" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="WorkplaneRepresentationData">
+    <Member Name="RepresentedObject" IndexInObject="0">
+      <Type Name="Dial.Dialux.ProjectData.Base.ObjectDefinition" IsGeneric="false" />
+    </Member>
+    <Member Name="NextPartId" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Parts" IndexInObject="2">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPart" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="PartConnections" IndexInObject="3">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="Dial.Dialux.ProjectData.RepresentationData.Parts.RepresentationDataPartConnection" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="DisableSubtraction" IndexInObject="4">
+      <Type Name="System.Boolean" IsGeneric="false" />
+    </Member>
+    <Member Name="OperandScale" IndexInObject="5">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Double" IsGeneric="false" />
+      </Type>
+    </Member>
+    <Member Name="OutputPointCountX" IndexInObject="6">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="OutputPointCountY" IndexInObject="7">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="MultiPolygonSurface" IndexInObject="8">
+      <Type Name="MultiPolygonSurface2D" IsGeneric="false" />
+    </Member>
+    <Member Name="SurfaceParamsPartId" IndexInObject="9">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="Margin" IndexInObject="10">
+      <Type Name="System.Double" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+</MetaInfo>
