@@ -35,3 +35,16 @@ We **cannot** run DIALux in CI. Tests assert:
 - Member order, unchanged `ScenegraphScene` bytes, contour integrity, STEP size band (~204 KB)
 
 **R3 layout bug (2026-11-11):** `evo-assemble.py` sized local copies using `len(ZipInfo.extra)` (36-byte NTFS block from the **central directory**) as if it were local `elen`, truncating each copied record and leaving 36-byte leftover `PK\\x03\\x04` headers between entries. `zipfile` still opened the archive via CD offsets; DIALux’s sequential parser did not.
+
+### R4 (2026-11-11) — layout correct, still failed
+
+Sherman verified: sequential local walk `[]`, 24 members, `elen=0`, `last_local==cd_start`, member order and unchanged payloads match official. **Zip physics ruled out.**
+
+Remaining diffs vs official:
+
+1. **Archive `UniqueName` desync (primary suspect):** R4 assigns a new UUID in `ArchiveInfo.xml` but `#151 = ProjectInfoPropertySet` in `ProjectData.dat` still holds the official archive uuid. That pair is the only place the archive id appears outside XML.
+2. **STEP header vs project info block:** `FILE_DESCRIPTION` / `FILE_NAME` patched in the STEP header; `#151` description, archive uuid, and FILE time string unchanged — triple inconsistency.
+3. **`FILE_NAME` time format:** ISO-8601 `…Z` vs DIALux Save As `11/11/2026 07:41:51` (secondary).
+4. **Storey height literals:** `2.7999999999999998` → `2.8` on nine lines only (weak alone).
+
+Lab archives for bisection: [DIALUX_EVO_LAB.md](./DIALUX_EVO_LAB.md). **Do not ship another “full export” until a lab variant opens or identity sync is implemented and tested.**
