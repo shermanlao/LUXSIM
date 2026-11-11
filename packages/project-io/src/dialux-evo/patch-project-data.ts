@@ -6,6 +6,8 @@ import {
   MAX_TEMPLATE_ROOMS,
   TEMPLATE_BUILDING_COORD_IDS,
   TEMPLATE_ROOM_ORIGIN_COORD_IDS,
+  TEMPLATE_SLOT_INNER_VERTICES,
+  TEMPLATE_SLOT_OUTER_VERTICES,
 } from "./constants";
 
 export interface EvoRoomInput {
@@ -69,43 +71,66 @@ function patchArchiveTitle(dat: string, _projectName: string): string {
 const CONTOUR_ENTITY_PREFIX =
   /(StoreyContourRepresentationData \(#[0-9]+, 0, \$?, \$?, False, \(1\., 1\., 1\.\), )/;
 
-/** Replace .Inner. / .Outer. storey contours in file order (9 pairs in template). */
-function patchContours(dat: string, rooms: EvoRoomInput[]): string {
+function vertexRefList(refList: string, vertexCount: number): string {
+  const refId = refList.match(/#\d+/)?.[0] ?? "#1238";
+  if (vertexCount <= 0) return "()";
+  return `(${Array.from({ length: vertexCount }, () => refId).join(", ")})`;
+}
+
+/** Replace .Inner. / .Outer. storey contours when vertex counts match the template slot (keeps STEP topology valid). */
+function patchContours(
+  dat: string,
+  rooms: EvoRoomInput[],
+  warnings: string[]
+): string {
   const innerRe = new RegExp(
     CONTOUR_ENTITY_PREFIX.source +
-      `(\\(\\([^;]+?\\)\\))(, #[0-9]+, \\(#[0-9]+(?:, #[0-9]+)*\\), \\.Inner\\.)`,
+      `(\\(\\([^;]+?\\)\\))(, #[0-9]+, )\\((#[0-9]+(?:, #[0-9]+)*)\\)(, \\.Inner\\.)`,
     "g"
   );
   const outerRe = new RegExp(
     CONTOUR_ENTITY_PREFIX.source +
-      `(\\(\\([^;]+?\\)\\))(, #[0-9]+, \\(#[0-9]+(?:, #[0-9]+)*\\), \\.Outer\\.)`,
+      `(\\(\\([^;]+?\\)\\))(, #[0-9]+, )\\((#[0-9]+(?:, #[0-9]+)*)\\)(, \\.Outer\\.)`,
     "g"
   );
 
   let innerIdx = 0;
-  let dat1 = dat.replace(innerRe, (full, pre, _coords, post) => {
+  let dat1 = dat.replace(innerRe, (full, pre, _coords, hashPart, refList, post) => {
     const slot = rooms[innerIdx];
+    const templateVerts = TEMPLATE_SLOT_INNER_VERTICES[innerIdx];
     innerIdx += 1;
-    if (!slot) return full;
+    if (!slot || templateVerts === undefined) return full;
     const b = roomBounds(slot.room);
     const local = slot.room.polygon.map((p) => ({
       x: p.x - b.minX,
       y: p.y - b.minY,
     }));
-    return `${pre}${polygonTuple(local)}${post}`;
+    if (local.length !== templateVerts) {
+      warnings.push(
+        `Room "${slot.room.name}" has ${local.length} polygon vertices; template slot ${innerIdx} expects ${templateVerts} — kept DIALux reference outline for load safety.`
+      );
+      return full;
+    }
+    return `${pre}${polygonTuple(local)}${hashPart}${vertexRefList(refList, local.length)}${post}`;
   });
 
   let outerIdx = 0;
-  dat1 = dat1.replace(outerRe, (full, pre, _coords, post) => {
+  dat1 = dat1.replace(outerRe, (full, pre, _coords, hashPart, refList, post) => {
     const slot = rooms[outerIdx];
+    const slotIndex = outerIdx;
     outerIdx += 1;
-    if (!slot) return full;
+    const templateOuter = TEMPLATE_SLOT_OUTER_VERTICES[slotIndex];
+    const templateInner = TEMPLATE_SLOT_INNER_VERTICES[slotIndex];
+    if (!slot || templateOuter === undefined || templateInner === undefined) return full;
     const b = roomBounds(slot.room);
     const local = slot.room.polygon.map((p) => ({
       x: p.x - b.minX,
       y: p.y - b.minY,
     }));
-    return `${pre}${polygonTuple(outerFromInner(local))}${post}`;
+    if (local.length !== templateInner) return full;
+    const outer = outerFromInner(local);
+    if (outer.length !== templateOuter) return full;
+    return `${pre}${polygonTuple(outer)}${hashPart}${vertexRefList(refList, outer.length)}${post}`;
   });
 
   return dat1;
@@ -219,7 +244,7 @@ export function patchProjectDataDat(
     description ??
       `${projectName} exported from LUXSIM (geometry faithful; luminaires not encoded in this build).`
   );
-  dat = patchContours(dat, slice);
+  dat = patchContours(dat, slice, warnings);
   dat = patchBuildingOrigins(dat, slice);
   dat = patchStoreyHeights(dat, slice);
   dat = patchWorkplaneHeights(dat, slice);

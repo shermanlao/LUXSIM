@@ -3,7 +3,13 @@ import JSZip from "jszip";
 import path from "path";
 import { buildDialuxEvo, defaultEvoFixtureRoot } from "./dialux-evo";
 import { EVO_ARCHIVE_MEMBERS } from "./dialux-evo/constants";
-import { datContainsRoomName, innerContourPolygons } from "./dialux-evo/extract-geometry";
+import {
+  contourIntegrityIssues,
+  datContainsRoomName,
+  datStepHeaderValid,
+  innerContourPolygons,
+} from "./dialux-evo/extract-geometry";
+import { loadReferenceProjectDataDat } from "./dialux-evo/patch-project-data";
 import { defaultSceneV2 } from "./migrate";
 import { rectPolygon } from "./geometry";
 import type { ProjectSceneV2 } from "./types";
@@ -53,9 +59,19 @@ describe("buildDialuxEvo", () => {
     });
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     for (const member of EVO_ARCHIVE_MEMBERS) {
-      expect(zip.file(member), member).toBeTruthy();
+      if (member.endsWith("/")) {
+        expect(zip.folder(member.replace(/\/$/, "")), member).toBeTruthy();
+      } else {
+        expect(zip.file(member), member).toBeTruthy();
+      }
     }
+    expect(Object.keys(zip.files).length).toBeGreaterThanOrEqual(24);
     expect(zip.file("room.json")).toBeFalsy();
+  });
+
+  it("reference template STEP contours have matching vertex/ref counts", () => {
+    const dat = loadReferenceProjectDataDat(fixtureRoot);
+    expect(contourIntegrityIssues(dat)).toHaveLength(0);
   });
 
   it("embeds room names and polygon coordinates in ProjectData.dat", async () => {
@@ -67,14 +83,15 @@ describe("buildDialuxEvo", () => {
     });
     const zip = await JSZip.loadAsync(await blob.arrayBuffer());
     const dat = await zip.file("Project/ProjectData/ProjectData.dat")!.async("string");
-    expect(dat.startsWith("ISO-10303-21;")).toBe(true);
-    expect(dat).toContain('FILE_SCHEMA ((\'DIALux {5%2E12%2E1%2E7275}\'))');
+    expect(datStepHeaderValid(dat)).toBe(true);
+    expect(contourIntegrityIssues(dat)).toHaveLength(0);
+    expect(dat.length).toBeGreaterThan(200_000);
     expect(datContainsRoomName(dat, "Server Room")).toBe(true);
     expect(datContainsRoomName(dat, "Open Office")).toBe(true);
     const polys = innerContourPolygons(dat);
     expect(polys.length).toBeGreaterThanOrEqual(9);
-    // First room rect 4.2 × 7.2 in local coords → includes corner (4.2, 7.2)
-    expect(polys[0]!.some((p) => p.startsWith("4.2") && p.endsWith(",7.2"))).toBe(true);
+    // Slot 1 (Server Room) is 4-vertex in template → rectangle exports patch this contour.
+    expect(polys[1]!.some((p) => p.startsWith("3.8") || p.endsWith(",3.9"))).toBe(true);
   });
 
   it("updates ArchiveInfo title", async () => {

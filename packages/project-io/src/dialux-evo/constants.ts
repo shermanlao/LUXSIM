@@ -15,7 +15,11 @@ export const EVO_ARCHIVE_MEMBERS = [
   "Project/STF/fu1tpabp.tmp",
   "Project/ViewThumbnails/2nzvjtqm.tmp",
   "Project/ViewThumbnails/3bthid1u.tmp",
+  "Project/Textures/",
 ] as const;
+
+/** Native DIALux evo 12.1 archives include this empty folder entry. */
+export const EVO_REQUIRED_DIRECTORY_ENTRIES = ["Project/Textures/"] as const;
 
 export const DIALUX_EVO_VERSION = "5.12.1.7275";
 export const DIALUX_EVO_MIN_VERSION = "5.12.1.0";
@@ -32,3 +36,7 @@ export const TEMPLATE_ROOM_ORIGIN_COORD_IDS = [
 ] as const;
 
 export const MAX_TEMPLATE_ROOMS = TEMPLATE_BUILDING_COORD_IDS.length;
+
+/** Inner / outer contour vertex counts per template room slot (AED-180297 L9M reference). */
+export const TEMPLATE_SLOT_INNER_VERTICES = [9, 4, 25, 8, 6, 4, 4, 4, 44] as const;
+export const TEMPLATE_SLOT_OUTER_VERTICES = [8, 4, 25, 8, 6, 4, 4, 4, 43] as const;

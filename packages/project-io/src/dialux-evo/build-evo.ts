@@ -8,7 +8,7 @@ import {
   loadReferenceProjectDataDat,
   patchProjectDataDat,
 } from "./patch-project-data";
-import { EVO_ARCHIVE_MEMBERS } from "./constants";
+import { EVO_ARCHIVE_MEMBERS, EVO_REQUIRED_DIRECTORY_ENTRIES } from "./constants";
 
 export interface BuildDialuxEvoInput {
   projectName: string;
@@ -27,6 +27,7 @@ export interface BuildDialuxEvoResult {
 function walkFixtureFiles(root: string, prefix = ""): { zipPath: string; abs: string }[] {
   const out: { zipPath: string; abs: string }[] = [];
   for (const name of readdirSync(root)) {
+    if (name === ".gitkeep") continue;
     const abs = path.join(root, name);
     const rel = prefix ? `${prefix}/${name}` : name;
     if (statSync(abs).isDirectory()) {
@@ -92,14 +93,23 @@ export async function buildDialuxEvo(input: BuildDialuxEvoInput): Promise<BuildD
     zip.file(f.zipPath, readFileSync(f.abs));
   }
 
-  // Ensure expected layout (tests)
+  for (const dir of EVO_REQUIRED_DIRECTORY_ENTRIES) {
+    zip.folder(dir.replace(/\/$/, "")) ?? zip.file(dir, "");
+  }
+
   for (const member of EVO_ARCHIVE_MEMBERS) {
-    if (!zip.file(member)) {
+    const isDir = member.endsWith("/");
+    const present = isDir ? zip.folder(member.slice(0, -1)) != null : zip.file(member) != null;
+    if (!present) {
       throw new Error(`Missing evo member after build: ${member}`);
     }
   }
 
-  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+  const blob = await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: { level: 6 },
+  });
   return {
     blob,
     warnings: patched.warnings,

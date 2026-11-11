@@ -18,3 +18,5 @@ export function innerContourPolygons(dat: string): string[][] {
 export function datContainsRoomName(dat: string, name: string): boolean {
   return dat.includes(name.replace(/'/g, "''"));
 }
+
+export { contourIntegrityIssues, datStepHeaderValid } from "./validate-archive";
