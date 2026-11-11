@@ -34,6 +34,8 @@ import {
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { formatCalcCompletionMessage } from "@/lib/building-calc";
+import { captureReport3dSnapshots } from "@/lib/report-3d-capture";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
@@ -97,6 +99,7 @@ function readImagePixelSize(file: File): Promise<{ width: number; height: number
 type Props = {
   projectId: string;
   initialName: string;
+  initialOrgName?: string | null;
   initialScene: ProjectSceneV2;
   initialResults: ResultsV2;
   initialAssets?: AssetRow[];
@@ -105,11 +108,13 @@ type Props = {
 export function BuildingEditor({
   projectId,
   initialName,
+  initialOrgName,
   initialScene,
   initialResults,
   initialAssets = [],
 }: Props) {
   const [name, setName] = useState(initialName);
+  const orgName = initialOrgName ?? null;
   const [scene, setScene] = useState<ProjectSceneV2>(initialScene);
   const [results, setResults] = useState<ResultsV2>(initialResults);
   const [library, setLibrary] = useState<LumRow[]>([]);
@@ -649,12 +654,9 @@ export function BuildingEditor({
     setStatus("Calculating on client…");
     try {
       const nextByRoom = { ...results.byRoomId };
+      let roomsCalculated = 0;
       for (const room of rooms) {
         const inst = scene.instances.filter((i) => i.roomId === room.id);
-        if (!inst.length) {
-          setStatus(`Room “${room.name}” has no fixtures`);
-          continue;
-        }
         const photometry: Record<string, PhotometricData> = {};
         const watts: Record<string, number | null | undefined> = {};
         for (const i of inst) {
@@ -666,11 +668,18 @@ export function BuildingEditor({
         let calc = await runSolverClient(opts);
         calc = clipResultsToPolygon(room, calc);
         nextByRoom[room.id] = calc;
+        roomsCalculated += 1;
       }
       const nextResults = { version: 2 as const, byRoomId: nextByRoom };
       setResults(nextResults);
-      setStatus("Calculation complete (client-side)");
-      await save(scene, nextResults, name);
+      const msg = formatCalcCompletionMessage({
+        roomsCalculated,
+        instanceCount: scene.instances.length,
+      });
+      setStatus(msg ?? "No rooms calculated");
+      if (roomsCalculated > 0) {
+        await save(scene, nextResults, name);
+      }
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
@@ -686,12 +695,15 @@ export function BuildingEditor({
     }
     const wattsById: Record<string, number | null | undefined> = {};
     for (const l of library) wattsById[l.id] = l.watts;
+    const threeDSnapshots = captureReport3dSnapshots(scene);
     const doc = buildFullReportPdf({
       projectName: name,
+      orgName: orgName ?? undefined,
       scene,
       results,
       photometry,
       wattsById,
+      threeDSnapshots,
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }
@@ -1334,29 +1346,7 @@ export function BuildingEditor({
                 for (const l of library) names[l.id] = l.name;
                 await exportDialuxPack({
                   projectName: name,
-                  scene: {
-                    version: 1,
-                    room: {
-                      width: 8,
-                      depth: 6,
-                      height: 2.8,
-                      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
-                      workplaneHeight: 0.75,
-                    },
-                    gridSpacing: 0.5,
-                    luminaires: scene.instances.map((i) => ({
-                      instanceId: i.instanceId,
-                      luminaireId: i.luminaireId,
-                      name: i.name,
-                      position: i.position,
-                      rotationDeg: i.rotationDeg,
-                    })),
-                    calcOptions: {
-                      interreflection: true,
-                      bounces: 2,
-                      computeUgr: true,
-                    },
-                  },
+                  scene,
                   sourceFiles: sourceCache,
                   luminaireNames: names,
                 });

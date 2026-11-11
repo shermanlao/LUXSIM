@@ -14,9 +14,9 @@
 
 | Format | Support |
 |--------|---------|
-| Full PDF report | Cover, summary, per-room, product polar sheets, schedule |
+| Full PDF report | Cover, summary (incl. 3D storey overview), per-room plan + 3D + false-color when calculated, product sheets, schedule |
 | `.luxsim.json` | Native project |
-| DIALux pack zip | IES/LDT + schedule + room.json |
+| DIALux pack zip | v2: `rooms.json` (polygons) + `project.json` + schedule + IES/LDT; v1: `room.json` rectangle |
 
 ## `.evo`
 

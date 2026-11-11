@@ -112,7 +112,7 @@ export function exportLuxsimFile(project: LuxsimProjectFile) {
 
 export async function exportDialuxPack(opts: {
   projectName: string;
-  scene: SceneJson;
+  scene: AnyScene;
   sourceFiles: Record<string, { filename: string; text: string }>;
   luminaireNames: Record<string, string>;
 }) {

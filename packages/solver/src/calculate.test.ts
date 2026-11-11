@@ -42,4 +42,24 @@ describe("calculate", () => {
     expect(results.grid.lux.length).toBe(results.grid.nx * results.grid.ny);
     expect(results.meta.disclaimer).toMatch(/design-assist/i);
   });
+
+  it("returns zero lux with no luminaires", () => {
+    const results = calculate({
+      room: {
+        width: 4,
+        depth: 4,
+        height: 2.8,
+        reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+        workplaneHeight: 0.75,
+      },
+      luminaires: [],
+      grid: { spacing: 0.5 },
+      interreflection: true,
+      bounces: 2,
+      computeUgr: false,
+    });
+    expect(results.summary.eave).toBe(0);
+    expect(results.summary.emax).toBe(0);
+    expect(results.grid.lux.every((v) => v === 0)).toBe(true);
+  });
 });

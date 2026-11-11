@@ -44,8 +44,16 @@ export { roomToCalcOptions, clipResultsToPolygon } from "./room-adapter";
 export { parseDxfEntities, dxfBounds } from "./dxf";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
-export { buildFullReportPdf } from "./report";
-export type { ReportInput } from "./report";
+export { buildFullReportPdf, planReportSections } from "./report";
+export type { ReportInput, ReportSectionPlan } from "./report";
+export {
+  cameraForRooms,
+  drawRoomPerspective3dOnPdf,
+  drawStoreyPerspective3dOnPdf,
+  pdfIncludes3dDrawingMarkers,
+  projectPoint,
+} from "./view-3d-render";
+export type { CameraPreset } from "./view-3d-render";
 export {
   DEFAULT_PLAN_SPAN_M,
   underlayWorldSize,
