@@ -61,7 +61,7 @@ export function assembleEvoZip(
   }
   writeFileSync(overridesPath, JSON.stringify(spec));
   try {
-    execFileSync("python3", [script, referenceZip, outPath, overridesPath], {
+    execFileSync("python3", [script, referenceZip, outPath, overridesPath, "--validate"], {
       stdio: "pipe",
     });
     return readFileSync(outPath);
