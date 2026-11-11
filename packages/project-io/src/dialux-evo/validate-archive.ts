@@ -30,9 +30,10 @@ export function contourIntegrityIssues(dat: string): ContourIntegrityIssue[] {
 }
 
 export function datStepHeaderValid(dat: string): boolean {
+  const body = dat.charCodeAt(0) === 0xfeff ? dat.slice(1) : dat;
   return (
-    dat.startsWith("ISO-10303-21;") &&
-    dat.includes("FILE_SCHEMA (('DIALux {5%2E12%2E1%2E7275}'))") &&
-    dat.trimEnd().endsWith("END-ISO-10303-21;")
+    body.startsWith("ISO-10303-21;") &&
+    body.includes("FILE_SCHEMA (('DIALux {5%2E12%2E1%2E7275}'))") &&
+    body.trimEnd().endsWith("END-ISO-10303-21;")
   );
 }
