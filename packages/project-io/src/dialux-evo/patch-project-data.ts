@@ -15,6 +15,13 @@ export interface EvoRoomInput {
   storey: Storey;
 }
 
+export type EvoPatchGeometryMode = "off" | "contours";
+
+export interface PatchProjectDataOptions {
+  /** Contours/origins require Scenegraph sync; default `off` keeps reference geometry loadable. */
+  geometry?: EvoPatchGeometryMode;
+}
+
 export interface PatchProjectDataResult {
   dat: string;
   roomCount: number;
@@ -228,9 +235,16 @@ export function patchProjectDataDat(
   templateDat: string,
   projectName: string,
   rooms: EvoRoomInput[],
-  description?: string
+  description?: string,
+  options?: PatchProjectDataOptions
 ): PatchProjectDataResult {
   const warnings: string[] = [];
+  const geometry = options?.geometry ?? "off";
+  if (geometry === "off") {
+    warnings.push(
+      "Reference room outlines kept (Scenegraph / ProjectData.xml not regenerated). LUXSIM names, ceiling height, and workplane are still patched."
+    );
+  }
   if (rooms.length > MAX_TEMPLATE_ROOMS) {
     warnings.push(
       `DIALux evo template supports up to ${MAX_TEMPLATE_ROOMS} room zones per export; extra rooms were omitted.`
@@ -244,8 +258,10 @@ export function patchProjectDataDat(
     description ??
       `${projectName} exported from LUXSIM (geometry faithful; luminaires not encoded in this build).`
   );
-  dat = patchContours(dat, slice, warnings);
-  dat = patchBuildingOrigins(dat, slice);
+  if (geometry === "contours") {
+    dat = patchContours(dat, slice, warnings);
+    dat = patchBuildingOrigins(dat, slice);
+  }
   dat = patchStoreyHeights(dat, slice);
   dat = patchWorkplaneHeights(dat, slice);
   dat = patchRoomNames(dat, slice);
@@ -282,4 +298,8 @@ export function allEvoRooms(scene: ProjectSceneV2): EvoRoomInput[] {
     out.push(...roomsForStorey(scene, storey.id));
   }
   return out;
+}
+
+export function defaultEvoFixtureRoot(): string {
+  return path.join(process.cwd(), "fixtures/dialux-evo-12.1-reference");
 }

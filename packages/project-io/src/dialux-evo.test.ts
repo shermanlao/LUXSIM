@@ -1,7 +1,16 @@
 import { describe, expect, it } from "vitest";
 import JSZip from "jszip";
+import { writeFileSync, mkdtempSync, rmSync, readFileSync } from "fs";
+import { tmpdir } from "os";
 import path from "path";
-import { buildDialuxEvo, defaultEvoFixtureRoot } from "./dialux-evo";
+import { assembleEvoZip } from "./dialux-evo/assemble-evo";
+import {
+  buildDialuxEvo,
+  defaultEvoFixtureRoot,
+  defaultEvoReferenceZipPath,
+  EVO_REFERENCE_MEMBER_ORDER,
+  readEvoZipMemberMeta,
+} from "./dialux-evo";
 import { EVO_ARCHIVE_MEMBERS } from "./dialux-evo/constants";
 import {
   contourIntegrityIssues,
@@ -51,6 +60,27 @@ function nineRoomScene(): ProjectSceneV2 {
 describe("buildDialuxEvo", () => {
   const fixtureRoot = defaultEvoFixtureRoot();
 
+  it("clones reference zip with native NTFS extras and member order", async () => {
+    const work = mkdtempSync(path.join(tmpdir(), "evo-test-"));
+    const out = path.join(work, "clone.evo");
+    writeFileSync(out, assembleEvoZip(defaultEvoReferenceZipPath(), {}));
+    try {
+      const ref = readEvoZipMemberMeta(defaultEvoReferenceZipPath());
+      const got = readEvoZipMemberMeta(out);
+      expect(got.map((m) => m.filename)).toEqual([...EVO_REFERENCE_MEMBER_ORDER]);
+      const scene = got.find((m) => m.filename === "Project/ScenegraphScene")!;
+      expect(scene.createVersion).toBe(63);
+      expect(scene.extraLength).toBe(36);
+      expect(scene.compressType).toBe(8);
+      const thumb = got.find((m) => m.filename === "ArchiveInfo/Thumbnail.png")!;
+      expect(thumb.compressType).toBe(0);
+      const refScene = ref.find((m) => m.filename === "Project/ScenegraphScene")!;
+      expect(scene.compressSize).toBe(refScene.compressSize);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
+  });
+
   it("produces a zip with reference archive members", async () => {
     const { blob } = await buildDialuxEvo({
       projectName: "AED-180297 L9M",
@@ -85,13 +115,37 @@ describe("buildDialuxEvo", () => {
     const dat = await zip.file("Project/ProjectData/ProjectData.dat")!.async("string");
     expect(datStepHeaderValid(dat)).toBe(true);
     expect(contourIntegrityIssues(dat)).toHaveLength(0);
-    expect(dat.length).toBeGreaterThan(200_000);
+    expect(dat.length).toBeGreaterThan(203_000);
+    expect(dat.length).toBeLessThan(205_000);
     expect(datContainsRoomName(dat, "Server Room")).toBe(true);
     expect(datContainsRoomName(dat, "Open Office")).toBe(true);
     const polys = innerContourPolygons(dat);
     expect(polys.length).toBeGreaterThanOrEqual(9);
-    // Slot 1 (Server Room) is 4-vertex in template → rectangle exports patch this contour.
-    expect(polys[1]!.some((p) => p.startsWith("3.8") || p.endsWith(",3.9"))).toBe(true);
+  });
+
+  it("keeps ScenegraphScene compressed stream identical to reference when only metadata is patched", async () => {
+    const { blob } = await buildDialuxEvo({
+      projectName: "L9M Meta",
+      scene: nineRoomScene(),
+      fixtureRoot,
+    });
+    const work = mkdtempSync(path.join(tmpdir(), "evo-meta-"));
+    const out = path.join(work, "out.evo");
+    writeFileSync(out, Buffer.from(await blob.arrayBuffer()));
+    try {
+      const ref = readEvoZipMemberMeta(defaultEvoReferenceZipPath());
+      const got = readEvoZipMemberMeta(out);
+      const a = ref.find((m) => m.filename === "Project/ScenegraphScene")!;
+      const b = got.find((m) => m.filename === "Project/ScenegraphScene")!;
+      expect(b.compressSize).toBe(a.compressSize);
+      const zipRef = await JSZip.loadAsync(readFileSync(defaultEvoReferenceZipPath()));
+      const zipOut = await JSZip.loadAsync(await blob.arrayBuffer());
+      const sgRef = await zipRef.file("Project/ScenegraphScene")!.async("uint8array");
+      const sgOut = await zipOut.file("Project/ScenegraphScene")!.async("uint8array");
+      expect(Buffer.from(sgOut).equals(Buffer.from(sgRef))).toBe(true);
+    } finally {
+      rmSync(work, { recursive: true, force: true });
+    }
   });
 
   it("updates ArchiveInfo title", async () => {

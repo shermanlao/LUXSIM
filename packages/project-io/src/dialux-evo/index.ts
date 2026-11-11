@@ -1,4 +1,13 @@
-export { buildDialuxEvo, defaultEvoFixtureRoot, patchArchiveInfoXml } from "./build-evo";
+export {
+  assembleEvoZip,
+  buildDialuxEvo,
+  defaultEvoReferenceZipPath,
+  patchArchiveInfoXml,
+  readEvoZipMemberMeta,
+  EVO_REFERENCE_MEMBER_ORDER,
+} from "./build-evo";
+export { defaultEvoFixtureRoot } from "./patch-project-data";
+export type { EvoZipMemberMeta } from "./assemble-evo";
 export type { BuildDialuxEvoInput, BuildDialuxEvoResult } from "./build-evo";
 export {
   allEvoRooms,
