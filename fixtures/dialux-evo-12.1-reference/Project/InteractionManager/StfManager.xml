@@ -1,0 +1,25 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<MetaInfo Version="5.12.1.7275">
+  <PersistenceObject Name="FileData">
+    <Member Name="ProjectDirectory" IndexInObject="0">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="TargetFilename" IndexInObject="1">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="SourceFilename" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="StfManager">
+    <Member Name="StfVersionSimple" IndexInObject="0">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="StfVersionCoords" IndexInObject="1">
+      <Type Name="System.Int32" IsGeneric="false" />
+    </Member>
+    <Member Name="StfFile" IndexInObject="2">
+      <Type Name="Dial.Dialux.ProjectData.Utilities.IFileData" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+</MetaInfo>

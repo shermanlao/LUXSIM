@@ -1,0 +1,11 @@
+﻿ISO-10303-21;
+HEADER;
+FILE_DESCRIPTION ('Project Name', 'Project Description');
+FILE_NAME ('File Name', 'File Description', 'Build Date from the File');
+FILE_SCHEMA (('DIALux {5%2E12%2E1%2E7275}'));
+ENDSEC;
+DATA;
+#1 = StfManager (0, 0, #2);
+#2 = FileData ('STF', 'fu1tpabp%2Etmp', 'C:\Users\user\AppData\Local\Temp\dialux-draft\AED-180297_L9M_Rooms_20261111R1%2Estf');
+ENDSEC;
+END-ISO-10303-21;

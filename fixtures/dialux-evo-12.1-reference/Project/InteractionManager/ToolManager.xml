@@ -1,0 +1,40 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<MetaInfo Version="5.12.1.7275">
+  <PersistenceObject Name="ModeStateMemory">
+    <Member Name="WorkspaceMap" IndexInObject="0">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.String" IsGeneric="false" />
+          <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+            <Type Name="System.String" IsGeneric="false" />
+            <Type Name="System.Boolean" IsGeneric="false" />
+          </Type>
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ToolManager">
+    <Member Name="ModeMemory" IndexInObject="0">
+      <Type Name="ModeStateMemory" IsGeneric="false" />
+    </Member>
+    <Member Name="ToolMemory" IndexInObject="1">
+      <Type Name="ToolStateMemory" IsGeneric="false" />
+    </Member>
+    <Member Name="ActiveWorkspace" IndexInObject="2">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+    <Member Name="ActiveMode" IndexInObject="3">
+      <Type Name="System.String" IsGeneric="false" />
+    </Member>
+  </PersistenceObject>
+  <PersistenceObject Name="ToolStateMemory">
+    <Member Name="Memory" IndexInObject="0">
+      <Type Name="System.Collections.Generic.IEnumerable`1" IsGeneric="true" CountGenericParameter="1">
+        <Type Name="System.Collections.Generic.KeyValuePair`2" IsGeneric="true" CountGenericParameter="2">
+          <Type Name="System.String" IsGeneric="false" />
+          <Type Name="System.String" IsGeneric="false" />
+        </Type>
+      </Type>
+    </Member>
+  </PersistenceObject>
+</MetaInfo>

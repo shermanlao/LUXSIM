@@ -24,6 +24,7 @@ import {
 } from "@luxsim/project-io";
 import {
   buildLuxsimProject,
+  exportDialuxEvo,
   exportDialuxPack,
   exportLuxsimFile,
 } from "@/lib/exports-client";
@@ -1338,6 +1339,28 @@ export function BuildingEditor({
             >
               Save .luxsim
             </button>
+            <div className="flex items-center gap-2">
+              <button
+                className="btn btn-secondary flex-1"
+                data-help-key="export.dialuxEvo"
+                onClick={async () => {
+                  try {
+                    setStatus("Building DIALux .evo…");
+                    const warnings = await exportDialuxEvo(projectId, name);
+                    setStatus(
+                      warnings.length
+                        ? `DIALux .evo saved — ${warnings.join(" ")}`
+                        : "DIALux .evo saved"
+                    );
+                  } catch (e) {
+                    setStatus(e instanceof Error ? e.message : ".evo export failed");
+                  }
+                }}
+              >
+                Export .evo (DIALux evo 12.1)
+              </button>
+              <HelpTip helpKey="export.dialuxEvo" />
+            </div>
             <button
               className="btn btn-secondary w-full"
               onClick={async () => {

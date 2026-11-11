@@ -18,6 +18,14 @@ export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
 export { buildDialuxPack } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
 export {
+  buildDialuxEvo,
+  defaultEvoFixtureRoot,
+  EVO_ARCHIVE_MEMBERS,
+  MAX_TEMPLATE_ROOMS,
+  DIALUX_EVO_VERSION,
+} from "./dialux-evo";
+export type { BuildDialuxEvoInput, BuildDialuxEvoResult } from "./dialux-evo";
+export {
   defaultSceneV2,
   migrateSceneV1toV2,
   normalizeScene,
