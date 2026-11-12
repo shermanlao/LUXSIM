@@ -420,3 +420,111 @@ describe("wall calculation surfaces in the report", () => {
   });
 });
 
+
+describe("report PDF website footer", () => {
+  function wideHallScene() {
+    const { data } = parseIes(fixture);
+    const room: RoomV2 = {
+      id: "r1",
+      storeyId: "s1",
+      name: "Hall",
+      polygon: rectPolygon(0, 0, 20, 5),
+      heightM: 2.8,
+      workplaneHeightM: 0.75,
+      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+      calc: { gridSpacing: 0.5, interreflection: true, bounces: 2, computeUgr: true },
+    };
+    const inst: FixtureInstance = {
+      instanceId: "i1",
+      luminaireId: "lum",
+      storeyId: "s1",
+      roomId: "r1",
+      name: "DL",
+      position: { x: 10, y: 2.5, z: 2.6 },
+      rotationDeg: 0,
+    };
+    const calc = clipResultsToPolygon(
+      room,
+      calculate(roomToCalcOptions(room, [inst], { lum: data }, { lum: 30 }))
+    );
+    const scene: ProjectSceneV2 = {
+      version: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 3 }],
+      rooms: [room],
+      underlays: [],
+      fixtureLibraryIds: ["lum"],
+      instances: [inst],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", viewMode: "top", tool: "select" },
+    };
+    return { data, room, inst, calc, scene };
+  }
+
+  function pageText(doc: ReturnType<typeof buildFullReportPdf>, pageNum: number): string {
+    const pages = (doc as unknown as { internal?: { pages?: unknown[] } }).internal?.pages;
+    const page = pages?.[pageNum];
+    return Array.isArray(page) ? page.join("\n") : "";
+  }
+
+  function pageSize(doc: ReturnType<typeof buildFullReportPdf>, pageNum: number): { w: number; h: number } {
+    doc.setPage(pageNum);
+    return {
+      w: doc.internal.pageSize.getWidth(),
+      h: doc.internal.pageSize.getHeight(),
+    };
+  }
+
+  function pageCount(doc: ReturnType<typeof buildFullReportPdf>): number {
+    return (
+      (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal?.getNumberOfPages?.() ?? 0
+    );
+  }
+
+  it("prints the website on the cover, a later page, and a landscape Lighting Plan page", () => {
+    const { data, calc, scene } = wideHallScene();
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+      wattsById: { lum: 30 },
+      luxsimVersion: "0.1.0",
+      website: "http://187.7.21.12:8088/",
+    });
+    const shown = "http://187.7.21.12:8088";
+    const cover = pageText(doc, 1);
+    expect(cover).toContain(shown);
+    expect(cover).toContain("Cover");
+    expect(pageText(doc, 2)).toContain(shown);
+
+    let landscapePlan = false;
+    const pages = pageCount(doc);
+    for (let i = 1; i <= pages; i += 1) {
+      const text = pageText(doc, i);
+      const { w, h } = pageSize(doc, i);
+      if (text.includes("Lighting Plan") && w > h) {
+        expect(text).toContain(shown);
+        landscapePlan = true;
+      }
+    }
+    expect(landscapePlan).toBe(true);
+  });
+
+  it("omits the website line when unset and does not print placeholders", () => {
+    const { data, calc, scene } = wideHallScene();
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+      wattsById: { lum: 30 },
+      luxsimVersion: "0.1.0",
+    });
+    const pages = pageCount(doc);
+    let combined = "";
+    for (let i = 1; i <= pages; i += 1) combined += pageText(doc, i);
+    expect(combined).not.toContain("undefined");
+    expect(combined).not.toMatch(/website/i);
+    expect(combined).not.toContain("http://");
+    expect(combined).not.toContain("https://");
+  });
+});

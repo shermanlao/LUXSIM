@@ -22,13 +22,17 @@ Visible only to site admins.
 |------|---------|
 | `/admin/users` | List accounts, create a user, disable or enable, set site admin, place someone in a workspace, reset a password |
 | `/admin/workspaces` | List organisations, members, and projects; add or remove members; open a project; delete a workspace (users are not deleted) |
-| `/admin/settings` | Open or close public registration, set the default autosave for *new* users, edit in-app help tips |
+| `/admin/settings` | Open or close public registration, set the default autosave for *new* users, set the website shown in lighting-report PDF footers, edit in-app help tips |
 
 The last remaining active site admin cannot be demoted or disabled. The last owner of a workspace cannot be removed or demoted.
 
 Temporary passwords from create-user or reset-password are returned once in the API response and shown in a one-time dialog. They are not written to logs or the repository.
 
 Disabled users cannot sign in or use APIs.
+
+## Report website
+
+The lighting report PDF footer can show the site’s web address as plain text. On `/admin/settings`, set **Lighting report website** to an http(s) URL or a host[:port]. When the setting has never been stored, the server uses `AUTH_URL` or `NEXTAUTH_URL`. A blank value hides the line. Designers fetch this (and only this public field) from `GET /api/site` when exporting a report; they do not need the admin settings API.
 
 ## Public registration
 
