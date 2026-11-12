@@ -2,7 +2,9 @@
 
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
+import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { PolarPreview } from "@/components/PolarPreview";
+import { libraryConeLabel } from "@/lib/luminaire-origin";
 
 type LumRow = {
   id: string;
@@ -11,6 +13,9 @@ type LumRow = {
   originalName: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 export function LibraryClient() {
@@ -19,6 +24,9 @@ export function LibraryClient() {
     id: string;
     name: string;
     photometric: PhotometricData;
+    origin?: string | null;
+    libraryFamily?: string | null;
+    libraryBeamDeg?: number | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -60,6 +68,9 @@ export function LibraryClient() {
       id: data.id,
       name: data.name,
       photometric: data.photometric,
+      origin: data.origin,
+      libraryFamily: data.libraryFamily,
+      libraryBeamDeg: data.libraryBeamDeg,
     });
   }
 
@@ -74,7 +85,7 @@ export function LibraryClient() {
     <div className="mx-auto max-w-7xl px-4 py-10">
       <h1 className="display text-4xl mb-2">Luminaire library</h1>
       <p className="text-[var(--muted)] mb-8">
-        Import your own IES / LDT files. No manufacturer catalog in v1.
+        Import a measured IES / LDT, or generate a calculated library cone when you do not have a laboratory file.
       </p>
 
       <div className="grid lg:grid-cols-[1fr_1.1fr] gap-6">
@@ -99,6 +110,15 @@ export function LibraryClient() {
             </button>
           </form>
 
+          <div className="panel p-5">
+            <GenerateLdtForm
+              onCreated={async (luminaire) => {
+                await load();
+                await openDetail(luminaire.id);
+              }}
+            />
+          </div>
+
           <div className="panel overflow-hidden">
             <table className="w-full text-sm">
               <thead className="bg-[#eef3f6] text-left">
@@ -120,6 +140,9 @@ export function LibraryClient() {
                       >
                         {item.name}
                       </button>
+                      {libraryConeLabel(item) && (
+                        <div className="text-[10px] text-[var(--muted)]">{libraryConeLabel(item)}</div>
+                      )}
                     </td>
                     <td className="p-3 uppercase">{item.sourceFormat}</td>
                     <td className="p-3">
@@ -140,7 +163,7 @@ export function LibraryClient() {
                 {items.length === 0 && (
                   <tr>
                     <td colSpan={4} className="p-6 text-[var(--muted)]">
-                      No luminaires yet — import an IES or LDT file.
+                      No luminaires yet — import an IES or LDT, or generate a library cone.
                     </td>
                   </tr>
                 )}
@@ -154,9 +177,17 @@ export function LibraryClient() {
             <div>
               <h2 className="display text-2xl mb-1">{selected.name}</h2>
               <p className="text-sm text-[var(--muted)] mb-4">
-                {selected.photometric.manufacturer || "Unknown manufacturer"} ·{" "}
-                {selected.photometric.description}
+                {libraryConeLabel(selected)
+                  ? `${libraryConeLabel(selected)} — calculated photometry, not a measured laboratory file.`
+                  : `${selected.photometric.manufacturer || "Unknown manufacturer"} · ${selected.photometric.description}`}
               </p>
+              {libraryConeLabel(selected) && (
+                <p className="text-xs mb-3">
+                  <a className="underline" href={`/api/luminaires/${selected.id}/ldt`}>
+                    Download .ldt
+                  </a>
+                </p>
+              )}
               <PolarPreview photo={selected.photometric} />
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div>

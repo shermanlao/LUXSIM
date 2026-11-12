@@ -13,6 +13,8 @@ import {
   exportPdfReport,
 } from "@/lib/exports-client";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { GenerateLdtForm } from "@/components/GenerateLdtForm";
+import { luminaireListLabel } from "@/lib/luminaire-origin";
 
 const SceneViewer = dynamic(
   () => import("./SceneViewer").then((m) => m.SceneViewer),
@@ -33,6 +35,9 @@ type LumRow = {
   originalName?: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 type Props = {
@@ -579,6 +584,23 @@ export function ProjectEditor({
             {uploading && <p className="text-xs text-[var(--accent-2)]">Parsing photometry…</p>}
           </div>
 
+          <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3 bg-white/60">
+            <GenerateLdtForm
+              compact
+              onCreated={async (lum, photometric) => {
+                await loadLibrary();
+                setPlaceId(lum.id);
+                setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
+                if (autoPlaceOnUpload) {
+                  placeLuminaireById(lum.id, { name: lum.name, photo: photometric });
+                  setStatus(`Generated and placed “${lum.name}”`);
+                } else {
+                  setStatus(`Generated “${lum.name}” — select Place in room`);
+                }
+              }}
+            />
+          </div>
+
           <div>
             <label className="label">From library</label>
             <select
@@ -589,7 +611,7 @@ export function ProjectEditor({
               <option value="">Select…</option>
               {library.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {luminaireListLabel(l.name, l)}
                 </option>
               ))}
             </select>
