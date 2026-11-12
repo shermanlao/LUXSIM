@@ -17,9 +17,32 @@ model User {
   disabled     Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  memberships  OrgMember[]
-  accounts     Account[]
-  sessions     Session[]
+  memberships        OrgMember[]
+  accounts           Account[]
+  sessions           Session[]
+  passwordResetOtps  PasswordResetOtp[]
+}
+
+model PasswordResetOtp {
+  id           String    @id @default(cuid())
+  userId       String
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuthEmailThrottle {
+  id        String   @id @default(cuid())
+  emailHash String
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([emailHash, kind, createdAt])
 }
 
 model Account {

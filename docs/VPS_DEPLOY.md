@@ -34,3 +34,18 @@ sudo systemctl restart luxsim-web
 
 After migrating, create the first site administrator with `npx tsx scripts/create-site-admin.ts --email you@example.com` if one does not already exist. See [ADMIN.md](./ADMIN.md). Do not commit or paste the generated password.
 
+## Transactional email (password reset)
+
+Password reset sends a 6-digit one-time code to the registered mailbox. The message must not contain a link. Set these in `/var/www/luxsim/.env` only — do not commit them:
+
+```
+EMAIL_SERVER_HOST=smtp.office365.com
+EMAIL_SERVER_PORT=587
+EMAIL_SERVER_USER=
+EMAIL_SERVER_PASSWORD=
+EMAIL_FROM=LUXSIM <info@4techhk.com>
+```
+
+`EMAIL_FROM` must be a mailbox Office 365 will accept (the existing Office 365 mailbox). A `LUXSIM` display name is fine. `AUTH_URL` and `NEXTAUTH_URL` must stay `http://187.7.21.12:8088`.
+
+Seed or demo addresses such as `demo@luxsim.local` cannot receive mail. Use a real mailbox to test the reset email.
