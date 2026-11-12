@@ -22,7 +22,6 @@ export function persistableScene(scene: ProjectSceneV2): ProjectSceneV2 {
       activeRoomId: null,
       viewMode: "top",
       tool: "select",
-      workflowMode: undefined,
       camera3d: null,
       display3d: undefined,
     },
