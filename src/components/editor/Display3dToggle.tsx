@@ -15,7 +15,9 @@ export function Display3dToggle({
     <button
       type="button"
       className={`!py-1.5 !px-3 !text-xs btn ${
-        value === mode ? "btn-accent" : "btn-secondary !bg-white/90"
+        value === mode
+          ? "btn-accent !text-[#f5f7f8] !border-[#c45c26]"
+          : "!bg-[#162630]/90 !text-[#e8eef2] !border-[#4a6270] hover:!bg-[#1f3542]"
       }`}
       aria-pressed={value === mode}
       onClick={() => onChange(mode)}

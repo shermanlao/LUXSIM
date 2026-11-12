@@ -1,6 +1,8 @@
 /**
  * Shared Three.js scene construction for the in-app 3D viewer and report captures.
- * Rooms are open-top grey shells; false-colour workplanes are clipped to the room polygon.
+ * Rooms have a floor, walls, and a downward-facing ceiling so the underside is
+ * visible from inside the room. Report cameras looking down still see into the space.
+ * False-colour workplanes are clipped to the room polygon.
  */
 import * as THREE from "three";
 import type { PhotometricData } from "@luxsim/photometry";
@@ -23,11 +25,11 @@ export const EDITOR_BG = "#0f1c24";
 export const REPORT_BG = "#f3f3f0";
 
 const FLOOR_COLOR = "#c8cbcf";
+const CEILING_COLOR = "#d8dce0";
 const WALL_COLOR = "#b0b4b8";
 const WALL_COLOR_ACTIVE = "#c5b7ab";
 const EDGE_COLOR = "#2c2c2c";
 const EDGE_COLOR_ACTIVE = "#c45c26";
-const CEILING_EDGE = "#6a6e72";
 
 export function sampleGridLux(room: RoomV2, grid: CalcResults["grid"], wx: number, wy: number): number {
   const b = roomBounds(room);
@@ -215,6 +217,42 @@ export function createFloorGeometry(room: RoomV2, elevationM: number): THREE.Buf
   const geo = new THREE.ShapeGeometry(shape);
   geo.rotateX(-Math.PI / 2);
   geo.translate(0, elevationM + 0.002, 0);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+export function createCeilingGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
+  const shape = shapeFromPolygon(room.polygon);
+  if (!shape) return null;
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  const y = elevationM + Math.max(0.1, room.heightM) - 0.002;
+  geo.translate(0, y, 0);
+  // Reverse triangle winding so the front face points down into the room.
+  // (A Y scale would not change XZ winding, so it cannot flip the face.)
+  const index = geo.getIndex();
+  if (index) {
+    const arr = index.array;
+    for (let i = 0; i + 2 < arr.length; i += 3) {
+      const tmp = arr[i + 1];
+      arr[i + 1] = arr[i + 2];
+      arr[i + 2] = tmp;
+    }
+    index.needsUpdate = true;
+  } else {
+    const pos = geo.getAttribute("position");
+    const arr = pos.array as Float32Array;
+    for (let i = 0; i + 2 < pos.count; i += 3) {
+      const i1 = (i + 1) * 3;
+      const i2 = (i + 2) * 3;
+      for (let k = 0; k < 3; k += 1) {
+        const tmp = arr[i1 + k]!;
+        arr[i1 + k] = arr[i2 + k]!;
+        arr[i2 + k] = tmp;
+      }
+    }
+    pos.needsUpdate = true;
+  }
   geo.computeVertexNormals();
   return geo;
 }
@@ -415,6 +453,14 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       side: THREE.DoubleSide,
     })
   );
+  const ceilMeshMat = track(
+    new THREE.MeshStandardMaterial({
+      color: CEILING_COLOR,
+      roughness: 0.9,
+      metalness: 0.02,
+      side: THREE.FrontSide,
+    })
+  );
   const wallShellOpacity = opts.mode === "falsecolor" ? 0.22 : 0.82;
   const wallMat = track(
     new THREE.MeshStandardMaterial({
@@ -442,7 +488,6 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   );
   const edgeMat = track(new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
   const edgeMatActive = track(new THREE.LineBasicMaterial({ color: EDGE_COLOR_ACTIVE }));
-  const ceilMat = track(new THREE.LineBasicMaterial({ color: CEILING_EDGE }));
   const workMat = track(
     new THREE.MeshBasicMaterial({
       vertexColors: true,
@@ -469,10 +514,11 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       const wallEdges = new THREE.LineSegments(track(new THREE.EdgesGeometry(walls, 20)), active ? edgeMatActive : edgeMat);
       threeScene.add(wallEdges);
     }
-    const ceil = createCeilingEdgeGeometry(room, elev);
-    if (ceil) {
-      track(ceil);
-      threeScene.add(new THREE.LineSegments(ceil, ceilMat));
+    const ceiling = createCeilingGeometry(room, elev);
+    if (ceiling) {
+      track(ceiling);
+      threeScene.add(new THREE.Mesh(ceiling, ceilMeshMat));
+      threeScene.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(ceiling)), active ? edgeMatActive : edgeMat));
     }
 
     if (opts.mode === "falsecolor") {

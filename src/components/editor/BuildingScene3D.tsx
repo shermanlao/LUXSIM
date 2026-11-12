@@ -21,7 +21,7 @@ import { PlanUnderlay3D } from "./PlanUnderlay3D";
 import { LuminaireBodyMesh } from "./LuminaireBody";
 import {
   EDITOR_BG,
-  createCeilingEdgeGeometry,
+  createCeilingGeometry,
   createFloorGeometry,
   createWallGeometry,
 } from "@/lib/scene-3d-model";
@@ -43,7 +43,7 @@ function RoomShell({
 }) {
   const floor = useMemo(() => createFloorGeometry(room, elev), [room, elev]);
   const walls = useMemo(() => createWallGeometry(room, elev), [room, elev]);
-  const ceiling = useMemo(() => createCeilingEdgeGeometry(room, elev), [room, elev]);
+  const ceiling = useMemo(() => createCeilingGeometry(room, elev), [room, elev]);
 
   useLayoutEffect(() => {
     return () => {
@@ -79,9 +79,10 @@ function RoomShell({
         </mesh>
       )}
       {ceiling && (
-        <lineSegments geometry={ceiling}>
-          <lineBasicMaterial color="#6a6e72" />
-        </lineSegments>
+        <mesh geometry={ceiling}>
+          <meshStandardMaterial color="#d8dce0" roughness={0.9} metalness={0.02} side={THREE.FrontSide} />
+          <Edges color={edgeColor} />
+        </mesh>
       )}
     </group>
   );

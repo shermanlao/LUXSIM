@@ -221,15 +221,12 @@ export function TopView2D({
   const ox = (viewW - world.width * scale) / 2;
   const oy = (viewH - world.depth * scale) / 2;
   /**
-   * Top = look-down (matches 3D). Bottom = look-up.
-   * Top mirrors X so it matches the previous Bottom ↔ 3D pairing.
+   * Look-down plan: +X right, +Y up (north), matching world coordinates,
+   * the 3D view, and a typical CAD / lighting-plan top view.
+   * Do not mirror X — that flipped the floor plate relative to 3D.
    */
-  const mirrorX = variant === "top";
-
   const toScreen = (x: number, y: number) => ({
-    x: mirrorX
-      ? ox + (world.minX + world.width - x) * scale
-      : ox + (x - world.minX) * scale,
+    x: ox + (x - world.minX) * scale,
     y: oy + (world.minY + world.depth - y) * scale,
   });
 
@@ -237,11 +234,8 @@ export function TopView2D({
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const { x: svgX, y: svgY } = clientToSvgPoint(svg, clientX, clientY);
-    const x = mirrorX
-      ? world.minX + world.width - (svgX - ox) / scale
-      : world.minX + (svgX - ox) / scale;
     return {
-      x,
+      x: world.minX + (svgX - ox) / scale,
       y: world.minY + world.depth - (svgY - oy) / scale,
     };
   };
@@ -338,18 +332,13 @@ export function TopView2D({
   const underlayScreen =
     underlay && underlaySize
       ? {
-          x: mirrorX
-            ? ox +
-              (world.minX + world.width - (underlay.offsetX + underlaySize.widthM)) *
-                scale
-            : ox + (underlay.offsetX - world.minX) * scale,
+          x: ox + (underlay.offsetX - world.minX) * scale,
           y:
             oy +
             (world.minY + world.depth - (underlay.offsetY + underlaySize.heightM)) * scale,
           width: underlaySize.widthM * scale,
           height: underlaySize.heightM * scale,
-          // X: keep plan aligned when view is X-mirrored. Y: correct remaining plan flip.
-          flipImageX: mirrorX,
+          flipImageX: false,
           flipImageY: true,
         }
       : null;
