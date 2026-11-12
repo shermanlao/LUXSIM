@@ -34,6 +34,17 @@ Disabled users cannot sign in or use APIs.
 
 Registration is open by default. When a site admin closes it, `POST /api/auth/register` returns 403. Site admins can still create users from `/admin/users`. New self-registered users still get their own workspace (as owner) and a sample project, using the site default autosave interval.
 
+
+## Password reset
+
+The login page has a Forgot password flow. The user asks for a 6-digit one-time code, which is emailed to the registered address. The email contains the code and its 10-minute expiry only — no reset link, no URL, and no new password. After the code is entered with a new password, the user is sent back to Sign in and is not signed in automatically.
+
+`POST /api/auth/password-reset/request` and `POST /api/auth/password-reset/verify` implement this. Codes are stored hashed, are single-use, and are invalidated if a new code is requested or if too many incorrect attempts are made. Sends are rate-limited per email. Responses do not reveal whether an address is registered, and disabled accounts are not sent a code.
+
+SMTP is configured with `EMAIL_SERVER_HOST`, `EMAIL_SERVER_PORT`, `EMAIL_SERVER_USER`, `EMAIL_SERVER_PASSWORD`, and `EMAIL_FROM`. If mail is not configured or sending fails, the request returns an error and no code is issued.
+
+This is separate from the site-admin temporary-password reset on `/admin/users`.
+
 ## First site admin (after deploy)
 
 Do not bake an email or password into the repository. After `npx prisma migrate deploy` on the instance, from the app root:
