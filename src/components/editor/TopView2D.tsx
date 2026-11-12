@@ -13,6 +13,7 @@ import {
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
+import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
 
@@ -348,7 +349,7 @@ export function TopView2D({
 
   return (
     <div
-      className="relative w-full bg-[#0f1c24] h-[520px]"
+      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -392,8 +393,7 @@ export function TopView2D({
             setCursor(w);
             return;
           }
-          if (movingRoomId && onMoveRoom && roomDragLast.current) {
-            onMoveRoom(movingRoomId, w.x - roomDragLast.current.x, w.y - roomDragLast.current.y);
+          if (applyRoomDrag(onMoveRoom, movingRoomId, roomDragLast.current, w)) {
             roomDragLast.current = w;
           }
         }}
@@ -453,12 +453,12 @@ export function TopView2D({
               fill={active ? "rgba(31,111,139,0.25)" : "rgba(42,59,70,0.55)"}
               stroke={active ? "#c45c26" : "#8aa0ad"}
               strokeWidth={active ? 2 : 1}
-              style={{ cursor: scene.ui.tool === "select" ? "move" : "inherit" }}
+              style={{ cursor: scene.ui.tool === "select" ? "pointer" : "inherit" }}
               onMouseDown={(e) => {
                 if (drawing || scene.ui.tool === "calibrate") return;
                 e.stopPropagation();
                 onSelectRoom?.(room.id);
-                if (!onMoveRoom) return;
+                if (!shouldBeginRoomDrag(onMoveRoom)) return;
                 const w = toWorld(e.clientX, e.clientY);
                 roomDragLast.current = w;
                 setMovingRoomId(room.id);

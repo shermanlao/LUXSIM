@@ -16,7 +16,6 @@ import {
   normalizeFalseColorScale,
   projectLuxRange,
   rectPolygon,
-  translatePolygon,
   underlayWorldSize,
   type Camera3dView,
   type Display3dMode,
@@ -61,6 +60,18 @@ import {
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { useAccountSettings } from "@/components/AccountSettingsProvider";
+import {
+  calcStatusTone,
+  formatCalcCompleteStatus,
+  formatCalcEmptyError,
+  planCalcRooms,
+} from "@/lib/editor-calc-rooms";
+import {
+  createUndoStack,
+  editorUndoKeyAction,
+  isTypingField,
+} from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { RcpDetectPanel } from "./RcpDetectPanel";
@@ -204,6 +215,14 @@ export function BuildingEditor({
   const saveInFlight = useRef(false);
   const saveQueued = useRef(false);
 
+  const { autosaveMs, loaded: accountLoaded } = useAccountSettings();
+  const [calcTarget, setCalcTarget] = useState<"room" | "all" | null>(null);
+  const undoStackRef = useRef(
+    createUndoStack<{ name: string; scene: ProjectSceneV2; results: ResultsV2 }>(50)
+  );
+  const coalesceRef = useRef<string | null>(null);
+
+
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
   const activeRoom = scene.rooms.find((r) => r.id === scene.ui.activeRoomId) ?? null;
   const activeResults = activeRoom ? results.byRoomId[activeRoom.id] ?? null : null;
@@ -339,6 +358,57 @@ export function BuildingEditor({
 
   latestRef.current = { name, scene, results };
 
+  function snapshotNow() {
+    const latest = latestRef.current;
+    return {
+      name: latest.name,
+      scene: structuredClone(latest.scene),
+      results: structuredClone(latest.results),
+    };
+  }
+
+  function recordUndoFromLatest() {
+    undoStackRef.current.push(snapshotNow());
+  }
+
+  function applyEditorSnapshot(snap: {
+    name: string;
+    scene: ProjectSceneV2;
+    results: ResultsV2;
+  }) {
+    latestRef.current = snap;
+    setName(snap.name);
+    setScene(snap.scene);
+    setResults(snap.results);
+  }
+
+  function undoEdit() {
+    const next = undoStackRef.current.undo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Undid");
+  }
+
+  function redoEdit() {
+    const next = undoStackRef.current.redo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Redid");
+  }
+
+  function beginCoalesce(key: string) {
+    if (coalesceRef.current === key) return;
+    recordUndoFromLatest();
+    coalesceRef.current = key;
+  }
+
+  function endCoalesce() {
+    coalesceRef.current = null;
+  }
+
+
   async function save(nextScene = scene, nextResults = results, nextName = name) {
     if (saveInFlight.current) {
       saveQueued.current = true;
@@ -369,13 +439,17 @@ export function BuildingEditor({
   }
 
   useEffect(() => {
+    if (!accountLoaded || !autosaveMs) return;
+    const current = snapshotProject(name, scene, results);
+    const toSave = sceneWithView(scene);
+    if (!projectPatchDiff(current, lastSavedRef.current, toSave, results)) return;
     const timer = window.setTimeout(() => {
       const latest = latestRef.current;
       void save(latest.scene, latest.results, latest.name);
-    }, 800);
+    }, autosaveMs);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce on data only
-  }, [name, scene, results]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- idle timer on persistable data
+  }, [name, scene, results, autosaveMs, accountLoaded]);
 
   useEffect(() => {
     const flush = () => {
@@ -399,9 +473,24 @@ export function BuildingEditor({
     setRoomHeightMm(String(Math.round(mToMm(activeRoom.heightM))));
   }, [activeRoom?.id, activeRoom?.heightM]);
 
-  function patchScene(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+  function patchScene(
+    updater: (s: ProjectSceneV2) => ProjectSceneV2,
+    opts?: { recordUndo?: boolean; coalesce?: string }
+  ) {
+    if (opts?.recordUndo !== false) {
+      if (opts?.coalesce) beginCoalesce(opts.coalesce);
+      else if (coalesceRef.current !== "drag") {
+        recordUndoFromLatest();
+        coalesceRef.current = null;
+      }
+    }
     setScene((s) => updater(s));
   }
+
+  function patchSceneUi(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+    patchScene(updater, { recordUndo: false });
+  }
+
 
   function addStorey() {
     const id = nid("storey");
@@ -469,21 +558,6 @@ export function BuildingEditor({
       return;
     }
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
-  }
-
-  function moveRoom(roomId: string, dx: number, dy: number) {
-    if (dx === 0 && dy === 0) return;
-    patchScene((s) => ({
-      ...s,
-      rooms: s.rooms.map((r) =>
-        r.id === roomId ? { ...r, polygon: translatePolygon(r.polygon, dx, dy) } : r
-      ),
-      instances: s.instances.map((i) =>
-        i.roomId === roomId
-          ? { ...i, position: { ...i.position, x: i.position.x + dx, y: i.position.y + dy } }
-          : i
-      ),
-    }));
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -562,6 +636,7 @@ export function BuildingEditor({
           writeCalcDeps()
         );
         const nextScene = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+        recordUndoFromLatest();
         setScene(nextScene);
         setResults(out.results);
         setSelectedId(out.instanceIds[0] ?? null);
@@ -605,6 +680,14 @@ export function BuildingEditor({
   }
 
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
+    if (coalesceRef.current !== "drag") {
+      beginCoalesce("drag");
+      const end = () => {
+        if (coalesceRef.current === "drag") coalesceRef.current = null;
+        window.removeEventListener("mouseup", end);
+      };
+      window.addEventListener("mouseup", end);
+    }
     patchScene((s) => ({
       ...s,
       instances: s.instances.map((i) => {
@@ -645,6 +728,7 @@ export function BuildingEditor({
 
       if (data.ifcScene) {
         // Merge IFC storeys/rooms, keep fixture library
+        recordUndoFromLatest();
         setScene((s) => ({
           ...data.ifcScene,
           fixtureLibraryIds: s.fixtureLibraryIds,
@@ -850,42 +934,37 @@ export function BuildingEditor({
   );
 
   async function runCalc(all: boolean) {
-    const rooms = all
-      ? scene.rooms
-      : scene.rooms.filter((r) => r.id === scene.ui.activeRoomId);
-    if (!rooms.length) {
-      setStatus("Select or create a room first");
+    const plan = planCalcRooms(scene, all);
+    if (!plan.ok) {
+      setStatus(formatCalcEmptyError(plan));
       return;
     }
+    setCalcTarget(all ? "all" : "room");
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
-      const missing = rooms.filter(
-        (r) => !scene.instances.some((i) => i.roomId === r.id)
-      );
-      if (missing.length === rooms.length) {
-        setStatus(`Room “${rooms[0]!.name}” has no fixtures`);
-        return;
-      }
-      const roomIds = rooms.map((r) => r.id);
       const calc = await runPostPlaceCalcForRooms(
         scene,
         results,
-        roomIds,
+        plan.roomIds,
         writeCalcDeps(),
         { luminaireNames: luminaireNameMap() }
       );
-      setResults(calc.results);
       if (calc.calcFailed) {
         setStatus(calc.errorMessage ?? "Calculation failed / 計算失敗");
         return;
       }
-      setStatus("Calculation complete (client-side) / 客戶端計算完成");
+      recordUndoFromLatest();
+      setResults(calc.results);
+      const done = formatCalcCompleteStatus(plan.skippedEmpty, true);
+      setStatus(done);
       await save(scene, calc.results, name);
+      setStatus(done);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
       setCalculating(false);
+      setCalcTarget(null);
     }
   }
 
@@ -946,6 +1025,7 @@ export function BuildingEditor({
         },
         writeCalcDeps()
       );
+      recordUndoFromLatest();
       setScene(out.scene);
       setResults(out.results);
       if (out.instanceIds.length === 0) {
@@ -995,6 +1075,7 @@ export function BuildingEditor({
         setStatus(out.blockedReason);
         return;
       }
+      recordUndoFromLatest();
       setScene(out.scene);
       setResults(out.results);
       if (out.instanceIds.length === 0) {
@@ -1212,7 +1293,7 @@ export function BuildingEditor({
   const workflowMeta = WORKFLOW_MODES.find((m) => m.id === workflow)!;
 
   function setWorkflowMode(mode: EditorWorkflowMode) {
-    patchScene((s) => {
+    patchSceneUi((s) => {
       let ui = { ...s.ui, workflowMode: mode };
       if (mode === "light" && !s.ui.activeRoomId) {
         const first = s.rooms.find((r) => r.storeyId === s.ui.activeStoreyId);
@@ -1259,6 +1340,19 @@ export function BuildingEditor({
     };
   }, [fullscreen]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = editorUndoKeyAction(e, isTypingField(e.target));
+      if (!action) return;
+      e.preventDefault();
+      if (action === "undo") undoEdit();
+      else redoEdit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
   const luxRange = projectLuxRange(results);
   const autoScale = useMemo(
@@ -1284,7 +1378,7 @@ export function BuildingEditor({
           <Display3dToggle
             value={display3d}
             onChange={(mode) =>
-              patchScene((s) => ({
+              patchSceneUi((s) => ({
                 ...s,
                 ui: { ...s.ui, display3d: mode },
               }))
@@ -1301,7 +1395,7 @@ export function BuildingEditor({
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
         </button>
       </div>
-      <div className="relative flex-1 min-h-0">
+      <div className="relative flex-1 min-h-0 bg-[#0a1218]">
       {(viewMode === "top" || viewMode === "bottom") && (
         <TopView2D
           scene={scene}
@@ -1314,9 +1408,8 @@ export function BuildingEditor({
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
-          onMoveRoom={moveRoom}
           onSelectRoom={(roomId) =>
-            patchScene((s) => ({
+            patchSceneUi((s) => ({
               ...s,
               ui: { ...s.ui, activeRoomId: roomId },
             }))
@@ -1423,30 +1516,45 @@ export function BuildingEditor({
           id="projectName"
           className="cad-project-input"
           value={name}
-          onChange={(e) => setName(e.target.value)}
+          onChange={(e) => {
+            beginCoalesce("name");
+            setName(e.target.value);
+          }}
+          onBlur={endCoalesce}
           aria-label="Project name"
         />
         <p className="cad-disclaimer hidden lg:block">
           Design assist · not tender-certified · verify in DIALux
         </p>
         <div className="flex flex-wrap gap-2 items-center ml-auto">
-          <button className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
+          <button type="button" className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
           <button
+            type="button"
             className="btn btn-secondary !text-xs"
             disabled={calculating}
             onClick={() => void runCalc(false)}
           >
-            Calc room
+            {calculating && calcTarget === "room" ? "Calculating…" : "Calc room"}
           </button>
           <button
+            type="button"
             className="btn btn-accent !text-xs"
             disabled={calculating}
             onClick={() => void runCalc(true)}
           >
-            {calculating ? "Calculating…" : "Calc all"}
+            {calculating && calcTarget !== "room" ? "Calculating…" : "Calc all"}
           </button>
+          {status && (
+            <span
+              className={`cad-file-bar__status${calcStatusTone(status, calculating) ? ` is-${calcStatusTone(status, calculating)}` : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {status}
+            </span>
+          )}
         </div>
       </header>
 
@@ -1486,7 +1594,7 @@ export function BuildingEditor({
                     st.id === scene.ui.activeStoreyId ? "is-storey-active" : ""
                   }`}
                   onClick={() =>
-                    patchScene((s) => ({
+                    patchSceneUi((s) => ({
                       ...s,
                       ui: { ...s.ui, activeStoreyId: st.id, activeRoomId: null },
                     }))
@@ -1506,7 +1614,7 @@ export function BuildingEditor({
                             r.id === scene.ui.activeRoomId ? "is-room-active" : ""
                           }`}
                           onClick={() =>
-                            patchScene((s) => ({
+                            patchSceneUi((s) => ({
                               ...s,
                               ui: {
                                 ...s.ui,
@@ -1545,7 +1653,7 @@ export function BuildingEditor({
                   className={`btn w-full !text-xs justify-start ${
                     scene.ui.tool === tool ? "btn-accent" : "btn-secondary"
                   }`}
-                  onClick={() => patchScene((s) => ({ ...s, ui: { ...s.ui, tool } }))}
+                  onClick={() => patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }))}
                 >
                   <Icon className="w-4 h-4 shrink-0 opacity-90" />
                   {label}
@@ -1599,7 +1707,7 @@ export function BuildingEditor({
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using Room height. Select / move to drag it.
+                Places a rectangle at 0, 0 using Room height. Rooms cannot be dragged.
               </p>
             </div>
           </div>
@@ -1678,7 +1786,7 @@ export function BuildingEditor({
                 type="button"
                 className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
                 onClick={() =>
-                  patchScene((s) => ({
+                  patchSceneUi((s) => ({
                     ...s,
                     ui: {
                       ...s.ui,
@@ -2269,7 +2377,7 @@ export function BuildingEditor({
       />
 
       <div className="cad-status-bar">
-        {status || "Autosave on pause · Top view: drop fixtures into rooms"}
+        {status || "Autosave after idle · Ctrl+Z undo · Top view: drop fixtures into rooms"}
         {assets.length > 0 && (
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}

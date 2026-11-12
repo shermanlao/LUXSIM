@@ -12,6 +12,7 @@ model User {
   email        String      @unique
   name         String?
   passwordHash String
+  autosaveMs   Int         @default(300000)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   memberships  OrgMember[]
