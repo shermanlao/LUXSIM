@@ -10,10 +10,11 @@ import type {
   Camera3dView,
   Display3dMode,
   DxfEntity,
+  FalseColorScale,
   ProjectSceneV2,
   ResultsV2,
 } from "@luxsim/project-io";
-import { roomBounds, underlayWorldSize } from "@luxsim/project-io";
+import { resolveEditorCamera, roomBounds } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
@@ -24,6 +25,7 @@ import {
   createCeilingGeometry,
   createFloorGeometry,
   createWallGeometry,
+  wallShellOpacity,
 } from "@/lib/scene-3d-model";
 
 function toThree(x: number, y: number, z: number): [number, number, number] {
@@ -70,9 +72,9 @@ function RoomShell({
             color={wallColor}
             roughness={0.88}
             metalness={0.04}
-            transparent
-            opacity={display3d === "falsecolor" ? 0.22 : 0.82}
-            depthWrite={display3d !== "falsecolor"}
+            transparent={wallShellOpacity(display3d) < 0.999}
+            opacity={wallShellOpacity(display3d)}
+            depthWrite
             side={THREE.DoubleSide}
           />
           <Edges threshold={20} color={edgeColor} />
@@ -124,6 +126,7 @@ export function BuildingScene3D({
   viewRef,
   initialView,
   photometry,
+  falseColorScale,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -138,6 +141,7 @@ export function BuildingScene3D({
   viewRef: React.MutableRefObject<Camera3dView | null>;
   initialView: Camera3dView | null;
   photometry?: Record<string, PhotometricData>;
+  falseColorScale?: FalseColorScale;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -146,38 +150,14 @@ export function BuildingScene3D({
   const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
   const elev = storey?.elevationM ?? 0;
 
-  const center = useMemo(() => {
-    if (rooms.length) {
-      let sx = 0,
-        sy = 0,
-        n = 0;
-      for (const r of rooms) {
-        const b = roomBounds(r);
-        sx += (b.minX + b.maxX) / 2;
-        sy += (b.minY + b.maxY) / 2;
-        n += 1;
-      }
-      return { x: sx / n, y: sy / n, z: elev + (storey?.heightM ?? 3) * 0.4 };
-    }
-    const size = underlay ? underlayWorldSize(underlay) : null;
-    if (underlay && size) {
-      return {
-        x: underlay.offsetX + size.widthM / 2,
-        y: underlay.offsetY + size.heightM / 2,
-        z: elev + (storey?.heightM ?? 3) * 0.4,
-      };
-    }
-    return { x: 4, y: 3, z: elev + 1.4 };
-  }, [rooms, elev, storey?.heightM, underlay]);
-
-  const defaultTarget = toThree(center.x, center.y, center.z);
-  const defaultPosition: [number, number, number] = [
-    center.x + 8,
-    center.z + 6,
-    center.y + 8,
-  ];
-  const startPosition = useRef(initialView?.position ?? viewRef.current?.position ?? defaultPosition);
-  const startTarget = useRef(initialView?.target ?? viewRef.current?.target ?? defaultTarget);
+  const startView = useMemo(
+    () => resolveEditorCamera(initialView ?? viewRef.current, scene, storeyId),
+    // Only seed the first pose; orbit is then owned by OrbitViewBridge.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [scene, storeyId]
+  );
+  const startPosition = useRef(startView.position);
+  const startTarget = useRef(startView.target);
 
   return (
     <div
@@ -255,9 +235,10 @@ export function BuildingScene3D({
                     room={room}
                     results={res}
                     elevationM={elev}
+                    scale={falseColorScale}
                   />
                 )}
-                <FalseColorWalls surfaces={walls} elevationM={elev} />
+                <FalseColorWalls surfaces={walls} elevationM={elev} scale={falseColorScale} />
               </group>
             );
           })}
@@ -287,7 +268,7 @@ export function BuildingScene3D({
         })}
 
         <OrbitControls makeDefault target={startTarget.current} />
-        <OrbitViewBridge viewRef={viewRef} initialView={initialView} />
+        <OrbitViewBridge viewRef={viewRef} initialView={startView} />
       </Canvas>
     </div>
   );

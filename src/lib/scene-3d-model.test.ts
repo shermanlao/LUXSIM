@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
+import { luxToRgb, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
 import {
+  FALSE_COLOR_WALL_SHELL_OPACITY,
   createCeilingGeometry,
   createClippedWorkplaneGeometry,
   createFloorGeometry,
   createWallFalseColorGeometry,
   sampleGridLux,
+  wallShellOpacity,
   workplaneVerticesInsideRoom,
 } from "./scene-3d-model";
 import type { CalcResults } from "@luxsim/solver";
@@ -228,3 +230,51 @@ describe("ceiling geometry", () => {
   });
 });
 
+
+describe("false-colour exterior facing and scale", () => {
+  it("points wall false-colour normals inward so FrontSide is hidden from outside", () => {
+    // South edge of a CCW room: (0,0)→(4,0), inward is +Y (Three.js +Z).
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0, 0.02);
+    expect(geo).not.toBeNull();
+    const normals = geo!.getAttribute("normal");
+    let nz = 0;
+    for (let i = 0; i < normals.count; i += 1) nz += normals.getZ(i);
+    expect(nz / normals.count).toBeGreaterThan(0.9);
+    geo!.dispose();
+  });
+
+  it("recolours workplane vertices when the legend scale changes", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 4) };
+    const results = gridFor(room, 200);
+    const wide = createClippedWorkplaneGeometry(room, results, 0, { minLux: 0, maxLux: 1000 });
+    const tight = createClippedWorkplaneGeometry(room, results, 0, { minLux: 100, maxLux: 250 });
+    expect(wide).not.toBeNull();
+    expect(tight).not.toBeNull();
+    const cWide = wide!.getAttribute("color");
+    const cTight = tight!.getAttribute("color");
+    expect(cWide.getX(0)).not.toBeCloseTo(cTight.getX(0), 3);
+    const expected = luxToRgb(200, { minLux: 100, maxLux: 250 });
+    expect(cTight.getX(0)).toBeCloseTo(expected[0], 5);
+    expect(cTight.getY(0)).toBeCloseTo(expected[1], 5);
+    expect(cTight.getZ(0)).toBeCloseTo(expected[2], 5);
+    wide!.dispose();
+    tight!.dispose();
+  });
+
+  it("keeps false-colour wall shells nearly opaque so the exterior stays uncoloured", () => {
+    expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
+    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeGreaterThanOrEqual(0.9);
+    expect(wallShellOpacity("greyscale")).toBeLessThan(FALSE_COLOR_WALL_SHELL_OPACITY);
+  });
+});

@@ -2,19 +2,21 @@
 
 import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
-import type { WallSurfaceResult } from "@luxsim/project-io";
+import type { FalseColorScale, WallSurfaceResult } from "@luxsim/project-io";
 import { createWallFalseColorGeometry } from "@/lib/scene-3d-model";
 
 function WallSurfaceMesh({
   surface,
   elevationM,
+  scale,
 }: {
   surface: WallSurfaceResult;
   elevationM: number;
+  scale?: FalseColorScale;
 }) {
   const geometry = useMemo(
-    () => createWallFalseColorGeometry(surface, elevationM),
-    [surface, elevationM]
+    () => createWallFalseColorGeometry(surface, elevationM, 0.02, scale),
+    [surface, elevationM, scale]
   );
   useLayoutEffect(() => {
     return () => {
@@ -28,7 +30,7 @@ function WallSurfaceMesh({
         vertexColors
         transparent
         opacity={0.92}
-        side={THREE.DoubleSide}
+        side={THREE.FrontSide}
         depthWrite={false}
       />
     </mesh>
@@ -38,15 +40,17 @@ function WallSurfaceMesh({
 export function FalseColorWalls({
   surfaces,
   elevationM = 0,
+  scale,
 }: {
   surfaces: WallSurfaceResult[];
   elevationM?: number;
+  scale?: FalseColorScale;
 }) {
   if (!surfaces.length) return null;
   return (
     <group>
       {surfaces.map((surface) => (
-        <WallSurfaceMesh key={surface.id} surface={surface} elevationM={elevationM} />
+        <WallSurfaceMesh key={surface.id} surface={surface} elevationM={elevationM} scale={scale} />
       ))}
     </group>
   );

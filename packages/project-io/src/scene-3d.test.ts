@@ -4,7 +4,10 @@ import {
   defaultDisplay3d,
   fitOverviewCamera,
   fitRoomCamera,
+  isLegacyNortheastOrbit,
   projectLuxRange,
+  resolveEditorCamera,
+  storeyCenter,
 } from "./scene-3d";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import type { CalcResults } from "../../solver/src/types";
@@ -106,5 +109,41 @@ describe("scene-3d camera and range helpers", () => {
       overview.position[2] - overview.target[2]
     );
     expect(roomDist).toBeLessThan(overDist);
+  });
+});
+
+describe("editor 3D camera orientation", () => {
+  function sceneWithOffice(): ProjectSceneV2 {
+    return {
+      version: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 2.8 }],
+      rooms: [office()],
+      underlays: [],
+      fixtureLibraryIds: [],
+      instances: [],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", viewMode: "persp3d", tool: "select" },
+    };
+  }
+
+  it("replaces the legacy north-east default with a south-facing plan-aligned view", () => {
+    const scene = sceneWithOffice();
+    const center = storeyCenter(scene);
+    const legacy = {
+      position: [center.x + 8, center.z + 6, center.y + 8] as [number, number, number],
+      target: [center.x, center.z, center.y] as [number, number, number],
+    };
+    expect(isLegacyNortheastOrbit(legacy, center)).toBe(true);
+    const resolved = resolveEditorCamera(legacy, scene);
+    expect(resolved.position[2]).toBeLessThan(resolved.target[2]);
+    expect(isLegacyNortheastOrbit(resolved, center)).toBe(false);
+  });
+
+  it("keeps a camera the user has actually orbited", () => {
+    const scene = sceneWithOffice();
+    const stored = {
+      position: [1, 12, -20] as [number, number, number],
+      target: [3, 1, 2] as [number, number, number],
+    };
+    expect(resolveEditorCamera(stored, scene)).toEqual(stored);
   });
 });
