@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { AUTOSAVE_INTERVALS } from "@/lib/account-settings";
 
-type Settings = { publicRegistration: boolean; defaultAutosaveMs: number };
+type Settings = { publicRegistration: boolean; defaultAutosaveMs: number; reportWebsite: string };
 type Tip = { helpKey: string; title: string; body: string; updatedAt: string | null };
 
 async function readError(res: Response, fallback: string) {
@@ -13,6 +13,7 @@ async function readError(res: Response, fallback: string) {
 
 export function SettingsAdminClient() {
   const [settings, setSettings] = useState<Settings | null>(null);
+  const [websiteDraft, setWebsiteDraft] = useState("");
   const [tips, setTips] = useState<Tip[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -29,7 +30,9 @@ export function SettingsAdminClient() {
       setLoading(false);
       return;
     }
-    setSettings((await settingsRes.json()) as Settings);
+    const next = (await settingsRes.json()) as Settings;
+    setSettings(next);
+    setWebsiteDraft(next.reportWebsite ?? "");
     if (tipsRes.ok) setTips((await tipsRes.json()) as Tip[]);
     setLoading(false);
   }, []);
@@ -50,7 +53,9 @@ export function SettingsAdminClient() {
       setError(await readError(res, "Failed to save settings"));
       return;
     }
-    setSettings((await res.json()) as Settings);
+    const next = (await res.json()) as Settings;
+    setSettings(next);
+    if (patch.reportWebsite !== undefined) setWebsiteDraft(next.reportWebsite ?? "");
     setSaved("Site settings saved.");
   }
 
@@ -78,7 +83,8 @@ export function SettingsAdminClient() {
     <div>
       <h1 className="display text-4xl mb-2">Site settings</h1>
       <p className="text-[var(--muted)] mb-6">
-        Public registration, the default autosave for new accounts, and in-app help tips.
+        Public registration, the default autosave for new accounts, the website shown on lighting
+        report PDFs, and in-app help tips.
       </p>
       {error && <p className="text-sm text-red-700 mb-4">{error}</p>}
       {saved && <p className="text-sm text-[var(--ok)] mb-4">{saved}</p>}
@@ -112,6 +118,33 @@ export function SettingsAdminClient() {
             ))}
           </select>
         </div>
+        <form
+          className="max-w-md space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void saveSettings({ reportWebsite: websiteDraft });
+          }}
+        >
+          <label className="label" htmlFor="report-website">
+            Lighting report website
+          </label>
+          <input
+            id="report-website"
+            className="input"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="http://187.7.21.12:8088"
+            value={websiteDraft}
+            onChange={(e) => setWebsiteDraft(e.target.value)}
+          />
+          <p className="text-sm text-[var(--muted)]">
+            Printed as plain text in the footer of lighting report PDFs. Use an http(s) URL or a
+            host[:port]. Leave blank to hide it. When this has never been set, the server address
+            (AUTH_URL) is used.
+          </p>
+          <button className="btn btn-accent !py-1.5 !px-3 !text-xs">Save website</button>
+        </form>
       </section>
 
       <h2 className="display text-2xl mb-3">Help tips</h2>

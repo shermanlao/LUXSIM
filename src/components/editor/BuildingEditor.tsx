@@ -832,6 +832,17 @@ export function BuildingEditor({
       console.warn("3D report capture failed", err);
       setStatus("3D views could not be captured; the rest of the report was exported.");
     }
+    let website: string | undefined;
+    try {
+      const siteRes = await fetch("/api/site");
+      if (siteRes.ok) {
+        const site = (await siteRes.json()) as { reportWebsite?: string };
+        const trimmed = site.reportWebsite?.trim();
+        if (trimmed) website = trimmed;
+      }
+    } catch {
+      // Export still succeeds if the public site info cannot be loaded.
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
@@ -844,6 +855,7 @@ export function BuildingEditor({
       persp3dGreyscale,
       persp3dFalseColor,
       luxsimVersion: "0.1.0",
+      website,
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }

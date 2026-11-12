@@ -23,3 +23,7 @@ Room area and LPD in the report use **true polygon area** (`roomAreaM2`), not th
 The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` before calling `buildFullReportPdf`. Optional `planSnapshots` / `persp3dSnapshots` data URLs can be supplied when capture is wired up.
 
 See also `fixtures/reference-dialux-report.pdf` and repo `CONTENT_SPEC` notes for field checklist vs official DIALux exports (no branding clone).
+
+## Header and footer
+
+Every page, including the cover and landscape Lighting Plan pages, has a footer with the project name, optional context, section title, and page number. When `ReportInput.website` is set, that address is also printed as plain text in the footer (trailing slash stripped). The building editor reads it from `GET /api/site` (`reportWebsite` site setting; default `AUTH_URL` or `NEXTAUTH_URL`) and passes it into `buildFullReportPdf`. The website is not added to emails, .evo files, CSVs, or other exports.

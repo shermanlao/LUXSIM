@@ -57,6 +57,8 @@ export interface ReportInput {
   projectPerspectiveSnapshot?: string;
   /** @deprecated Prefer persp3dGreyscale. */
   persp3dSnapshots?: Record<string, string>;
+  /** Plain-text site address for the report footer. Omitted when missing or blank. */
+  website?: string;
 }
 
 const MARGIN = 20;
@@ -64,6 +66,13 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const FOOTER_Y = 290;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+
+/** Visible footer label: trimmed, trailing slashes stripped. Blank input is omitted. */
+export function formatReportWebsite(raw?: string | null): string | undefined {
+  const trimmed = raw?.trim();
+  if (!trimmed) return undefined;
+  return trimmed.replace(/\/+$/, "");
+}
 
 function decodeBase64(b64: string): Uint8Array {
   if (typeof Buffer !== "undefined") return Uint8Array.from(Buffer.from(b64, "base64"));
@@ -127,7 +136,9 @@ class ReportPdfBuilder {
   }
 
   private footerY(): number {
-    return this.pageHeight() - 7;
+    // Reserve a third footer line when a website is shown so it does not
+    // collide with the project name, section title, or page number.
+    return this.pageHeight() - (formatReportWebsite(this.input.website) ? 12 : 7);
   }
 
   private contentWidth(): number {
@@ -183,6 +194,7 @@ class ReportPdfBuilder {
     const pageW = this.pageWidth();
     const footerY = this.footerY();
     const contentW = this.contentWidth();
+    const website = formatReportWebsite(this.input.website);
     doc.setDrawColor(200);
     doc.line(MARGIN, footerY - 6, pageW - MARGIN, footerY - 6);
     doc.setFontSize(8);
@@ -195,6 +207,10 @@ class ReportPdfBuilder {
       doc.text(sectionTitle, pageW - MARGIN, footerY + 3, { align: "right" });
     }
     doc.text(String(this.page), pageW - MARGIN, footerY - 2, { align: "right" });
+    if (website) {
+      // Plain visible text only — no link annotation that could hide the address.
+      doc.text(website, pageW / 2, footerY + 8, { align: "center", maxWidth: contentW });
+    }
     doc.setTextColor(0);
   }
 

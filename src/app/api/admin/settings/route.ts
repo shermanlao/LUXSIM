@@ -3,7 +3,12 @@ import { z } from "zod";
 import { parseAutosaveMs } from "@/lib/account-settings";
 import { apiErrorResponse } from "@/lib/api-error";
 import { requireSiteAdmin } from "@/lib/session";
-import { getSiteSettings, parsePublicRegistration, setSiteSettings } from "@/lib/site-settings";
+import {
+  getSiteSettings,
+  parsePublicRegistration,
+  parseReportWebsite,
+  setSiteSettings,
+} from "@/lib/site-settings";
 
 export async function GET() {
   try {
@@ -17,6 +22,7 @@ export async function GET() {
 const patchSchema = z.object({
   publicRegistration: z.union([z.boolean(), z.string()]).optional(),
   defaultAutosaveMs: z.union([z.number(), z.string()]).optional(),
+  reportWebsite: z.string().optional(),
 });
 
 export async function PATCH(req: Request) {
@@ -37,6 +43,16 @@ export async function PATCH(req: Request) {
         return NextResponse.json({ error: "Invalid autosave interval" }, { status: 400 });
       }
       patch.defaultAutosaveMs = parsed;
+    }
+    if (body.reportWebsite !== undefined) {
+      const parsed = parseReportWebsite(body.reportWebsite);
+      if (parsed == null) {
+        return NextResponse.json(
+          { error: "Invalid report website. Use an http(s) URL or a host[:port]." },
+          { status: 400 }
+        );
+      }
+      patch.reportWebsite = parsed;
     }
     const settings = await setSiteSettings(patch);
     return NextResponse.json(settings);
