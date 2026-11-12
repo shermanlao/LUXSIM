@@ -10,6 +10,7 @@ import { luminaireBody } from "@luxsim/photometry";
 import type { CalcResults } from "@luxsim/solver";
 import {
   luxToRgb,
+  normalizeFalseColorScale,
   pointInPolygon,
   projectLuxRange,
   roomBounds,
@@ -547,9 +548,11 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     }
 
     if (opts.mode === "falsecolor") {
-      const scale =
-        opts.falseColorScale ??
-        (opts.results ? projectLuxRange(opts.results) : undefined);
+      let scale = opts.falseColorScale;
+      if (!scale && opts.results) {
+        const { emin, emax } = projectLuxRange(opts.results);
+        scale = normalizeFalseColorScale(emin, emax);
+      }
       const res = opts.results?.byRoomId[room.id];
       if (res) {
         const wp = createClippedWorkplaneGeometry(room, res, elev, scale);
