@@ -22,6 +22,7 @@ Visible only to site admins.
 |------|---------|
 | `/admin/users` | List accounts, create a user, disable or enable, set site admin, place someone in a workspace, reset a password |
 | `/admin/workspaces` | List organisations, members, and projects; add or remove members; open a project; delete a workspace (users are not deleted) |
+| `/admin/traffic` | Site visitors and page views for today, the last 7 days, and the last 30 days, plus a last-14-days daily table |
 | `/admin/settings` | Open or close public registration, set the default autosave for *new* users, set the website shown in lighting-report PDF footers, edit in-app help tips |
 
 The last remaining active site admin cannot be demoted or disabled. The last owner of a workspace cannot be removed or demoted.
@@ -29,6 +30,14 @@ The last remaining active site admin cannot be demoted or disabled. The last own
 Temporary passwords from create-user or reset-password are returned once in the API response and shown in a one-time dialog. They are not written to logs or the repository.
 
 Disabled users cannot sign in or use APIs.
+
+## Site traffic
+
+`/admin/traffic` is for site administrators only. It shows unique visitors and page views for today, the last 7 days, and the last 30 days, plus a daily table for the last 14 days. All dates use Hong Kong time (UTC+8), not UTC.
+
+Only document / page navigations are counted — for example `/`, `/login`, `/projects`, `/projects/[id]`, and `/admin/...`. Background API traffic is not counted: `/api/*` (autosave, polls, NextAuth callbacks, the collect endpoint itself), Next.js internals under `/_next/*`, and static files such as `/favicon.ico`. Otherwise the editor would inflate the figures every few minutes.
+
+A first-party cookie (`luxsim_vid`) identifies a visitor across the day. The stored value is an HMAC-SHA256 hash of that id (or, if no cookie is present, of the IP and the Hong Kong date) using `AUTH_SECRET`. Raw IP addresses, request bodies, passwords, OTP codes, and emails are not written to the traffic tables. `GET /api/admin/traffic` is the only stats endpoint and requires a site admin. Page views are recorded with `POST /api/traffic/collect`, which returns no figures. A failed write is logged and must not break the page.
 
 ## Report website
 

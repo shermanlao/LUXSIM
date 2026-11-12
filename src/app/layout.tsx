@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { Providers } from "@/components/Providers";
+import { TrafficBeacon } from "@/components/TrafficBeacon";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -37,6 +38,7 @@ export default function RootLayout({
         }
       >
         <Providers>
+          <TrafficBeacon />
           <AppShell>{children}</AppShell>
         </Providers>
       </body>
