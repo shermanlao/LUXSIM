@@ -13,6 +13,8 @@ npm run dev
 
 Demo: `demo@luxsim.local` / `demo1234`
 
+The login page can reset a password by emailing a one-time code (not a link) to the registered address. SMTP settings are listed in `.env.example`.
+
 ## Workflow
 
 See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
@@ -33,4 +35,4 @@ See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 
 ## Docs
 
-[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md)
+[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md) · [docs/ADMIN.md](docs/ADMIN.md)

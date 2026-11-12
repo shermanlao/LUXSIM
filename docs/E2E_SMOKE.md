@@ -8,6 +8,6 @@
 6. Switch Top / Front / Side / 3D; fullscreen exit OK
 7. Calc all → metrics + false-color on active room
 8. Export full PDF + `.luxsim` + DIALux pack
-9. New project → set Room height (mm), Draw room: click 4 corners (type mm to lock a side) and close on the start; or Create rectangle L×W then drag it. Confirm height applies in 3D. Pause ~1s and reload — scene should autosave.
+9. New project → set Room height (mm), Draw room: click 4 corners (type mm to lock a side) and close on the start; or Create rectangle L×W (rooms are not draggable — confirm placement at the origin / by selection only). Confirm height applies in 3D. Edit a fixture, use Save or wait for the account autosave interval (default 5 min), or hide the tab, then reload — scene should persist. Ctrl+Z undoes the last edit.
 10. Import `fixtures/sample-plan.dxf` and/or `fixtures/sample-building.ifc`
 11. `npm test` && `npm run build` green

@@ -5,18 +5,25 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
+  calculateRoomWalls,
+  gridToFalseColorPngDataUrl,
   clipResultsToPolygon,
+  defaultDisplay3d,
   findRoomAt,
+  fitOverviewCamera,
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  normalizeFalseColorScale,
+  projectLuxRange,
   rectPolygon,
   roomToCalcOptions,
-  translatePolygon,
   underlayWorldSize,
   type Camera3dView,
+  type Display3dMode,
   type DxfEntity,
+  type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
   type Vec2,
@@ -34,11 +41,27 @@ import {
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { useAccountSettings } from "@/components/AccountSettingsProvider";
+import {
+  calcStatusTone,
+  formatCalcCompleteStatus,
+  formatCalcEmptyError,
+  planCalcRooms,
+} from "@/lib/editor-calc-rooms";
+import {
+  createUndoStack,
+  editorUndoKeyAction,
+  isTypingField,
+} from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { Display3dToggle } from "./Display3dToggle";
+import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
+import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { HelpTip } from "@/components/HelpTip";
+import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
 
 const BuildingScene3D = dynamic(
   () => import("./BuildingScene3D").then((m) => m.BuildingScene3D),
@@ -59,6 +82,9 @@ type LumRow = {
   originalName?: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 type AssetRow = {
@@ -142,6 +168,14 @@ export function BuildingEditor({
   const latestRef = useRef({ name: initialName, scene: initialScene, results: initialResults });
   const saveInFlight = useRef(false);
   const saveQueued = useRef(false);
+
+  const { autosaveMs, loaded: accountLoaded } = useAccountSettings();
+  const [calcTarget, setCalcTarget] = useState<"room" | "all" | null>(null);
+  const undoStackRef = useRef(
+    createUndoStack<{ name: string; scene: ProjectSceneV2; results: ResultsV2 }>(50)
+  );
+  const coalesceRef = useRef<string | null>(null);
+
 
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
   const activeRoom = scene.rooms.find((r) => r.id === scene.ui.activeRoomId) ?? null;
@@ -253,6 +287,57 @@ export function BuildingEditor({
 
   latestRef.current = { name, scene, results };
 
+  function snapshotNow() {
+    const latest = latestRef.current;
+    return {
+      name: latest.name,
+      scene: structuredClone(latest.scene),
+      results: structuredClone(latest.results),
+    };
+  }
+
+  function recordUndoFromLatest() {
+    undoStackRef.current.push(snapshotNow());
+  }
+
+  function applyEditorSnapshot(snap: {
+    name: string;
+    scene: ProjectSceneV2;
+    results: ResultsV2;
+  }) {
+    latestRef.current = snap;
+    setName(snap.name);
+    setScene(snap.scene);
+    setResults(snap.results);
+  }
+
+  function undoEdit() {
+    const next = undoStackRef.current.undo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Undid");
+  }
+
+  function redoEdit() {
+    const next = undoStackRef.current.redo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Redid");
+  }
+
+  function beginCoalesce(key: string) {
+    if (coalesceRef.current === key) return;
+    recordUndoFromLatest();
+    coalesceRef.current = key;
+  }
+
+  function endCoalesce() {
+    coalesceRef.current = null;
+  }
+
+
   async function save(nextScene = scene, nextResults = results, nextName = name) {
     if (saveInFlight.current) {
       saveQueued.current = true;
@@ -283,13 +368,17 @@ export function BuildingEditor({
   }
 
   useEffect(() => {
+    if (!accountLoaded || !autosaveMs) return;
+    const current = snapshotProject(name, scene, results);
+    const toSave = sceneWithView(scene);
+    if (!projectPatchDiff(current, lastSavedRef.current, toSave, results)) return;
     const timer = window.setTimeout(() => {
       const latest = latestRef.current;
       void save(latest.scene, latest.results, latest.name);
-    }, 800);
+    }, autosaveMs);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce on data only
-  }, [name, scene, results]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- idle timer on persistable data
+  }, [name, scene, results, autosaveMs, accountLoaded]);
 
   useEffect(() => {
     const flush = () => {
@@ -313,9 +402,24 @@ export function BuildingEditor({
     setRoomHeightMm(String(Math.round(mToMm(activeRoom.heightM))));
   }, [activeRoom?.id, activeRoom?.heightM]);
 
-  function patchScene(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+  function patchScene(
+    updater: (s: ProjectSceneV2) => ProjectSceneV2,
+    opts?: { recordUndo?: boolean; coalesce?: string }
+  ) {
+    if (opts?.recordUndo !== false) {
+      if (opts?.coalesce) beginCoalesce(opts.coalesce);
+      else if (coalesceRef.current !== "drag") {
+        recordUndoFromLatest();
+        coalesceRef.current = null;
+      }
+    }
     setScene((s) => updater(s));
   }
+
+  function patchSceneUi(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+    patchScene(updater, { recordUndo: false });
+  }
+
 
   function addStorey() {
     const id = nid("storey");
@@ -381,21 +485,6 @@ export function BuildingEditor({
       return;
     }
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
-  }
-
-  function moveRoom(roomId: string, dx: number, dy: number) {
-    if (dx === 0 && dy === 0) return;
-    patchScene((s) => ({
-      ...s,
-      rooms: s.rooms.map((r) =>
-        r.id === roomId ? { ...r, polygon: translatePolygon(r.polygon, dx, dy) } : r
-      ),
-      instances: s.instances.map((i) =>
-        i.roomId === roomId
-          ? { ...i, position: { ...i.position, x: i.position.x + dx, y: i.position.y + dy } }
-          : i
-      ),
-    }));
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -468,14 +557,27 @@ export function BuildingEditor({
     }));
     setSelectedId(instanceId);
     setResults((r) => {
-      const next = { ...r, byRoomId: { ...r.byRoomId } };
+      const next = {
+        ...r,
+        byRoomId: { ...r.byRoomId },
+        wallsByRoomId: { ...(r.wallsByRoomId ?? {}) },
+      };
       delete next.byRoomId[room.id];
+      delete next.wallsByRoomId[room.id];
       return next;
     });
     setStatus(`Placed in ${room.name}`);
   }
 
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
+    if (coalesceRef.current !== "drag") {
+      beginCoalesce("drag");
+      const end = () => {
+        if (coalesceRef.current === "drag") coalesceRef.current = null;
+        window.removeEventListener("mouseup", end);
+      };
+      window.addEventListener("mouseup", end);
+    }
     patchScene((s) => ({
       ...s,
       instances: s.instances.map((i) => {
@@ -516,6 +618,7 @@ export function BuildingEditor({
 
       if (data.ifcScene) {
         // Merge IFC storeys/rooms, keep fixture library
+        recordUndoFromLatest();
         setScene((s) => ({
           ...data.ifcScene,
           fixtureLibraryIds: s.fixtureLibraryIds,
@@ -638,43 +741,63 @@ export function BuildingEditor({
   );
 
   async function runCalc(all: boolean) {
-    const rooms = all
-      ? scene.rooms
-      : scene.rooms.filter((r) => r.id === scene.ui.activeRoomId);
-    if (!rooms.length) {
-      setStatus("Select or create a room first");
+    const plan = planCalcRooms(scene, all);
+    if (!plan.ok) {
+      setStatus(formatCalcEmptyError(plan));
       return;
     }
+    setCalcTarget(all ? "all" : "room");
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
       const nextByRoom = { ...results.byRoomId };
+      const nextWalls = { ...(results.wallsByRoomId ?? {}) };
+      const rooms = scene.rooms.filter((r) => plan.roomIds.includes(r.id));
       for (const room of rooms) {
         const inst = scene.instances.filter((i) => i.roomId === room.id);
-        if (!inst.length) {
-          setStatus(`Room “${room.name}” has no fixtures`);
-          continue;
-        }
         const photometry: Record<string, PhotometricData> = {};
         const watts: Record<string, number | null | undefined> = {};
+        const missing: string[] = [];
         for (const i of inst) {
           const p = await ensurePhotometry(i.luminaireId);
           if (p) photometry[i.luminaireId] = p;
+          else missing.push(i.luminaireId);
           watts[i.luminaireId] = library.find((l) => l.id === i.luminaireId)?.watts;
+        }
+        if (missing.length) {
+          const labels = [...new Set(missing)].map(
+            (id) => library.find((l) => l.id === id)?.name ?? id
+          );
+          setStatus(`Missing photometry — upload IES/LDT: ${labels.join(", ")}`);
+          return;
         }
         const opts = roomToCalcOptions(room, inst, photometry, watts);
         let calc = await runSolverClient(opts);
         calc = clipResultsToPolygon(room, calc);
         nextByRoom[room.id] = calc;
+        nextWalls[room.id] = calculateRoomWalls({
+          room,
+          instances: inst,
+          photometry,
+          wattsById: watts,
+        });
       }
-      const nextResults = { version: 2 as const, byRoomId: nextByRoom };
+      const nextResults = {
+        version: 2 as const,
+        byRoomId: nextByRoom,
+        wallsByRoomId: nextWalls,
+      };
+      recordUndoFromLatest();
       setResults(nextResults);
-      setStatus("Calculation complete (client-side)");
+      const done = formatCalcCompleteStatus(plan.skippedEmpty, false);
+      setStatus(done);
       await save(scene, nextResults, name);
+      setStatus(done);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
       setCalculating(false);
+      setCalcTarget(null);
     }
   }
 
@@ -686,12 +809,58 @@ export function BuildingEditor({
     }
     const wattsById: Record<string, number | null | undefined> = {};
     for (const l of library) wattsById[l.id] = l.watts;
+    const falseColorSnapshots: Record<string, string> = {};
+    for (const room of scene.rooms) {
+      const res = results.byRoomId[room.id];
+      if (!res) continue;
+      const snap = gridToFalseColorPngDataUrl(room, res);
+      if (snap) falseColorSnapshots[room.id] = snap;
+    }
+    let projectPerspectiveGreyscale: string | undefined;
+    let projectPerspectiveFalseColor: string | undefined;
+    let persp3dGreyscale: Record<string, string> | undefined;
+    let persp3dFalseColor: Record<string, string> | undefined;
+    try {
+      if (webglCaptureAvailable()) {
+        const views = renderAllReport3dViews({
+          scene,
+          results,
+          photometry,
+          overviewCamera: fitOverviewCamera(scene),
+        });
+        projectPerspectiveGreyscale = views.projectGreyscale;
+        projectPerspectiveFalseColor = views.projectFalseColor;
+        persp3dGreyscale = views.roomGreyscale;
+        persp3dFalseColor = views.roomFalseColor;
+      }
+    } catch (err) {
+      console.warn("3D report capture failed", err);
+      setStatus("3D views could not be captured; the rest of the report was exported.");
+    }
+    let website: string | undefined;
+    try {
+      const siteRes = await fetch("/api/site");
+      if (siteRes.ok) {
+        const site = (await siteRes.json()) as { reportWebsite?: string };
+        const trimmed = site.reportWebsite?.trim();
+        if (trimmed) website = trimmed;
+      }
+    } catch {
+      // Export still succeeds if the public site info cannot be loaded.
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
       results,
       photometry,
       wattsById,
+      falseColorSnapshots,
+      projectPerspectiveGreyscale,
+      projectPerspectiveFalseColor,
+      persp3dGreyscale,
+      persp3dFalseColor,
+      luxsimVersion: "0.1.0",
+      website,
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }
@@ -717,8 +886,52 @@ export function BuildingEditor({
     };
   }, [fullscreen]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = editorUndoKeyAction(e, isTypingField(e.target));
+      if (!action) return;
+      e.preventDefault();
+      if (action === "undo") undoEdit();
+      else redoEdit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+
+  const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const luxRange = projectLuxRange(results);
+  const autoScale = useMemo(
+    () => normalizeFalseColorScale(luxRange.emin, luxRange.emax),
+    [luxRange.emin, luxRange.emax]
+  );
+  const [scale, setScale] = useState<FalseColorScale>(autoScale);
+  const [scalePinned, setScalePinned] = useState(false);
+  useEffect(() => {
+    if (!scalePinned) setScale(autoScale);
+  }, [autoScale, scalePinned]);
+
   const viewport = (
-    <div className={fullscreen ? "fixed inset-0 z-[100] bg-[#0f1c24]" : "panel relative overflow-hidden"}>
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[100] bg-[#0f1c24] flex flex-col"
+          : "panel relative overflow-hidden flex flex-col"
+      }
+    >
+      {viewMode === "persp3d" && (
+        <div className="absolute top-3 left-3 z-10">
+          <Display3dToggle
+            value={display3d}
+            onChange={(mode) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, display3d: mode },
+              }))
+            }
+          />
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -728,6 +941,7 @@ export function BuildingEditor({
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
         </button>
       </div>
+      <div className={fullscreen ? "relative flex-1 min-h-0" : "relative h-[520px]"}>
       {(viewMode === "top" || viewMode === "bottom") && (
         <TopView2D
           scene={scene}
@@ -736,12 +950,12 @@ export function BuildingEditor({
           dxfEntities={dxfEntities}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
-          onMoveRoom={moveRoom}
           onSelectRoom={(roomId) =>
-            patchScene((s) => ({
+            patchSceneUi((s) => ({
               ...s,
               ui: { ...s.ui, activeRoomId: roomId },
             }))
@@ -756,6 +970,7 @@ export function BuildingEditor({
           mode="front"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -779,6 +994,7 @@ export function BuildingEditor({
           mode="side"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -797,22 +1013,39 @@ export function BuildingEditor({
       {viewMode === "persp3d" && (
         <BuildingScene3D
           scene={scene}
-          results={activeResults}
+          results={results}
+          display3d={display3d}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y, z) => placeAt(id, x, y, z)}
-          className={fullscreen ? "h-screen" : "h-[520px]"}
+          className="h-full"
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           onUnderlaySourceSize={persistUnderlaySourceSize}
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
+          falseColorScale={scale}
         />
       )}
-      {fullscreen && (
-        <div className="absolute bottom-4 left-4 z-10 w-72">
-          <FalseColorLegend results={activeResults} />
-        </div>
+      </div>
+      {viewMode === "persp3d" && display3d === "falsecolor" && (
+        <FalseColorLegend
+          emin={autoScale.minLux}
+          emax={autoScale.maxLux}
+          results={activeResults}
+          scale={scale}
+          onChange={(next) => {
+            setScalePinned(true);
+            setScale(next);
+          }}
+          onReset={() => {
+            setScalePinned(false);
+            setScale(autoScale);
+          }}
+          layout="bar"
+          tone="dark"
+        />
       )}
     </div>
   );
@@ -828,23 +1061,32 @@ export function BuildingEditor({
             id="projectName"
             className="input display text-2xl !py-2"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+            beginCoalesce("name");
+            setName(e.target.value);
+          }}
+          onBlur={endCoalesce}
           />
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <button className="btn btn-secondary" disabled={saving} onClick={() => void save()}>
+          <button type="button" className="btn btn-secondary" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save now"}
           </button>
-          <span className="text-[10px] text-[var(--muted)]">Autosaves after you pause</span>
           <button
+            type="button"
             className="btn btn-secondary"
             disabled={calculating}
             onClick={() => void runCalc(false)}
           >
-            Calc room
+            {calculating && calcTarget === "room" ? "Calculating…" : "Calc room"}
           </button>
-          <button className="btn btn-accent" disabled={calculating} onClick={() => void runCalc(true)}>
-            {calculating ? "Calculating…" : "Calc all"}
+          <button
+            type="button"
+            className="btn btn-accent"
+            disabled={calculating}
+            onClick={() => void runCalc(true)}
+          >
+            {calculating && calcTarget !== "room" ? "Calculating…" : "Calc all"}
           </button>
         </div>
       </div>
@@ -870,7 +1112,7 @@ export function BuildingEditor({
                     st.id === scene.ui.activeStoreyId ? "bg-[#e8eef2] font-medium" : ""
                   }`}
                   onClick={() =>
-                    patchScene((s) => ({
+                    patchSceneUi((s) => ({
                       ...s,
                       ui: { ...s.ui, activeStoreyId: st.id, activeRoomId: null },
                     }))
@@ -892,7 +1134,7 @@ export function BuildingEditor({
                             r.id === scene.ui.activeRoomId ? "text-[var(--accent)]" : ""
                           }`}
                           onClick={() =>
-                            patchScene((s) => ({
+                            patchSceneUi((s) => ({
                               ...s,
                               ui: {
                                 ...s.ui,
@@ -962,7 +1204,7 @@ export function BuildingEditor({
                   className={`btn w-full !text-xs ${
                     scene.ui.tool === tool ? "btn-accent" : "btn-secondary"
                   }`}
-                  onClick={() => patchScene((s) => ({ ...s, ui: { ...s.ui, tool } }))}
+                  onClick={() => patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }))}
                 >
                   {label}
                 </button>
@@ -1014,7 +1256,7 @@ export function BuildingEditor({
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using Room height. Select / move to drag it.
+                Places a rectangle at 0, 0 using Room height. Rooms cannot be dragged.
               </p>
             </div>
           </div>
@@ -1056,7 +1298,6 @@ export function BuildingEditor({
             )}
           </div>
 
-          <FalseColorLegend results={activeResults} />
         </aside>
 
         {/* Center */}
@@ -1078,7 +1319,7 @@ export function BuildingEditor({
                   viewMode === mode ? "btn-accent" : "btn-secondary"
                 }`}
                 onClick={() =>
-                  patchScene((s) => ({
+                  patchSceneUi((s) => ({
                     ...s,
                     ui: {
                       ...s.ui,
@@ -1208,6 +1449,23 @@ export function BuildingEditor({
             </p>
           </div>
 
+          <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3">
+            <GenerateLdtForm
+              compact
+              onCreated={async (lum, photometric) => {
+                await loadLibrary();
+                setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
+                patchScene((s) => ({
+                  ...s,
+                  fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
+                    ? s.fixtureLibraryIds
+                    : [...s.fixtureLibraryIds, lum.id],
+                }));
+                setStatus(`Generated “${lum.name}” and added to project fixture list (not placed)`);
+              }}
+            />
+          </div>
+
           <div>
             <label className="label">Add from org library</label>
             <select
@@ -1221,7 +1479,7 @@ export function BuildingEditor({
               <option value="">Select…</option>
               {library.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {luminaireListLabel(l.name, l)}
                 </option>
               ))}
             </select>
@@ -1240,6 +1498,7 @@ export function BuildingEditor({
               >
                 <div className="text-sm font-medium">{lum.name}</div>
                 <div className="text-[10px] text-[var(--muted)] mb-1">
+                  {libraryConeLabel(lum) ? `${libraryConeLabel(lum)} · ` : ""}
                   {lum.lumens ? Math.round(lum.lumens) : "—"} lm ·{" "}
                   {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
                 </div>
@@ -1368,7 +1627,29 @@ export function BuildingEditor({
         </aside>
       </div>
 
-      {status && <p className="text-sm text-[var(--muted)]">{status}</p>}
+      {status && (
+        <p
+          className="text-sm font-semibold px-3 py-2 border"
+          style={{
+            borderColor:
+              calcStatusTone(status, calculating) === "error"
+                ? "#e07070"
+                : calcStatusTone(status, calculating) === "busy"
+                  ? "var(--accent)"
+                  : "var(--line)",
+            background:
+              calcStatusTone(status, calculating) === "error"
+                ? "#fde8e8"
+                : calcStatusTone(status, calculating) === "busy"
+                  ? "#fff4ec"
+                  : "var(--panel)",
+          }}
+          role="status"
+          aria-live="polite"
+        >
+          {status}
+        </p>
+      )}
       {assets.length > 0 && (
         <p className="text-xs text-[var(--muted)]">
           Assets: {assets.map((a) => a.fileName).join(", ")}

@@ -3,34 +3,37 @@ import {
   detectFormat,
   parsePhotometricFile,
 } from "@luxsim/photometry";
+import { apiErrorResponse } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { getUserOrgIds, requireOrgContext, requireUser } from "@/lib/session";
 import { saveTextFile } from "@/lib/storage";
 
 export async function GET() {
   try {
-    const { orgId } = await requireOrgContext();
+    const user = await requireUser();
+    const orgIds = await getUserOrgIds(user.id);
     const luminaires = await prisma.luminaire.findMany({
-      where: { orgId },
+      where: { orgId: { in: orgIds } },
       orderBy: { updatedAt: "desc" },
       select: {
         id: true,
         name: true,
+        orgId: true,
         sourceFormat: true,
         originalName: true,
         watts: true,
         lumens: true,
         lightxProductId: true,
+        origin: true,
+        libraryFamily: true,
+        libraryBeamDeg: true,
         createdAt: true,
         updatedAt: true,
       },
     });
     return NextResponse.json(luminaires);
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Failed to list luminaires" }, { status: 500 });
+    return apiErrorResponse(e, "Failed to list luminaires");
   }
 }
 
@@ -76,8 +79,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ luminaire, warnings });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    if (e instanceof Error && e.message in { UNAUTHORIZED: 1, FORBIDDEN: 1, NO_ORG: 1, NOT_FOUND: 1 }) {
+      return apiErrorResponse(e, "Upload failed");
     }
     console.error(e);
     return NextResponse.json(

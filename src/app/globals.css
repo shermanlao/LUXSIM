@@ -128,3 +128,277 @@ a {
   padding: 0.75rem 0.9rem;
   font-size: 0.88rem;
 }
+
+/* Dual-thumb false-colour scale under the 3D window: long, short, interactive. */
+.falsecolor-range {
+  position: absolute;
+  left: 0;
+  top: -10px;
+  width: 100%;
+  margin: 0;
+  height: 18px;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.falsecolor-range::-webkit-slider-runnable-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-moz-range-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  box-shadow: 0 0 0 1px rgba(15, 28, 36, 0.35);
+  cursor: ew-resize;
+}
+.falsecolor-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  cursor: ew-resize;
+}
+.falsecolor-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}
+.falsecolor-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}
+
+/* Header account / sign-out: visible on light marketing header and dark project header.
+   Uses currentColor + transparent fill so a dark header cannot produce a white pill
+   with light text (the earlier false-colour control contrast bug). */
+.nav-account-btn,
+.nav-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.nav-account-btn {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.875rem;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-signout {
+  opacity: 0.95;
+}
+.nav-account-btn:hover,
+.nav-signout:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  transform: none;
+}
+.account-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 80;
+  width: 17.5rem;
+  padding: 0.85rem;
+  background: #f7fafb;
+  color: #12202a;
+  border: 1px solid #c5d0d6;
+  box-shadow: 0 8px 24px rgba(15, 28, 36, 0.28);
+  border-radius: 2px;
+}
+.account-popover__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5a6b76;
+}
+.account-popover__email {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+.account-popover__label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5a6b76;
+  margin-bottom: 0.3rem;
+}
+.account-popover__select {
+  width: 100%;
+  border: 1px solid #c5d0d6;
+  background: #fff;
+  color: #12202a;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  margin-bottom: 0.35rem;
+}
+.account-popover__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  color: #5a6b76;
+  line-height: 1.35;
+}
+.account-popover .nav-signout {
+  color: #12202a;
+  border-color: #12202a;
+}
+
+/* Admin console and workspace-members tables */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+}
+.admin-nav__title {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.admin-nav__link {
+  display: block;
+  padding: 0.4rem 0.65rem;
+  border-radius: 2px;
+  color: inherit;
+}
+.admin-nav__link:hover,
+.admin-nav__link--active {
+  background: color-mix(in srgb, var(--accent-2) 12%, white);
+  color: var(--accent-2);
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, white);
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.admin-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bg) 70%, white);
+}
+.admin-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(15, 28, 36, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.admin-modal {
+  width: min(28rem, 100%);
+  color: var(--ink);
+}
+.admin-one-time-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  word-break: break-all;
+  background: #fff;
+  border: 1px dashed var(--line);
+  padding: 0.7rem 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+/* Admin traffic figures */
+.traffic-period-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 800px) {
+  .traffic-period-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.traffic-period__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.traffic-period__note {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.traffic-metric {
+  margin-bottom: 0.85rem;
+}
+.traffic-metric:last-child {
+  margin-bottom: 0;
+}
+.traffic-metric__value {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.traffic-metric__label {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.traffic-bar {
+  display: block;
+  height: 0.45rem;
+  max-width: 100%;
+  min-width: 0;
+  background: color-mix(in srgb, var(--accent-2) 60%, white);
+  border-radius: 1px;
+}

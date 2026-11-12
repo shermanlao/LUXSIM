@@ -1,25 +1,28 @@
-/** Shared false-color scale (blue → cyan → green → yellow → red). */
+/** Shared false-color scale — project-wide DIALux-style illuminance colours. */
 
-export function luxToRgb(lux: number, max: number): [number, number, number] {
-  const t = Math.min(1, Math.max(0, lux / Math.max(max, 1)));
-  if (t < 0.25) return [0, t / 0.25, 1];
-  if (t < 0.5) return [0, 1, 1 - (t - 0.25) / 0.25];
-  if (t < 0.75) return [(t - 0.5) / 0.25, 1, 0];
-  return [1, 1 - (t - 0.75) / 0.25, 0];
-}
+export {
+  luxToRgb,
+  rgbCss,
+  legendStopsForRange,
+  legendStopsForScale,
+  isoluxLevels,
+  DIALUX_LUX_STOPS,
+  normalizeFalseColorScale,
+  isFalseColorScale,
+} from "@luxsim/project-io";
+export type { FalseColorScale } from "@luxsim/project-io";
 
-export function rgbCss([r, g, b]: [number, number, number]): string {
-  return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
-}
+import { luxToRgb, rgbCss, legendStopsForRange } from "@luxsim/project-io";
 
-/** Build legend stops from 0 → maxLux */
+/** @deprecated Prefer legendStopsForRange; kept for existing callers. */
 export function falseColorStops(maxLux: number, steps = 6): { lux: number; color: string }[] {
-  const max = Math.max(maxLux, 1);
+  const stops = legendStopsForRange(0, Math.max(maxLux, 1));
+  if (stops.length >= 2) return stops;
   const out: { lux: number; color: string }[] = [];
+  const max = Math.max(maxLux, 1);
   for (let i = 0; i < steps; i += 1) {
-    const t = i / (steps - 1);
-    const lux = t * max;
-    out.push({ lux, color: rgbCss(luxToRgb(lux, max)) });
+    const lux = (i / (steps - 1)) * max;
+    out.push({ lux, color: rgbCss(luxToRgb(lux)) });
   }
   return out;
 }

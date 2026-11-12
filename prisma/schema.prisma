@@ -12,11 +12,37 @@ model User {
   email        String      @unique
   name         String?
   passwordHash String
+  autosaveMs   Int         @default(300000)
+  isSiteAdmin  Boolean     @default(false)
+  disabled     Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
-  memberships  OrgMember[]
-  accounts     Account[]
-  sessions     Session[]
+  memberships        OrgMember[]
+  accounts           Account[]
+  sessions           Session[]
+  passwordResetOtps  PasswordResetOtp[]
+}
+
+model PasswordResetOtp {
+  id           String    @id @default(cuid())
+  userId       String
+  codeHash     String
+  expiresAt    DateTime
+  consumedAt   DateTime?
+  attemptCount Int       @default(0)
+  createdAt    DateTime  @default(now())
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuthEmailThrottle {
+  id        String   @id @default(cuid())
+  emailHash String
+  kind      String
+  createdAt DateTime @default(now())
+
+  @@index([emailHash, kind, createdAt])
 }
 
 model Account {
@@ -86,6 +112,9 @@ model Luminaire {
   watts           Float?
   lumens          Float?
   lightxProductId String?
+  origin          String   @default("upload")
+  libraryFamily   String?
+  libraryBeamDeg  Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   org             Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
@@ -136,3 +165,23 @@ model UiTip {
   body      String
   updatedAt DateTime @updatedAt
 }
+
+model SiteSetting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+model SiteTrafficDaily {
+  date      String @id
+  pageViews Int    @default(0)
+  visitors  Int    @default(0)
+}
+
+model SiteTrafficVisitorDay {
+  date        String
+  visitorHash String
+
+  @@id([date, visitorHash])
+}
+

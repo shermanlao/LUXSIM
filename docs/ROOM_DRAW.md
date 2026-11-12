@@ -19,7 +19,7 @@ Help tip key: `tool.drawRoom`.
 
 **Room height** is a standalone field (mm) under Building. It sets the selected room’s ceiling and is used for the next CAD outline or rectangle. It is not part of the L×W form.
 
-In the tools panel, enter **Length** and **Width** (mm, or `m` / `cm` suffix) and **Create rectangle**. The room is placed at the storey origin `(0, 0)` using the current Room height. Use **Select / move** and drag the room to relocate it (fixtures in that room move with it).
+In the tools panel, enter **Length** and **Width** (mm, or `m` / `cm` suffix) and **Create rectangle**. The room is placed at the storey origin `(0, 0)` using the current Room height. Rooms can be selected but not dragged. Use **Select / move** to drag fixtures, not rooms.
 
 Help tip key: `tool.drawRect`.
 

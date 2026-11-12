@@ -4,6 +4,8 @@ import { useRef } from "react";
 import type { FixtureInstance, ProjectSceneV2 } from "@luxsim/project-io";
 import { roomBounds } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
+import type { PhotometricData } from "@luxsim/photometry";
+import { planSymbolGeom } from "./LuminaireBody";
 
 type Props = {
   scene: ProjectSceneV2;
@@ -12,6 +14,7 @@ type Props = {
   onSelect: (id: string | null) => void;
   onDropLuminaire: (luminaireId: string, a: number, z: number) => void;
   onMoveInstance: (instanceId: string, a: number, z: number) => void;
+  photometry?: Record<string, PhotometricData>;
 };
 
 /** Front: X–Z plane; Side: Y–Z plane */
@@ -22,6 +25,7 @@ export function ElevationView2D({
   onSelect,
   onDropLuminaire,
   onMoveInstance,
+  photometry,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const grabOffset = useRef({ a: 0, z: 0 });
@@ -67,7 +71,7 @@ export function ElevationView2D({
 
   return (
     <div
-      className="relative w-full bg-[#0f1c24] h-[520px]"
+      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -102,13 +106,8 @@ export function ElevationView2D({
           const s = toScreen(a, inst.position.z);
           const selected = inst.instanceId === selectedId;
           return (
-            <rect
+            <g
               key={inst.instanceId}
-              x={s.x - 7}
-              y={s.y - 7}
-              width={14}
-              height={14}
-              fill={selected ? "#c45c26" : "#e8c27a"}
               style={{ cursor: "grab" }}
               onMouseDown={(e) => {
                 e.stopPropagation();
@@ -131,7 +130,22 @@ export function ElevationView2D({
                 window.addEventListener("mousemove", move);
                 window.addEventListener("mouseup", up);
               }}
-            />
+            >
+              {(() => {
+                const { body, rx } = planSymbolGeom(photometry?.[inst.luminaireId], scale, 3);
+                const hPx = Math.max(body.heightM * scale, 3);
+                const fill = selected ? "#c45c26" : body.housing === "black" ? "#2a2a2c" : "#d8d4cc";
+                return (
+                  <>
+                    {body.isCircular ? (
+                      <rect x={s.x - rx} y={s.y - hPx / 2} width={rx * 2} height={hPx} rx={hPx / 2} fill={fill} stroke="#fff" strokeWidth={0.8} />
+                    ) : (
+                      <rect x={s.x - rx} y={s.y - hPx / 2} width={rx * 2} height={hPx} fill={fill} stroke="#fff" strokeWidth={0.8} />
+                    )}
+                  </>
+                );
+              })()}
+            </g>
           );
         })}
       </svg>

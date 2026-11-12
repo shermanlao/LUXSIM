@@ -25,7 +25,7 @@ Companion canvas: open `dialux-gap-analysis.canvas.tsx` beside chat.
 | Draw room | Click corners; type length; polar lock | Click corners; type mm; close on start. See [ROOM_DRAW.md](./ROOM_DRAW.md) |
 | Typed distance | Next point locked to radius circle | Bare number = mm; suffixes `m` / `cm` / `mm` |
 | Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. No DXF object snap |
-| Edit outline | Move vertices, stretch walls | Drag whole room (select). No vertex handles |
+| Edit outline | Move vertices, stretch walls | Rooms are selectable, not draggable. No vertex handles |
 | Room inspector | Height, workplane, materials | On `RoomV2` but **not in BuildingEditor** (v1 `ProjectEditor` has fields) |
 | 3D volume | Extrude true polygon | Extruded floor polygon |
 | Openings | Windows / doors | None |
@@ -50,7 +50,7 @@ Companion canvas: open `dialux-gap-analysis.canvas.tsx` beside chat.
 
 ### Calculation
 
-- One workplane per room (no extra task areas / wall grids)
+- Automatic vertical calculation surfaces on every room wall (inward normals, same grid/inset as the workplane). One workplane per room; no extra task areas, ceiling grids, or user-drawn surfaces yet
 - Interreflection is a box-room boost, not radiosity
 - UGR observers are simplified (look toward room centre)
 - No maintenance factor
@@ -72,7 +72,7 @@ See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are m
 
 1. **P0 done** — Point-to-point draw + typed polar lock + ortho + close; L×W; room translate; 3D polygon extrusion.
 2. **P0 leftover** — v2 room inspector; vertex edit.
-3. **P1** — Snap, fixture arrays + rotation, isolines, maintenance factor, extra calc surfaces, assist-only standard targets.
+3. **P1** — Snap, fixture arrays + rotation, isolines, maintenance factor, ceiling / task-area calc surfaces, assist-only standard targets. (Wall calculation surfaces: done.)
 4. **P2+** — Daylight, emergency, furniture, catalog, raytrace, outdoor, IFC/Office export.
 
 ## Non-claims (unchanged)
