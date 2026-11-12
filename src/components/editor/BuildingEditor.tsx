@@ -83,7 +83,9 @@ import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scen
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
+import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { HelpTip } from "@/components/HelpTip";
+import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
 import {
   IconCalibrate,
   IconDrawRoom,
@@ -117,6 +119,9 @@ type LumRow = {
   originalName?: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 type AssetRow = {
@@ -2284,6 +2289,24 @@ export function BuildingEditor({
             </p>
           </div>
 
+          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
+            <GenerateLdtForm
+              compact
+              tone="cad"
+              onCreated={async (lum, photometric) => {
+                await loadLibrary();
+                setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
+                patchScene((s) => ({
+                  ...s,
+                  fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
+                    ? s.fixtureLibraryIds
+                    : [...s.fixtureLibraryIds, lum.id],
+                }));
+                setStatus(`Generated “${lum.name}” and added to project fixture list (not placed)`);
+              }}
+            />
+          </div>
+
           <div>
             <label className="label">Add from org library</label>
             <select
@@ -2297,7 +2320,7 @@ export function BuildingEditor({
               <option value="">Select…</option>
               {library.map((l) => (
                 <option key={l.id} value={l.id}>
-                  {l.name}
+                  {luminaireListLabel(l.name, l)}
                 </option>
               ))}
             </select>
@@ -2316,6 +2339,7 @@ export function BuildingEditor({
               >
                 <div className="text-sm font-medium">{lum.name}</div>
                 <div className="text-[10px] text-[var(--muted)] mb-1">
+                  {libraryConeLabel(lum) ? `${libraryConeLabel(lum)} · ` : ""}
                   {lum.lumens ? Math.round(lum.lumens) : "—"} lm ·{" "}
                   {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
                 </div>

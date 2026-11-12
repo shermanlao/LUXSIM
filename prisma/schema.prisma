@@ -112,6 +112,9 @@ model Luminaire {
   watts           Float?
   lumens          Float?
   lightxProductId String?
+  origin          String   @default("upload")
+  libraryFamily   String?
+  libraryBeamDeg  Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   org             Org      @relation(fields: [orgId], references: [id], onDelete: Cascade)
