@@ -15,5 +15,6 @@
 | [SOLVER.md](./SOLVER.md) | Client solver notes |
 | [SERVER_SOLVER_MIGRATION.md](./SERVER_SOLVER_MIGRATION.md) | Deferred server calc |
 | [E2E_SMOKE.md](./E2E_SMOKE.md) | Final manual smoke checklist |
+| [VPS_DEPLOY.md](./VPS_DEPLOY.md) | VPS path, port 8088, and update steps |
 
 Root: [README.md](../README.md)
