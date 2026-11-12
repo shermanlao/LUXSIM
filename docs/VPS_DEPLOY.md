@@ -31,3 +31,6 @@ sudo systemctl restart luxsim-web
 ```
 
 `npm ci` fails on this host until `package-lock.json` includes the Linux optional packages `@emnapi/runtime` and `@emnapi/core`. Use `npm install` until that lockfile is refreshed.
+
+After migrating, create the first site administrator with `npx tsx scripts/create-site-admin.ts --email you@example.com` if one does not already exist. See [ADMIN.md](./ADMIN.md). Do not commit or paste the generated password.
+

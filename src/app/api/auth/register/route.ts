@@ -1,8 +1,11 @@
 import { NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { assertRegistrationOpen } from "@/lib/access-control";
+import { apiErrorResponse } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
 import { defaultScene } from "@/lib/scene";
+import { getSiteSettings } from "@/lib/site-settings";
 
 const schema = z.object({
   email: z.string().email(),
@@ -11,8 +14,16 @@ const schema = z.object({
   orgName: z.string().min(1).max(80).optional(),
 });
 
+export async function GET() {
+  const settings = await getSiteSettings();
+  return NextResponse.json({ open: settings.publicRegistration });
+}
+
 export async function POST(req: Request) {
   try {
+    const settings = await getSiteSettings();
+    assertRegistrationOpen(settings.publicRegistration);
+
     const body = schema.parse(await req.json());
     const email = body.email.toLowerCase();
     const existing = await prisma.user.findUnique({ where: { email } });
@@ -26,6 +37,7 @@ export async function POST(req: Request) {
         email,
         name: body.name ?? email.split("@")[0],
         passwordHash,
+        autosaveMs: settings.defaultAutosaveMs,
       },
     });
 
@@ -47,7 +59,6 @@ export async function POST(req: Request) {
     if (e instanceof z.ZodError) {
       return NextResponse.json({ error: e.issues[0]?.message ?? "Invalid input" }, { status: 400 });
     }
-    console.error(e);
-    return NextResponse.json({ error: "Registration failed" }, { status: 500 });
+    return apiErrorResponse(e, "Registration failed");
   }
 }

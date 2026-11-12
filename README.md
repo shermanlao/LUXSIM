@@ -33,4 +33,4 @@ See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 
 ## Docs
 
-[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md)
+[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md) · [docs/ADMIN.md](docs/ADMIN.md)

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { apiErrorResponse } from "@/lib/api-error";
+import { requireProjectAccess } from "@/lib/session";
 import { absolutePath } from "@/lib/storage";
 import {
   createPdfRasterAsset,
@@ -13,10 +14,8 @@ type Params = { params: Promise<{ id: string; assetId: string }> };
 
 export async function POST(req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id: projectId, assetId } = await params;
-    const project = await prisma.project.findFirst({ where: { id: projectId, orgId } });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project } = await requireProjectAccess(projectId);
 
     const asset = await prisma.projectAsset.findFirst({
       where: { id: assetId, projectId },
@@ -65,9 +64,8 @@ export async function POST(req: Request, { params }: Params) {
       warnings: raster.warnings,
     });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authRes = apiErrorResponse(e);
+    if (authRes.status !== 500) return authRes;
     if (e instanceof PdfEncryptedError) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }

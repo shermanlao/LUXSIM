@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import { parseProjectScene } from "@/lib/project-scene";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { apiErrorResponse } from "@/lib/api-error";
+import { requireProjectAccess } from "@/lib/session";
 import { absolutePath } from "@/lib/storage";
 import { detectRcpFromImageBuffer } from "@/lib/rcp-ocr";
 import type { ProjectSceneV2, Underlay } from "@luxsim/project-io";
@@ -18,10 +19,8 @@ function findUnderlay(scene: ProjectSceneV2, underlayId?: string): Underlay | nu
 
 export async function POST(req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id: projectId } = await params;
-    const project = await prisma.project.findFirst({ where: { id: projectId, orgId } });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project } = await requireProjectAccess(projectId);
 
     const body = (await req.json().catch(() => ({}))) as {
       underlayId?: string;
@@ -64,9 +63,8 @@ export async function POST(req: Request, { params }: Params) {
       privacyMode: "local",
     });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authRes = apiErrorResponse(e);
+    if (authRes.status !== 500) return authRes;
     if (e instanceof Error && e.message.includes("Cloud vision")) {
       return NextResponse.json({ error: e.message }, { status: 400 });
     }

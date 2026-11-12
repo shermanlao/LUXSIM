@@ -1,7 +1,7 @@
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { getUserOrgId } from "@/lib/session";
+import { loadAccessibleProject } from "@/lib/session";
 import { parseProjectResults, parseProjectScene } from "@/lib/project-scene";
 import { BuildingEditor } from "@/components/editor/BuildingEditor";
 import { CadEditorRoot } from "@/components/editor/CadEditorRoot";
@@ -11,14 +11,8 @@ type Props = { params: Promise<{ id: string }> };
 export default async function ProjectPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
-  const orgId = await getUserOrgId(session.user.id);
-  if (!orgId) redirect("/login");
-
   const { id } = await params;
-  const project = await prisma.project.findFirst({
-    where: { id, orgId },
-    include: { assets: true },
-  });
+  const project = await loadAccessibleProject(session.user.id, id);
   if (!project) notFound();
 
   const scene = parseProjectScene(project.sceneJson);
