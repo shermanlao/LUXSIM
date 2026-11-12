@@ -15,6 +15,7 @@ import {
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  normalizeFalseColorScale,
   projectLuxRange,
   rectPolygon,
   roomToCalcOptions,
@@ -23,6 +24,7 @@ import {
   type Camera3dView,
   type Display3dMode,
   type DxfEntity,
+  type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
   type Vec2,
@@ -777,9 +779,24 @@ export function BuildingEditor({
 
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
   const luxRange = projectLuxRange(results);
+  const autoScale = useMemo(
+    () => normalizeFalseColorScale(luxRange.emin, luxRange.emax),
+    [luxRange.emin, luxRange.emax]
+  );
+  const [scale, setScale] = useState<FalseColorScale>(autoScale);
+  const [scalePinned, setScalePinned] = useState(false);
+  useEffect(() => {
+    if (!scalePinned) setScale(autoScale);
+  }, [autoScale, scalePinned]);
 
   const viewport = (
-    <div className={fullscreen ? "fixed inset-0 z-[100] bg-[#0f1c24]" : "panel relative overflow-hidden"}>
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[100] bg-[#0f1c24] flex flex-col"
+          : "panel relative overflow-hidden flex flex-col"
+      }
+    >
       {viewMode === "persp3d" && (
         <div className="absolute top-3 left-3 z-10">
           <Display3dToggle
@@ -802,6 +819,7 @@ export function BuildingEditor({
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
         </button>
       </div>
+      <div className={fullscreen ? "relative flex-1 min-h-0" : "relative h-[520px]"}>
       {(viewMode === "top" || viewMode === "bottom") && (
         <TopView2D
           scene={scene}
@@ -880,18 +898,33 @@ export function BuildingEditor({
           onSelect={setSelectedId}
           photometry={photoCache}
           onDropLuminaire={(id, x, y, z) => placeAt(id, x, y, z)}
-          className={fullscreen ? "h-screen" : "h-[520px]"}
+          className="h-full"
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           onUnderlaySourceSize={persistUnderlaySourceSize}
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
+          falseColorScale={scale}
         />
       )}
+      </div>
       {viewMode === "persp3d" && display3d === "falsecolor" && (
-        <div className="absolute bottom-4 left-4 z-10 w-72 pointer-events-none">
-          <FalseColorLegend emin={luxRange.emin} emax={luxRange.emax} results={activeResults} compact />
-        </div>
+        <FalseColorLegend
+          emin={autoScale.minLux}
+          emax={autoScale.maxLux}
+          results={activeResults}
+          scale={scale}
+          onChange={(next) => {
+            setScalePinned(true);
+            setScale(next);
+          }}
+          onReset={() => {
+            setScalePinned(false);
+            setScale(autoScale);
+          }}
+          layout="bar"
+          tone="dark"
+        />
       )}
     </div>
   );
@@ -1135,11 +1168,6 @@ export function BuildingEditor({
             )}
           </div>
 
-          <FalseColorLegend
-            results={activeResults}
-            emin={viewMode === "persp3d" ? luxRange.emin : undefined}
-            emax={viewMode === "persp3d" ? luxRange.emax : undefined}
-          />
         </aside>
 
         {/* Center */}

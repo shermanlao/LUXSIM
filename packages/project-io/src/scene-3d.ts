@@ -108,3 +108,60 @@ export function fitRoomCamera(room: RoomV2, elevationM = 0): Camera3dView {
     maxZ: elevationM + room.heightM,
   });
 }
+
+export function storeyCenter(
+  scene: ProjectSceneV2,
+  storeyId?: string | null
+): { x: number; y: number; z: number } {
+  const id = storeyId ?? scene.ui.activeStoreyId ?? scene.storeys[0]?.id;
+  const storey = scene.storeys.find((s) => s.id === id);
+  const elev = storey?.elevationM ?? 0;
+  const rooms = storeyRooms(scene, id);
+  if (rooms.length) {
+    let sx = 0,
+      sy = 0,
+      n = 0;
+    for (const r of rooms) {
+      const b = roomBounds(r);
+      sx += (b.minX + b.maxX) / 2;
+      sy += (b.minY + b.maxY) / 2;
+      n += 1;
+    }
+    return { x: sx / n, y: sy / n, z: elev + (storey?.heightM ?? 3) * 0.4 };
+  }
+  return { x: 4, y: 3, z: elev + 1.4 };
+}
+
+/**
+ * The original editor default looked from the north-east (+X/+Y), which rotated
+ * the floor plate relative to Top view and the Lighting Plan.
+ */
+export function isLegacyNortheastOrbit(
+  view: Camera3dView,
+  center: { x: number; y: number; z: number },
+  epsilon = 0.08
+): boolean {
+  const [x, y, z] = view.position;
+  return (
+    Math.abs(x - (center.x + 8)) <= epsilon &&
+    Math.abs(y - (center.z + 6)) <= epsilon &&
+    Math.abs(z - (center.y + 8)) <= epsilon
+  );
+}
+
+/** Plan-aligned editor start: from the south, slightly east, world-up for orbit. */
+export function editorOverviewCamera(scene: ProjectSceneV2, storeyId?: string | null): Camera3dView {
+  const view = fitOverviewCamera(scene, storeyId);
+  return { position: view.position, target: view.target };
+}
+
+export function resolveEditorCamera(
+  stored: Camera3dView | null | undefined,
+  scene: ProjectSceneV2,
+  storeyId?: string | null
+): Camera3dView {
+  const fallback = editorOverviewCamera(scene, storeyId);
+  if (!stored) return fallback;
+  if (isLegacyNortheastOrbit(stored, storeyCenter(scene, storeyId))) return fallback;
+  return stored;
+}

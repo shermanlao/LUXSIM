@@ -5,7 +5,7 @@ import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Edges } from "@react-three/drei";
 import type { PerspectiveCamera } from "three";
 import type { CalcResults } from "@luxsim/solver";
-import type { Display3dMode, SceneJson } from "@luxsim/project-io";
+import type { Display3dMode, FalseColorScale, SceneJson } from "@luxsim/project-io";
 import { rectPolygon } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { OrbitViewBridge, type Camera3dView } from "./OrbitViewBridge";
@@ -67,6 +67,7 @@ export function RoomScene({
   viewRef,
   initialView,
   photometry,
+  falseColorScale,
 }: {
   scene: SceneJson;
   results: CalcResults | null;
@@ -77,6 +78,7 @@ export function RoomScene({
   viewRef: React.MutableRefObject<CameraViewState | null>;
   initialView: CameraViewState | null;
   photometry?: Record<string, PhotometricData>;
+  falseColorScale?: FalseColorScale;
 }) {
   const { width, depth, height } = scene.room;
   const defaultTarget = toThree(width / 2, depth / 2, height * 0.35);
@@ -147,7 +149,7 @@ export function RoomScene({
         </mesh>
 
         {display3d === "falsecolor" && results && (
-          <FalseColorPlane room={roomV2} results={results} elevationM={0} />
+          <FalseColorPlane room={roomV2} results={results} elevationM={0} scale={falseColorScale} />
         )}
 
         {scene.luminaires.map((lum) => {

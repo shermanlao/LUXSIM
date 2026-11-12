@@ -128,3 +128,57 @@ a {
   padding: 0.75rem 0.9rem;
   font-size: 0.88rem;
 }
+
+/* Dual-thumb false-colour scale under the 3D window: long, short, interactive. */
+.falsecolor-range {
+  position: absolute;
+  left: 0;
+  top: -10px;
+  width: 100%;
+  margin: 0;
+  height: 18px;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.falsecolor-range::-webkit-slider-runnable-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-moz-range-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  box-shadow: 0 0 0 1px rgba(15, 28, 36, 0.35);
+  cursor: ew-resize;
+}
+.falsecolor-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  cursor: ew-resize;
+}
+.falsecolor-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}
+.falsecolor-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}

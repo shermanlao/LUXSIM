@@ -4,9 +4,13 @@ export {
   luxToRgb,
   rgbCss,
   legendStopsForRange,
+  legendStopsForScale,
   isoluxLevels,
   DIALUX_LUX_STOPS,
+  normalizeFalseColorScale,
+  isFalseColorScale,
 } from "@luxsim/project-io";
+export type { FalseColorScale } from "@luxsim/project-io";
 
 import { luxToRgb, rgbCss, legendStopsForRange } from "@luxsim/project-io";
 

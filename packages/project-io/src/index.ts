@@ -50,8 +50,18 @@ export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
 export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
-export { luxToRgb, rgbCss, legendStopsForRange, isoluxLevels, buildIsoluxModel, DIALUX_LUX_STOPS } from "./isolux-map";
-export type { IsoluxMode, IsoluxModel } from "./isolux-map";
+export {
+  luxToRgb,
+  rgbCss,
+  legendStopsForRange,
+  legendStopsForScale,
+  isoluxLevels,
+  buildIsoluxModel,
+  DIALUX_LUX_STOPS,
+  normalizeFalseColorScale,
+  isFalseColorScale,
+} from "./isolux-map";
+export type { IsoluxMode, IsoluxModel, FalseColorScale } from "./isolux-map";
 export {
   aggregateProjectLuminaires,
   roomLpdFromPolygon,
@@ -72,6 +82,10 @@ export {
   fitOverviewCamera,
   fitRoomCamera,
   defaultDisplay3d,
+  storeyCenter,
+  isLegacyNortheastOrbit,
+  editorOverviewCamera,
+  resolveEditorCamera,
 } from "./scene-3d";
 
 export {

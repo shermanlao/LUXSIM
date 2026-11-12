@@ -11,10 +11,12 @@ import type { CalcResults } from "@luxsim/solver";
 import {
   luxToRgb,
   pointInPolygon,
+  projectLuxRange,
   roomBounds,
   locateOnPolyline,
   sampleWallLux,
   type Display3dMode,
+  type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
   type RoomV2,
@@ -23,6 +25,14 @@ import {
 
 export const EDITOR_BG = "#0f1c24";
 export const REPORT_BG = "#f3f3f0";
+
+/** Opaque enough that exterior faces stay grey and do not show interior lux colour. */
+export const FALSE_COLOR_WALL_SHELL_OPACITY = 0.96;
+export const GREYSCALE_WALL_SHELL_OPACITY = 0.82;
+
+export function wallShellOpacity(mode: Display3dMode): number {
+  return mode === "falsecolor" ? FALSE_COLOR_WALL_SHELL_OPACITY : GREYSCALE_WALL_SHELL_OPACITY;
+}
 
 const FLOOR_COLOR = "#c8cbcf";
 const CEILING_COLOR = "#d8dce0";
@@ -87,7 +97,8 @@ function shapeFromPolygon(polygon: { x: number; y: number }[]): THREE.Shape | nu
 export function createClippedWorkplaneGeometry(
   room: RoomV2,
   results: CalcResults,
-  elevationM: number
+  elevationM: number,
+  scale?: FalseColorScale
 ): THREE.BufferGeometry | null {
   const shape = shapeFromPolygon(room.polygon);
   if (!shape) return null;
@@ -105,7 +116,7 @@ export function createClippedWorkplaneGeometry(
     const wx = pos.getX(i);
     const wy = pos.getZ(i);
     const lux = sampleGridLux(room, results.grid, wx, wy);
-    const [r, g, b] = luxToRgb(lux);
+    const [r, g, b] = luxToRgb(lux, scale);
     colors[i * 3] = r;
     colors[i * 3 + 1] = g;
     colors[i * 3 + 2] = b;
@@ -120,7 +131,8 @@ export function createClippedWorkplaneGeometry(
 export function createWallFalseColorGeometry(
   surface: WallSurfaceResult,
   elevationM: number,
-  inwardOffset = 0.02
+  inwardOffset = 0.02,
+  scale?: FalseColorScale
 ): THREE.BufferGeometry | null {
   const poly = surface.polyline;
   const normals = surface.normals;
@@ -147,7 +159,7 @@ export function createWallFalseColorGeometry(
         elevationM + v,
         loc.y + loc.normal.y * inwardOffset
       );
-      const [cr, cg, cb] = luxToRgb(sampleWallLux(surface, u, v));
+      const [cr, cg, cb] = luxToRgb(sampleWallLux(surface, u, v), scale);
       colors.push(cr, cg, cb);
     }
   }
@@ -377,6 +389,8 @@ export interface BuildBuildingSceneOpts {
   highlightRoomId?: string | null;
   /** When set, only this room (and its fixtures) is drawn — used for per-room report views. */
   isolateRoomId?: string | null;
+  /** When omitted in false-colour mode, the project-wide emin/emax is used. */
+  falseColorScale?: FalseColorScale;
 }
 
 export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
@@ -461,18 +475,18 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       side: THREE.FrontSide,
     })
   );
-  const wallShellOpacity = opts.mode === "falsecolor" ? 0.22 : 0.82;
+  const shellOpacity = wallShellOpacity(opts.mode);
   const wallMat = track(
     new THREE.MeshStandardMaterial({
       color: WALL_COLOR,
       roughness: 0.88,
       metalness: 0.04,
-      transparent: true,
-      opacity: wallShellOpacity,
+      transparent: shellOpacity < 0.999,
+      opacity: shellOpacity,
       side: THREE.DoubleSide,
-      // In false-colour mode the calc surfaces sit just inside the shell;
-      // keep depthWrite off so exterior report cameras can see them.
-      depthWrite: opts.mode !== "falsecolor",
+      // Exterior faces stay opaque grey. Inward false-colour meshes are FrontSide
+      // only, so no lux colour is visible from outside the room.
+      depthWrite: true,
     })
   );
   const wallMatActive = track(
@@ -480,10 +494,10 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       color: WALL_COLOR_ACTIVE,
       roughness: 0.88,
       metalness: 0.04,
-      transparent: true,
-      opacity: opts.mode === "falsecolor" ? 0.28 : 0.86,
+      transparent: shellOpacity < 0.999,
+      opacity: opts.mode === "falsecolor" ? Math.min(1, shellOpacity + 0.02) : 0.86,
       side: THREE.DoubleSide,
-      depthWrite: opts.mode !== "falsecolor",
+      depthWrite: true,
     })
   );
   const edgeMat = track(new THREE.LineBasicMaterial({ color: EDGE_COLOR }));
@@ -494,6 +508,17 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       transparent: true,
       opacity: 0.92,
       side: THREE.DoubleSide,
+      depthWrite: false,
+    })
+  );
+  // FrontSide faces into the room (inward normals). The outside of the wall
+  // stays the uncoloured shell — no light is emitted outdoors.
+  const wallFalseColorMat = track(
+    new THREE.MeshBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.92,
+      side: THREE.FrontSide,
       depthWrite: false,
     })
   );
@@ -522,9 +547,12 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     }
 
     if (opts.mode === "falsecolor") {
+      const scale =
+        opts.falseColorScale ??
+        (opts.results ? projectLuxRange(opts.results) : undefined);
       const res = opts.results?.byRoomId[room.id];
       if (res) {
-        const wp = createClippedWorkplaneGeometry(room, res, elev);
+        const wp = createClippedWorkplaneGeometry(room, res, elev, scale);
         if (wp) {
           track(wp);
           threeScene.add(new THREE.Mesh(wp, workMat));
@@ -532,10 +560,10 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       }
       const wallSurfaces = opts.results?.wallsByRoomId?.[room.id] ?? [];
       for (const surface of wallSurfaces) {
-        const wg = createWallFalseColorGeometry(surface, elev);
+        const wg = createWallFalseColorGeometry(surface, elev, 0.02, scale);
         if (wg) {
           track(wg);
-          threeScene.add(new THREE.Mesh(wg, workMat));
+          threeScene.add(new THREE.Mesh(wg, wallFalseColorMat));
         }
       }
     }

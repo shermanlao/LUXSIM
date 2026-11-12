@@ -20,7 +20,26 @@ export const DIALUX_LUX_STOPS: { lux: number; r: number; g: number; b: number }[
 
 const LABELED_STOPS = DIALUX_LUX_STOPS.filter((s) => s.lux > 0);
 
-export function luxToRgb(lux: number, _max?: number): [number, number, number] {
+export interface FalseColorScale {
+  minLux: number;
+  maxLux: number;
+}
+
+export function normalizeFalseColorScale(minLux: number, maxLux: number): FalseColorScale {
+  const a = Number.isFinite(minLux) ? minLux : 0;
+  const b = Number.isFinite(maxLux) ? maxLux : a + 1;
+  const lo = Math.max(0, Math.min(a, b));
+  const hi = Math.max(lo + 1, Math.max(a, b));
+  return { minLux: lo, maxLux: hi };
+}
+
+export function isFalseColorScale(value: unknown): value is FalseColorScale {
+  if (!value || typeof value !== "object") return false;
+  const rec = value as { minLux?: unknown; maxLux?: unknown };
+  return Number.isFinite(rec.minLux) && Number.isFinite(rec.maxLux);
+}
+
+function absoluteLuxToRgb(lux: number): [number, number, number] {
   const v = Math.max(0, lux);
   const stops = DIALUX_LUX_STOPS;
   if (v <= stops[0]!.lux) {
@@ -42,6 +61,27 @@ export function luxToRgb(lux: number, _max?: number): [number, number, number] {
     (a.g + (b.g - a.g) * t) / 255,
     (a.b + (b.b - a.b) * t) / 255,
   ];
+}
+
+function paletteRgbAtT(t: number): [number, number, number] {
+  const u = Math.min(1, Math.max(0, t));
+  const first = DIALUX_LUX_STOPS[0]!.lux;
+  const last = DIALUX_LUX_STOPS[DIALUX_LUX_STOPS.length - 1]!.lux;
+  return absoluteLuxToRgb(first + u * (last - first));
+}
+
+/**
+ * Map illuminance to the DIALux colour ramp.
+ * When a scale is provided, minLux and maxLux are stretched across the full
+ * palette so the legend and the 3D surfaces stay in lock-step.
+ */
+export function luxToRgb(lux: number, scale?: FalseColorScale | number): [number, number, number] {
+  if (isFalseColorScale(scale)) {
+    const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
+    const t = (lux - range.minLux) / (range.maxLux - range.minLux);
+    return paletteRgbAtT(t);
+  }
+  return absoluteLuxToRgb(lux);
 }
 
 export function rgbCss([r, g, b]: [number, number, number]): string {
@@ -80,6 +120,19 @@ export function isoluxLevels(emin: number, emax: number): number[] {
     levels.push(v);
   }
   return levels;
+}
+
+/** Tick labels and colours for an interactive false-colour scale bar. */
+export function legendStopsForScale(scale: FalseColorScale): { lux: number; color: string }[] {
+  const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
+  const ticks = [range.minLux, ...isoluxLevels(range.minLux, range.maxLux), range.maxLux];
+  const uniq: number[] = [];
+  for (const v of ticks) {
+    const rounded = Math.round(v * 10) / 10;
+    if (!uniq.some((u) => Math.abs(u - rounded) < 1e-6)) uniq.push(rounded);
+  }
+  if (uniq.length < 2) uniq.push(range.maxLux);
+  return uniq.map((lux) => ({ lux, color: rgbCss(luxToRgb(lux, range)) }));
 }
 
 export type IsoluxMode = "falsecolor" | "isolines";
