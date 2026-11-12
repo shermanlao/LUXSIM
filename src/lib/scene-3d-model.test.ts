@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
 import {
+  createCeilingGeometry,
   createClippedWorkplaneGeometry,
+  createFloorGeometry,
   createWallFalseColorGeometry,
   sampleGridLux,
   workplaneVerticesInsideRoom,
@@ -197,3 +199,32 @@ describe("vertical wall false-colour geometry", () => {
     geo!.dispose();
   });
 });
+
+describe("ceiling geometry", () => {
+  it("places a downward-facing ceiling at room height, aligned with the floor plan", () => {
+    const room = lShapedRoom();
+    const elev = 0.5;
+    const ceiling = createCeilingGeometry(room, elev);
+    const floor = createFloorGeometry(room, elev);
+    expect(ceiling).not.toBeNull();
+    expect(floor).not.toBeNull();
+    ceiling!.computeBoundingBox();
+    floor!.computeBoundingBox();
+    const cb = ceiling!.boundingBox!;
+    const fb = floor!.boundingBox!;
+    const expectedY = elev + room.heightM - 0.002;
+    expect(cb.min.y).toBeCloseTo(expectedY, 5);
+    expect(cb.max.y).toBeCloseTo(expectedY, 5);
+    expect(cb.min.x).toBeCloseTo(fb.min.x, 5);
+    expect(cb.max.x).toBeCloseTo(fb.max.x, 5);
+    expect(cb.min.z).toBeCloseTo(fb.min.z, 5);
+    expect(cb.max.z).toBeCloseTo(fb.max.z, 5);
+
+    const normals = ceiling!.getAttribute("normal");
+    expect(normals).toBeTruthy();
+    let ny = 0;
+    for (let i = 0; i < normals!.count; i += 1) ny += normals!.getY(i);
+    expect(ny / normals!.count).toBeLessThan(-0.9);
+  });
+});
+
