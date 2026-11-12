@@ -13,6 +13,8 @@ import {
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
+import type { PhotometricData } from "@luxsim/photometry";
+import { planSymbolGeom } from "./LuminaireBody";
 
 type Props = {
   scene: ProjectSceneV2;
@@ -35,6 +37,7 @@ type Props = {
   rcpProposals?: RcpDetectionProposal[];
   showRcpOverlay?: boolean;
   selectedRcpId?: string | null;
+  photometry?: Record<string, PhotometricData>;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -61,6 +64,7 @@ export function TopView2D({
   rcpProposals = [],
   showRcpOverlay = false,
   selectedRcpId = null,
+  photometry,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -621,22 +625,32 @@ export function TopView2D({
                 window.addEventListener("mouseup", up);
               }}
             >
-              <rect
-                x={-8}
-                y={-8}
-                width={16}
-                height={16}
-                fill={selected ? "#c45c26" : "#e8c27a"}
-                stroke="#fff"
-                strokeWidth={1}
-              />
               {(() => {
-                const len = selected ? 14 : 10;
+                const { body, rx, ry, hitR } = planSymbolGeom(photometry?.[inst.luminaireId], scale);
+                const fill = selected ? "#c45c26" : body.housing === "black" ? "#2a2a2c" : "#d8d4cc";
+                const len = selected ? Math.max(14, rx + 6) : Math.max(10, rx + 4);
                 const rad = (inst.rotationDeg * Math.PI) / 180;
                 const x2 = Math.cos(rad) * len;
                 const y2 = -Math.sin(rad) * len;
                 return (
                   <>
+                    <circle r={hitR} fill="transparent" />
+                    {body.isCircular ? (
+                      <>
+                        <circle r={rx} fill={fill} stroke="#fff" strokeWidth={0.8} />
+                        <circle r={rx * 0.62} fill="#f3e2b0" />
+                      </>
+                    ) : (
+                      <rect
+                        x={-rx}
+                        y={-ry}
+                        width={rx * 2}
+                        height={ry * 2}
+                        fill={fill}
+                        stroke="#fff"
+                        strokeWidth={0.8}
+                      />
+                    )}
                     <line
                       x1={0}
                       y1={0}

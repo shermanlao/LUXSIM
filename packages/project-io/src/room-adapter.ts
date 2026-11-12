@@ -1,7 +1,7 @@
 import type { CalcOptions, CalcResults, LuminaireInstance } from "../../solver/src/types";
 import type { PhotometricData } from "../../photometry/src/types";
 import type { FixtureInstance, RoomV2 } from "./types";
-import { pointInPolygon, roomBounds } from "./geometry";
+import { pointInPolygon, roomAreaM2, roomBounds } from "./geometry";
 
 /**
  * Build solver options for one room.
@@ -77,6 +77,9 @@ export function clipResultsToPolygon(room: RoomV2, results: CalcResults): CalcRe
     emax = Math.max(emax, e);
   }
   const eave = n > 0 ? sum / n : 0;
+  const areaM2 = roomAreaM2(room);
+  const totalWatts = results.summary.totalWatts;
+  const lpd = totalWatts > 0 && areaM2 > 0 ? totalWatts / areaM2 : null;
   return {
     ...results,
     grid: { ...grid, lux },
@@ -86,6 +89,8 @@ export function clipResultsToPolygon(room: RoomV2, results: CalcResults): CalcRe
       emin: Number.isFinite(emin) ? emin : 0,
       emax: Number.isFinite(emax) ? emax : 0,
       uo: eave > 1e-6 ? emin / eave : 0,
+      areaM2,
+      lpd,
     },
   };
 }

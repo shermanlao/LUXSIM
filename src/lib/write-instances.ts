@@ -1,5 +1,6 @@
 import type { PhotometricData } from "@luxsim/photometry";
 import {
+  calculateRoomWalls,
   clipResultsToPolygon,
   roomToCalcOptions,
   type FixtureInstance,
@@ -105,6 +106,7 @@ export async function runClientCalcForRooms(
       : scene.rooms;
 
   const nextByRoom = { ...results.byRoomId };
+  const nextWalls = { ...(results.wallsByRoomId ?? {}) };
 
   for (const room of targetRooms) {
     const inst = scene.instances.filter((i) => i.roomId === room.id);
@@ -121,9 +123,20 @@ export async function runClientCalcForRooms(
     let calc: CalcResults = await runSolver(opts);
     calc = clipResultsToPolygon(room, calc);
     nextByRoom[room.id] = calc;
+    try {
+      nextWalls[room.id] = calculateRoomWalls({
+        room,
+        instances: inst,
+        photometry,
+        wattsById: watts,
+      });
+    } catch {
+      // Wall surfaces are additive; incomplete IES should not drop workplane results.
+      delete nextWalls[room.id];
+    }
   }
 
-  return { version: 2, byRoomId: nextByRoom };
+  return { version: 2, byRoomId: nextByRoom, wallsByRoomId: nextWalls };
 }
 
 /** Shared batch write used by drag-drop, arrays, and future placement tools. */

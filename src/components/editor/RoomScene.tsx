@@ -1,13 +1,17 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { OrbitControls, Edges } from "@react-three/drei";
 import type { PerspectiveCamera } from "three";
 import type { CalcResults } from "@luxsim/solver";
-import type { SceneJson } from "@luxsim/project-io";
+import type { Display3dMode, SceneJson } from "@luxsim/project-io";
+import { rectPolygon } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { OrbitViewBridge, type Camera3dView } from "./OrbitViewBridge";
+import type { PhotometricData } from "@luxsim/photometry";
+import { LuminaireBodyMesh } from "./LuminaireBody";
+import { EDITOR_BG } from "@/lib/scene-3d-model";
 
 export type CameraViewState = Camera3dView;
 
@@ -56,19 +60,23 @@ function ViewportSync() {
 export function RoomScene({
   scene,
   results,
+  display3d = "greyscale",
   selectedId,
   onSelect,
   className = "h-[520px]",
   viewRef,
   initialView,
+  photometry,
 }: {
   scene: SceneJson;
   results: CalcResults | null;
+  display3d?: Display3dMode;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   className?: string;
   viewRef: React.MutableRefObject<CameraViewState | null>;
   initialView: CameraViewState | null;
+  photometry?: Record<string, PhotometricData>;
 }) {
   const { width, depth, height } = scene.room;
   const defaultTarget = toThree(width / 2, depth / 2, height * 0.35);
@@ -77,24 +85,44 @@ export function RoomScene({
     height * 1.6,
     depth * 1.25,
   ];
-  // Stable initials — do not pass fresh arrays into OrbitControls each render
   const startPosition = useRef(initialView?.position ?? defaultPosition);
   const startTarget = useRef(initialView?.target ?? defaultTarget);
 
+  const roomV2 = useMemo(
+    () => ({
+      id: "room",
+      storeyId: "storey",
+      name: "Room",
+      polygon: rectPolygon(0, 0, width, depth),
+      heightM: height,
+      workplaneHeightM: scene.room.workplaneHeight,
+      reflectance: scene.room.reflectance,
+      calc: {
+        gridSpacing: scene.gridSpacing,
+        interreflection: scene.calcOptions.interreflection,
+        bounces: scene.calcOptions.bounces,
+        computeUgr: scene.calcOptions.computeUgr,
+      },
+    }),
+    [width, depth, height, scene.room.workplaneHeight, scene.room.reflectance, scene.gridSpacing, scene.calcOptions]
+  );
+
   return (
-    <div className={`relative w-full overflow-hidden bg-[#0f1c24] ${className}`}>
+    <div className={`relative w-full overflow-hidden ${className}`} style={{ background: EDITOR_BG }}>
       <Canvas
         camera={{
           position: startPosition.current,
           fov: 45,
         }}
+        gl={{ preserveDrawingBuffer: true, antialias: true }}
         style={{ position: "absolute", inset: 0, width: "100%", height: "100%" }}
         resize={{ debounce: 0, scroll: false }}
       >
         <ViewportSync />
-        <color attach="background" args={["#0f1c24"]} />
+        <color attach="background" args={[EDITOR_BG]} />
         <ambientLight intensity={0.55} />
         <directionalLight position={[width, height * 2, depth]} intensity={0.85} />
+        <directionalLight position={[-width, height, -depth]} intensity={0.22} />
 
         <mesh
           rotation={[-Math.PI / 2, 0, 0]}
@@ -102,24 +130,25 @@ export function RoomScene({
           onClick={() => onSelect(null)}
         >
           <planeGeometry args={[width, depth]} />
-          <meshStandardMaterial color="#2a3b46" />
+          <meshStandardMaterial color="#c8cbcf" roughness={0.92} metalness={0.02} />
+          <Edges color="#2c2c2c" />
         </mesh>
 
         <mesh position={toThree(width / 2, depth / 2, height / 2)}>
           <boxGeometry args={[width, height, depth]} />
-          <meshBasicMaterial transparent opacity={0} />
-          <Edges color="#8aa0ad" />
+          <meshStandardMaterial
+            color="#b0b4b8"
+            transparent
+            opacity={0.18}
+            roughness={0.9}
+            side={2}
+          />
+          <Edges color="#2c2c2c" />
         </mesh>
 
-        <mesh
-          rotation={[-Math.PI / 2, 0, 0]}
-          position={toThree(width / 2, depth / 2, scene.room.workplaneHeight)}
-        >
-          <planeGeometry args={[width * 0.98, depth * 0.98]} />
-          <meshBasicMaterial color="#1f6f8b" transparent opacity={0.08} />
-        </mesh>
-
-        {results && <FalseColorPlane results={results} />}
+        {display3d === "falsecolor" && results && (
+          <FalseColorPlane room={roomV2} results={results} elevationM={0} />
+        )}
 
         {scene.luminaires.map((lum) => {
           const selected = lum.instanceId === selectedId;
@@ -133,14 +162,10 @@ export function RoomScene({
                 onSelect(lum.instanceId);
               }}
             >
-              <mesh>
-                <boxGeometry args={[0.35, 0.12, 0.35]} />
-                <meshStandardMaterial color={selected ? "#c45c26" : "#e8c27a"} />
-              </mesh>
-              <mesh position={[0, -0.22, 0]}>
-                <coneGeometry args={[0.15, 0.35, 16]} />
-                <meshBasicMaterial color="#f0d48a" transparent opacity={0.35} />
-              </mesh>
+              <LuminaireBodyMesh
+                photo={photometry?.[lum.luminaireId]}
+                selected={selected}
+              />
             </group>
           );
         })}

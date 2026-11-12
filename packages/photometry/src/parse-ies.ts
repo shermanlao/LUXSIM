@@ -24,6 +24,9 @@ export function parseIes(text: string): ParseResult {
   let manufacturer = "";
   let catalogNumber = "";
   let description = "";
+  let lampText = "";
+  let cctK: number | null = null;
+  let cri: number | null = null;
 
   while (i < lines.length) {
     const line = lines[i] ?? "";
@@ -35,13 +38,38 @@ export function parseIes(text: string): ParseResult {
     if (line.startsWith("[MANUFAC]")) manufacturer = line.slice(9).trim();
     else if (line.startsWith("[LUMCAT]")) catalogNumber = line.slice(8).trim();
     else if (line.startsWith("[LUMINAIRE]")) description = line.slice(11).trim();
-    else if (line.startsWith("[")) {
+    else if (line.startsWith("[LAMP]")) lampText += " " + line.slice(6).trim();
+    else if (line.startsWith("[LAMPCAT]")) lampText += " " + line.slice(9).trim();
+    else if (line.startsWith("[COLORTEMP]") || line.startsWith("[_CCT]") || line.startsWith("[CCT]")) {
+      const n = parseNumber(line.replace(/\[[^\]]+\]/, ""));
+      if (n > 0) cctK = n;
+    } else if (line.startsWith("[CRI]") || line.startsWith("[_CRI]")) {
+      const n = parseNumber(line.replace(/\[[^\]]+\]/, ""));
+      if (n > 0) cri = n;
+    } else if (line.startsWith("[")) {
       /* keyword */
     } else if (line.trim() && !description) {
       description = line.trim();
     }
     i += 1;
   }
+
+  const hintText = `${description} ${lampText}`;
+  if (cctK == null) {
+    const range = hintText.match(/(\d{3,4})\s*K?\s*(?:[-–]|to)\s*(\d{3,4})\s*K/i);
+    if (!range) {
+      const m = hintText.match(/(\d{3,4})\s*K\b/i);
+      if (m) cctK = Number(m[1]);
+    }
+  }
+  if (cri == null) {
+    const m = hintText.match(/\b(?:CRI|Ra)\s*[:=]?\s*(\d{2,3})\b/i);
+    if (m) cri = Number(m[1]);
+  }
+  let catalogFluxLm: number | null = null;
+  const lmHint = hintText.match(/(\d+(?:\.\d+)?)\s*lm\b/i);
+  if (lmHint) catalogFluxLm = Number(lmHint[1]);
+
 
   // Collect remaining numeric tokens
   const tokens: string[] = [];
@@ -62,8 +90,14 @@ export function parseIes(text: string): ParseResult {
   const nVert = Math.round(parseNumber(tokens[t++]!));
   const nHoriz = Math.round(parseNumber(tokens[t++]!));
   const photometryType = parseNumber(tokens[t++]!);
-  t += 1; // units type
-  t += 3; // width, length, height
+  const unitsType = parseNumber(tokens[t++]!);
+  const rawWidth = parseNumber(tokens[t++]!);
+  const rawLength = parseNumber(tokens[t++]!);
+  const rawHeight = parseNumber(tokens[t++]!);
+  const toMetres = unitsType === 1 ? 0.3048 : 1;
+  const openingWidthM = Number.isFinite(rawWidth) ? rawWidth * toMetres : 0;
+  const openingLengthM = Number.isFinite(rawLength) ? rawLength * toMetres : 0;
+  const openingHeightM = Number.isFinite(rawHeight) ? rawHeight * toMetres : 0;
   const ballastFactor = parseNumber(tokens[t++]!);
   t += 1; // future use
   const inputWatts = parseNumber(tokens[t++]!);
@@ -116,6 +150,13 @@ export function parseIes(text: string): ParseResult {
     horizontalAngles,
     intensities,
     symmetry: nHoriz <= 2 ? "axial" : "none",
+    photometryType: Number.isFinite(photometryType) ? photometryType : 1,
+    openingWidthM,
+    openingLengthM,
+    openingHeightM,
+    cctK,
+    cri,
+    catalogFluxLm,
   };
 
   return { data, warnings };

@@ -65,7 +65,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Calculation
 
-- One workplane per room (no extra task areas / wall grids)
+- Automatic vertical calculation surfaces on every room wall (inward normals, same grid/inset as the workplane). One workplane per room; no extra task areas, ceiling grids, or user-drawn surfaces yet
 - Interreflection is a box-room boost, not radiosity
 - UGR observers are simplified (look toward room centre)
 - Maintenance factor + EN 12464 assist targets (pass-fail hints only)
@@ -86,7 +86,7 @@ See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are m
 
 1. **P0 done** — Point-to-point draw + typed polar lock + ortho + close; L×W; room translate; 3D polygon extrusion; workspace chrome; room inspector; DIALux verification pack.
 2. **P0 leftover** — vertex edit.
-3. **P1** — Snap, fixture arrays + rotation, isolines, extra calc surfaces, richer standard libraries.
+3. **P1** — Snap, fixture arrays + rotation, isolines, extra calc surfaces, richer standard libraries. (Wall calculation surfaces: done.)
 4. **P2+** — Daylight, emergency, furniture, catalog, raytrace, outdoor, IFC/Office export.
 
 ## Non-claims (unchanged)

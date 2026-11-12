@@ -29,10 +29,15 @@ export type ViewMode = "top" | "bottom" | "front" | "side" | "persp3d";
 
 export type { EditorWorkflowMode } from "./editor-workflow";
 
+/** In-app / report 3D presentation: clean architecture vs illuminance overlay. */
+export type Display3dMode = "greyscale" | "falsecolor";
+
 /** Three.js orbit camera pose (y-up) for persp3d restore */
 export interface Camera3dView {
   position: [number, number, number];
   target: [number, number, number];
+  /** Optional camera up. Report overviews use plan-north [0,0,1] so +X is right. */
+  up?: [number, number, number];
 }
 
 export interface Vec2 {
@@ -173,12 +178,52 @@ export interface ProjectSceneV2 {
     workflowMode?: EditorWorkflowMode;
     /** Last 3D orbit pose; restored when opening / switching back to 3D */
     camera3d?: Camera3dView | null;
+    /** Greyscale architecture vs false-colour workplanes in the 3D view. */
+    display3d?: Display3dMode;
+  };
+}
+
+/** Vertical (wall) calculation surface — stored beside, not instead of, the workplane. */
+export interface WallSurfaceGrid {
+  originU: number;
+  originV: number;
+  spacing: number;
+  nu: number;
+  nv: number;
+  /** Row-major lux, nv rows of nu samples. */
+  lux: number[];
+}
+
+export interface WallSurfaceResult {
+  id: string;
+  roomId: string;
+  name: string;
+  /** Plan polyline of the wall (world XY), at least two points. */
+  polyline: Vec2[];
+  /** Inward unit normal for each segment of the polyline. */
+  normals: Vec2[];
+  heightM: number;
+  insetM: number;
+  /** Representative inward horizontal normal. */
+  normal: Vec2;
+  /** Unrolled length of the polyline (m). */
+  widthM: number;
+  curved: boolean;
+  grid: WallSurfaceGrid;
+  summary: {
+    eave: number;
+    emin: number;
+    emax: number;
+    uo: number;
+    areaM2: number;
   };
 }
 
 export interface ResultsV2 {
   version: 2;
   byRoomId: Record<string, CalcResults>;
+  /** Wall calculation surfaces keyed by roomId. Absent on older projects. */
+  wallsByRoomId?: Record<string, WallSurfaceResult[]>;
 }
 
 export type AnyScene = SceneJson | ProjectSceneV2;

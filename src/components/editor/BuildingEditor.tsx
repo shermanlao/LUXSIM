@@ -5,15 +5,20 @@ import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } 
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
+  gridToFalseColorPngDataUrl,
+  defaultDisplay3d,
   findRoomAt,
+  fitOverviewCamera,
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  projectLuxRange,
   rectPolygon,
   translatePolygon,
   underlayWorldSize,
   type Camera3dView,
+  type Display3dMode,
   type DxfEntity,
   type ProjectSceneV2,
   type ResultsV2,
@@ -60,6 +65,8 @@ import { RcpDetectPanel } from "./RcpDetectPanel";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
+import { Display3dToggle } from "./Display3dToggle";
+import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
@@ -583,8 +590,13 @@ export function BuildingEditor({
     const inst = scene.instances.find((i) => i.instanceId === instanceId);
     if (inst?.roomId) {
       setResults((r) => {
-        const next = { ...r, byRoomId: { ...r.byRoomId } };
+        const next = {
+          ...r,
+          byRoomId: { ...r.byRoomId },
+          wallsByRoomId: { ...(r.wallsByRoomId ?? {}) },
+        };
         delete next.byRoomId[inst.roomId!];
+        delete next.wallsByRoomId[inst.roomId!];
         return next;
       });
     }
@@ -1092,12 +1104,46 @@ export function BuildingEditor({
     }
     const wattsById: Record<string, number | null | undefined> = {};
     for (const l of library) wattsById[l.id] = l.watts;
+    const falseColorSnapshots: Record<string, string> = {};
+    for (const room of scene.rooms) {
+      const res = results.byRoomId[room.id];
+      if (!res) continue;
+      const snap = gridToFalseColorPngDataUrl(room, res);
+      if (snap) falseColorSnapshots[room.id] = snap;
+    }
+    let projectPerspectiveGreyscale: string | undefined;
+    let projectPerspectiveFalseColor: string | undefined;
+    let persp3dGreyscale: Record<string, string> | undefined;
+    let persp3dFalseColor: Record<string, string> | undefined;
+    try {
+      if (webglCaptureAvailable()) {
+        const views = renderAllReport3dViews({
+          scene,
+          results,
+          photometry,
+          overviewCamera: fitOverviewCamera(scene),
+        });
+        projectPerspectiveGreyscale = views.projectGreyscale;
+        projectPerspectiveFalseColor = views.projectFalseColor;
+        persp3dGreyscale = views.roomGreyscale;
+        persp3dFalseColor = views.roomFalseColor;
+      }
+    } catch (err) {
+      console.warn("3D report capture failed", err);
+      setStatus("3D views could not be captured; the rest of the report was exported.");
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
       results,
       photometry,
       wattsById,
+      falseColorSnapshots,
+      projectPerspectiveGreyscale,
+      projectPerspectiveFalseColor,
+      persp3dGreyscale,
+      persp3dFalseColor,
+      luxsimVersion: "0.1.0",
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }
@@ -1211,6 +1257,9 @@ export function BuildingEditor({
     };
   }, [fullscreen]);
 
+  const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const luxRange = projectLuxRange(results);
+
   const viewport = (
     <div
       className={
@@ -1219,6 +1268,19 @@ export function BuildingEditor({
           : "panel relative overflow-hidden flex-1 min-h-[320px] bg-[#0a1218] border-[#2a3842]"
       }
     >
+      {viewMode === "persp3d" && (
+        <div className="absolute top-3 left-3 z-10">
+          <Display3dToggle
+            value={display3d}
+            onChange={(mode) =>
+              patchScene((s) => ({
+                ...s,
+                ui: { ...s.ui, display3d: mode },
+              }))
+            }
+          />
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -1236,6 +1298,7 @@ export function BuildingEditor({
           dxfEntities={dxfEntities}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
@@ -1260,6 +1323,7 @@ export function BuildingEditor({
           mode="front"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -1283,6 +1347,7 @@ export function BuildingEditor({
           mode="side"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -1301,9 +1366,11 @@ export function BuildingEditor({
       {viewMode === "persp3d" && (
         <BuildingScene3D
           scene={scene}
-          results={activeResults}
+          results={results}
+          display3d={display3d}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y, z) => placeAt(id, x, y, z)}
           className={fullscreen ? "h-screen" : "h-[520px]"}
           underlayUrl={underlayUrl}
@@ -1313,9 +1380,9 @@ export function BuildingEditor({
           initialView={scene.ui.camera3d ?? camera3dRef.current}
         />
       )}
-      {fullscreen && (
-        <div className="absolute bottom-4 left-4 z-10 w-72">
-          <FalseColorLegend results={activeResults} />
+      {viewMode === "persp3d" && display3d === "falsecolor" && (
+        <div className="absolute bottom-4 left-4 z-10 w-72 pointer-events-none">
+          <FalseColorLegend emin={luxRange.emin} emax={luxRange.emax} results={activeResults} compact />
         </div>
       )}
     </div>
@@ -1575,7 +1642,11 @@ export function BuildingEditor({
           </div>
 
           <div className={workflow !== "calculation" ? "cad-panel-hidden" : "pt-2"}>
-            <FalseColorLegend results={activeResults} />
+            <FalseColorLegend
+              results={activeResults}
+              emin={viewMode === "persp3d" ? luxRange.emin : undefined}
+              emax={viewMode === "persp3d" ? luxRange.emax : undefined}
+            />
           </div>
         </aside>
 

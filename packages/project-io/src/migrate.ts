@@ -70,6 +70,7 @@ export function defaultSceneV2(): ProjectSceneV2 {
       tool: "select",
       workflowMode: "construction",
       camera3d: null,
+      display3d: "greyscale",
     },
   };
 }
@@ -128,6 +129,7 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
       tool: "select",
       workflowMode: "construction",
       camera3d: null,
+      display3d: "greyscale",
     },
   };
 }
@@ -139,6 +141,11 @@ function normalizeViewMode(raw: unknown): ProjectSceneV2["ui"]["viewMode"] {
     return raw as ProjectSceneV2["ui"]["viewMode"];
   }
   return "top";
+}
+
+function normalizeDisplay3d(raw: unknown): ProjectSceneV2["ui"]["display3d"] {
+  if (raw === "greyscale" || raw === "falsecolor") return raw;
+  return "greyscale";
 }
 
 function normalizeCamera3d(
@@ -156,9 +163,17 @@ function normalizeCamera3d(
   ) {
     return null;
   }
+  const upRaw = (raw as { up?: unknown }).up;
+  const up =
+    Array.isArray(upRaw) &&
+    upRaw.length === 3 &&
+    upRaw.every((n) => typeof n === "number")
+      ? ([upRaw[0], upRaw[1], upRaw[2]] as [number, number, number])
+      : undefined;
   return {
     position: [c.position[0], c.position[1], c.position[2]],
     target: [c.target[0], c.target[1], c.target[2]],
+    ...(up ? { up } : {}),
   };
 }
 
@@ -200,6 +215,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         tool: scene.ui?.tool ?? "select",
         workflowMode: normalizeWorkflowMode(scene.ui?.workflowMode),
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
+        display3d: normalizeDisplay3d(scene.ui?.display3d),
       },
     };
   }
@@ -217,7 +233,12 @@ export function normalizeResults(
     (results as ResultsV2).version === 2 &&
     (results as ResultsV2).byRoomId
   ) {
-    return results as ResultsV2;
+    const r = results as ResultsV2;
+    return {
+      version: 2,
+      byRoomId: r.byRoomId,
+      ...(r.wallsByRoomId ? { wallsByRoomId: r.wallsByRoomId } : {}),
+    };
   }
   // v1 single CalcResults → attach to first room if present
   if (results && typeof results === "object" && (results as CalcResults).grid) {

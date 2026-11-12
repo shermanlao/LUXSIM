@@ -1,56 +1,41 @@
 "use client";
 
-import { useMemo } from "react";
+import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { CalcResults } from "@luxsim/solver";
-import { luxToRgb } from "@/lib/false-color";
-
-function luxToColor(lux: number, max: number): THREE.Color {
-  const [r, g, b] = luxToRgb(lux, max);
-  return new THREE.Color(r, g, b);
-}
+import type { RoomV2 } from "@luxsim/project-io";
+import { createClippedWorkplaneGeometry } from "@/lib/scene-3d-model";
 
 export function FalseColorPlane({
+  room,
   results,
-  offset = { x: 0, y: 0, z: 0 },
+  elevationM = 0,
 }: {
+  room: RoomV2;
   results: CalcResults;
-  offset?: { x: number; y: number; z: number };
+  elevationM?: number;
 }) {
-  const { geometry, position } = useMemo(() => {
-    const { grid } = results;
-    const geo = new THREE.PlaneGeometry(
-      grid.spacing * Math.max(grid.nx - 1, 1) || grid.spacing,
-      grid.spacing * Math.max(grid.ny - 1, 1) || grid.spacing,
-      Math.max(grid.nx - 1, 1),
-      Math.max(grid.ny - 1, 1)
-    );
-    const colors: number[] = [];
-    const max = Math.max(...grid.lux, 1);
-    const wSeg = Math.max(grid.nx - 1, 1);
-    const hSeg = Math.max(grid.ny - 1, 1);
-    for (let j = 0; j <= hSeg; j += 1) {
-      for (let i = 0; i <= wSeg; i += 1) {
-        const ii = Math.min(i, grid.nx - 1);
-        const jj = Math.min(j, grid.ny - 1);
-        const lux = grid.lux[jj * grid.nx + ii] ?? 0;
-        const c = luxToColor(lux, max);
-        colors.push(c.r, c.g, c.b);
-      }
-    }
-    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
-    geo.rotateX(-Math.PI / 2);
-    const pos: [number, number, number] = [
-      offset.x + grid.originX + ((grid.nx - 1) * grid.spacing) / 2,
-      offset.z + grid.z + 0.02,
-      offset.y + grid.originY + ((grid.ny - 1) * grid.spacing) / 2,
-    ];
-    return { geometry: geo, position: pos };
-  }, [results, offset.x, offset.y, offset.z]);
+  const geometry = useMemo(
+    () => createClippedWorkplaneGeometry(room, results, elevationM),
+    [room, results, elevationM]
+  );
 
+  useLayoutEffect(() => {
+    return () => {
+      geometry?.dispose();
+    };
+  }, [geometry]);
+
+  if (!geometry) return null;
   return (
-    <mesh geometry={geometry} position={position}>
-      <meshBasicMaterial vertexColors transparent opacity={0.85} side={THREE.DoubleSide} />
+    <mesh geometry={geometry}>
+      <meshBasicMaterial
+        vertexColors
+        transparent
+        opacity={0.92}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
     </mesh>
   );
 }

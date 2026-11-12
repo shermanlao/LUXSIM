@@ -12,11 +12,14 @@ export type {
   RcpDetectionProposal,
   RcpProposalStatus,
   ViewMode,
+  Display3dMode,
   Camera3dView,
   DxfEntity,
   AnyScene,
   Vec2,
   EditorWorkflowMode,
+  WallSurfaceResult,
+  WallSurfaceGrid,
 } from "./types";
 export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
 export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
@@ -75,6 +78,15 @@ export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
+export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
+export { luxToRgb, rgbCss, legendStopsForRange, isoluxLevels, buildIsoluxModel, DIALUX_LUX_STOPS } from "./isolux-map";
+export type { IsoluxMode, IsoluxModel } from "./isolux-map";
+export {
+  aggregateProjectLuminaires,
+  roomLpdFromPolygon,
+  roomPolygonArea,
+  enrichSummaryWithPolygonArea,
+} from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,
   underlayWorldSize,
@@ -83,3 +95,21 @@ export {
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
 } from "./underlay";
+
+export {
+  projectLuxRange,
+  fitOverviewCamera,
+  fitRoomCamera,
+  defaultDisplay3d,
+} from "./scene-3d";
+
+export {
+  buildWallChains,
+  calculateRoomWalls,
+  inwardNormal,
+  locateOnPolyline,
+  sampleWallGrid,
+  sampleWallLux,
+  signedPolygonArea,
+  wallGridAxes,
+} from "./wall-surfaces";
