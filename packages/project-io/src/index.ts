@@ -48,6 +48,7 @@ export { buildVerificationDxf } from "./dxf-export";
 export {
   defaultSceneV2,
   migrateSceneV1toV2,
+  ensureFixtureCodeMapIds,
   normalizeScene,
   normalizeResults,
   isSceneV1,

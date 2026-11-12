@@ -22,4 +22,4 @@ On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-ble
 9. **Calculate** active room or all rooms (client-side). Optional **Calc after place** when applying an array (or enable before drag-drop).
 10. **Documentation** mode — full PDF report, `.luxsim`, or DIALux verification zip.
 
-**Persistence:** fixture code map rules live in **`ProjectSceneV2.fixtureCodeMap`** (project `sceneJson`), not a separate DB table — they travel with `.luxsim` export and autosave.
+**Persistence:** fixture code map rules live in **`ProjectSceneV2.fixtureCodeMap`** (project `sceneJson`), not a separate DB table — they travel with `.luxsim` export and autosave. Each rule has an `id` used as the table row key; load fills one in when an older row omitted it.

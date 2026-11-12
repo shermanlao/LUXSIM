@@ -1,11 +1,39 @@
 import { defaultMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
 import { normalizeWorkflowMode } from "./editor-workflow";
-import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2, RoomV2 } from "./types";
+import type {
+  FixtureCodeMapRule,
+  ProjectSceneV2,
+  SceneJson,
+  AnyScene,
+  ResultsV2,
+  RoomV2,
+} from "./types";
 import type { CalcResults } from "../../solver/src/types";
 import { rectPolygon } from "./geometry";
 
 function id(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Saved code-map rows may omit `id`. Assign one so list rows stay keyed and editable. */
+export function ensureFixtureCodeMapIds(rules: FixtureCodeMapRule[]): FixtureCodeMapRule[] {
+  if (!rules.length) return rules;
+  const seen = new Set<string>();
+  let changed = false;
+  const next = rules.map((rule) => {
+    const raw = typeof rule?.id === "string" ? rule.id.trim() : "";
+    if (raw && !seen.has(raw)) {
+      seen.add(raw);
+      if (rule.id === raw) return rule;
+      changed = true;
+      return { ...rule, id: raw };
+    }
+    changed = true;
+    const assigned = id("codemap");
+    seen.add(assigned);
+    return { ...rule, id: assigned };
+  });
+  return changed ? next : rules;
 }
 
 export function isSceneV2(scene: unknown): scene is ProjectSceneV2 {
@@ -160,7 +188,7 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
       underlays: scene.underlays ?? [],
       fixtureLibraryIds: scene.fixtureLibraryIds ?? [],
       instances: scene.instances ?? [],
-      fixtureCodeMap: scene.fixtureCodeMap ?? [],
+      fixtureCodeMap: ensureFixtureCodeMapIds(scene.fixtureCodeMap ?? []),
       rcpProposals: scene.rcpProposals ?? [],
       rooms: (scene.rooms ?? []).map(normalizeRoom),
       storeys: scene.storeys?.length ? scene.storeys : defaultSceneV2().storeys,

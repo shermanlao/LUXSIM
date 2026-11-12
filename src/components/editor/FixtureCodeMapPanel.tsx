@@ -1,7 +1,7 @@
 "use client";
 
-import { useMemo, useRef, useState } from "react";
-import type { FixtureCodeMapRule } from "@luxsim/project-io";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ensureFixtureCodeMapIds, type FixtureCodeMapRule } from "@luxsim/project-io";
 import {
   createCodeMapRule,
   lookupFixtureCode,
@@ -23,6 +23,12 @@ export function FixtureCodeMapPanel({ rules, luminaires, onChange }: Props) {
   const [probeCode, setProbeCode] = useState("DL-01");
   const [newCode, setNewCode] = useState("");
   const [newLuminaireId, setNewLuminaireId] = useState(luminaires[0]?.id ?? "");
+
+  const keyedRules = useMemo(() => ensureFixtureCodeMapIds(rules), [rules]);
+
+  useEffect(() => {
+    if (keyedRules !== rules) onChange(keyedRules);
+  }, [keyedRules, rules, onChange]);
 
   const lumById = useMemo(() => new Map(luminaires.map((l) => [l.id, l])), [luminaires]);
 
@@ -108,7 +114,7 @@ export function FixtureCodeMapPanel({ rules, luminaires, onChange }: Props) {
             </tr>
           </thead>
           <tbody>
-            {rules.map((rule) => (
+            {keyedRules.map((rule) => (
               <tr key={rule.id}>
                 <td>
                   <input
@@ -178,8 +184,8 @@ export function FixtureCodeMapPanel({ rules, luminaires, onChange }: Props) {
                 </td>
               </tr>
             ))}
-            {!rules.length && (
-              <tr>
+            {!keyedRules.length && (
+              <tr key="codemap-empty">
                 <td colSpan={6} className="text-[#8fa3ad] py-2">
                   No rules — add a row or import CSV (code,luminaireId).
                 </td>

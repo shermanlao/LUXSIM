@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { defaultSceneV2, migrateSceneV1toV2, normalizeScene } from "./migrate";
+import {
+  defaultSceneV2,
+  ensureFixtureCodeMapIds,
+  migrateSceneV1toV2,
+  normalizeScene,
+} from "./migrate";
 import type { SceneJson } from "./types";
 import { pointInPolygon, findRoomAt } from "./geometry";
 import { rectPolygon } from "./geometry";
@@ -67,6 +72,28 @@ describe("migrateSceneV1toV2", () => {
       position: [1, 2, 3],
       target: [4, 5, 6],
     });
+  });
+
+  it("assigns ids to fixture code map rules that were saved without one", () => {
+    const base = defaultSceneV2();
+    const n = normalizeScene({
+      ...base,
+      fixtureCodeMap: [
+        {
+          codeNorm: "DL01",
+          aliases: ["DL-01"],
+          luminaireId: "lum1",
+          match: "exact",
+          active: true,
+        },
+      ],
+    });
+    expect(n.fixtureCodeMap).toHaveLength(1);
+    expect(n.fixtureCodeMap![0]!.id).toMatch(/^codemap_/);
+    expect(n.fixtureCodeMap![0]!.codeNorm).toBe("DL01");
+
+    const again = ensureFixtureCodeMapIds(n.fixtureCodeMap!);
+    expect(again).toBe(n.fixtureCodeMap);
   });
 });
 
