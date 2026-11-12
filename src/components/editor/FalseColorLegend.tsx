@@ -3,19 +3,29 @@
 import type { CalcResults } from "@luxsim/solver";
 import { legendStopsForRange } from "@/lib/false-color";
 
-export function FalseColorLegend({ results }: { results: CalcResults | null }) {
-  const emin = results?.summary.emin ?? 56;
-  const emax = results?.summary.emax ?? 500;
+export function FalseColorLegend({
+  results,
+  emin: eminProp,
+  emax: emaxProp,
+  compact = false,
+}: {
+  results?: CalcResults | null;
+  emin?: number;
+  emax?: number;
+  compact?: boolean;
+}) {
+  const emin = eminProp ?? results?.summary.emin ?? 56;
+  const emax = emaxProp ?? results?.summary.emax ?? 500;
   const stops = legendStopsForRange(emin, emax);
-  const hasResults = Boolean(results);
+  const hasResults = Boolean(results) || eminProp != null || emaxProp != null;
   const gradient = `linear-gradient(90deg, ${stops
     .map((s, i) => `${s.color} ${(i / Math.max(stops.length - 1, 1)) * 100}%`)
     .join(", ")})`;
 
   return (
-    <div className="panel p-3">
+    <div className={compact ? "panel p-2 bg-white/90" : "panel p-3"}>
       <div className="flex items-center justify-between gap-2 mb-2">
-        <h3 className="text-sm font-semibold">False-colour scale</h3>
+        <h3 className={compact ? "text-xs font-semibold" : "text-sm font-semibold"}>False-colour scale</h3>
         <span className="text-xs text-[var(--muted)]">
           {hasResults ? "Project-wide illuminance" : "Preview (run Calculate)"}
         </span>

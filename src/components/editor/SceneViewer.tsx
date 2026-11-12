@@ -2,9 +2,10 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
-import type { SceneJson } from "@luxsim/project-io";
+import type { Display3dMode, SceneJson } from "@luxsim/project-io";
 import { RoomScene, type CameraViewState } from "./RoomScene";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { Display3dToggle } from "./Display3dToggle";
 
 export function SceneViewer({
   scene,
@@ -20,9 +21,8 @@ export function SceneViewer({
   photometry?: Record<string, import("@luxsim/photometry").PhotometricData>;
 }) {
   const [fullscreen, setFullscreen] = useState(false);
-  /** Survives layout mode changes; Canvas is NOT remounted so orbit stays live */
+  const [display3d, setDisplay3d] = useState<Display3dMode>(results ? "falsecolor" : "greyscale");
   const viewRef = useRef<CameraViewState | null>(null);
-  /** Only used if Canvas must remount — seed from last known view */
   const [seedView, setSeedView] = useState<CameraViewState | null>(null);
 
   useEffect(() => {
@@ -40,7 +40,6 @@ export function SceneViewer({
   }, [fullscreen]);
 
   function toggleFullscreen() {
-    // Snapshot current orbit before container size changes
     if (viewRef.current) setSeedView({ ...viewRef.current });
     setFullscreen((v) => !v);
   }
@@ -53,6 +52,9 @@ export function SceneViewer({
           : "panel relative overflow-hidden"
       }
     >
+      <div className="absolute top-3 left-3 z-10">
+        <Display3dToggle value={display3d} onChange={setDisplay3d} />
+      </div>
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -65,15 +67,15 @@ export function SceneViewer({
       </div>
 
       {fullscreen && (
-        <p className="absolute top-3 left-3 z-10 text-xs text-white/70">
+        <p className="absolute top-3 left-3 z-10 mt-10 text-xs text-white/70">
           Esc to exit · orbit drag · scroll zoom
         </p>
       )}
 
-      {/* Same Canvas instance across modes — only the wrapper size changes */}
       <RoomScene
         scene={scene}
         results={results}
+        display3d={display3d}
         selectedId={selectedId}
         onSelect={onSelect}
         className={fullscreen ? "h-screen w-screen" : "h-[520px] w-full"}
@@ -82,9 +84,9 @@ export function SceneViewer({
         photometry={photometry}
       />
 
-      {fullscreen && (
+      {display3d === "falsecolor" && (
         <div className="absolute bottom-4 left-4 z-10 w-[min(320px,calc(100vw-2rem))] shadow-lg">
-          <FalseColorLegend results={results} />
+          <FalseColorLegend results={results} compact />
         </div>
       )}
     </div>

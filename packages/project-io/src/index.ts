@@ -9,10 +9,13 @@ export type {
   Underlay,
   FixtureInstance,
   ViewMode,
+  Display3dMode,
   Camera3dView,
   DxfEntity,
   AnyScene,
   Vec2,
+  WallSurfaceResult,
+  WallSurfaceGrid,
 } from "./types";
 export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
 export { buildDialuxPack } from "./dialux-pack";
@@ -63,3 +66,21 @@ export {
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
 } from "./underlay";
+
+export {
+  projectLuxRange,
+  fitOverviewCamera,
+  fitRoomCamera,
+  defaultDisplay3d,
+} from "./scene-3d";
+
+export {
+  buildWallChains,
+  calculateRoomWalls,
+  inwardNormal,
+  locateOnPolyline,
+  sampleWallGrid,
+  sampleWallLux,
+  signedPolygonArea,
+  wallGridAxes,
+} from "./wall-surfaces";

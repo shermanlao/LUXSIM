@@ -45,8 +45,18 @@ export interface ReportInput {
   /** Isolux line drawing (white background) for Summary pages */
   isoluxSnapshots?: Record<string, string>;
   planSnapshots?: Record<string, string>;
-  persp3dSnapshots?: Record<string, string>;
+  /** Project-wide 3D greyscale (JPEG/PNG data URL). */
+  projectPerspectiveGreyscale?: string;
+  /** Project-wide 3D false-colour (JPEG/PNG data URL). Legend is drawn in the PDF. */
+  projectPerspectiveFalseColor?: string;
+  /** Per-room 3D greyscale, keyed by roomId. */
+  persp3dGreyscale?: Record<string, string>;
+  /** Per-room 3D false-colour, keyed by roomId. */
+  persp3dFalseColor?: Record<string, string>;
+  /** @deprecated Prefer projectPerspectiveGreyscale. No longer drawn on the cover. */
   projectPerspectiveSnapshot?: string;
+  /** @deprecated Prefer persp3dGreyscale. */
+  persp3dSnapshots?: Record<string, string>;
 }
 
 const MARGIN = 20;
@@ -147,7 +157,7 @@ class ReportPdfBuilder {
   private drawLuxLegend(y: number, emin: number, emax: number): number {
     const stops = legendStopsForRange(emin, emax);
     if (stops.length < 2) return y;
-    const barW = Math.min(CONTENT_W * 0.62, 18 + stops.length * 16);
+    const barW = Math.min(this.contentWidth() * 0.62, 18 + stops.length * 16);
     const barH = 4.2;
     const cell = barW / stops.length;
     for (let i = 0; i < stops.length; i += 1) {
@@ -230,6 +240,7 @@ class ReportPdfBuilder {
     this.roomList();
     this.calculationObjects();
     this.lightingPlan();
+    this.threeDViews();
     for (const room of this.input.scene.rooms) {
       this.roomSummaryProperties(room);
       this.roomSummaryResults(room);
@@ -267,15 +278,6 @@ class ReportPdfBuilder {
     doc.setTextColor(120);
     doc.text(DESIGN_ASSIST_DISCLAIMER, MARGIN, y + 6, { maxWidth: CONTENT_W });
     doc.setTextColor(0);
-
-    const snap = input.projectPerspectiveSnapshot;
-    if (snap) {
-      try {
-        doc.addImage(snap, "PNG", MARGIN, 105, CONTENT_W, 95);
-      } catch {
-        /* ignore */
-      }
-    }
     this.page = 1;
     this.finishPage("Cover");
   }
@@ -291,6 +293,7 @@ class ReportPdfBuilder {
       "Room list",
       "Calculation objects",
       "Lighting Plan",
+      "3D views",
       "Per-room summary and working plane",
       "Product sheets",
       "Luminaire schedule appendix",
@@ -327,14 +330,6 @@ class ReportPdfBuilder {
     lines.forEach((t, i) => {
       this.doc.text(t, MARGIN, y + i * 7);
     });
-    const snap = this.input.projectPerspectiveSnapshot;
-    if (snap) {
-      try {
-        this.doc.addImage(snap, "PNG", MARGIN, y + lines.length * 7 + 8, CONTENT_W, 85);
-      } catch {
-        /* ignore */
-      }
-    }
     this.finishPage("Project summary");
   }
 
@@ -470,7 +465,7 @@ class ReportPdfBuilder {
   private calculationObjects() {
     this.doc.addPage();
     this.page += 1;
-    let y = this.pageHeader("Calculation objects", "Working planes");
+    let y = this.pageHeader("Calculation objects", "Working planes and wall surfaces");
     const { scene, results } = this.input;
     this.doc.setFontSize(9);
     this.doc.setFont("helvetica", "bold");
@@ -512,6 +507,49 @@ class ReportPdfBuilder {
       this.doc.text(vals.join("   "), MARGIN + 95, y + 4);
       y += 14;
     }
+
+    const hasWalls = scene.rooms.some((room) => (results.wallsByRoomId?.[room.id] ?? []).length > 0);
+    if (hasWalls) {
+      y += 4;
+      y = this.ensureY(y, 16, "Calculation objects");
+      this.doc.setFontSize(10);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.text("Wall surfaces — vertical illuminance", MARGIN, y);
+      y += 6;
+      const wallCols = [MARGIN, 92, 108, 124, 138, 154, 170, 186];
+      const wallHeads = ["Surface", "Width", "Height", "Inset", "Eavg", "Emin", "Emax", "Uo"];
+      const paintWallHeader = (at: number) => {
+        this.doc.setFontSize(8);
+        this.doc.setFont("helvetica", "bold");
+        wallHeads.forEach((h, i) => this.doc.text(h, wallCols[i]!, at));
+        this.doc.setFont("helvetica", "normal");
+        return at + 4.5;
+      };
+      y = paintWallHeader(y);
+      for (const room of scene.rooms) {
+        const walls = results.wallsByRoomId?.[room.id] ?? [];
+        for (const w of walls) {
+          const pageBefore = this.page;
+          y = this.ensureY(y, 5, "Calculation objects");
+          if (this.page !== pageBefore) y = paintWallHeader(y);
+          this.doc.setFontSize(8);
+          this.doc.setFont("helvetica", "normal");
+          const name = w.name.length > 36 ? `${w.name.slice(0, 35)}…` : w.name;
+          const cells = [
+            name,
+            `${w.widthM.toFixed(2)} m`,
+            `${w.heightM.toFixed(2)} m`,
+            `${w.insetM.toFixed(2)} m`,
+            formatLux(w.summary.eave),
+            formatLux(w.summary.emin),
+            formatLux(w.summary.emax),
+            w.summary.uo.toFixed(2),
+          ];
+          cells.forEach((c, i) => this.doc.text(c, wallCols[i]!, y));
+          y += 4.4;
+        }
+      }
+    }
     this.finishPage("Calculation objects");
   }
 
@@ -547,6 +585,66 @@ class ReportPdfBuilder {
     }
   }
 
+  private projectGreyscale(): string | undefined {
+    return this.input.projectPerspectiveGreyscale ?? this.input.projectPerspectiveSnapshot;
+  }
+
+  private projectFalseColor(): string | undefined {
+    return this.input.projectPerspectiveFalseColor;
+  }
+
+  private roomGreyscale(roomId: string): string | undefined {
+    return this.input.persp3dGreyscale?.[roomId] ?? this.input.persp3dSnapshots?.[roomId];
+  }
+
+  private roomFalseColor(roomId: string): string | undefined {
+    return this.input.persp3dFalseColor?.[roomId];
+  }
+
+  private threeDViews() {
+    const grey = this.projectGreyscale();
+    const color = this.projectFalseColor();
+    if (!grey && !color) return;
+    this.addReportPage("landscape");
+    this.page += 1;
+    let y = this.pageHeader("3D views");
+    const contentW = this.contentWidth();
+    const gap = 6;
+    const colW = (contentW - gap) / 2;
+    const footerTop = this.footerY() - 12;
+    const { emin, emax } = this.projectRange();
+    const legendH = 16;
+    const labelH = 6;
+    const imgMaxH = Math.max(40, footerTop - y - labelH - legendH - 8);
+    this.doc.setFontSize(10);
+    this.doc.setFont("helvetica", "bold");
+    let imgBottom = y + 3;
+    if (grey) {
+      this.doc.text("3D greyscale", MARGIN, y);
+      imgBottom = Math.max(imgBottom, this.drawFittedImage(grey, MARGIN, y + 3, colW, imgMaxH));
+    }
+    if (color) {
+      const x = MARGIN + colW + gap;
+      this.doc.text("3D false colour", x, y);
+      imgBottom = Math.max(imgBottom, this.drawFittedImage(color, x, y + 3, colW, imgMaxH));
+    }
+    this.doc.setFont("helvetica", "normal");
+    this.drawLuxLegend(Math.min(imgBottom + 5, footerTop - legendH), emin, emax);
+    this.finishPage("3D views");
+  }
+
+  private projectRange(): { emin: number; emax: number } {
+    let emin = Infinity;
+    let emax = -Infinity;
+    for (const res of Object.values(this.input.results.byRoomId)) {
+      if (!res) continue;
+      emin = Math.min(emin, res.summary.emin);
+      emax = Math.max(emax, res.summary.emax);
+    }
+    if (!Number.isFinite(emin) || !Number.isFinite(emax)) return { emin: 56, emax: 500 };
+    return { emin, emax };
+  }
+
   private roomSummaryProperties(room: RoomV2) {
     const ctx = roomContextLabel(this.input.projectName, this.input.scene, room);
     this.addReportPage("portrait");
@@ -580,10 +678,31 @@ class ReportPdfBuilder {
     y += 10;
 
     const isolux = this.input.isoluxSnapshots?.[room.id];
+    const grey = this.roomGreyscale(room.id);
+    const color = this.roomFalseColor(room.id);
+    const has3d = Boolean(grey || color);
     if (isolux) {
       this.doc.setFontSize(10);
       this.doc.text("Working plane — isolux diagram", MARGIN, y);
-      y = this.drawFittedImage(isolux, MARGIN, y + 3, CONTENT_W, 150) + 4;
+      const isoluxH = has3d ? 92 : 150;
+      y = this.drawFittedImage(isolux, MARGIN, y + 3, CONTENT_W, isoluxH) + 4;
+    }
+
+    if (has3d) {
+      y = this.ensureY(y, 70, "Summary", ctx);
+      this.doc.setFontSize(10);
+      this.doc.setFont("helvetica", "bold");
+      const colW = 82;
+      if (grey) {
+        this.doc.text("3D greyscale", MARGIN, y);
+        this.drawFittedImage(grey, MARGIN, y + 3, colW, 56);
+      }
+      if (color) {
+        this.doc.text("3D false colour", MARGIN + 90, y);
+        this.drawFittedImage(color, MARGIN + 90, y + 3, colW, 56);
+      }
+      this.doc.setFont("helvetica", "normal");
+      y += 62;
     }
 
     const plan = this.input.planSnapshots?.[room.id];
@@ -592,11 +711,6 @@ class ReportPdfBuilder {
       this.doc.setFontSize(10);
       this.doc.text("Plan view", MARGIN, y);
       y = this.drawFittedImage(plan, MARGIN, y + 3, 80, 55) + 4;
-      const persp = this.input.persp3dSnapshots?.[room.id];
-      if (persp) {
-        this.doc.text("3D perspective", MARGIN + 90, y - 4);
-        this.drawFittedImage(persp, MARGIN + 90, y - 1, 80, 55);
-      }
     }
     this.finishPage("Summary", ctx);
   }
@@ -638,7 +752,45 @@ class ReportPdfBuilder {
       this.doc.text(t, MARGIN, y + i * 7);
     });
     y += rows.length * 7 + 6;
+    const walls = this.input.results.wallsByRoomId?.[room.id] ?? [];
+    if (walls.length) {
+      y = this.ensureY(y, 16, "Summary — Results", ctx);
+      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(10);
+      this.doc.text("Wall surfaces — vertical illuminance", MARGIN, y);
+      y += 6;
+      const wallCols = [MARGIN, 88, 112, 132, 152, 172];
+      const wallHeads = ["Surface", "Eavg", "Emin", "Emax", "Uo"];
+      const paintWallHeader = (at: number) => {
+        this.doc.setFontSize(8);
+        this.doc.setFont("helvetica", "bold");
+        wallHeads.forEach((h, i) => this.doc.text(h, wallCols[i]!, at));
+        this.doc.setFont("helvetica", "normal");
+        return at + 4.5;
+      };
+      y = paintWallHeader(y);
+      for (const w of walls) {
+        const pageBefore = this.page;
+        y = this.ensureY(y, 5, "Summary — Results", ctx);
+        if (this.page !== pageBefore) y = paintWallHeader(y);
+        this.doc.setFontSize(8);
+        this.doc.setFont("helvetica", "normal");
+        const label = w.name.replace(` (${room.name})`, "");
+        const short = label.length > 34 ? `${label.slice(0, 33)}…` : label;
+        const cells = [
+          short,
+          formatLux(w.summary.eave),
+          formatLux(w.summary.emin),
+          formatLux(w.summary.emax),
+          w.summary.uo.toFixed(2),
+        ];
+        cells.forEach((c, i) => this.doc.text(c, wallCols[i]!, y));
+        y += 4.4;
+      }
+      y += 4;
+    }
     this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(10);
     this.doc.text("Luminaire list", MARGIN, y);
     this.doc.setFont("helvetica", "normal");
     y += 7;

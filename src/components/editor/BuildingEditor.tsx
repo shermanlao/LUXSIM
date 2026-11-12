@@ -5,18 +5,23 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
+  calculateRoomWalls,
   gridToFalseColorPngDataUrl,
   clipResultsToPolygon,
+  defaultDisplay3d,
   findRoomAt,
+  fitOverviewCamera,
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  projectLuxRange,
   rectPolygon,
   roomToCalcOptions,
   translatePolygon,
   underlayWorldSize,
   type Camera3dView,
+  type Display3dMode,
   type DxfEntity,
   type ProjectSceneV2,
   type ResultsV2,
@@ -36,6 +41,8 @@ import {
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { Display3dToggle } from "./Display3dToggle";
+import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
@@ -469,8 +476,13 @@ export function BuildingEditor({
     }));
     setSelectedId(instanceId);
     setResults((r) => {
-      const next = { ...r, byRoomId: { ...r.byRoomId } };
+      const next = {
+        ...r,
+        byRoomId: { ...r.byRoomId },
+        wallsByRoomId: { ...(r.wallsByRoomId ?? {}) },
+      };
       delete next.byRoomId[room.id];
+      delete next.wallsByRoomId[room.id];
       return next;
     });
     setStatus(`Placed in ${room.name}`);
@@ -650,6 +662,7 @@ export function BuildingEditor({
     setStatus("Calculating on client…");
     try {
       const nextByRoom = { ...results.byRoomId };
+      const nextWalls = { ...(results.wallsByRoomId ?? {}) };
       for (const room of rooms) {
         const inst = scene.instances.filter((i) => i.roomId === room.id);
         if (!inst.length) {
@@ -667,8 +680,18 @@ export function BuildingEditor({
         let calc = await runSolverClient(opts);
         calc = clipResultsToPolygon(room, calc);
         nextByRoom[room.id] = calc;
+        nextWalls[room.id] = calculateRoomWalls({
+          room,
+          instances: inst,
+          photometry,
+          wattsById: watts,
+        });
       }
-      const nextResults = { version: 2 as const, byRoomId: nextByRoom };
+      const nextResults = {
+        version: 2 as const,
+        byRoomId: nextByRoom,
+        wallsByRoomId: nextWalls,
+      };
       setResults(nextResults);
       setStatus("Calculation complete (client-side)");
       await save(scene, nextResults, name);
@@ -694,6 +717,27 @@ export function BuildingEditor({
       const snap = gridToFalseColorPngDataUrl(room, res);
       if (snap) falseColorSnapshots[room.id] = snap;
     }
+    let projectPerspectiveGreyscale: string | undefined;
+    let projectPerspectiveFalseColor: string | undefined;
+    let persp3dGreyscale: Record<string, string> | undefined;
+    let persp3dFalseColor: Record<string, string> | undefined;
+    try {
+      if (webglCaptureAvailable()) {
+        const views = renderAllReport3dViews({
+          scene,
+          results,
+          photometry,
+          overviewCamera: fitOverviewCamera(scene),
+        });
+        projectPerspectiveGreyscale = views.projectGreyscale;
+        projectPerspectiveFalseColor = views.projectFalseColor;
+        persp3dGreyscale = views.roomGreyscale;
+        persp3dFalseColor = views.roomFalseColor;
+      }
+    } catch (err) {
+      console.warn("3D report capture failed", err);
+      setStatus("3D views could not be captured; the rest of the report was exported.");
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
@@ -701,6 +745,10 @@ export function BuildingEditor({
       photometry,
       wattsById,
       falseColorSnapshots,
+      projectPerspectiveGreyscale,
+      projectPerspectiveFalseColor,
+      persp3dGreyscale,
+      persp3dFalseColor,
       luxsimVersion: "0.1.0",
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
@@ -727,8 +775,24 @@ export function BuildingEditor({
     };
   }, [fullscreen]);
 
+  const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const luxRange = projectLuxRange(results);
+
   const viewport = (
     <div className={fullscreen ? "fixed inset-0 z-[100] bg-[#0f1c24]" : "panel relative overflow-hidden"}>
+      {viewMode === "persp3d" && (
+        <div className="absolute top-3 left-3 z-10">
+          <Display3dToggle
+            value={display3d}
+            onChange={(mode) =>
+              patchScene((s) => ({
+                ...s,
+                ui: { ...s.ui, display3d: mode },
+              }))
+            }
+          />
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -810,7 +874,8 @@ export function BuildingEditor({
       {viewMode === "persp3d" && (
         <BuildingScene3D
           scene={scene}
-          results={activeResults}
+          results={results}
+          display3d={display3d}
           selectedId={selectedId}
           onSelect={setSelectedId}
           photometry={photoCache}
@@ -823,9 +888,9 @@ export function BuildingEditor({
           initialView={scene.ui.camera3d ?? camera3dRef.current}
         />
       )}
-      {fullscreen && (
-        <div className="absolute bottom-4 left-4 z-10 w-72">
-          <FalseColorLegend results={activeResults} />
+      {viewMode === "persp3d" && display3d === "falsecolor" && (
+        <div className="absolute bottom-4 left-4 z-10 w-72 pointer-events-none">
+          <FalseColorLegend emin={luxRange.emin} emax={luxRange.emax} results={activeResults} compact />
         </div>
       )}
     </div>
@@ -1070,7 +1135,11 @@ export function BuildingEditor({
             )}
           </div>
 
-          <FalseColorLegend results={activeResults} />
+          <FalseColorLegend
+            results={activeResults}
+            emin={viewMode === "persp3d" ? luxRange.emin : undefined}
+            emax={viewMode === "persp3d" ? luxRange.emax : undefined}
+          />
         </aside>
 
         {/* Center */}

@@ -5,64 +5,85 @@ import { OrbitControls, Edges } from "@react-three/drei";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
 import type { PerspectiveCamera } from "three";
-import type { CalcResults } from "@luxsim/solver";
-import type { Camera3dView, DxfEntity, ProjectSceneV2, RoomV2 } from "@luxsim/project-io";
+import type { PhotometricData } from "@luxsim/photometry";
+import type {
+  Camera3dView,
+  Display3dMode,
+  DxfEntity,
+  ProjectSceneV2,
+  ResultsV2,
+} from "@luxsim/project-io";
 import { roomBounds, underlayWorldSize } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
+import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
 import { PlanUnderlay3D } from "./PlanUnderlay3D";
-import type { PhotometricData } from "@luxsim/photometry";
 import { LuminaireBodyMesh } from "./LuminaireBody";
+import {
+  EDITOR_BG,
+  createCeilingEdgeGeometry,
+  createFloorGeometry,
+  createWallGeometry,
+} from "@/lib/scene-3d-model";
 
 function toThree(x: number, y: number, z: number): [number, number, number] {
   return [x, z, y];
 }
 
-function RoomVolume({
+function RoomShell({
   room,
   elev,
   active,
+  display3d,
 }: {
-  room: RoomV2;
+  room: ProjectSceneV2["rooms"][number];
   elev: number;
   active: boolean;
+  display3d: Display3dMode;
 }) {
-  const geometry = useMemo(() => {
-    if (room.polygon.length < 3) return null;
-    const shape = new THREE.Shape();
-    const first = room.polygon[0]!;
-    shape.moveTo(first.x, -first.y);
-    for (let i = 1; i < room.polygon.length; i += 1) {
-      const p = room.polygon[i]!;
-      shape.lineTo(p.x, -p.y);
-    }
-    shape.closePath();
-    const g = new THREE.ExtrudeGeometry(shape, {
-      depth: Math.max(0.1, room.heightM),
-      bevelEnabled: false,
-    });
-    g.rotateX(-Math.PI / 2);
-    g.translate(0, elev, 0);
-    return g;
-  }, [room.polygon, room.heightM, elev]);
+  const floor = useMemo(() => createFloorGeometry(room, elev), [room, elev]);
+  const walls = useMemo(() => createWallGeometry(room, elev), [room, elev]);
+  const ceiling = useMemo(() => createCeilingEdgeGeometry(room, elev), [room, elev]);
 
   useLayoutEffect(() => {
     return () => {
-      geometry?.dispose();
+      floor?.dispose();
+      walls?.dispose();
+      ceiling?.dispose();
     };
-  }, [geometry]);
+  }, [floor, walls, ceiling]);
 
-  if (!geometry) return null;
+  const wallColor = active ? "#c5b7ab" : "#b0b4b8";
+  const edgeColor = active ? "#c45c26" : "#2c2c2c";
+
   return (
-    <mesh geometry={geometry}>
-      <meshBasicMaterial
-        transparent
-        opacity={active ? 0.06 : 0.02}
-        color={active ? "#c45c26" : "#8aa0ad"}
-        side={THREE.DoubleSide}
-      />
-      <Edges color={active ? "#c45c26" : "#8aa0ad"} />
-    </mesh>
+    <group>
+      {floor && (
+        <mesh geometry={floor}>
+          <meshStandardMaterial color="#c8cbcf" roughness={0.92} metalness={0.02} side={THREE.DoubleSide} />
+          <Edges color={edgeColor} />
+        </mesh>
+      )}
+      {walls && (
+        <mesh geometry={walls}>
+          <meshStandardMaterial
+            color={wallColor}
+            roughness={0.88}
+            metalness={0.04}
+            transparent
+            opacity={display3d === "falsecolor" ? 0.22 : 0.82}
+            depthWrite={display3d !== "falsecolor"}
+            side={THREE.DoubleSide}
+          />
+          <Edges threshold={20} color={edgeColor} />
+        </mesh>
+      )}
+      {ceiling && (
+        <lineSegments geometry={ceiling}>
+          <lineBasicMaterial color="#6a6e72" />
+        </lineSegments>
+      )}
+    </group>
   );
 }
 
@@ -91,6 +112,7 @@ function ViewportSync() {
 export function BuildingScene3D({
   scene,
   results,
+  display3d = "greyscale",
   selectedId,
   onSelect,
   onDropLuminaire,
@@ -103,7 +125,8 @@ export function BuildingScene3D({
   photometry,
 }: {
   scene: ProjectSceneV2;
-  results: CalcResults | null;
+  results: ResultsV2 | null;
+  display3d?: Display3dMode;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
   onDropLuminaire: (luminaireId: string, x: number, y: number, z: number) => void;
@@ -157,7 +180,8 @@ export function BuildingScene3D({
 
   return (
     <div
-      className={`relative w-full bg-[#0f1c24] ${className}`}
+      className={`relative w-full ${className}`}
+      style={{ background: EDITOR_BG }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -180,13 +204,15 @@ export function BuildingScene3D({
           position: startPosition.current,
           fov: 45,
         }}
+        gl={{ preserveDrawingBuffer: true, antialias: true }}
         style={{ position: "absolute", inset: 0 }}
         resize={{ debounce: 0 }}
       >
         <ViewportSync />
-        <color attach="background" args={["#0f1c24"]} />
+        <color attach="background" args={[EDITOR_BG]} />
         <ambientLight intensity={0.55} />
-        <directionalLight position={[20, 30, 10]} intensity={0.85} />
+        <directionalLight position={[20, 30, -10]} intensity={0.85} />
+        <directionalLight position={[-16, 10, 14]} intensity={0.22} />
 
         {underlay && underlayUrl && (
           <PlanUnderlay3D
@@ -206,28 +232,34 @@ export function BuildingScene3D({
               onSelect(null);
             }}
           >
-            <RoomVolume
+            <RoomShell
               room={room}
               elev={elev}
               active={room.id === scene.ui.activeRoomId}
+              display3d={display3d}
             />
           </group>
         ))}
 
-        {results && scene.ui.activeRoomId && (
-          <FalseColorPlane
-            results={results}
-            offset={{
-              x: roomBounds(
-                scene.rooms.find((r) => r.id === scene.ui.activeRoomId)!
-              ).minX,
-              y: roomBounds(
-                scene.rooms.find((r) => r.id === scene.ui.activeRoomId)!
-              ).minY,
-              z: elev,
-            }}
-          />
-        )}
+        {display3d === "falsecolor" &&
+          results &&
+          rooms.map((room) => {
+            const res = results.byRoomId[room.id];
+            const walls = results.wallsByRoomId?.[room.id] ?? [];
+            if (!res && !walls.length) return null;
+            return (
+              <group key={`fc-${room.id}`}>
+                {res && (
+                  <FalseColorPlane
+                    room={room}
+                    results={res}
+                    elevationM={elev}
+                  />
+                )}
+                <FalseColorWalls surfaces={walls} elevationM={elev} />
+              </group>
+            );
+          })}
 
         {instances.map((lum) => {
           const selected = lum.instanceId === selectedId;
@@ -239,6 +271,7 @@ export function BuildingScene3D({
                 lum.position.y,
                 elev + lum.position.z
               )}
+              rotation={[0, (-lum.rotationDeg * Math.PI) / 180, 0]}
               onClick={(e) => {
                 e.stopPropagation();
                 onSelect(lum.instanceId);
