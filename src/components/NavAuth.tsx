@@ -57,6 +57,16 @@ export function NavAuth() {
       <Link href="/library" className="hover:text-[var(--accent-2)]">
         Library
       </Link>
+      {session.user.isWorkspaceOwner && (
+        <Link href="/workspace/members" className="hover:text-[var(--accent-2)]">
+          Members
+        </Link>
+      )}
+      {session.user.isSiteAdmin && (
+        <Link href="/admin/users" className="hover:text-[var(--accent-2)]">
+          Admin
+        </Link>
+      )}
       <Link href="/docs" className="hover:text-[var(--accent-2)]">
         Docs
       </Link>

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { parseDxfEntities, dxfBounds, importIfcText } from "@luxsim/project-io";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { apiErrorResponse } from "@/lib/api-error";
+import { requireProjectAccess } from "@/lib/session";
 import { saveBinaryFile, saveTextFile } from "@/lib/storage";
 
 type Params = { params: Promise<{ id: string }> };
@@ -16,29 +17,24 @@ const KIND_EXT: Record<string, string[]> = {
 
 export async function GET(_req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id } = await params;
-    const project = await prisma.project.findFirst({ where: { id, orgId } });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project } = await requireProjectAccess(id);
     const assets = await prisma.projectAsset.findMany({
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
     });
     return NextResponse.json(assets);
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authRes = apiErrorResponse(e);
+    if (authRes.status !== 500) return authRes;
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }
 
 export async function POST(req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id } = await params;
-    const project = await prisma.project.findFirst({ where: { id, orgId } });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project } = await requireProjectAccess(id);
 
     const form = await req.formData();
     const file = form.get("file");
@@ -111,9 +107,8 @@ export async function POST(req: Request, { params }: Params) {
 
     return NextResponse.json({ asset, ifcScene, warnings });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authRes = apiErrorResponse(e);
+    if (authRes.status !== 500) return authRes;
     console.error(e);
     return NextResponse.json({ error: "Upload failed" }, { status: 500 });
   }

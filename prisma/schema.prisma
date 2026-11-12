@@ -13,6 +13,8 @@ model User {
   name         String?
   passwordHash String
   autosaveMs   Int         @default(300000)
+  isSiteAdmin  Boolean     @default(false)
+  disabled     Boolean     @default(false)
   createdAt    DateTime    @default(now())
   updatedAt    DateTime    @updatedAt
   memberships  OrgMember[]
@@ -135,5 +137,11 @@ model UiTip {
   helpKey   String   @id
   title     String
   body      String
+  updatedAt DateTime @updatedAt
+}
+
+model SiteSetting {
+  key       String   @id
+  value     String
   updatedAt DateTime @updatedAt
 }
