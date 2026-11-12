@@ -71,7 +71,7 @@ export function ElevationView2D({
 
   return (
     <div
-      className="relative w-full bg-[#0f1c24] h-[520px]"
+      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();

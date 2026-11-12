@@ -13,7 +13,7 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.drawRect",
     title: "Rectangle L×W",
-    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. Use Select / move to drag the room into place. For irregular rooms, use Draw room instead.",
+    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. Rooms cannot be dragged after they are created — draw or place them in the intended position. Use Select / move to drag fixtures. For irregular rooms, use Draw room instead.",
   },
   {
     helpKey: "tool.roomHeight",

@@ -25,7 +25,7 @@ Companion canvas: open `dialux-gap-analysis.canvas.tsx` beside chat.
 | Draw room | Click corners; type length; polar lock | Click corners; type mm; close on start. See [ROOM_DRAW.md](./ROOM_DRAW.md) |
 | Typed distance | Next point locked to radius circle | Bare number = mm; suffixes `m` / `cm` / `mm` |
 | Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. No DXF object snap |
-| Edit outline | Move vertices, stretch walls | Drag whole room (select). No vertex handles |
+| Edit outline | Move vertices, stretch walls | Rooms are selectable, not draggable. No vertex handles |
 | Room inspector | Height, workplane, materials | On `RoomV2` but **not in BuildingEditor** (v1 `ProjectEditor` has fields) |
 | 3D volume | Extrude true polygon | Extruded floor polygon |
 | Openings | Windows / doors | None |

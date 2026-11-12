@@ -182,3 +182,87 @@ a {
   outline: 2px solid #c45c26;
   outline-offset: 1px;
 }
+
+/* Header account / sign-out: visible on light marketing header and dark project header.
+   Uses currentColor + transparent fill so a dark header cannot produce a white pill
+   with light text (the earlier false-colour control contrast bug). */
+.nav-account-btn,
+.nav-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.nav-account-btn {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.875rem;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-signout {
+  opacity: 0.95;
+}
+.nav-account-btn:hover,
+.nav-signout:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  transform: none;
+}
+.account-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 80;
+  width: 17.5rem;
+  padding: 0.85rem;
+  background: #f7fafb;
+  color: #12202a;
+  border: 1px solid #c5d0d6;
+  box-shadow: 0 8px 24px rgba(15, 28, 36, 0.28);
+  border-radius: 2px;
+}
+.account-popover__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5a6b76;
+}
+.account-popover__email {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+.account-popover__label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5a6b76;
+  margin-bottom: 0.3rem;
+}
+.account-popover__select {
+  width: 100%;
+  border: 1px solid #c5d0d6;
+  background: #fff;
+  color: #12202a;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  margin-bottom: 0.35rem;
+}
+.account-popover__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  color: #5a6b76;
+  line-height: 1.35;
+}
+.account-popover .nav-signout {
+  color: #12202a;
+  border-color: #12202a;
+}
