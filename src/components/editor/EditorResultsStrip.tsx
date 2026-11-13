@@ -8,6 +8,7 @@ type Props = {
   en12464Check: En12464Check | null;
   maintenanceFactor: number;
   roomName: string | null;
+  scope?: "room" | "storey";
 };
 
 export function EditorResultsStrip({
@@ -15,6 +16,7 @@ export function EditorResultsStrip({
   en12464Check,
   maintenanceFactor,
   roomName,
+  scope = "room",
 }: Props) {
   const mf = clampMf(maintenanceFactor);
   const s = results?.summary;
@@ -24,7 +26,9 @@ export function EditorResultsStrip({
       <div className="cad-results-strip__room">
         {roomName ? (
           <>
-            <span className="cad-results-strip__label">Active room</span>
+            <span className="cad-results-strip__label">
+              {scope === "storey" ? "Active storey" : "Active room"}
+            </span>
             <span className="cad-results-strip__room-name">{roomName}</span>
           </>
         ) : (
@@ -43,7 +47,12 @@ export function EditorResultsStrip({
           value={s ? s.uo.toFixed(2) : "—"}
           sub={s ? `Emin ${s.emin.toFixed(0)} lx` : undefined}
         />
-        <Metric label="UGR" value={s?.ugr != null ? s.ugr.toFixed(1) : "—"} assist />
+        <Metric
+          label="UGR"
+          value={s?.ugr != null ? s.ugr.toFixed(1) : "—"}
+          sub={scope === "storey" && s?.ugr != null ? "max" : undefined}
+          assist
+        />
         <Metric
           label="LPD"
           value={s?.lpd != null ? `${s.lpd.toFixed(2)} W/m²` : "—"}

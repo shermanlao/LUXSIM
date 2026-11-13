@@ -29,6 +29,7 @@ import {
   evaluateEn12464,
   clampMf,
   resolveMaintenanceFactor,
+  aggregateStoreyResults,
   normalizeMfBreakdown,
   DEFAULT_MF_BREAKDOWN,
   WORKFLOW_MODES,
@@ -231,7 +232,16 @@ export function BuildingEditor({
 
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
   const activeRoom = scene.rooms.find((r) => r.id === scene.ui.activeRoomId) ?? null;
+  const activeStorey = scene.storeys.find((st) => st.id === scene.ui.activeStoreyId) ?? null;
+  const storeyAggregate = useMemo(
+    () =>
+      activeRoom
+        ? null
+        : aggregateStoreyResults(scene.rooms, results, scene.ui.activeStoreyId),
+    [activeRoom, scene.rooms, results, scene.ui.activeStoreyId]
+  );
   const activeResults = activeRoom ? results.byRoomId[activeRoom.id] ?? null : null;
+  const stripResults = activeResults ?? storeyAggregate?.results ?? null;
   const en12464Check = useMemo(() => {
     if (!activeRoom || !activeResults) return null;
     return evaluateEn12464({
@@ -2400,17 +2410,18 @@ export function BuildingEditor({
       </div>
 
       <EditorResultsStrip
-        results={activeResults}
-        en12464Check={en12464Check}
+        results={stripResults}
+        en12464Check={activeRoom ? en12464Check : null}
         maintenanceFactor={
           activeRoom
             ? resolveMaintenanceFactor({
                 maintenanceFactor: activeRoom.calc.maintenanceFactor,
                 mfBreakdown: activeRoom.calc.mfBreakdown,
               }).mf
-            : 0.8
+            : storeyAggregate?.maintenanceFactor ?? 0.8
         }
-        roomName={activeRoom?.name ?? null}
+        roomName={activeRoom?.name ?? activeStorey?.name ?? null}
+        scope={activeRoom ? "room" : activeStorey ? "storey" : "room"}
       />
 
       <div className="cad-status-bar">

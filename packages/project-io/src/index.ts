@@ -123,6 +123,9 @@ export {
   resolveEditorCamera,
 } from "./scene-3d";
 
+export { aggregateStoreyResults } from "./storey-results";
+export type { StoreyResultsAggregate } from "./storey-results";
+
 export {
   buildWallChains,
   calculateRoomWalls,
