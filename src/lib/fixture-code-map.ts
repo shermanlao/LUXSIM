@@ -1,4 +1,5 @@
 import type { FixtureCodeMapRule } from "@luxsim/project-io";
+import { randomId } from "@/lib/random-id";
 
 export type CodeMapRule = FixtureCodeMapRule;
 
@@ -98,7 +99,7 @@ export function createCodeMapRule(input: {
 }): FixtureCodeMapRule {
   const codeNorm = normalizeFixtureCode(input.codeRaw);
   return {
-    id: input.id ?? `codemap_${crypto.randomUUID().slice(0, 8)}`,
+    id: input.id ?? `codemap_${randomId().slice(0, 8)}`,
     codeNorm,
     aliases: (input.aliases ?? []).map((a) => a.trim()).filter(Boolean),
     luminaireId: input.luminaireId,

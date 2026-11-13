@@ -1,3 +1,4 @@
+import { randomId } from "@/lib/random-id";
 "use client";
 
 import dynamic from "next/dynamic";
@@ -128,7 +129,7 @@ export function ProjectEditor({
     const base = opts?.currentScene ?? scene;
     const lib = library.find((l) => l.id === luminaireId);
     const photo = opts?.photo ?? photoCache[luminaireId];
-    const instanceId = crypto.randomUUID();
+    const instanceId = randomId();
     const count = base.luminaires.length;
     const next: SceneJson = {
       ...base,

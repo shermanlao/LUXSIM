@@ -41,6 +41,7 @@ import {
   exportLuxsimFile,
 } from "@/lib/exports-client";
 import { runSolverClient } from "@/lib/run-solver";
+import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
 import {
@@ -132,7 +133,7 @@ type AssetRow = {
 };
 
 function nid(prefix: string) {
-  return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
+  return prefixedId(prefix);
 }
 
 /** Read native pixel size so plan underlays keep the import aspect ratio. */

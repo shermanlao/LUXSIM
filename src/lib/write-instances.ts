@@ -11,6 +11,7 @@ import {
 import type { CalcResults } from "@luxsim/solver";
 import { runSolverClient } from "@/lib/run-solver";
 import { runPostPlaceCalcForRooms } from "@/lib/post-place-calc";
+import { prefixedId } from "@/lib/random-id";
 
 export type FixtureInstanceDraft = {
   instanceId?: string;
@@ -36,7 +37,7 @@ export type WriteInstancesCalcDeps = {
 };
 
 export function newInstanceId(prefix = "inst"): string {
-  return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
+  return prefixedId(prefix);
 }
 
 export function clearResultsForRooms(

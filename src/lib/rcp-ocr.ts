@@ -3,6 +3,7 @@ import { createWorker, type Worker, PSM } from "tesseract.js";
 import type { RcpDetectionProposal, Underlay } from "@luxsim/project-io";
 import { initialMetersPerPixel } from "@luxsim/project-io";
 import { normalizeFixtureCode } from "@/lib/fixture-code-map";
+import { randomId } from "@/lib/random-id";
 
 export type OcrWordBox = {
   text: string;
@@ -122,7 +123,7 @@ export function proposalsFromOcrWords(
       if (m) pointM = m;
     }
     raw.push({
-      id: `rcp_${crypto.randomUUID().slice(0, 8)}`,
+      id: `rcp_${randomId().slice(0, 8)}`,
       underlayId: options.underlayId,
       codeRaw: text,
       codeNorm,
