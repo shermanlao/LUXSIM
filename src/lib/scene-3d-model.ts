@@ -394,6 +394,32 @@ export interface BuildBuildingSceneOpts {
   falseColorScale?: FalseColorScale;
 }
 
+
+/** Reflect plan X about a vertical plane so a south look-down matches Top (east right, north up). */
+export function mirrorPlanX(x: number, aboutX: number): number {
+  return 2 * aboutX - x;
+}
+
+/** Root group that mirrors its children about plan X = mirrorX. Add meshes to `content`. */
+export function createPlanHandednessRoot(mirrorX: number): { root: THREE.Group; content: THREE.Group } {
+  const root = new THREE.Group();
+  root.name = "planHandedness";
+  root.position.set(mirrorX, 0, 0);
+  const flip = new THREE.Group();
+  flip.scale.set(-1, 1, 1);
+  const content = new THREE.Group();
+  content.position.set(-mirrorX, 0, 0);
+  flip.add(content);
+  root.add(flip);
+  return { root, content };
+}
+
+/** A mirrored group reverses triangle winding; use clockwise front faces so FrontSide materials stay correct. */
+export function setMirroredFrontFace(renderer: THREE.WebGLRenderer): void {
+  const gl = renderer.getContext();
+  gl.frontFace(gl.CW);
+}
+
 export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   scene: THREE.Scene;
   dispose: () => void;
@@ -421,20 +447,15 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     return true;
   });
 
-  const amb = new THREE.AmbientLight(0xffffff, opts.theme === "light" ? 0.82 : 0.55);
-  threeScene.add(amb);
-  const key = new THREE.DirectionalLight(0xffffff, opts.theme === "light" ? 0.7 : 0.85);
-  key.position.set(22, 32, -14);
-  threeScene.add(key);
-  const fill = new THREE.DirectionalLight(0xffffff, opts.theme === "light" ? 0.28 : 0.22);
-  fill.position.set(-18, 12, 16);
-  threeScene.add(fill);
-
+  let minX = 0,
+    maxX = 0,
+    minY = 0,
+    maxY = 0;
   if (rooms.length) {
-    let minX = Infinity,
-      maxX = -Infinity,
-      minY = Infinity,
-      maxY = -Infinity;
+    minX = Infinity;
+    maxX = -Infinity;
+    minY = Infinity;
+    maxY = -Infinity;
     for (const r of rooms) {
       const b = roomBounds(r);
       minX = Math.min(minX, b.minX);
@@ -442,6 +463,20 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       minY = Math.min(minY, b.minY);
       maxY = Math.max(maxY, b.maxY);
     }
+  }
+  const { root, content } = createPlanHandednessRoot(rooms.length ? (minX + maxX) / 2 : 0);
+  threeScene.add(root);
+
+  const amb = new THREE.AmbientLight(0xffffff, opts.theme === "light" ? 0.82 : 0.55);
+  content.add(amb);
+  const key = new THREE.DirectionalLight(0xffffff, opts.theme === "light" ? 0.7 : 0.85);
+  key.position.set(22, 32, -14);
+  content.add(key);
+  const fill = new THREE.DirectionalLight(0xffffff, opts.theme === "light" ? 0.28 : 0.22);
+  fill.position.set(-18, 12, 16);
+  content.add(fill);
+
+  if (rooms.length) {
     const gw = Math.max(4, (maxX - minX) * 1.18);
     const gd = Math.max(4, (maxY - minY) * 1.18);
     const ground = new THREE.Mesh(
@@ -457,7 +492,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     ground.rotation.x = -Math.PI / 2;
     ground.position.set((minX + maxX) / 2, elev - 0.03, (minY + maxY) / 2);
     ground.receiveShadow = true;
-    threeScene.add(ground);
+    content.add(ground);
   }
 
   const floorMat = track(
@@ -529,22 +564,22 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     const floor = createFloorGeometry(room, elev);
     if (floor) {
       track(floor);
-      threeScene.add(new THREE.Mesh(floor, floorMat));
+      content.add(new THREE.Mesh(floor, floorMat));
       const floorEdges = new THREE.LineSegments(track(new THREE.EdgesGeometry(floor)), active ? edgeMatActive : edgeMat);
-      threeScene.add(floorEdges);
+      content.add(floorEdges);
     }
     const walls = createWallGeometry(room, elev);
     if (walls) {
       track(walls);
-      threeScene.add(new THREE.Mesh(walls, active ? wallMatActive : wallMat));
+      content.add(new THREE.Mesh(walls, active ? wallMatActive : wallMat));
       const wallEdges = new THREE.LineSegments(track(new THREE.EdgesGeometry(walls, 20)), active ? edgeMatActive : edgeMat);
-      threeScene.add(wallEdges);
+      content.add(wallEdges);
     }
     const ceiling = createCeilingGeometry(room, elev);
     if (ceiling) {
       track(ceiling);
-      threeScene.add(new THREE.Mesh(ceiling, ceilMeshMat));
-      threeScene.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(ceiling)), active ? edgeMatActive : edgeMat));
+      content.add(new THREE.Mesh(ceiling, ceilMeshMat));
+      content.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(ceiling)), active ? edgeMatActive : edgeMat));
     }
 
     if (opts.mode === "falsecolor") {
@@ -558,7 +593,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
         const wp = createClippedWorkplaneGeometry(room, res, elev, scale);
         if (wp) {
           track(wp);
-          threeScene.add(new THREE.Mesh(wp, workMat));
+          content.add(new THREE.Mesh(wp, workMat));
         }
       }
       const wallSurfaces = opts.results?.wallsByRoomId?.[room.id] ?? [];
@@ -566,7 +601,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
         const wg = createWallFalseColorGeometry(surface, elev, 0.02, scale);
         if (wg) {
           track(wg);
-          threeScene.add(new THREE.Mesh(wg, wallFalseColorMat));
+          content.add(new THREE.Mesh(wg, wallFalseColorMat));
         }
       }
     }
@@ -583,7 +618,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       if (Array.isArray(mat)) mat.forEach((m) => track(m));
       else if (mat) track(mat);
     });
-    threeScene.add(mesh);
+    content.add(mesh);
   }
 
   return {

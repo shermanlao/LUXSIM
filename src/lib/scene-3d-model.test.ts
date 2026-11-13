@@ -1,11 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { luxToRgb, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
+import * as THREE from "three";
+import { editorOverviewCamera, type ProjectSceneV2 } from "@luxsim/project-io";
 import {
   FALSE_COLOR_WALL_SHELL_OPACITY,
   createCeilingGeometry,
   createClippedWorkplaneGeometry,
   createFloorGeometry,
+  createPlanHandednessRoot,
   createWallFalseColorGeometry,
+  mirrorPlanX,
   sampleGridLux,
   wallShellOpacity,
   workplaneVerticesInsideRoom,
@@ -276,5 +280,63 @@ describe("false-colour exterior facing and scale", () => {
     expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
     expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeGreaterThanOrEqual(0.9);
     expect(wallShellOpacity("greyscale")).toBeLessThan(FALSE_COLOR_WALL_SHELL_OPACITY);
+  });
+});
+
+describe("plan handedness in a south look-down", () => {
+  it("puts a west/north room on the left and above a south room, matching Top", () => {
+    const meeting = { x: 5.27, y: 12.7 };
+    const office = { x: 28, y: 5 };
+    const reception = { x: 5, y: 3 };
+    const scene = {
+      schemaVersion: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 2.8 }],
+      rooms: [
+        { ...lShapedRoom(), id: "meet", name: "Meeting", storeyId: "s1", polygon: [
+          { x: 0.5, y: 10.3 }, { x: 10, y: 10.3 }, { x: 10, y: 15.1 }, { x: 0.5, y: 15.1 },
+        ] },
+        { ...lShapedRoom(), id: "off", name: "Open Office", storeyId: "s1", polygon: [
+          { x: 10, y: 0.5 }, { x: 29, y: 0.5 }, { x: 29, y: 10 }, { x: 10, y: 10 },
+        ] },
+      ],
+      instances: [],
+      ui: { activeStoreyId: "s1", activeRoomId: null },
+    } as unknown as ProjectSceneV2;
+
+    const view = editorOverviewCamera(scene, "s1");
+    expect(view.position[2]).toBeLessThan(view.target[2]);
+
+    const { root, content } = createPlanHandednessRoot(view.target[0]);
+    const marker = (name: string, x: number, y: number) => {
+      const g = new THREE.Object3D();
+      g.name = name;
+      g.position.set(x, 1.2, y);
+      content.add(g);
+    };
+    marker("meeting", meeting.x, meeting.y);
+    marker("office", office.x, office.y);
+    marker("reception", reception.x, reception.y);
+    expect(mirrorPlanX(meeting.x, view.target[0])).toBeCloseTo(2 * view.target[0] - meeting.x);
+
+    root.updateMatrixWorld(true);
+    const cam = new THREE.PerspectiveCamera(45, 16 / 9, 0.05, 800);
+    cam.position.set(...view.position);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(...view.target);
+    cam.updateProjectionMatrix();
+    cam.updateMatrixWorld();
+
+    const ndc = (name: string) => {
+      const obj = content.getObjectByName(name)!;
+      const v = new THREE.Vector3();
+      obj.getWorldPosition(v);
+      v.project(cam);
+      return v;
+    };
+    const m = ndc("meeting");
+    const o = ndc("office");
+    const r = ndc("reception");
+    expect(m.x).toBeLessThan(o.x);
+    expect(m.y).toBeGreaterThan(r.y);
   });
 });

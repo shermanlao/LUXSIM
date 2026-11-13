@@ -25,8 +25,21 @@ import {
   createCeilingGeometry,
   createFloorGeometry,
   createWallGeometry,
+  setMirroredFrontFace,
   wallShellOpacity,
 } from "@/lib/scene-3d-model";
+
+function MirroredFrontFace() {
+  const gl = useThree((s) => s.gl);
+  useLayoutEffect(() => {
+    setMirroredFrontFace(gl);
+    return () => {
+      const ctx = gl.getContext();
+      ctx.frontFace(ctx.CCW);
+    };
+  }, [gl]);
+  return null;
+}
 
 function toThree(x: number, y: number, z: number): [number, number, number] {
   return [x, z, y];
@@ -200,7 +213,11 @@ export function BuildingScene3D({
         resize={{ debounce: 0 }}
       >
         <ViewportSync />
+        <MirroredFrontFace />
         <color attach="background" args={[EDITOR_BG]} />
+        <group position={[startView.target[0], 0, 0]}>
+          <group scale={[-1, 1, 1]}>
+            <group position={[-startView.target[0], 0, 0]}>
         <ambientLight intensity={0.55} />
         <directionalLight position={[20, 30, -10]} intensity={0.85} />
         <directionalLight position={[-16, 10, 14]} intensity={0.22} />
@@ -276,6 +293,9 @@ export function BuildingScene3D({
             </group>
           );
         })}
+            </group>
+          </group>
+        </group>
 
         <OrbitControls
           makeDefault

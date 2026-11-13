@@ -14,7 +14,7 @@ import {
   type ResultsV2,
   type RoomV2,
 } from "@luxsim/project-io";
-import { buildBuildingThreeScene } from "./scene-3d-model";
+import { buildBuildingThreeScene, setMirroredFrontFace } from "./scene-3d-model";
 
 export function webglCaptureAvailable(): boolean {
   if (typeof document === "undefined") return false;
@@ -49,6 +49,7 @@ export function renderThreeSceneToJpeg(opts: {
   renderer.setPixelRatio(1);
   renderer.setSize(width, height, false);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
+  setMirroredFrontFace(renderer);
   const cam = new THREE.PerspectiveCamera(opts.fov ?? 45, width / height, 0.05, 800);
   cam.position.set(opts.camera.position[0], opts.camera.position[1], opts.camera.position[2]);
   const up = opts.camera.up ?? [0, 1, 0];
@@ -58,23 +59,7 @@ export function renderThreeSceneToJpeg(opts: {
   try {
     renderer.render(opts.scene, cam);
     const quality = opts.quality ?? 0.85;
-    const canvas = renderer.domElement;
-    // Three.js lookAt with a plan-north up vector while looking down mirrors +X.
-    // Flip the still so it matches the Lighting Plan (Meeting left, Open Office right).
-    const planUp = Math.abs(up[0]) < 1e-9 && Math.abs(up[1]) < 1e-9 && Math.abs(Math.abs(up[2]) - 1) < 1e-9;
-    if (planUp) {
-      const flip = document.createElement("canvas");
-      flip.width = canvas.width;
-      flip.height = canvas.height;
-      const ctx = flip.getContext("2d");
-      if (ctx) {
-        ctx.translate(flip.width, 0);
-        ctx.scale(-1, 1);
-        ctx.drawImage(canvas, 0, 0);
-        return flip.toDataURL("image/jpeg", quality);
-      }
-    }
-    return canvas.toDataURL("image/jpeg", quality);
+    return renderer.domElement.toDataURL("image/jpeg", quality);
   } finally {
     renderer.dispose();
     const gl = renderer.getContext();
