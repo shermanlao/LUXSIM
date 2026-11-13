@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, ProjectSceneV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import {
   findRoomAt,
   isCloseToStart,
@@ -13,6 +13,9 @@ import {
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
+import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import type { PhotometricData } from "@luxsim/photometry";
+import { planSymbolGeom } from "./LuminaireBody";
 
 type Props = {
   scene: ProjectSceneV2;
@@ -30,6 +33,12 @@ type Props = {
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
   /** Persist native pixel size (and migrate legacy scale) for older underlays. */
   onUnderlaySourceSize?: (widthPx: number, heightPx: number) => void;
+  /** Array tool preview positions (world m, Top plan). */
+  arrayPreview?: { x: number; y: number; rotationDeg: number }[];
+  rcpProposals?: RcpDetectionProposal[];
+  showRcpOverlay?: boolean;
+  selectedRcpId?: string | null;
+  photometry?: Record<string, PhotometricData>;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -52,6 +61,11 @@ export function TopView2D({
   onSelectRoom,
   onCalibratePoints,
   onUnderlaySourceSize,
+  arrayPreview = [],
+  rcpProposals = [],
+  showRcpOverlay = false,
+  selectedRcpId = null,
+  photometry,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -208,15 +222,12 @@ export function TopView2D({
   const ox = (viewW - world.width * scale) / 2;
   const oy = (viewH - world.depth * scale) / 2;
   /**
-   * Top = look-down (matches 3D). Bottom = look-up.
-   * Top mirrors X so it matches the previous Bottom ↔ 3D pairing.
+   * Look-down plan: +X right, +Y up (north), matching world coordinates,
+   * the 3D view, and a typical CAD / lighting-plan top view.
+   * Do not mirror X — that flipped the floor plate relative to 3D.
    */
-  const mirrorX = variant === "top";
-
   const toScreen = (x: number, y: number) => ({
-    x: mirrorX
-      ? ox + (world.minX + world.width - x) * scale
-      : ox + (x - world.minX) * scale,
+    x: ox + (x - world.minX) * scale,
     y: oy + (world.minY + world.depth - y) * scale,
   });
 
@@ -224,11 +235,8 @@ export function TopView2D({
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const { x: svgX, y: svgY } = clientToSvgPoint(svg, clientX, clientY);
-    const x = mirrorX
-      ? world.minX + world.width - (svgX - ox) / scale
-      : world.minX + (svgX - ox) / scale;
     return {
-      x,
+      x: world.minX + (svgX - ox) / scale,
       y: world.minY + world.depth - (svgY - oy) / scale,
     };
   };
@@ -325,18 +333,13 @@ export function TopView2D({
   const underlayScreen =
     underlay && underlaySize
       ? {
-          x: mirrorX
-            ? ox +
-              (world.minX + world.width - (underlay.offsetX + underlaySize.widthM)) *
-                scale
-            : ox + (underlay.offsetX - world.minX) * scale,
+          x: ox + (underlay.offsetX - world.minX) * scale,
           y:
             oy +
             (world.minY + world.depth - (underlay.offsetY + underlaySize.heightM)) * scale,
           width: underlaySize.widthM * scale,
           height: underlaySize.heightM * scale,
-          // X: keep plan aligned when view is X-mirrored. Y: correct remaining plan flip.
-          flipImageX: mirrorX,
+          flipImageX: false,
           flipImageY: true,
         }
       : null;
@@ -346,7 +349,7 @@ export function TopView2D({
 
   return (
     <div
-      className="relative w-full bg-[#0f1c24] h-[520px]"
+      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -390,8 +393,7 @@ export function TopView2D({
             setCursor(w);
             return;
           }
-          if (movingRoomId && onMoveRoom && roomDragLast.current) {
-            onMoveRoom(movingRoomId, w.x - roomDragLast.current.x, w.y - roomDragLast.current.y);
+          if (applyRoomDrag(onMoveRoom, movingRoomId, roomDragLast.current, w)) {
             roomDragLast.current = w;
           }
         }}
@@ -451,12 +453,12 @@ export function TopView2D({
               fill={active ? "rgba(31,111,139,0.25)" : "rgba(42,59,70,0.55)"}
               stroke={active ? "#c45c26" : "#8aa0ad"}
               strokeWidth={active ? 2 : 1}
-              style={{ cursor: scene.ui.tool === "select" ? "move" : "inherit" }}
+              style={{ cursor: scene.ui.tool === "select" ? "pointer" : "inherit" }}
               onMouseDown={(e) => {
                 if (drawing || scene.ui.tool === "calibrate") return;
                 e.stopPropagation();
                 onSelectRoom?.(room.id);
-                if (!onMoveRoom) return;
+                if (!shouldBeginRoomDrag(onMoveRoom)) return;
                 const w = toWorld(e.clientX, e.clientY);
                 roomDragLast.current = w;
                 setMovingRoomId(room.id);
@@ -518,6 +520,70 @@ export function TopView2D({
           />
         )}
 
+        {showRcpOverlay &&
+          rcpProposals.map((p) => {
+            if (!p.pointM || p.status === "rejected" || p.status === "committed") return null;
+            const s = toScreen(p.pointM.x, p.pointM.y);
+            const selected = p.id === selectedRcpId;
+            const accepted = p.status === "accepted" || p.status === "edited";
+            return (
+              <g key={p.id} pointerEvents="none">
+                <circle
+                  cx={s.x}
+                  cy={s.y}
+                  r={selected ? 10 : 7}
+                  fill={accepted ? "#27ae60" : "#9b59b6"}
+                  fillOpacity={selected ? 0.55 : 0.35}
+                  stroke={selected ? "#fff" : "#e8d4ff"}
+                  strokeWidth={selected ? 2.5 : 1.5}
+                />
+                <text
+                  x={s.x + (selected ? 12 : 9)}
+                  y={s.y - 6}
+                  fill={selected ? "#fff" : "#e8d4ff"}
+                  fontSize={selected ? 10 : 9}
+                  fontFamily="system-ui,sans-serif"
+                  fontWeight={selected ? "700" : "400"}
+                >
+                  {p.codeRaw}
+                </text>
+              </g>
+            );
+          })}
+
+        {arrayPreview.map((ghost, idx) => {
+          const s = toScreen(ghost.x, ghost.y);
+          const rad = (ghost.rotationDeg * Math.PI) / 180;
+          const len = 10;
+          const x2 = Math.cos(rad) * len;
+          const y2 = -Math.sin(rad) * len;
+          return (
+            <g key={`ghost_${idx}`} transform={`translate(${s.x},${s.y})`} pointerEvents="none">
+              <rect
+                x={-7}
+                y={-7}
+                width={14}
+                height={14}
+                fill="none"
+                stroke="#7ec8e3"
+                strokeWidth={1.5}
+                strokeDasharray="3 2"
+                opacity={0.85}
+              />
+              <line
+                x1={0}
+                y1={0}
+                x2={x2}
+                y2={y2}
+                stroke="#7ec8e3"
+                strokeWidth={1.2}
+                strokeDasharray="2 2"
+                opacity={0.85}
+              />
+            </g>
+          );
+        })}
+
         {instances.map((inst) => {
           const s = toScreen(inst.position.x, inst.position.y);
           const selected = inst.instanceId === selectedId;
@@ -548,15 +614,56 @@ export function TopView2D({
                 window.addEventListener("mouseup", up);
               }}
             >
-              <rect
-                x={-8}
-                y={-8}
-                width={16}
-                height={16}
-                fill={selected ? "#c45c26" : "#e8c27a"}
-                stroke="#fff"
-                strokeWidth={1}
-              />
+              {(() => {
+                const { body, rx, ry, hitR } = planSymbolGeom(photometry?.[inst.luminaireId], scale);
+                const fill = selected ? "#c45c26" : body.housing === "black" ? "#2a2a2c" : "#d8d4cc";
+                const len = selected ? Math.max(14, rx + 6) : Math.max(10, rx + 4);
+                const rad = (inst.rotationDeg * Math.PI) / 180;
+                const x2 = Math.cos(rad) * len;
+                const y2 = -Math.sin(rad) * len;
+                return (
+                  <>
+                    <circle r={hitR} fill="transparent" />
+                    {body.isCircular ? (
+                      <>
+                        <circle r={rx} fill={fill} stroke="#fff" strokeWidth={0.8} />
+                        <circle r={rx * 0.62} fill="#f3e2b0" />
+                      </>
+                    ) : (
+                      <rect
+                        x={-rx}
+                        y={-ry}
+                        width={rx * 2}
+                        height={ry * 2}
+                        fill={fill}
+                        stroke="#fff"
+                        strokeWidth={0.8}
+                      />
+                    )}
+                    <line
+                      x1={0}
+                      y1={0}
+                      x2={x2}
+                      y2={y2}
+                      stroke={selected ? "#fff" : "#1f6f8b"}
+                      strokeWidth={selected ? 2 : 1.5}
+                      strokeLinecap="round"
+                    />
+                    <circle cx={x2} cy={y2} r={2} fill={selected ? "#fff" : "#1f6f8b"} />
+                    {selected && (
+                      <text
+                        x={x2 + 4}
+                        y={y2 - 4}
+                        fill="#fff"
+                        fontSize={9}
+                        fontFamily="system-ui,sans-serif"
+                      >
+                        {Math.round(inst.rotationDeg)}°
+                      </text>
+                    )}
+                  </>
+                );
+              })()}
             </g>
           );
         })}

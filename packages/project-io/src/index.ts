@@ -8,18 +8,50 @@ export type {
   Storey,
   Underlay,
   FixtureInstance,
+  FixtureCodeMapRule,
+  RcpDetectionProposal,
+  RcpProposalStatus,
   ViewMode,
+  Display3dMode,
   Camera3dView,
   DxfEntity,
   AnyScene,
   Vec2,
+  EditorWorkflowMode,
+  WallSurfaceResult,
+  WallSurfaceGrid,
 } from "./types";
-export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
-export { buildDialuxPack } from "./dialux-pack";
+export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
+export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
+export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
+export {
+  EN12464_TEMPLATES,
+  evaluateEn12464,
+  getEn12464Template,
+} from "./en12464";
+export type { En12464Template, En12464Check, En12464ZoneCheck } from "./en12464";
+export {
+  DEFAULT_MF_BREAKDOWN,
+  clampMf,
+  clampMfComponent,
+  defaultMaintenanceFactor,
+  normalizeMfBreakdown,
+  productMf,
+  resolveMaintenanceFactor,
+} from "./maintenance-factor";
+export type { MfBreakdown } from "./maintenance-factor";
+export {
+  GOLDEN_FIXTURES,
+  GOLDEN_LUXSIM_EXPECTED,
+  GOLDEN_ROOM,
+  GOLDEN_ROOM_ID,
+} from "./ab-golden-room";
+export { buildVerificationDxf } from "./dxf-export";
 export {
   defaultSceneV2,
   migrateSceneV1toV2,
+  ensureFixtureCodeMapIds,
   normalizeScene,
   normalizeResults,
   isSceneV1,
@@ -46,6 +78,25 @@ export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
+export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
+export {
+  luxToRgb,
+  rgbCss,
+  legendStopsForRange,
+  legendStopsForScale,
+  isoluxLevels,
+  buildIsoluxModel,
+  DIALUX_LUX_STOPS,
+  normalizeFalseColorScale,
+  isFalseColorScale,
+} from "./isolux-map";
+export type { IsoluxMode, IsoluxModel, FalseColorScale } from "./isolux-map";
+export {
+  aggregateProjectLuminaires,
+  roomLpdFromPolygon,
+  roomPolygonArea,
+  enrichSummaryWithPolygonArea,
+} from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,
   underlayWorldSize,
@@ -54,3 +105,34 @@ export {
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
 } from "./underlay";
+
+export {
+  projectLuxRange,
+  fitOverviewCamera,
+  fitRoomCamera,
+  defaultDisplay3d,
+  storeyCenter,
+  isLegacyNortheastOrbit,
+  isInvertedPlanOrbit,
+  isNearlyVerticalOrbit,
+  enforcePlanAlignedOrbit,
+  MIN_PLAN_POLAR,
+  PLAN_ALIGN_POLAR,
+  editorOverviewCamera,
+  editorRoomCamera,
+  resolveEditorCamera,
+} from "./scene-3d";
+
+export { aggregateStoreyResults } from "./storey-results";
+export type { StoreyResultsAggregate } from "./storey-results";
+
+export {
+  buildWallChains,
+  calculateRoomWalls,
+  inwardNormal,
+  locateOnPolyline,
+  sampleWallGrid,
+  sampleWallLux,
+  signedPolygonArea,
+  wallGridAxes,
+} from "./wall-surfaces";

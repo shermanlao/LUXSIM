@@ -1,3 +1,4 @@
+import { randomId } from "@/lib/random-id";
 "use client";
 
 import dynamic from "next/dynamic";
@@ -5,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import type { CalcResults, LuminaireInstance } from "@luxsim/solver";
 import type { SceneJson } from "@luxsim/project-io";
+import { migrateSceneV1toV2 } from "@luxsim/project-io";
 import { runSolverClient } from "@/lib/run-solver";
 import {
   buildLuxsimProject,
@@ -12,10 +14,10 @@ import {
   exportLuxsimFile,
   exportPdfReport,
 } from "@/lib/exports-client";
-import { FalseColorLegend } from "./FalseColorLegend";
+import { FalseColorLegend } from "../FalseColorLegend";
 
 const SceneViewer = dynamic(
-  () => import("./SceneViewer").then((m) => m.SceneViewer),
+  () => import("../SceneViewer").then((m) => m.SceneViewer),
   {
     ssr: false,
     loading: () => (
@@ -127,7 +129,7 @@ export function ProjectEditor({
     const base = opts?.currentScene ?? scene;
     const lib = library.find((l) => l.id === luminaireId);
     const photo = opts?.photo ?? photoCache[luminaireId];
-    const instanceId = crypto.randomUUID();
+    const instanceId = randomId();
     const count = base.luminaires.length;
     const next: SceneJson = {
       ...base,
@@ -328,9 +330,15 @@ export function ProjectEditor({
     for (const lum of scene.luminaires) {
       await ensurePhotometry(lum.luminaireId);
     }
+    const v2 = migrateSceneV1toV2(scene);
+    const roomId = v2.rooms[0]?.id;
     await exportDialuxPack({
       projectName: name,
-      scene,
+      scene: v2,
+      results:
+        results && roomId
+          ? { version: 2, byRoomId: { [roomId]: results } }
+          : null,
       sourceFiles: sourceCache,
       luminaireNames: names,
     });
@@ -459,6 +467,7 @@ export function ProjectEditor({
             results={results}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            photometry={photoCache}
           />
           {results && (
             <div className="panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">

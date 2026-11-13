@@ -1,136 +1,205 @@
+import { parseEulumdat, storedIntensityPlaneCount, type EulumdatDocument } from "./eulumdat";
+import { parseFirstNumber } from "./beam-keys";
 import type { ParseResult, PhotometricData } from "./types";
 
-function parseNumber(token: string): number {
-  const n = Number(String(token).trim().replace(",", "."));
-  return Number.isFinite(n) ? n : NaN;
+function wrap360(deg: number): number {
+  let a = deg % 360;
+  if (a < 0) a += 360;
+  return a;
+}
+
+function almostEqual(a: number, b: number, eps = 1e-6): boolean {
+  return Math.abs(a - b) <= eps;
 }
 
 /**
- * Minimal EULUMDAT (.ldt) parser for common indoor luminaires.
+ * Fold a C-angle onto a plane that is stored for the given Isym.
+ * 0 = none, 1 = vertical axis, 2 = C0–C180, 3 = C90–C270, 4 = both planes.
+ */
+function canonicalStoredC(isym: number, cDeg: number): number {
+  let a = wrap360(cDeg);
+  if (isym === 1) return 0;
+  if (isym === 2 || isym === 4) {
+    if (a > 180) a = 360 - a;
+  }
+  if (isym === 3) {
+    const folded = wrap360(180 - a);
+    if (a >= 90 - 1e-6 && a <= 270 + 1e-6) return a;
+    return folded;
+  }
+  if (isym === 4 && a > 90 && a <= 180) {
+    a = 180 - a;
+  }
+  return a;
+}
+
+function findClosestAngleIndex(angles: number[], target: number): number {
+  let best = 0;
+  let bestDist = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < angles.length; i += 1) {
+    const d = Math.abs(wrap360(angles[i]! - target));
+    const dist = Math.min(d, 360 - d);
+    if (dist < bestDist) {
+      best = i;
+      bestDist = dist;
+    }
+  }
+  return best;
+}
+
+/**
+ * Expand the Isym-compact intensity table to one row per listed C-plane
+ * so the solver and flux integral can walk the full 360° grid.
+ */
+export function expandIntensityPlanes(doc: EulumdatDocument): number[][] {
+  const stored = doc.intensities;
+  const mc = doc.mc;
+  const isym = doc.isym;
+  const expected = storedIntensityPlaneCount(isym, mc);
+  if (stored.length !== expected) {
+    throw new Error(
+      `LDT intensity planes ${stored.length} do not match Isym=${isym} expectation ${expected}`
+    );
+  }
+
+  if (isym === 0 || stored.length === mc) {
+    return stored.map((row) => [...row]);
+  }
+
+  if (isym === 1) {
+    const plane = stored[0] ?? doc.gammaAngles.map(() => 0);
+    return doc.cAngles.map(() => [...plane]);
+  }
+
+  // Map each stored plane to the C-angle it belongs to, in file order.
+  const storedForAngle = new Map<number, number[]>();
+  if (isym === 2) {
+    const last = Math.floor(mc / 2);
+    for (let i = 0; i <= last && i < stored.length; i += 1) {
+      storedForAngle.set(wrap360(doc.cAngles[i] ?? i * (doc.dc || 15)), stored[i]!);
+    }
+  } else if (isym === 3) {
+    for (let i = 0; i < doc.cAngles.length; i += 1) {
+      const a = wrap360(doc.cAngles[i]!);
+      if (a >= 90 - 1e-6 && a <= 270 + 1e-6) {
+        const idx = storedForAngle.size;
+        if (idx < stored.length) storedForAngle.set(a, stored[idx]!);
+      }
+    }
+  } else if (isym === 4) {
+    const last = Math.floor(mc / 4);
+    for (let i = 0; i <= last && i < stored.length; i += 1) {
+      storedForAngle.set(wrap360(doc.cAngles[i] ?? i * (doc.dc || 15)), stored[i]!);
+    }
+  }
+
+  return doc.cAngles.map((c) => {
+    const canonical = canonicalStoredC(isym, c);
+    const direct = storedForAngle.get(canonical);
+    if (direct) return [...direct];
+    for (const [angle, row] of storedForAngle) {
+      if (almostEqual(angle, canonical) || almostEqual(wrap360(angle), wrap360(canonical))) {
+        return [...row];
+      }
+    }
+    const idx = findClosestAngleIndex([...storedForAngle.keys()], canonical);
+    const key = [...storedForAngle.keys()][idx];
+    return [...(storedForAngle.get(key!) ?? stored[0] ?? [])];
+  });
+}
+
+function lightOutputRatio(lorl: number): number {
+  if (!Number.isFinite(lorl) || lorl <= 0) return 1;
+  return lorl > 1 ? lorl / 100 : lorl;
+}
+
+function headerFluxLm(doc: EulumdatDocument): number | null {
+  const lamp = doc.lamps[0];
+  if (!lamp || !Number.isFinite(lamp.flux) || lamp.flux <= 0) return null;
+  const lor = lightOutputRatio(doc.lorl);
+  return lamp.flux * lor;
+}
+
+function openingMetres(doc: EulumdatDocument): Pick<
+  PhotometricData,
+  "openingWidthM" | "openingLengthM" | "openingHeightM"
+> {
+  const lengthM = (Number.isFinite(doc.luminaireLength) ? doc.luminaireLength : 0) / 1000;
+  const widthM = (Number.isFinite(doc.luminaireWidth) ? doc.luminaireWidth : 0) / 1000;
+  const heightM = (Number.isFinite(doc.luminaireHeight) ? doc.luminaireHeight : 0) / 1000;
+  const circular = widthM <= 1e-9 && lengthM > 1e-9;
+  if (circular) {
+    return {
+      openingWidthM: -lengthM,
+      openingLengthM: -lengthM,
+      openingHeightM: heightM,
+    };
+  }
+  return {
+    openingWidthM: widthM || undefined,
+    openingLengthM: lengthM || undefined,
+    openingHeightM: heightM || undefined,
+  };
+}
+
+function symmetryLabel(isym: number): PhotometricData["symmetry"] {
+  if (isym === 1) return "axial";
+  if (isym === 2 || isym === 3) return "bilateral";
+  if (isym === 4) return "quad";
+  return "none";
+}
+
+/**
+ * Parse EULUMDAT (.ldt) into solver photometry.
+ * File intensities are treated as cd/klm and converted to absolute candela
+ * using the lamp-block flux (and LORL when it is not 100%).
  */
 export function parseLdt(text: string): ParseResult {
   const warnings: string[] = [];
-  const lines = text
-    .replace(/\r\n/g, "\n")
-    .replace(/\r/g, "\n")
-    .split("\n")
-    .map((l) => l.trimEnd());
+  const doc = parseEulumdat(text);
+  const intensitiesCdKlm = expandIntensityPlanes(doc);
+  const flux = headerFluxLm(doc);
+  const conversion =
+    Number.isFinite(doc.conversion) && doc.conversion > 0 ? doc.conversion : 1;
 
-  if (lines.length < 30) {
-    throw new Error("LDT file too short");
-  }
+  const intensities: number[][] = intensitiesCdKlm.map((row) =>
+    row.map((raw) => {
+      const value = Number.isFinite(raw) ? raw * conversion : 0;
+      if (flux && flux > 0) return (value * flux) / 1000;
+      return value;
+    })
+  );
 
-  const manufacturer = (lines[0] ?? "").trim();
-  const typeIndicator = Math.round(parseNumber(lines[1] ?? "0"));
-  const symmetry = Math.round(parseNumber(lines[2] ?? "0"));
-  const nMc = Math.round(parseNumber(lines[3] ?? "0")); // number of C-planes
-  const mcDistance = parseNumber(lines[4] ?? "0");
-  const nDc = Math.round(parseNumber(lines[5] ?? "0")); // number of gamma angles
-  const dcDistance = parseNumber(lines[6] ?? "0");
-  void mcDistance;
-  void dcDistance;
-
-  // lines 7–12: measurement report / name / etc. — skip rigid layout details
-  const luminaireName = (lines[8] ?? "").trim() || (lines[9] ?? "").trim();
-  const lampName = (lines[13] ?? "").trim();
-
-  const numberOfLamps = Math.abs(Math.round(parseNumber(lines[21] ?? "1")));
-  const lumensPerLamp = parseNumber(lines[22] ?? "0");
-  const lightOutputRatio = parseNumber(lines[23] ?? "1");
-  const wattage = parseNumber(lines[28] ?? "0");
-
-  if (nMc < 1 || nDc < 1) {
-    throw new Error("Invalid LDT angle counts");
-  }
-
-  let idx = 42; // after fixed header blocks in classic EULUMDAT
-  // Some files place angles earlier; locate first angle block by scanning near expected zone
-  // Spec: after line 42 come nMc C-plane angles, then nDc gamma angles, then intensities.
-
-  // Try standard layout starting at line index 42 (1-based line 43)
-  if (lines.length < idx + nMc + nDc) {
-    // Fallback: search for a run of numbers after wattage line
-    idx = 29;
-    while (idx < lines.length && !Number.isFinite(parseNumber(lines[idx] ?? ""))) {
-      idx += 1;
-    }
-  }
-
-  const horizontalAngles: number[] = [];
-  for (let h = 0; h < nMc; h += 1) {
-    horizontalAngles.push(parseNumber(lines[idx++] ?? "0"));
-  }
-  const verticalAngles: number[] = [];
-  for (let v = 0; v < nDc; v += 1) {
-    verticalAngles.push(parseNumber(lines[idx++] ?? "0"));
-  }
-
-  // Skip luminous intensity ratios / direct ratios block if present (nMc values)
-  // In many files, after angles come candela values directly when lOR block is omitted.
-  // Classic: there are nMc "luminous intensity ratios" then candelas.
-  // Heuristic: if next nMc values look like ratios (0–1-ish) skip them.
-  const maybeRatios: number[] = [];
-  let peek = idx;
-  for (let h = 0; h < nMc && peek < lines.length; h += 1) {
-    maybeRatios.push(parseNumber(lines[peek++] ?? "0"));
-  }
-  const lookLikeRatios =
-    maybeRatios.length === nMc &&
-    maybeRatios.every((r) => Number.isFinite(r) && r >= 0 && r <= 10);
-  if (lookLikeRatios && lines.length - peek >= nMc * nDc) {
-    idx = peek;
-  }
-
-  const lor = Number.isFinite(lightOutputRatio) && lightOutputRatio > 0 ? lightOutputRatio : 1;
-  const intensities: number[][] = [];
-  for (let h = 0; h < nMc; h += 1) {
-    const row: number[] = [];
-    for (let v = 0; v < nDc; v += 1) {
-      const raw = parseNumber(lines[idx++] ?? "0");
-      // EULUMDAT intensities are often cd/1000lm — convert to absolute cd if flux known
-      row.push(Number.isFinite(raw) ? raw : 0);
-    }
-    intensities.push(row);
-  }
-
-  const flux =
-    Number.isFinite(lumensPerLamp) && lumensPerLamp > 0
-      ? lumensPerLamp * (numberOfLamps || 1) * lor
-      : null;
-
-  if (flux && flux > 0) {
-    // Values stored as cd/klm → absolute cd
-    for (let h = 0; h < intensities.length; h += 1) {
-      for (let v = 0; v < intensities[h]!.length; v += 1) {
-        intensities[h]![v] = (intensities[h]![v]! * flux) / 1000;
-      }
-    }
-  } else {
+  if (!(flux && flux > 0)) {
     warnings.push("LDT luminous flux unknown; using raw intensity table units");
   }
-
-  if (typeIndicator !== 1 && typeIndicator !== 2) {
-    warnings.push(`LDT type indicator ${typeIndicator}`);
+  if (doc.ityp !== 1 && doc.ityp !== 2) {
+    warnings.push(`LDT type indicator ${doc.ityp}`);
   }
 
-  let symmetryLabel: PhotometricData["symmetry"] = "none";
-  if (symmetry === 1) symmetryLabel = "axial";
-  else if (symmetry === 2 || symmetry === 3) symmetryLabel = "bilateral";
-  else if (symmetry === 4) symmetryLabel = "quad";
+  const lamp = doc.lamps[0];
+  const cctK = parseFirstNumber(lamp?.colorTemperature ?? null);
+  const cri = parseFirstNumber(lamp?.cri ?? null);
+  const watts = lamp && Number.isFinite(lamp.wattage) && lamp.wattage > 0 ? lamp.wattage : null;
+  const lampCount = lamp ? Math.max(1, Math.abs(Math.round(lamp.lampCount) || 1)) : 1;
 
   const data: PhotometricData = {
     format: "ldt",
-    manufacturer,
-    catalogNumber: lampName,
-    description: luminaireName || manufacturer || "Imported LDT luminaire",
+    manufacturer: doc.company,
+    catalogNumber: doc.luminaireNumber || doc.fileName,
+    description: doc.luminaireName || doc.company || "Imported LDT luminaire",
     luminousFlux: flux,
-    watts: Number.isFinite(wattage) && wattage > 0 ? wattage : null,
-    lampCount: numberOfLamps || 1,
+    watts,
+    lampCount,
     ballastFactor: 1,
-    verticalAngles,
-    horizontalAngles,
+    verticalAngles: [...doc.gammaAngles],
+    horizontalAngles: [...doc.cAngles],
     intensities,
-    symmetry: symmetryLabel,
+    symmetry: symmetryLabel(doc.isym),
+    photometryType: 1,
+    ...openingMetres(doc),
+    cctK: cctK && cctK > 0 ? cctK : null,
+    cri: cri && cri > 0 ? cri : null,
   };
 
   return { data, warnings };

@@ -1,4 +1,5 @@
 import type { CalcOptions, CalcResults } from "@luxsim/solver";
+import { randomId } from "@/lib/random-id";
 
 let worker: Worker | null = null;
 
@@ -11,7 +12,7 @@ function getWorker(): Worker {
 
 export function runSolverClient(options: CalcOptions): Promise<CalcResults> {
   return new Promise((resolve, reject) => {
-    const requestId = crypto.randomUUID();
+    const requestId = randomId();
     const w = getWorker();
 
     const onMessage = (event: MessageEvent) => {

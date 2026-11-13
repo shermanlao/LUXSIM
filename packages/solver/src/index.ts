@@ -7,3 +7,4 @@ export type {
 } from "./types";
 export { calculate } from "./calculate";
 export { estimateFlux } from "./direct";
+export { interreflectedWorkplaneBoost, interreflectedWallBoost } from "./interreflect";

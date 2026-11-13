@@ -1,0 +1,15 @@
+parameter,value,unit,notes
+room_width,5,m,
+room_depth,4,m,
+room_height,2.8,m,
+workplane_height,0.75,m,
+reflectance_floor,0.2,,
+reflectance_walls,0.5,,
+reflectance_ceiling,0.7,,
+grid_spacing,0.5,m,
+interreflection,true,,
+bounces,2,,
+compute_ugr,true,,
+maintenance_factor,0.8,,
+ies_file,fixtures/sample-downlight.ies,,
+polygon_origin,0;0,m,rectangle from origin

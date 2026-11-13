@@ -1,9 +1,39 @@
-import type { ProjectSceneV2, SceneJson, AnyScene, ResultsV2 } from "./types";
+import { defaultMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
+import { normalizeWorkflowMode } from "./editor-workflow";
+import type {
+  FixtureCodeMapRule,
+  ProjectSceneV2,
+  SceneJson,
+  AnyScene,
+  ResultsV2,
+  RoomV2,
+} from "./types";
 import type { CalcResults } from "../../solver/src/types";
 import { rectPolygon } from "./geometry";
 
 function id(prefix: string): string {
   return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+}
+
+/** Saved code-map rows may omit `id`. Assign one so list rows stay keyed and editable. */
+export function ensureFixtureCodeMapIds(rules: FixtureCodeMapRule[]): FixtureCodeMapRule[] {
+  if (!rules.length) return rules;
+  const seen = new Set<string>();
+  let changed = false;
+  const next = rules.map((rule) => {
+    const raw = typeof rule?.id === "string" ? rule.id.trim() : "";
+    if (raw && !seen.has(raw)) {
+      seen.add(raw);
+      if (rule.id === raw) return rule;
+      changed = true;
+      return { ...rule, id: raw };
+    }
+    changed = true;
+    const assigned = id("codemap");
+    seen.add(assigned);
+    return { ...rule, id: assigned };
+  });
+  return changed ? next : rules;
 }
 
 export function isSceneV2(scene: unknown): scene is ProjectSceneV2 {
@@ -38,7 +68,9 @@ export function defaultSceneV2(): ProjectSceneV2 {
       activeRoomId: null,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
+      display3d: "greyscale",
     },
   };
 }
@@ -74,6 +106,8 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
           interreflection: scene.calcOptions.interreflection,
           bounces: scene.calcOptions.bounces,
           computeUgr: scene.calcOptions.computeUgr,
+          maintenanceFactor: defaultMaintenanceFactor(),
+          en12464TemplateId: "",
         },
       },
     ],
@@ -93,7 +127,9 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
       activeRoomId: roomId,
       viewMode: "top",
       tool: "select",
+      workflowMode: "construction",
       camera3d: null,
+      display3d: "greyscale",
     },
   };
 }
@@ -105,6 +141,11 @@ function normalizeViewMode(raw: unknown): ProjectSceneV2["ui"]["viewMode"] {
     return raw as ProjectSceneV2["ui"]["viewMode"];
   }
   return "top";
+}
+
+function normalizeDisplay3d(raw: unknown): ProjectSceneV2["ui"]["display3d"] {
+  if (raw === "greyscale" || raw === "falsecolor") return raw;
+  return "greyscale";
 }
 
 function normalizeCamera3d(
@@ -122,9 +163,36 @@ function normalizeCamera3d(
   ) {
     return null;
   }
+  const upRaw = (raw as { up?: unknown }).up;
+  const up =
+    Array.isArray(upRaw) &&
+    upRaw.length === 3 &&
+    upRaw.every((n) => typeof n === "number")
+      ? ([upRaw[0], upRaw[1], upRaw[2]] as [number, number, number])
+      : undefined;
   return {
     position: [c.position[0], c.position[1], c.position[2]],
     target: [c.target[0], c.target[1], c.target[2]],
+    ...(up ? { up } : {}),
+  };
+}
+
+function normalizeRoomCalc(calc: RoomV2["calc"] | undefined): RoomV2["calc"] {
+  return {
+    gridSpacing: calc?.gridSpacing ?? 0.5,
+    interreflection: calc?.interreflection ?? true,
+    bounces: calc?.bounces ?? 2,
+    computeUgr: calc?.computeUgr ?? true,
+    maintenanceFactor: calc?.maintenanceFactor ?? defaultMaintenanceFactor(),
+    en12464TemplateId: calc?.en12464TemplateId ?? "",
+    mfBreakdown: calc?.mfBreakdown ? normalizeMfBreakdown(calc.mfBreakdown) : undefined,
+  };
+}
+
+function normalizeRoom(room: RoomV2): RoomV2 {
+  return {
+    ...room,
+    calc: normalizeRoomCalc(room.calc),
   };
 }
 
@@ -135,7 +203,9 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
       underlays: scene.underlays ?? [],
       fixtureLibraryIds: scene.fixtureLibraryIds ?? [],
       instances: scene.instances ?? [],
-      rooms: scene.rooms ?? [],
+      fixtureCodeMap: ensureFixtureCodeMapIds(scene.fixtureCodeMap ?? []),
+      rcpProposals: scene.rcpProposals ?? [],
+      rooms: (scene.rooms ?? []).map(normalizeRoom),
       storeys: scene.storeys?.length ? scene.storeys : defaultSceneV2().storeys,
       ui: {
         activeStoreyId:
@@ -143,7 +213,9 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         activeRoomId: scene.ui?.activeRoomId ?? null,
         viewMode: normalizeViewMode(scene.ui?.viewMode),
         tool: scene.ui?.tool ?? "select",
+        workflowMode: normalizeWorkflowMode(scene.ui?.workflowMode),
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
+        display3d: normalizeDisplay3d(scene.ui?.display3d),
       },
     };
   }
@@ -161,7 +233,12 @@ export function normalizeResults(
     (results as ResultsV2).version === 2 &&
     (results as ResultsV2).byRoomId
   ) {
-    return results as ResultsV2;
+    const r = results as ResultsV2;
+    return {
+      version: 2,
+      byRoomId: r.byRoomId,
+      ...(r.wallsByRoomId ? { wallsByRoomId: r.wallsByRoomId } : {}),
+    };
   }
   // v1 single CalcResults → attach to first room if present
   if (results && typeof results === "object" && (results as CalcResults).grid) {

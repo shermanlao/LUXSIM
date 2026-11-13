@@ -128,3 +128,858 @@ a {
   padding: 0.75rem 0.9rem;
   font-size: 0.88rem;
 }
+
+/* Editor workspace chrome (LUXSIM-branded; not third-party CAD clone) */
+.editor-shell {
+  min-height: calc(100dvh - 7.5rem);
+}
+
+.editor-toolbar {
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 88%, white);
+  border-radius: 2px;
+  padding: 0.65rem 0.85rem;
+}
+
+.editor-workspace {
+  display: grid;
+  grid-template-columns: minmax(220px, 260px) minmax(0, 1fr) minmax(260px, 300px);
+  gap: 0;
+  min-height: 0;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  overflow: hidden;
+  background: var(--panel);
+}
+
+@media (max-width: 1024px) {
+  .editor-workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.editor-rail {
+  background: var(--bg-deep);
+  color: #e8eef2;
+  border-right: 1px solid color-mix(in srgb, var(--bg-deep) 80%, var(--accent-2));
+  padding: 0.75rem;
+  overflow-y: auto;
+  max-height: calc(100dvh - 10rem);
+}
+
+.editor-rail .label {
+  color: #9fb0bb;
+}
+
+.editor-rail .btn-secondary {
+  border-color: #3d5563;
+  color: #e8eef2;
+  background: #162630;
+}
+
+.editor-rail .btn-secondary:hover {
+  background: #1f3542;
+}
+
+.editor-rail .btn-accent {
+  border-color: var(--accent);
+}
+
+.editor-rail .input {
+  background: #12202a;
+  border-color: #3d5563;
+  color: #f0f4f6;
+}
+
+.editor-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #dfe8ed;
+}
+
+.editor-viewbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--ink) 92%, var(--accent-2));
+  color: #eef3f6;
+}
+
+.editor-viewbar .view-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.editor-viewbar .view-tab:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-viewbar .view-tab.is-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+  color: #fff;
+}
+
+.editor-props {
+  border-left: 1px solid var(--line);
+  padding: 0.75rem;
+  overflow-y: auto;
+  max-height: calc(100dvh - 10rem);
+  background: color-mix(in srgb, var(--panel) 95%, white);
+}
+
+.pass-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.1rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+}
+
+.pass-badge.ok {
+  background: color-mix(in srgb, var(--ok) 18%, white);
+  color: var(--ok);
+}
+
+.pass-badge.fail {
+  background: #fde8e8;
+  color: #8b2e2e;
+}
+
+.editor-modebar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.35rem;
+  padding: 0.5rem 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--ink) 88%, var(--accent-2));
+  color: #eef3f6;
+}
+
+.editor-modebar .mode-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  border-radius: 2px;
+  text-align: left;
+}
+
+.editor-modebar .mode-step:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.editor-modebar .mode-step.is-active {
+  background: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 70%, white);
+}
+
+.editor-mode-hint {
+  flex: 1;
+  min-width: 180px;
+  font-size: 0.78rem;
+  color: #b8c8d0;
+  padding: 0.35rem 0.5rem;
+  align-self: center;
+}
+
+.editor-panel-dim {
+  opacity: 0.45;
+  pointer-events: none;
+  max-height: 12rem;
+  overflow: hidden;
+}
+
+.workflow-banner {
+  border-left: 3px solid var(--accent);
+  background: #2a3842;
+  color: #c5d4dc;
+  padding: 0.45rem 0.75rem;
+  font-size: 0.82rem;
+}
+
+/* ——— Dark CAD editor shell (project routes only) ——— */
+main:has(.cad-editor-root) {
+  padding: 0 !important;
+  max-width: none !important;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+body:has(.cad-editor-root) footer {
+  display: none;
+}
+
+body:has(.cad-editor-root) header {
+  background: #121c24;
+  border-bottom-color: #2a3842;
+  color: #e8eef2;
+}
+
+body:has(.cad-editor-root) header a.display {
+  color: #f0f4f6;
+}
+
+body:has(.cad-editor-root) header nav {
+  color: #b8c8d0;
+}
+
+.cad-editor-root {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 3.25rem);
+  width: 100%;
+}
+
+.cad-editor {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #141e26;
+  color: #e8eef2;
+}
+
+.cad-file-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0.65rem;
+  background: #0f171d;
+  border-bottom: 1px solid #2a3842;
+}
+
+.cad-file-bar .cad-project-input {
+  flex: 1;
+  min-width: 180px;
+  max-width: 420px;
+  background: #1a2832;
+  border: 1px solid #3d5563;
+  color: #fff;
+  padding: 0.4rem 0.65rem;
+  font-size: 1.05rem;
+  font-family: var(--font-display);
+}
+
+.cad-file-bar .cad-disclaimer {
+  font-size: 0.72rem;
+  color: #8fa3ad;
+  max-width: 280px;
+}
+
+.cad-ribbon {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0;
+  background: #1c2a34;
+  border-bottom: 2px solid #2a3842;
+}
+
+.cad-ribbon__mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.55rem 1.1rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: none;
+  border-right: 1px solid #2a3842;
+  background: transparent;
+  color: #b8c8d0;
+  cursor: pointer;
+}
+
+.cad-ribbon__mode:hover {
+  background: #243540;
+  color: #fff;
+}
+
+.cad-ribbon__mode.is-active {
+  background: linear-gradient(180deg, #c45c26 0%, #a34a1e 100%);
+  color: #fff;
+  box-shadow: inset 0 -2px 0 #ffd4b8;
+}
+
+.cad-ribbon__hint {
+  flex: 1;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.78rem;
+  color: #8fa3ad;
+  align-self: center;
+  min-width: 160px;
+}
+
+.cad-ribbon__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.65rem;
+  border-left: 1px solid #2a3842;
+}
+
+.cad-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr) 288px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+@media (max-width: 1100px) {
+  .cad-body {
+    grid-template-columns: 1fr;
+  }
+}
+
+.cad-left,
+.cad-right {
+  background: #17222b;
+  border-color: #2a3842;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.cad-left {
+  border-right: 1px solid #2a3842;
+  padding: 0.65rem;
+}
+
+.cad-right {
+  border-left: 1px solid #2a3842;
+  padding: 0.65rem;
+}
+
+.cad-center {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  background: #0a1218;
+}
+
+.cad-tree-btn {
+  width: 100%;
+  text-align: left;
+  padding: 0.25rem 0.45rem;
+  border-radius: 2px;
+  font-size: 0.82rem;
+  color: #c5d4dc;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+}
+
+.cad-tree-btn:hover {
+  background: #243540;
+}
+
+.cad-tree-btn.is-storey-active {
+  background: #2a3842;
+  font-weight: 600;
+  color: #fff;
+}
+
+.cad-tree-btn.is-room-active {
+  color: #ffb088;
+  font-weight: 600;
+}
+
+.cad-section-title {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #8fa3ad;
+  margin: 0.65rem 0 0.35rem;
+}
+
+.cad-panel-hidden {
+  display: none !important;
+}
+
+.cad-props-card {
+  background: #1a2832;
+  border: 1px solid #3d5563;
+  padding: 0.65rem;
+  margin-bottom: 0.65rem;
+}
+
+.cad-props-card .input,
+.cad-props-card .select {
+  background: #12202a;
+  border-color: #3d5563;
+  color: #f0f4f6;
+}
+
+.cad-props-card .label {
+  color: #9fb0bb;
+}
+
+.cad-fixtures-table {
+  width: 100%;
+  font-size: 0.78rem;
+  border-collapse: collapse;
+}
+
+.cad-fixtures-table th {
+  text-align: left;
+  color: #8fa3ad;
+  font-weight: 600;
+  padding: 0.35rem;
+  border-bottom: 1px solid #2a3842;
+}
+
+.cad-fixtures-table td {
+  padding: 0.35rem;
+  border-bottom: 1px solid #243540;
+}
+
+.cad-fixtures-table tr.is-selected {
+  background: #2a3842;
+}
+
+.cad-results-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: 0.5rem 1.5rem;
+  padding: 0.55rem 0.85rem;
+  background: #0f171d;
+  border-top: 2px solid #c45c26;
+  min-height: 4.25rem;
+}
+
+.cad-results-strip__room {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 140px;
+}
+
+.cad-results-strip__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa3ad;
+}
+
+.cad-results-strip__room-name {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+
+.cad-results-strip__muted {
+  font-size: 0.78rem;
+  color: #8fa3ad;
+}
+
+.cad-results-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 1.75rem;
+  flex: 1;
+  align-items: center;
+}
+
+.cad-metric__label {
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #8fa3ad;
+}
+
+.cad-metric__assist {
+  margin-left: 0.35rem;
+  font-size: 0.6rem;
+  color: #6a858f;
+}
+
+.cad-metric__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  line-height: 1.1;
+}
+
+.cad-metric__sub {
+  font-size: 0.68rem;
+  color: #8fa3ad;
+}
+
+.cad-status-bar {
+  padding: 0.25rem 0.65rem;
+  font-size: 0.72rem;
+  color: #8fa3ad;
+  background: #0a1014;
+  border-top: 1px solid #243540;
+}
+
+.cad-editor .btn-secondary {
+  background: #243540;
+  border-color: #4a6270;
+  color: #e8eef2;
+}
+
+.cad-editor .btn-secondary:hover {
+  background: #2f4552;
+}
+
+.cad-editor .pass-badge.ok {
+  background: #1e3d2e;
+  color: #7dcea0;
+}
+
+.cad-editor .pass-badge.fail {
+  background: #4a2525;
+  color: #f5a5a5;
+}
+
+.cad-viewport-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 0.35rem;
+}
+
+.cad-viewport-wrap .panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  border-color: #2a3842;
+  background: #0a1218;
+}
+
+/* Dual-thumb false-colour scale under the 3D window: long, short, interactive. */
+.falsecolor-range {
+  position: absolute;
+  left: 0;
+  top: -10px;
+  width: 100%;
+  margin: 0;
+  height: 18px;
+  background: transparent;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+.falsecolor-range::-webkit-slider-runnable-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-moz-range-track {
+  height: 18px;
+  background: transparent;
+  border: none;
+}
+.falsecolor-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  margin-top: 1px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  box-shadow: 0 0 0 1px rgba(15, 28, 36, 0.35);
+  cursor: ew-resize;
+}
+.falsecolor-range::-moz-range-thumb {
+  pointer-events: auto;
+  width: 10px;
+  height: 16px;
+  border-radius: 2px;
+  background: #f5f7f8;
+  border: 1px solid #1b2a33;
+  cursor: ew-resize;
+}
+.falsecolor-range:focus-visible::-webkit-slider-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}
+.falsecolor-range:focus-visible::-moz-range-thumb {
+  outline: 2px solid #c45c26;
+  outline-offset: 1px;
+}
+
+/* Header account / sign-out: visible on light marketing header and dark project header.
+   Uses currentColor + transparent fill so a dark header cannot produce a white pill
+   with light text (the earlier false-colour control contrast bug). */
+.nav-account-btn,
+.nav-signout {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid currentColor;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+}
+.nav-account-btn {
+  padding: 0.2rem 0.45rem;
+  font-size: 0.875rem;
+  max-width: 16rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.nav-signout {
+  opacity: 0.95;
+}
+.nav-account-btn:hover,
+.nav-signout:hover {
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  transform: none;
+}
+.account-popover {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 0.45rem);
+  z-index: 80;
+  width: 17.5rem;
+  padding: 0.85rem;
+  background: #f7fafb;
+  color: #12202a;
+  border: 1px solid #c5d0d6;
+  box-shadow: 0 8px 24px rgba(15, 28, 36, 0.28);
+  border-radius: 2px;
+}
+.account-popover__title {
+  margin: 0 0 0.15rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #5a6b76;
+}
+.account-popover__email {
+  margin: 0 0 0.75rem;
+  font-size: 0.82rem;
+  word-break: break-all;
+}
+.account-popover__label {
+  display: block;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #5a6b76;
+  margin-bottom: 0.3rem;
+}
+.account-popover__select {
+  width: 100%;
+  border: 1px solid #c5d0d6;
+  background: #fff;
+  color: #12202a;
+  padding: 0.4rem 0.5rem;
+  font: inherit;
+  margin-bottom: 0.35rem;
+}
+.account-popover__hint {
+  margin: 0 0 0.75rem;
+  font-size: 0.72rem;
+  color: #5a6b76;
+  line-height: 1.35;
+}
+.account-popover .nav-signout {
+  color: #12202a;
+  border-color: #12202a;
+}
+
+.cad-file-bar__status {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f0f4f6;
+  background: #1a2832;
+  border: 1px solid #4a6270;
+  padding: 0.28rem 0.55rem;
+  max-width: 28rem;
+  line-height: 1.3;
+}
+.cad-file-bar__status.is-busy {
+  border-color: #c45c26;
+  color: #ffd4b8;
+}
+.cad-file-bar__status.is-error {
+  border-color: #e07070;
+  color: #f5a5a5;
+  background: #4a2525;
+}
+.cad-file-bar__status.is-ok {
+  border-color: #2f6f4e;
+  color: #b7e0c8;
+}
+.cad-viewport-wrap .panel,
+.cad-viewport-wrap .panel > .relative {
+  background: #0a1218;
+}
+
+/* Admin console and workspace-members tables */
+.admin-shell {
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (max-width: 800px) {
+  .admin-shell {
+    grid-template-columns: 1fr;
+  }
+}
+.admin-nav__title {
+  margin: 0 0 0.6rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.admin-nav__link {
+  display: block;
+  padding: 0.4rem 0.65rem;
+  border-radius: 2px;
+  color: inherit;
+}
+.admin-nav__link:hover,
+.admin-nav__link--active {
+  background: color-mix(in srgb, var(--accent-2) 12%, white);
+  color: var(--accent-2);
+}
+.admin-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--line);
+  background: color-mix(in srgb, var(--panel) 92%, white);
+}
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.88rem;
+}
+.admin-table th,
+.admin-table td {
+  text-align: left;
+  padding: 0.55rem 0.7rem;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+}
+.admin-table th {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 700;
+  background: color-mix(in srgb, var(--bg) 70%, white);
+}
+.admin-table__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+.admin-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: rgba(15, 28, 36, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.admin-modal {
+  width: min(28rem, 100%);
+  color: var(--ink);
+}
+.admin-one-time-secret {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 1.05rem;
+  word-break: break-all;
+  background: #fff;
+  border: 1px dashed var(--line);
+  padding: 0.7rem 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+/* Admin traffic figures */
+.traffic-period-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+@media (max-width: 800px) {
+  .traffic-period-grid {
+    grid-template-columns: 1fr;
+  }
+}
+.traffic-period__title {
+  margin: 0 0 0.25rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.traffic-period__note {
+  margin: 0 0 1rem;
+  font-size: 0.88rem;
+  color: var(--muted);
+}
+.traffic-metric {
+  margin-bottom: 0.85rem;
+}
+.traffic-metric:last-child {
+  margin-bottom: 0;
+}
+.traffic-metric__value {
+  font-family: var(--font-display);
+  font-size: 2.4rem;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin: 0;
+}
+.traffic-metric__label {
+  margin: 0.15rem 0 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+}
+.traffic-bar {
+  display: block;
+  height: 0.45rem;
+  max-width: 100%;
+  min-width: 0;
+  background: color-mix(in srgb, var(--accent-2) 60%, white);
+  border-radius: 1px;
+}

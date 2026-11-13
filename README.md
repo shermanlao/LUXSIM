@@ -13,6 +13,8 @@ npm run dev
 
 Demo: `demo@luxsim.local` / `demo1234`
 
+The login page can reset a password by emailing a one-time code (not a link) to the registered address. SMTP settings are listed in `.env.example`.
+
 ## Workflow
 
 See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
@@ -20,7 +22,7 @@ See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 1. New project → import plan (optional) → draw rooms (click corners or L×W)  
 2. Upload IES/LDT into fixture list (does **not** auto-place)  
 3. Drag fixtures onto rooms (Top / Front / Side / 3D)  
-4. Calculate → export full PDF / `.luxsim` / DIALux pack  
+4. Calculate → export full PDF / `.luxsim` / **DIALux verification zip** (multi-room geometry + DXF + CSV)  
 
 ## Scripts
 
@@ -33,4 +35,4 @@ See [docs/EDITOR_WORKFLOW.md](docs/EDITOR_WORKFLOW.md).
 
 ## Docs
 
-[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md)
+[docs/MARKDOWN_INDEX.md](docs/MARKDOWN_INDEX.md) · [docs/ADMIN.md](docs/ADMIN.md)

@@ -1,26 +1,40 @@
 "use client";
 
 import dynamic from "next/dynamic";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
-  clipResultsToPolygon,
+  gridToFalseColorPngDataUrl,
+  defaultDisplay3d,
   findRoomAt,
+  fitOverviewCamera,
   initialMetersPerPixel,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  normalizeFalseColorScale,
+  projectLuxRange,
   rectPolygon,
-  roomToCalcOptions,
-  translatePolygon,
   underlayWorldSize,
   type Camera3dView,
+  type Display3dMode,
   type DxfEntity,
+  type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
   type Vec2,
   type ViewMode,
+  EN12464_TEMPLATES,
+  evaluateEn12464,
+  clampMf,
+  resolveMaintenanceFactor,
+  aggregateStoreyResults,
+  normalizeMfBreakdown,
+  DEFAULT_MF_BREAKDOWN,
+  WORKFLOW_MODES,
+  getDialuxPackWarnings,
+  type EditorWorkflowMode,
 } from "@luxsim/project-io";
 import {
   buildLuxsimProject,
@@ -28,24 +42,72 @@ import {
   exportLuxsimFile,
 } from "@/lib/exports-client";
 import { runSolverClient } from "@/lib/run-solver";
+import { prefixedId } from "@/lib/random-id";
+import { planFixtureArray } from "@/lib/arrange-array";
+import type { ArrayParams } from "@/lib/arrange-array";
+import {
+  writeFixtureInstances,
+  type WriteInstancesCalcDeps,
+} from "@/lib/write-instances";
+import { commitAcceptedRcpProposals } from "@/lib/rcp-commit";
+import { commitScheduleImport, type ScheduleImportRow } from "@/lib/schedule-csv";
+import {
+  focusActiveRoomAfterPlacement,
+  postPlaceCalcStatusSuffix,
+  runPostPlaceCalcForRooms,
+} from "@/lib/post-place-calc";
 import {
   patchProjectMinimal,
   projectPatchDiff,
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { useAccountSettings } from "@/components/AccountSettingsProvider";
+import {
+  calcStatusTone,
+  formatCalcCompleteStatus,
+  formatCalcEmptyError,
+  planCalcRooms,
+} from "@/lib/editor-calc-rooms";
+import {
+  createUndoStack,
+  editorUndoKeyAction,
+  isTypingField,
+} from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { EditorResultsStrip } from "./EditorResultsStrip";
+import { RcpDetectPanel } from "./RcpDetectPanel";
+import { FixtureArrayPanel } from "./FixtureArrayPanel";
+import { ScheduleImportPanel } from "./ScheduleImportPanel";
+import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
+import { Display3dToggle } from "./Display3dToggle";
+import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
+import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { HelpTip } from "@/components/HelpTip";
+import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
+import {
+  IconCalibrate,
+  IconDrawRoom,
+  IconRect,
+  IconSelect,
+  IconModeCalculation,
+  IconModeConstruction,
+  IconModeExport,
+  IconModeLight,
+  IconView3d,
+  IconViewElevation,
+  IconViewTop,
+} from "./EditorGlyphs";
 
 const BuildingScene3D = dynamic(
   () => import("./BuildingScene3D").then((m) => m.BuildingScene3D),
   {
     ssr: false,
     loading: () => (
-      <div className="h-[520px] bg-[#0f1c24] text-white/70 grid place-items-center">
+      <div className="h-full min-h-[240px] bg-[#0f1c24] text-white/70 grid place-items-center">
         Loading 3D…
       </div>
     ),
@@ -59,6 +121,9 @@ type LumRow = {
   originalName?: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 type AssetRow = {
@@ -69,7 +134,7 @@ type AssetRow = {
 };
 
 function nid(prefix: string) {
-  return `${prefix}_${crypto.randomUUID().slice(0, 8)}`;
+  return prefixedId(prefix);
 }
 
 /** Read native pixel size so plan underlays keep the import aspect ratio. */
@@ -124,6 +189,20 @@ export function BuildingEditor({
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [calcAfterPlace, setCalcAfterPlace] = useState(false);
+  const [arrayPreview, setArrayPreview] = useState<{ x: number; y: number; rotationDeg: number }[] | null>(
+    null
+  );
+  const [arrayApplying, setArrayApplying] = useState(false);
+  const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
+  const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
+  const [scheduleCommitting, setScheduleCommitting] = useState(false);
+  const [calcAfterSchedule, setCalcAfterSchedule] = useState(false);
+  const [rcpDetecting, setRcpDetecting] = useState(false);
+  const [rcpCommitting, setRcpCommitting] = useState(false);
+  const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
+  const [showRcpOverlay, setShowRcpOverlay] = useState(true);
+  const [selectedRcpId, setSelectedRcpId] = useState<string | null>(null);
   const [calibDist, setCalibDist] = useState("5");
   const [rectLenMm, setRectLenMm] = useState("6000");
   const [rectWidMm, setRectWidMm] = useState("4000");
@@ -143,13 +222,41 @@ export function BuildingEditor({
   const saveInFlight = useRef(false);
   const saveQueued = useRef(false);
 
+  const { autosaveMs, loaded: accountLoaded } = useAccountSettings();
+  const [calcTarget, setCalcTarget] = useState<"room" | "all" | null>(null);
+  const undoStackRef = useRef(
+    createUndoStack<{ name: string; scene: ProjectSceneV2; results: ResultsV2 }>(50)
+  );
+  const coalesceRef = useRef<string | null>(null);
+
+
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
   const activeRoom = scene.rooms.find((r) => r.id === scene.ui.activeRoomId) ?? null;
+  const activeStorey = scene.storeys.find((st) => st.id === scene.ui.activeStoreyId) ?? null;
+  const storeyAggregate = useMemo(
+    () =>
+      activeRoom
+        ? null
+        : aggregateStoreyResults(scene.rooms, results, scene.ui.activeStoreyId),
+    [activeRoom, scene.rooms, results, scene.ui.activeStoreyId]
+  );
   const activeResults = activeRoom ? results.byRoomId[activeRoom.id] ?? null : null;
+  const stripResults = activeResults ?? storeyAggregate?.results ?? null;
+  const en12464Check = useMemo(() => {
+    if (!activeRoom || !activeResults) return null;
+    return evaluateEn12464({
+      templateId: activeRoom.calc.en12464TemplateId,
+      maintenanceFactor: activeRoom.calc.maintenanceFactor,
+      mfBreakdown: activeRoom.calc.mfBreakdown,
+      taskResults: activeResults,
+    });
+  }, [activeRoom, activeResults]);
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
-  const underlayUrl = underlay
-    ? `/api/projects/${projectId}/assets/${underlay.assetId}/file`
+  const underlayDisplayAssetId =
+    underlay?.pageRasterAssetId ?? underlay?.assetId ?? null;
+  const underlayUrl = underlayDisplayAssetId
+    ? `/api/projects/${projectId}/assets/${underlayDisplayAssetId}/file`
     : null;
   const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
 
@@ -234,6 +341,20 @@ export function BuildingEditor({
     return data.photometric as PhotometricData;
   }
 
+  const writeCalcDeps = useCallback((): WriteInstancesCalcDeps => {
+    return {
+      ensurePhotometry,
+      getWatts: (luminaireId) => library.find((l) => l.id === luminaireId)?.watts,
+      runSolver: runSolverClient,
+    };
+  }, [library, photoCache]);
+
+  const luminaireNameMap = useCallback((): Record<string, string> => {
+    const names: Record<string, string> = {};
+    for (const l of library) names[l.id] = l.name;
+    return names;
+  }, [library]);
+
   useEffect(() => {
     for (const id of scene.fixtureLibraryIds) {
       if (!photoCache[id]) void ensurePhotometry(id);
@@ -252,6 +373,57 @@ export function BuildingEditor({
   }
 
   latestRef.current = { name, scene, results };
+
+  function snapshotNow() {
+    const latest = latestRef.current;
+    return {
+      name: latest.name,
+      scene: structuredClone(latest.scene),
+      results: structuredClone(latest.results),
+    };
+  }
+
+  function recordUndoFromLatest() {
+    undoStackRef.current.push(snapshotNow());
+  }
+
+  function applyEditorSnapshot(snap: {
+    name: string;
+    scene: ProjectSceneV2;
+    results: ResultsV2;
+  }) {
+    latestRef.current = snap;
+    setName(snap.name);
+    setScene(snap.scene);
+    setResults(snap.results);
+  }
+
+  function undoEdit() {
+    const next = undoStackRef.current.undo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Undid");
+  }
+
+  function redoEdit() {
+    const next = undoStackRef.current.redo(snapshotNow());
+    if (!next) return;
+    coalesceRef.current = null;
+    applyEditorSnapshot(next);
+    setStatus("Redid");
+  }
+
+  function beginCoalesce(key: string) {
+    if (coalesceRef.current === key) return;
+    recordUndoFromLatest();
+    coalesceRef.current = key;
+  }
+
+  function endCoalesce() {
+    coalesceRef.current = null;
+  }
+
 
   async function save(nextScene = scene, nextResults = results, nextName = name) {
     if (saveInFlight.current) {
@@ -283,13 +455,17 @@ export function BuildingEditor({
   }
 
   useEffect(() => {
+    if (!accountLoaded || !autosaveMs) return;
+    const current = snapshotProject(name, scene, results);
+    const toSave = sceneWithView(scene);
+    if (!projectPatchDiff(current, lastSavedRef.current, toSave, results)) return;
     const timer = window.setTimeout(() => {
       const latest = latestRef.current;
       void save(latest.scene, latest.results, latest.name);
-    }, 800);
+    }, autosaveMs);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- debounce on data only
-  }, [name, scene, results]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- idle timer on persistable data
+  }, [name, scene, results, autosaveMs, accountLoaded]);
 
   useEffect(() => {
     const flush = () => {
@@ -313,9 +489,24 @@ export function BuildingEditor({
     setRoomHeightMm(String(Math.round(mToMm(activeRoom.heightM))));
   }, [activeRoom?.id, activeRoom?.heightM]);
 
-  function patchScene(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+  function patchScene(
+    updater: (s: ProjectSceneV2) => ProjectSceneV2,
+    opts?: { recordUndo?: boolean; coalesce?: string }
+  ) {
+    if (opts?.recordUndo !== false) {
+      if (opts?.coalesce) beginCoalesce(opts.coalesce);
+      else if (coalesceRef.current !== "drag") {
+        recordUndoFromLatest();
+        coalesceRef.current = null;
+      }
+    }
     setScene((s) => updater(s));
   }
+
+  function patchSceneUi(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
+    patchScene(updater, { recordUndo: false });
+  }
+
 
   function addStorey() {
     const id = nid("storey");
@@ -365,6 +556,8 @@ export function BuildingEditor({
             interreflection: true,
             bounces: 2,
             computeUgr: true,
+            maintenanceFactor: activeRoom?.calc.maintenanceFactor ?? 0.8,
+            en12464TemplateId: activeRoom?.calc.en12464TemplateId ?? "",
           },
         },
       ],
@@ -381,21 +574,6 @@ export function BuildingEditor({
       return;
     }
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
-  }
-
-  function moveRoom(roomId: string, dx: number, dy: number) {
-    if (dx === 0 && dy === 0) return;
-    patchScene((s) => ({
-      ...s,
-      rooms: s.rooms.map((r) =>
-        r.id === roomId ? { ...r, polygon: translatePolygon(r.polygon, dx, dy) } : r
-      ),
-      instances: s.instances.map((i) =>
-        i.roomId === roomId
-          ? { ...i, position: { ...i.position, x: i.position.x + dx, y: i.position.y + dy } }
-          : i
-      ),
-    }));
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -448,34 +626,84 @@ export function BuildingEditor({
     }
     const lib = library.find((l) => l.id === luminaireId);
     const photo = photoCache[luminaireId];
-    const instanceId = nid("inst");
     const mountZ = z ?? room.heightM - 0.1;
+    void (async () => {
+      try {
+        const latest = latestRef.current;
+        const out = await writeFixtureInstances(
+          {
+            scene: latest.scene,
+            results: latest.results,
+            drafts: [
+              {
+                luminaireId,
+                storeyId: latest.scene.ui.activeStoreyId,
+                roomId: room.id,
+                name: lib?.name ?? photo?.description ?? "Fixture",
+                position: { x, y, z: mountZ },
+                rotationDeg: 0,
+              },
+            ],
+            options: {
+              runCalc: calcAfterPlace,
+              calcScope: "room",
+            },
+          },
+          writeCalcDeps()
+        );
+        const nextScene = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+        recordUndoFromLatest();
+        setScene(nextScene);
+        setResults(out.results);
+        setSelectedId(out.instanceIds[0] ?? null);
+        const calcNote = postPlaceCalcStatusSuffix(
+          {
+            results: out.results,
+            calcFailed: out.calcFailed ?? false,
+            missingLuminaireIds: out.missingLuminaireIds ?? [],
+            errorMessage: out.calcErrorMessage,
+          },
+          calcAfterPlace
+        );
+        setStatus(`Placed in ${room.name}${calcNote}`);
+        await save(nextScene, out.results, latest.name);
+      } catch (e) {
+        setStatus(e instanceof Error ? e.message : "Placement failed");
+      }
+    })();
+  }
+
+  function updateInstanceRotation(instanceId: string, rotationDeg: number) {
     patchScene((s) => ({
       ...s,
-      instances: [
-        ...s.instances,
-        {
-          instanceId,
-          luminaireId,
-          storeyId: s.ui.activeStoreyId,
-          roomId: room.id,
-          name: lib?.name ?? photo?.description ?? "Fixture",
-          position: { x, y, z: mountZ },
-          rotationDeg: 0,
-        },
-      ],
-      ui: { ...s.ui, activeRoomId: room.id },
+      instances: s.instances.map((i) =>
+        i.instanceId === instanceId ? { ...i, rotationDeg } : i
+      ),
     }));
-    setSelectedId(instanceId);
-    setResults((r) => {
-      const next = { ...r, byRoomId: { ...r.byRoomId } };
-      delete next.byRoomId[room.id];
-      return next;
-    });
-    setStatus(`Placed in ${room.name}`);
+    const inst = scene.instances.find((i) => i.instanceId === instanceId);
+    if (inst?.roomId) {
+      setResults((r) => {
+        const next = {
+          ...r,
+          byRoomId: { ...r.byRoomId },
+          wallsByRoomId: { ...(r.wallsByRoomId ?? {}) },
+        };
+        delete next.byRoomId[inst.roomId!];
+        delete next.wallsByRoomId[inst.roomId!];
+        return next;
+      });
+    }
   }
 
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
+    if (coalesceRef.current !== "drag") {
+      beginCoalesce("drag");
+      const end = () => {
+        if (coalesceRef.current === "drag") coalesceRef.current = null;
+        window.removeEventListener("mouseup", end);
+      };
+      window.addEventListener("mouseup", end);
+    }
     patchScene((s) => ({
       ...s,
       instances: s.instances.map((i) => {
@@ -516,6 +744,7 @@ export function BuildingEditor({
 
       if (data.ifcScene) {
         // Merge IFC storeys/rooms, keep fixture library
+        recordUndoFromLatest();
         setScene((s) => ({
           ...data.ifcScene,
           fixtureLibraryIds: s.fixtureLibraryIds,
@@ -528,16 +757,32 @@ export function BuildingEditor({
       }
 
       const asset = data.asset as AssetRow;
-      setAssets((a) => [asset, ...a]);
+      const rasterAsset = data.rasterAsset as AssetRow | null | undefined;
+      const raster = data.raster as
+        | {
+            widthPx: number;
+            heightPx: number;
+            rasterDpi: number;
+            pageCount: number;
+            pageIndex: number;
+          }
+        | null
+        | undefined;
+      setAssets((a) => [
+        ...(rasterAsset ? [rasterAsset] : []),
+        asset,
+        ...a,
+      ]);
       const meta = JSON.parse(asset.metaJson || "{}") as {
         entities?: DxfEntity[];
         widthPx?: number;
         heightPx?: number;
+        pageCount?: number;
       };
       const pixelSize =
         asset.kind === "image" ? await readImagePixelSize(file) : null;
-      const sourceWidthPx = pixelSize?.width ?? meta.widthPx;
-      const sourceHeightPx = pixelSize?.height ?? meta.heightPx;
+      let sourceWidthPx = pixelSize?.width ?? raster?.widthPx ?? meta.widthPx;
+      let sourceHeightPx = pixelSize?.height ?? raster?.heightPx ?? meta.heightPx;
       const metersPerUnit =
         sourceWidthPx && sourceHeightPx
           ? initialMetersPerPixel(sourceWidthPx, sourceHeightPx)
@@ -561,11 +806,24 @@ export function BuildingEditor({
             sourceHeightPx,
             orientationMigrated: true,
             dxfEntities: meta.entities,
+            pageIndex: raster?.pageIndex ?? 0,
+            pageRasterAssetId: rasterAsset?.id,
+            rasterDpi: raster?.rasterDpi,
+            pdfPageCount: raster?.pageCount ?? meta.pageCount,
           },
         ],
       }));
       if (asset.kind === "dwg") {
         setStatus(data.warnings?.[0] || "DWG stored — upload DXF for linework");
+      } else if (asset.kind === "pdf") {
+        const tip = data.warnings?.includes("PDF rasterized for display")
+          ? "PDF rasterized for display — use calibrate tool for scale"
+          : "PDF imported — use calibrate tool for scale";
+        setStatus(
+          data.warnings?.filter((w: string) => w !== "PDF rasterized for display").length
+            ? `${tip} (${data.warnings.filter((w: string) => w !== "PDF rasterized for display").join("; ")})`
+            : tip
+        );
       } else if (asset.kind === "image" && !(sourceWidthPx && sourceHeightPx)) {
         setStatus("Plan imported, but image size could not be read — re-import if distorted.");
       } else {
@@ -596,6 +854,60 @@ export function BuildingEditor({
       ui: { ...s.ui, tool: "select" },
     }));
     setStatus(`Calibrated: ${real} m across selection`);
+  }
+
+  async function setPdfUnderlayPage(pageIndex: number) {
+    if (!underlay || underlay.kind !== "pdf") return;
+    setUploading(true);
+    setStatus(null);
+    try {
+      const res = await fetch(
+        `/api/projects/${projectId}/assets/${underlay.assetId}/pdf-raster`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pageIndex }),
+        }
+      );
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "PDF page raster failed");
+        return;
+      }
+      const rasterAsset = data.rasterAsset as AssetRow;
+      const raster = data.raster as {
+        widthPx: number;
+        heightPx: number;
+        rasterDpi: number;
+        pageCount: number;
+        pageIndex: number;
+      };
+      setAssets((a) => [rasterAsset, ...a.filter((x) => x.id !== rasterAsset.id)]);
+      patchScene((s) => ({
+        ...s,
+        underlays: s.underlays.map((u) =>
+          u.id === underlay.id
+            ? {
+                ...u,
+                pageIndex: raster.pageIndex,
+                pageRasterAssetId: rasterAsset.id,
+                rasterDpi: raster.rasterDpi,
+                pdfPageCount: raster.pageCount,
+                sourceWidthPx: raster.widthPx,
+                sourceHeightPx: raster.heightPx,
+              }
+            : u
+        ),
+      }));
+      const extra = (data.warnings as string[] | undefined)?.join("; ");
+      setStatus(
+        extra
+          ? `PDF page ${raster.pageIndex + 1} rasterized — ${extra}`
+          : `PDF page ${raster.pageIndex + 1} rasterized for display`
+      );
+    } finally {
+      setUploading(false);
+    }
   }
 
   const persistUnderlaySourceSize = useCallback(
@@ -638,43 +950,248 @@ export function BuildingEditor({
   );
 
   async function runCalc(all: boolean) {
-    const rooms = all
-      ? scene.rooms
-      : scene.rooms.filter((r) => r.id === scene.ui.activeRoomId);
-    if (!rooms.length) {
-      setStatus("Select or create a room first");
+    const plan = planCalcRooms(scene, all);
+    if (!plan.ok) {
+      setStatus(formatCalcEmptyError(plan));
       return;
     }
+    setCalcTarget(all ? "all" : "room");
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
-      const nextByRoom = { ...results.byRoomId };
-      for (const room of rooms) {
-        const inst = scene.instances.filter((i) => i.roomId === room.id);
-        if (!inst.length) {
-          setStatus(`Room “${room.name}” has no fixtures`);
-          continue;
-        }
-        const photometry: Record<string, PhotometricData> = {};
-        const watts: Record<string, number | null | undefined> = {};
-        for (const i of inst) {
-          const p = await ensurePhotometry(i.luminaireId);
-          if (p) photometry[i.luminaireId] = p;
-          watts[i.luminaireId] = library.find((l) => l.id === i.luminaireId)?.watts;
-        }
-        const opts = roomToCalcOptions(room, inst, photometry, watts);
-        let calc = await runSolverClient(opts);
-        calc = clipResultsToPolygon(room, calc);
-        nextByRoom[room.id] = calc;
+      const calc = await runPostPlaceCalcForRooms(
+        scene,
+        results,
+        plan.roomIds,
+        writeCalcDeps(),
+        { luminaireNames: luminaireNameMap() }
+      );
+      if (calc.calcFailed) {
+        setStatus(calc.errorMessage ?? "Calculation failed / 計算失敗");
+        return;
       }
-      const nextResults = { version: 2 as const, byRoomId: nextByRoom };
-      setResults(nextResults);
-      setStatus("Calculation complete (client-side)");
-      await save(scene, nextResults, name);
+      recordUndoFromLatest();
+      setResults(calc.results);
+      const done = formatCalcCompleteStatus(plan.skippedEmpty, true);
+      setStatus(done);
+      await save(scene, calc.results, name);
+      setStatus(done);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
       setCalculating(false);
+      setCalcTarget(null);
+    }
+  }
+
+  async function runRcpDetect() {
+    if (!underlay?.pageRasterAssetId && underlay?.kind !== "image") {
+      setStatus("Import a rasterized PDF or image plan first");
+      return;
+    }
+    if (!underlay?.sourceWidthPx || !underlay.sourceHeightPx) {
+      setStatus("Plan raster size unknown — re-import the underlay");
+      return;
+    }
+    setRcpDetecting(true);
+    setRcpWarnings([]);
+    setStatus("Detecting fixture codes (local OCR)…");
+    try {
+      const res = await fetch(`/api/projects/${projectId}/rcp-detect`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ underlayId: underlay.id, allowCloud: false }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setStatus(data.error || "Detect failed");
+        return;
+      }
+      patchScene((s) => ({ ...s, rcpProposals: data.proposals ?? [] }));
+      setRcpWarnings(data.warnings ?? []);
+      setShowRcpOverlay(true);
+      const n = (data.proposals as unknown[])?.length ?? 0;
+      setStatus(n ? `Detected ${n} code proposal(s) (local OCR)` : "No codes detected — see warnings");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Detect failed");
+    } finally {
+      setRcpDetecting(false);
+    }
+  }
+
+  async function runRcpCommit(options: {
+    replaceExistingFromDetect: boolean;
+    calcAfterCommit: boolean;
+  }) {
+    setRcpCommitting(true);
+    try {
+      const latest = latestRef.current;
+      const out = await commitAcceptedRcpProposals(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          proposals: latest.scene.rcpProposals ?? [],
+          rules: latest.scene.fixtureCodeMap ?? [],
+          luminaireNames: codeMapLuminaireNames,
+          options: {
+            replaceExistingFromDetect: options.replaceExistingFromDetect,
+            runCalc: options.calcAfterCommit,
+            calcScope: "room",
+          },
+        },
+        writeCalcDeps()
+      );
+      recordUndoFromLatest();
+      setScene(out.scene);
+      setResults(out.results);
+      if (out.instanceIds.length === 0) {
+        setStatus(
+          out.skippedOutside.length
+            ? `No fixtures placed — ${out.skippedOutside.length} outside room`
+            : "Nothing to commit"
+        );
+        return;
+      }
+      let msg = `Committed ${out.instanceIds.length} fixture(s) from RCP / 已提交 ${out.instanceIds.length} 個燈具`;
+      if (out.skippedOutside.length) {
+        msg += ` · skipped ${out.skippedOutside.length} outside room`;
+      }
+      if (options.calcAfterCommit && out.calcFailed) {
+        msg += out.calcErrorMessage
+          ? ` · ${out.calcErrorMessage}`
+          : " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+      } else if (options.calcAfterCommit) {
+        msg += " · calculated / 已計算";
+      }
+      setStatus(msg);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      await save(out.scene, out.results, latest.name);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Commit failed");
+    } finally {
+      setRcpCommitting(false);
+    }
+  }
+
+  async function runScheduleCommit(options: { calcAfterCommit: boolean }) {
+    setScheduleCommitting(true);
+    try {
+      const latest = latestRef.current;
+      const out = await commitScheduleImport(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          rows: scheduleRows,
+          luminaireNames: luminaireNameMap(),
+          runCalc: options.calcAfterCommit,
+        },
+        writeCalcDeps()
+      );
+      if (out.blockedReason) {
+        setStatus(out.blockedReason);
+        return;
+      }
+      recordUndoFromLatest();
+      setScene(out.scene);
+      setResults(out.results);
+      if (out.instanceIds.length === 0) {
+        setStatus(
+          out.skippedOutside.length
+            ? `No fixtures placed — ${out.skippedOutside.length} outside room`
+            : "Nothing to commit"
+        );
+        return;
+      }
+      let msg = `Schedule import: ${out.instanceIds.length} fixture(s) / 已匯入 ${out.instanceIds.length} 個燈具`;
+      if (out.skippedOutside.length) {
+        msg += ` · skipped ${out.skippedOutside.length} outside`;
+      }
+      if (options.calcAfterCommit && out.calcFailed) {
+        msg += out.calcErrorMessage
+          ? ` · ${out.calcErrorMessage}`
+          : " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+      } else if (options.calcAfterCommit) {
+        msg += " · calculated / 已計算";
+      }
+      setStatus(msg);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      await save(out.scene, out.results, latest.name);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Schedule commit failed");
+    } finally {
+      setScheduleCommitting(false);
+    }
+  }
+
+  async function applyFixtureArray(params: ArrayParams, luminaireId: string) {
+    if (!activeRoom) {
+      setStatus("Select a room for the array");
+      return;
+    }
+    const plan = planFixtureArray(activeRoom, params);
+    if (!plan.inside.length) {
+      setStatus("No array points inside room — adjust spacing or wall offset");
+      return;
+    }
+    if (plan.skippedOutside > 0) {
+      const ok = window.confirm(
+        `${plan.skippedOutside} point(s) fall outside the room and will be skipped. Place ${plan.inside.length} fixture(s)?`
+      );
+      if (!ok) return;
+    }
+
+    const lib = library.find((l) => l.id === luminaireId);
+    const photo = photoCache[luminaireId];
+    const mountZ = activeRoom.heightM - 0.1;
+    const drafts = plan.inside.map((p) => ({
+      luminaireId,
+      storeyId: scene.ui.activeStoreyId,
+      roomId: activeRoom.id,
+      name: lib?.name ?? photo?.description ?? "Fixture",
+      position: { x: p.x, y: p.y, z: mountZ },
+      rotationDeg: p.rotationDeg,
+    }));
+
+    setArrayApplying(true);
+    try {
+      const latest = latestRef.current;
+      const out = await writeFixtureInstances(
+        {
+          scene: latest.scene,
+          results: latest.results,
+          drafts,
+          options: {
+            runCalc: calcAfterPlace,
+            calcScope: "room",
+          },
+        },
+        writeCalcDeps()
+      );
+      const nextScene = focusActiveRoomAfterPlacement(out.scene, out.affectedRoomIds);
+      setScene(nextScene);
+      setResults(out.results);
+      setArrayPreview(null);
+      setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      const calcNote = postPlaceCalcStatusSuffix(
+        {
+          results: out.results,
+          calcFailed: out.calcFailed ?? false,
+          missingLuminaireIds: out.missingLuminaireIds ?? [],
+          errorMessage: out.calcErrorMessage,
+        },
+        calcAfterPlace
+      );
+      const estimateNote = params.estimateByTargetEm
+        ? " · Estimate only — run Calc for final Ēm / 估算 — 請用 Calc 確認"
+        : "";
+      setStatus(
+        `Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${calcNote}${estimateNote}`
+      );
+      await save(nextScene, out.results, latest.name);
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Array apply failed");
+    } finally {
+      setArrayApplying(false);
     }
   }
 
@@ -686,12 +1203,58 @@ export function BuildingEditor({
     }
     const wattsById: Record<string, number | null | undefined> = {};
     for (const l of library) wattsById[l.id] = l.watts;
+    const falseColorSnapshots: Record<string, string> = {};
+    for (const room of scene.rooms) {
+      const res = results.byRoomId[room.id];
+      if (!res) continue;
+      const snap = gridToFalseColorPngDataUrl(room, res);
+      if (snap) falseColorSnapshots[room.id] = snap;
+    }
+    let projectPerspectiveGreyscale: string | undefined;
+    let projectPerspectiveFalseColor: string | undefined;
+    let persp3dGreyscale: Record<string, string> | undefined;
+    let persp3dFalseColor: Record<string, string> | undefined;
+    try {
+      if (webglCaptureAvailable()) {
+        const views = renderAllReport3dViews({
+          scene,
+          results,
+          photometry,
+          overviewCamera: fitOverviewCamera(scene),
+        });
+        projectPerspectiveGreyscale = views.projectGreyscale;
+        projectPerspectiveFalseColor = views.projectFalseColor;
+        persp3dGreyscale = views.roomGreyscale;
+        persp3dFalseColor = views.roomFalseColor;
+      }
+    } catch (err) {
+      console.warn("3D report capture failed", err);
+      setStatus("3D views could not be captured; the rest of the report was exported.");
+    }
+    let website: string | undefined;
+    try {
+      const siteRes = await fetch("/api/site");
+      if (siteRes.ok) {
+        const site = (await siteRes.json()) as { reportWebsite?: string };
+        const trimmed = site.reportWebsite?.trim();
+        if (trimmed) website = trimmed;
+      }
+    } catch {
+      // Export still succeeds if the public site info cannot be loaded.
+    }
     const doc = buildFullReportPdf({
       projectName: name,
       scene,
       results,
       photometry,
       wattsById,
+      falseColorSnapshots,
+      projectPerspectiveGreyscale,
+      projectPerspectiveFalseColor,
+      persp3dGreyscale,
+      persp3dFalseColor,
+      luxsimVersion: "0.1.0",
+      website,
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
   }
@@ -701,7 +1264,95 @@ export function BuildingEditor({
     [library, scene.fixtureLibraryIds]
   );
 
+  const arrayLuminaireOptions = useMemo(
+    () =>
+      projectFixtures.map((l) => ({
+        id: l.id,
+        name: l.name,
+        fluxLm: l.lumens ?? photoCache[l.id]?.luminousFlux ?? null,
+      })),
+    [projectFixtures, photoCache]
+  );
+
+  const codeMapLuminaires = useMemo(() => {
+    return library
+      .filter((l) => scene.fixtureLibraryIds.includes(l.id))
+      .map((l) => ({
+        id: l.id,
+        name: l.name,
+        originalName: l.originalName ?? null,
+        catalogNumber: photoCache[l.id]?.catalogNumber ?? null,
+      }));
+  }, [library, scene.fixtureLibraryIds, photoCache]);
+
+  const codeMapLuminaireNames = useMemo(() => {
+    const names: Record<string, string> = {};
+    for (const l of codeMapLuminaires) names[l.id] = l.name;
+    return names;
+  }, [codeMapLuminaires]);
+
+  async function onExportDialuxVerification() {
+    const toExport = sceneWithView(scene);
+    const warnings = getDialuxPackWarnings(toExport, results);
+    const blocking = warnings.filter((w) => w.code === "no_rooms" || w.code === "open_contour");
+    if (blocking.length) {
+      setStatus(blocking.map((w) => w.message).join(" "));
+      return;
+    }
+    for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
+    const names: Record<string, string> = {};
+    for (const l of library) names[l.id] = l.name;
+    await exportDialuxPack({
+      projectName: name,
+      scene: toExport,
+      results,
+      sourceFiles: sourceCache,
+      luminaireNames: names,
+    });
+    const soft = warnings.filter((w) => w.code !== "dialux_general").map((w) => w.message);
+    setStatus(
+      soft.length
+        ? `Verification zip downloaded. Note: ${soft[0]}`
+        : "DIALux verification zip downloaded — see README.txt in the zip."
+    );
+  }
+
+  const workflow: EditorWorkflowMode = scene.ui.workflowMode ?? "construction";
+  const workflowMeta = WORKFLOW_MODES.find((m) => m.id === workflow)!;
+
+  function setWorkflowMode(mode: EditorWorkflowMode) {
+    patchSceneUi((s) => {
+      let ui = { ...s.ui, workflowMode: mode };
+      if (mode === "light" && !s.ui.activeRoomId) {
+        const first = s.rooms.find((r) => r.storeyId === s.ui.activeStoreyId);
+        if (first) ui = { ...ui, activeRoomId: first.id };
+      }
+      if (mode === "light" || mode === "calculation" || mode === "export") {
+        ui = { ...ui, tool: "select" };
+      }
+      return { ...s, ui };
+    });
+    if (mode === "light" && !activeRoom) {
+      setStatus("Light mode: select a room in the building tree (space view) to place fixtures.");
+    }
+  }
+
+  const modeIcons: Record<EditorWorkflowMode, ReactElement> = {
+    construction: <IconModeConstruction className="w-4 h-4" />,
+    light: <IconModeLight className="w-4 h-4" />,
+    calculation: <IconModeCalculation className="w-4 h-4" />,
+    export: <IconModeExport className="w-4 h-4" />,
+  };
+
   const viewMode = scene.ui.viewMode;
+
+  const viewTabs: { mode: ViewMode; label: string; icon: ReactElement }[] = [
+    { mode: "top", label: "Top", icon: <IconViewTop /> },
+    { mode: "bottom", label: "Bottom", icon: <IconViewTop /> },
+    { mode: "front", label: "Front", icon: <IconViewElevation /> },
+    { mode: "side", label: "Side", icon: <IconViewElevation /> },
+    { mode: "persp3d", label: "3D", icon: <IconView3d /> },
+  ];
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -717,17 +1368,62 @@ export function BuildingEditor({
     };
   }, [fullscreen]);
 
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const action = editorUndoKeyAction(e, isTypingField(e.target));
+      if (!action) return;
+      e.preventDefault();
+      if (action === "undo") undoEdit();
+      else redoEdit();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+
+  const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const luxRange = projectLuxRange(results);
+  const autoScale = useMemo(
+    () => normalizeFalseColorScale(luxRange.emin, luxRange.emax),
+    [luxRange.emin, luxRange.emax]
+  );
+  const [scale, setScale] = useState<FalseColorScale>(autoScale);
+  const [scalePinned, setScalePinned] = useState(false);
+  useEffect(() => {
+    if (!scalePinned) setScale(autoScale);
+  }, [autoScale, scalePinned]);
+
   const viewport = (
-    <div className={fullscreen ? "fixed inset-0 z-[100] bg-[#0f1c24]" : "panel relative overflow-hidden"}>
+    <div
+      className={
+        fullscreen
+          ? "fixed inset-0 z-[100] bg-[#0f1c24] flex flex-col"
+          : "panel relative overflow-hidden flex-1 min-h-0 bg-[#0a1218] border-[#2a3842] flex flex-col"
+      }
+    >
+      {viewMode === "persp3d" && (
+        <div className="absolute top-3 left-3 z-10">
+          <Display3dToggle
+            value={display3d}
+            onChange={(mode) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, display3d: mode },
+              }))
+            }
+          />
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
-          className="btn btn-secondary !py-1.5 !px-3 !text-xs !bg-white/90"
+          className="btn btn-secondary !py-1.5 !px-3 !text-xs"
           onClick={() => setFullscreen((v) => !v)}
         >
           {fullscreen ? "Exit fullscreen" : "Fullscreen"}
         </button>
       </div>
+      <div className="relative flex-1 min-h-0 bg-[#0a1218]">
       {(viewMode === "top" || viewMode === "bottom") && (
         <TopView2D
           scene={scene}
@@ -736,18 +1432,22 @@ export function BuildingEditor({
           dxfEntities={dxfEntities}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
-          onMoveRoom={moveRoom}
           onSelectRoom={(roomId) =>
-            patchScene((s) => ({
+            patchSceneUi((s) => ({
               ...s,
               ui: { ...s.ui, activeRoomId: roomId },
             }))
           }
           onCalibratePoints={onCalibrate}
           onUnderlaySourceSize={persistUnderlaySourceSize}
+          arrayPreview={arrayPreview ?? undefined}
+          rcpProposals={scene.rcpProposals ?? []}
+          showRcpOverlay={showRcpOverlay && workflow === "light"}
+          selectedRcpId={selectedRcpId}
         />
       )}
       {viewMode === "front" && (
@@ -756,6 +1456,7 @@ export function BuildingEditor({
           mode="front"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -779,6 +1480,7 @@ export function BuildingEditor({
           mode="side"
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, a, z) => {
             const room = activeRoom ?? scene.rooms.find((r) => r.storeyId === scene.ui.activeStoreyId);
             if (!room) {
@@ -797,102 +1499,150 @@ export function BuildingEditor({
       {viewMode === "persp3d" && (
         <BuildingScene3D
           scene={scene}
-          results={activeResults}
+          results={results}
+          display3d={display3d}
           selectedId={selectedId}
           onSelect={setSelectedId}
+          photometry={photoCache}
           onDropLuminaire={(id, x, y, z) => placeAt(id, x, y, z)}
-          className={fullscreen ? "h-screen" : "h-[520px]"}
+          className="h-full"
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           onUnderlaySourceSize={persistUnderlaySourceSize}
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
+          falseColorScale={scale}
         />
       )}
-      {fullscreen && (
-        <div className="absolute bottom-4 left-4 z-10 w-72">
-          <FalseColorLegend results={activeResults} />
-        </div>
+      </div>
+      {viewMode === "persp3d" && display3d === "falsecolor" && (
+        <FalseColorLegend
+          emin={autoScale.minLux}
+          emax={autoScale.maxLux}
+          results={activeResults}
+          scale={scale}
+          onChange={(next) => {
+            setScalePinned(true);
+            setScale(next);
+          }}
+          onReset={() => {
+            setScalePinned(false);
+            setScale(autoScale);
+          }}
+          layout="bar"
+          tone="dark"
+        />
       )}
     </div>
   );
 
   return (
-    <div className="w-full px-4 py-6 space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div className="flex-1 min-w-[220px]">
-          <label className="label" htmlFor="projectName">
-            Project
-          </label>
-          <input
-            id="projectName"
-            className="input display text-2xl !py-2"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 items-center">
-          <button className="btn btn-secondary" disabled={saving} onClick={() => void save()}>
-            {saving ? "Saving…" : "Save now"}
+    <div className="cad-editor">
+      <header className="cad-file-bar">
+        <span className="text-[10px] uppercase tracking-widest text-[#8fa3ad] shrink-0">Project</span>
+        <input
+          id="projectName"
+          className="cad-project-input"
+          value={name}
+          onChange={(e) => {
+            beginCoalesce("name");
+            setName(e.target.value);
+          }}
+          onBlur={endCoalesce}
+          aria-label="Project name"
+        />
+        <p className="cad-disclaimer hidden lg:block">
+          Design assist · not tender-certified · verify in DIALux
+        </p>
+        <div className="flex flex-wrap gap-2 items-center ml-auto">
+          <button type="button" className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
+            {saving ? "Saving…" : "Save"}
           </button>
-          <span className="text-[10px] text-[var(--muted)]">Autosaves after you pause</span>
           <button
-            className="btn btn-secondary"
+            type="button"
+            className="btn btn-secondary !text-xs"
             disabled={calculating}
             onClick={() => void runCalc(false)}
           >
-            Calc room
+            {calculating && calcTarget === "room" ? "Calculating…" : "Calc room"}
           </button>
-          <button className="btn btn-accent" disabled={calculating} onClick={() => void runCalc(true)}>
-            {calculating ? "Calculating…" : "Calc all"}
+          <button
+            type="button"
+            className="btn btn-accent !text-xs"
+            disabled={calculating}
+            onClick={() => void runCalc(true)}
+          >
+            {calculating && calcTarget !== "room" ? "Calculating…" : "Calc all"}
           </button>
+          {status && (
+            <span
+              className={`cad-file-bar__status${calcStatusTone(status, calculating) ? ` is-${calcStatusTone(status, calculating)}` : ""}`}
+              role="status"
+              aria-live="polite"
+            >
+              {status}
+            </span>
+          )}
         </div>
-      </div>
+      </header>
 
-      <p className="disclaimer">
-        Multi-storey design assist. Upload fixtures to the list, then drag onto a room. Not
-        tender-certified.
-      </p>
+      <nav className="cad-ribbon" role="tablist" aria-label="Workflow mode">
+        {WORKFLOW_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="tab"
+            aria-selected={workflow === m.id}
+            className={`cad-ribbon__mode ${workflow === m.id ? "is-active" : ""}`}
+            onClick={() => setWorkflowMode(m.id)}
+          >
+            {modeIcons[m.id]}
+            {m.label}
+          </button>
+        ))}
+        <span className="cad-ribbon__hint">{workflowMeta.hint}</span>
+      </nav>
 
-      <div className="grid lg:grid-cols-[280px_1fr_300px] gap-4">
-        {/* Left: building + import */}
-        <aside className="panel p-4 space-y-3 self-start max-h-[85vh] overflow-y-auto">
-          <h2 className="font-semibold">Building</h2>
+      {workflow === "light" && !activeRoom && (
+        <p className="workflow-banner">Select a room in the building tree — luminaires need a closed space.</p>
+      )}
+
+      <div className="cad-body">
+        <aside className="cad-left space-y-1">
+          <p className="cad-section-title">Building</p>
           <button className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
             Add storey
           </button>
-          <ul className="space-y-1 text-sm">
+          <ul className="space-y-0.5">
             {scene.storeys.map((st) => (
               <li key={st.id}>
                 <button
                   type="button"
-                  className={`w-full text-left px-2 py-1 rounded ${
-                    st.id === scene.ui.activeStoreyId ? "bg-[#e8eef2] font-medium" : ""
+                  className={`cad-tree-btn ${
+                    st.id === scene.ui.activeStoreyId ? "is-storey-active" : ""
                   }`}
                   onClick={() =>
-                    patchScene((s) => ({
+                    patchSceneUi((s) => ({
                       ...s,
                       ui: { ...s.ui, activeStoreyId: st.id, activeRoomId: null },
                     }))
                   }
                 >
                   {st.name}{" "}
-                  <span className="text-[var(--muted)] text-xs">
-                    ({st.elevationM.toFixed(1)} m)
-                  </span>
+                  <span className="text-[#8fa3ad] text-xs">({st.elevationM.toFixed(1)} m)</span>
                 </button>
-                <ul className="ml-3 border-l border-[var(--line)] pl-2">
+                <ul className="ml-2 border-l border-[#3d5563] pl-1">
                   {scene.rooms
                     .filter((r) => r.storeyId === st.id)
                     .map((r) => (
                       <li key={r.id}>
                         <button
                           type="button"
-                          className={`w-full text-left text-xs py-0.5 ${
-                            r.id === scene.ui.activeRoomId ? "text-[var(--accent)]" : ""
+                          className={`cad-tree-btn text-xs ${
+                            r.id === scene.ui.activeRoomId ? "is-room-active" : ""
                           }`}
                           onClick={() =>
-                            patchScene((s) => ({
+                            patchSceneUi((s) => ({
                               ...s,
                               ui: {
                                 ...s.ui,
@@ -911,59 +1661,29 @@ export function BuildingEditor({
             ))}
           </ul>
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="font-semibold text-sm">Room height</h3>
-              <HelpTip helpKey="tool.roomHeight" />
-            </div>
-            <label className="label" htmlFor="roomHeightMm">
-              Height (mm)
-            </label>
-            <input
-              id="roomHeightMm"
-              className="input"
-              type="number"
-              min={500}
-              step={100}
-              data-help-key="tool.roomHeight"
-              value={roomHeightMm}
-              onChange={(e) => {
-                const raw = e.target.value;
-                setRoomHeightMm(raw);
-                const next = Number(raw) / 1000;
-                if (!(next >= 0.5) || !activeRoom) return;
-                const roomId = activeRoom.id;
-                patchScene((s) => ({
-                  ...s,
-                  rooms: s.rooms.map((r) =>
-                    r.id === roomId ? { ...r, heightM: next } : r
-                  ),
-                }));
-              }}
-            />
-            <p className="text-[10px] text-[var(--muted)]">
-              Applies to the selected room and to the next room you draw or create.
-            </p>
-          </div>
-
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <h3 className="font-semibold text-sm">Tools</h3>
+          <div
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "construction" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <h3 className="font-semibold text-sm text-white/95">Tools</h3>
             {(
               [
-                ["select", "Select / move", null],
-                ["drawRoom", "Draw room", "tool.drawRoom"],
-                ["calibrate", "Calibrate scale", null],
+                ["select", "Select / move", null, IconSelect] as const,
+                ["drawRoom", "Draw room", "tool.drawRoom", IconDrawRoom] as const,
+                ["calibrate", "Calibrate scale", null, IconCalibrate] as const,
               ] as const
-            ).map(([tool, label, helpKey]) => (
+            ).map(([tool, label, helpKey, Icon]) => (
               <div key={tool} className="flex items-center gap-1">
                 <button
                   type="button"
                   data-help-key={helpKey ?? undefined}
-                  className={`btn w-full !text-xs ${
+                  className={`btn w-full !text-xs justify-start ${
                     scene.ui.tool === tool ? "btn-accent" : "btn-secondary"
                   }`}
-                  onClick={() => patchScene((s) => ({ ...s, ui: { ...s.ui, tool } }))}
+                  onClick={() => patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }))}
                 >
+                  <Icon className="w-4 h-4 shrink-0 opacity-90" />
                   {label}
                 </button>
                 {helpKey && <HelpTip helpKey={helpKey} />}
@@ -1008,19 +1728,24 @@ export function BuildingEditor({
               <button
                 type="button"
                 data-help-key="tool.drawRect"
-                className="btn btn-secondary w-full !text-xs"
+                className="btn btn-secondary w-full !text-xs justify-start"
                 onClick={createRectRoom}
               >
+                <IconRect className="w-4 h-4 shrink-0 opacity-90" />
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using Room height. Select / move to drag it.
+                Places a rectangle at 0, 0 using Room height. Rooms cannot be dragged.
               </p>
             </div>
           </div>
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <h3 className="font-semibold text-sm">Import plan</h3>
+          <div
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "construction" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Import plan</p>
             <input
               ref={planRef}
               className="input text-xs"
@@ -1054,89 +1779,75 @@ export function BuildingEditor({
                 />
               </div>
             )}
+            {underlay?.kind === "pdf" && (underlay.pdfPageCount ?? 0) > 1 && (
+              <div>
+                <label className="label">PDF page</label>
+                <select
+                  className="select !text-xs"
+                  value={underlay.pageIndex ?? 0}
+                  disabled={uploading}
+                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}
+                >
+                  {Array.from({ length: underlay.pdfPageCount ?? 1 }, (_, i) => (
+                    <option key={i} value={i}>
+                      Page {i + 1}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+            {underlay?.kind === "pdf" && underlay.rasterDpi && (
+              <p className="text-[10px] text-[#8fa3ad]">
+                Raster {underlay.sourceWidthPx}×{underlay.sourceHeightPx}px @{" "}
+                {underlay.rasterDpi} DPI
+              </p>
+            )}
           </div>
 
-          <FalseColorLegend results={activeResults} />
         </aside>
 
-        {/* Center */}
-        <div className="space-y-3">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["top", "Top"],
-                ["bottom", "Bottom"],
-                ["front", "Front"],
-                ["side", "Side"],
-                ["persp3d", "3D"],
-              ] as const
-            ).map(([mode, label]) => (
+        <section className="cad-center">
+          <div className="editor-viewbar">
+            {viewTabs.map(({ mode, label, icon }) => (
               <button
                 key={mode}
                 type="button"
-                className={`btn !py-1.5 !px-3 !text-xs ${
-                  viewMode === mode ? "btn-accent" : "btn-secondary"
-                }`}
+                className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
                 onClick={() =>
-                  patchScene((s) => ({
+                  patchSceneUi((s) => ({
                     ...s,
                     ui: {
                       ...s.ui,
-                      viewMode: mode as ViewMode,
-                      // Keep last 3D orbit when leaving / returning to persp3d
+                      viewMode: mode,
                       camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
                     },
                   }))
                 }
               >
+                {icon}
                 {label}
               </button>
             ))}
           </div>
 
-          {viewport}
+          <div className="cad-viewport-wrap">
+            {viewport}
+          </div>
 
-          {activeResults && (
-            <div className="panel p-4 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-              <Stat label="Eave" value={`${activeResults.summary.eave.toFixed(0)} lx`} />
-              <Stat
-                label="Emin / Uo"
-                value={`${activeResults.summary.emin.toFixed(0)} / ${activeResults.summary.uo.toFixed(2)}`}
-              />
-              <Stat
-                label="UGR"
-                value={
-                  activeResults.summary.ugr != null
-                    ? activeResults.summary.ugr.toFixed(1)
-                    : "—"
-                }
-              />
-              <Stat
-                label="LPD"
-                value={
-                  activeResults.summary.lpd != null
-                    ? `${activeResults.summary.lpd.toFixed(2)} W/m²`
-                    : "—"
-                }
-              />
-            </div>
-          )}
-
-          <div className="panel overflow-hidden">
-            <div className="px-4 py-3 border-b border-[var(--line)] flex justify-between">
-              <h2 className="font-semibold text-sm">Fixtures in project</h2>
-              <span className="text-xs text-[var(--muted)]">
-                {scene.instances.length} placed
-              </span>
-            </div>
-            <table className="w-full text-sm">
-              <thead className="bg-[#eef3f6] text-left text-xs text-[var(--muted)]">
+          <div
+            className={`px-2 pb-2 max-h-40 overflow-auto ${
+              workflow !== "light" && workflow !== "calculation" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Fixtures in project ({scene.instances.length})</p>
+            <table className="cad-fixtures-table">
+              <thead>
                 <tr>
-                  <th className="p-2">#</th>
-                  <th className="p-2">Name</th>
-                  <th className="p-2">Room</th>
-                  <th className="p-2">Pos</th>
-                  <th className="p-2" />
+                  <th>#</th>
+                  <th>Name</th>
+                  <th>Room</th>
+                  <th>Pos</th>
+                  <th />
                 </tr>
               </thead>
               <tbody>
@@ -1145,22 +1856,22 @@ export function BuildingEditor({
                   return (
                     <tr
                       key={inst.instanceId}
-                      className={`border-t border-[var(--line)] cursor-pointer ${
-                        inst.instanceId === selectedId ? "bg-orange-50" : ""
+                      className={`cursor-pointer ${
+                        inst.instanceId === selectedId ? "is-selected" : ""
                       }`}
                       onClick={() => setSelectedId(inst.instanceId)}
                     >
-                      <td className="p-2">{idx + 1}</td>
-                      <td className="p-2">{inst.name}</td>
-                      <td className="p-2">{room?.name ?? "—"}</td>
-                      <td className="p-2 text-xs tabular-nums">
+                      <td>{idx + 1}</td>
+                      <td>{inst.name}</td>
+                      <td>{room?.name ?? "—"}</td>
+                      <td className="tabular-nums text-[#8fa3ad]">
                         {inst.position.x.toFixed(1)}, {inst.position.y.toFixed(1)},{" "}
                         {inst.position.z.toFixed(1)}
                       </td>
-                      <td className="p-2 text-right">
+                      <td className="text-right">
                         <button
                           type="button"
-                          className="text-xs text-red-700"
+                          className="text-xs text-[#f5a5a5]"
                           onClick={(e) => {
                             e.stopPropagation();
                             patchScene((s) => ({
@@ -1180,82 +1891,253 @@ export function BuildingEditor({
                 })}
                 {!scene.instances.length && (
                   <tr>
-                    <td colSpan={5} className="p-4 text-[var(--muted)]">
-                      Drag fixtures from the list onto a room.
+                    <td colSpan={5} className="text-[#8fa3ad] py-2">
+                      Drag fixtures from the library onto a room.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </div>
+        </section>
 
-        {/* Right: fixtures */}
-        <aside className="panel p-4 space-y-3 self-start max-h-[85vh] overflow-y-auto">
-          <h2 className="font-semibold">Fixture library</h2>
-          <div className="space-y-2 rounded border border-dashed border-[var(--line)] p-3">
-            <label className="label">Upload IES / LDT</label>
-            <input
-              ref={fileRef}
-              className="input text-xs"
-              type="file"
-              accept=".ies,.ldt"
-              disabled={uploading}
-              onChange={(e) => void onUploadPhotometry(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-[10px] text-[var(--muted)]">
-              Adds to list only — drag to place on the plan.
-            </p>
-          </div>
-
-          <div>
-            <label className="label">Add from org library</label>
-            <select
-              className="select"
-              defaultValue=""
-              onChange={(e) => {
-                addFromLibrary(e.target.value);
-                e.target.value = "";
-              }}
+        <aside className="cad-right space-y-2">
+          <p className="cad-section-title">Properties</p>
+          {activeRoom ? (
+            <div
+              className={`cad-props-card space-y-2 ${
+                workflow !== "construction" && workflow !== "calculation" ? "cad-panel-hidden" : ""
+              }`}
             >
-              <option value="">Select…</option>
-              {library.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-          </div>
-
-          <ul className="space-y-2">
-            {projectFixtures.map((lum) => (
-              <li
-                key={lum.id}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData("application/x-luxsim-luminaire", lum.id);
-                  e.dataTransfer.effectAllowed = "copy";
+              <p className="text-xs font-semibold">{activeRoom.name}</p>
+              <div className="flex items-center justify-between">
+                <label className="label mb-0" htmlFor="roomHeightMm">
+                  Height (mm)
+                </label>
+                <HelpTip helpKey="tool.roomHeight" />
+              </div>
+              <input
+                id="roomHeightMm"
+                className="input"
+                type="number"
+                min={500}
+                step={100}
+                data-help-key="tool.roomHeight"
+                value={roomHeightMm}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  setRoomHeightMm(raw);
+                  const next = Number(raw) / 1000;
+                  if (!(next >= 0.5)) return;
+                  const roomId = activeRoom.id;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === roomId ? { ...r, heightM: next } : r
+                    ),
+                  }));
                 }}
-                className="border border-[var(--line)] p-2 bg-white cursor-grab active:cursor-grabbing"
-              >
-                <div className="text-sm font-medium">{lum.name}</div>
-                <div className="text-[10px] text-[var(--muted)] mb-1">
-                  {lum.lumens ? Math.round(lum.lumens) : "—"} lm ·{" "}
-                  {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
+              />
+              <label className="label">Workplane (m)</label>
+              <input
+                className="input"
+                type="number"
+                step={0.05}
+                min={0}
+                value={activeRoom.workplaneHeightM}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (!Number.isFinite(next)) return;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id ? { ...r, workplaneHeightM: next } : r
+                    ),
+                  }));
+                }}
+              />
+              {(["floor", "ceiling", "walls"] as const).map((face) => (
+                <div key={face}>
+                  <label className="label">ρ {face}</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step={0.05}
+                    min={0}
+                    max={1}
+                    value={activeRoom.reflectance[face]}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      patchScene((s) => ({
+                        ...s,
+                        rooms: s.rooms.map((r) =>
+                          r.id === activeRoom.id
+                            ? {
+                                ...r,
+                                reflectance: { ...r.reflectance, [face]: v },
+                              }
+                            : r
+                        ),
+                      }));
+                    }}
+                  />
                 </div>
-                {photoCache[lum.id] && (
-                  <PolarPreview photo={photoCache[lum.id]!} size={120} />
-                )}
-              </li>
-            ))}
-            {!projectFixtures.length && (
-              <li className="text-xs text-[var(--muted)]">No fixtures in project yet.</li>
-            )}
-          </ul>
+              ))}
+              <label className="label">Grid spacing (m)</label>
+              <input
+                className="input"
+                type="number"
+                step={0.1}
+                min={0.2}
+                value={activeRoom.calc.gridSpacing}
+                onChange={(e) => {
+                  const v = Number(e.target.value);
+                  if (!(v >= 0.2)) return;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id
+                        ? { ...r, calc: { ...r.calc, gridSpacing: v } }
+                        : r
+                    ),
+                  }));
+                }}
+              />
+              <div className="flex items-center justify-between gap-1">
+                <label className="label mb-0">Maintenance factor (CIE 97)</label>
+                <HelpTip helpKey="room.maintenanceFactor" />
+              </div>
+              {(
+                [
+                  ["llmf", "LLMF (lamp lumen)"],
+                  ["lsf", "LSF (luminaire surface)"],
+                  ["lmf", "LMF (lamp survival)"],
+                  ["rsmf", "RSMF (room surfaces)"],
+                ] as const
+              ).map(([key, lbl]) => {
+                const bd = normalizeMfBreakdown(activeRoom.calc.mfBreakdown);
+                return (
+                  <div key={key}>
+                    <label className="label">{lbl}</label>
+                    <input
+                      className="input"
+                      type="number"
+                      step={0.01}
+                      min={0.5}
+                      max={1}
+                      value={bd[key]}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        if (!Number.isFinite(v)) return;
+                        patchScene((s) => ({
+                          ...s,
+                          rooms: s.rooms.map((r) => {
+                            if (r.id !== activeRoom.id) return r;
+                            const nextBd = normalizeMfBreakdown({
+                              ...r.calc.mfBreakdown,
+                              ...bd,
+                              [key]: v,
+                            });
+                            const resolved = resolveMaintenanceFactor({
+                              mfBreakdown: nextBd,
+                              useBreakdown: true,
+                            });
+                            return {
+                              ...r,
+                              calc: {
+                                ...r.calc,
+                                mfBreakdown: nextBd,
+                                maintenanceFactor: resolved.mf,
+                              },
+                            };
+                          }),
+                        }));
+                      }}
+                    />
+                  </div>
+                );
+              })}
+              <p className="text-[10px] text-[var(--muted)]">
+                Product MF{" "}
+                <strong>
+                  {resolveMaintenanceFactor({
+                    maintenanceFactor: activeRoom.calc.maintenanceFactor,
+                    mfBreakdown: activeRoom.calc.mfBreakdown,
+                  }).mf.toFixed(3)}
+                </strong>{" "}
+                (LLMF×LSF×LMF×RSMF, clamped 0.5–1). Used for maintained EN checks only — solver uses initial output.
+              </p>
+              <details className="text-xs">
+                <summary className="cursor-pointer text-[var(--muted)]">Override overall MF</summary>
+                <input
+                  className="input mt-1"
+                  type="number"
+                  step={0.05}
+                  min={0.5}
+                  max={1}
+                  data-help-key="room.maintenanceFactor"
+                  value={clampMf(activeRoom.calc.maintenanceFactor)}
+                  onChange={(e) => {
+                    const v = clampMf(Number(e.target.value));
+                    patchScene((s) => ({
+                      ...s,
+                      rooms: s.rooms.map((r) =>
+                        r.id === activeRoom.id
+                          ? { ...r, calc: { ...r.calc, maintenanceFactor: v, mfBreakdown: undefined } }
+                          : r
+                      ),
+                    }));
+                  }}
+                />
+              </details>
+              <div className="flex items-center justify-between gap-1">
+                <label className="label mb-0">EN 12464-1 assist</label>
+                <HelpTip helpKey="room.en12464" />
+              </div>
+              <select
+                className="select"
+                data-help-key="room.en12464"
+                value={activeRoom.calc.en12464TemplateId ?? ""}
+                onChange={(e) => {
+                  const id = e.target.value;
+                  patchScene((s) => ({
+                    ...s,
+                    rooms: s.rooms.map((r) =>
+                      r.id === activeRoom.id
+                        ? { ...r, calc: { ...r.calc, en12464TemplateId: id } }
+                        : r
+                    ),
+                  }));
+                }}
+              >
+                {EN12464_TEMPLATES.map((t) => (
+                  <option key={t.id || "none"} value={t.id}>
+                    {t.label}
+                  </option>
+                ))}
+              </select>
+              {en12464Check && (
+                <div className="text-xs space-y-1 pt-1 border-t border-[var(--line)]">
+                  <p className="text-[var(--muted)]">Maintained Ēm {en12464Check.maintainedEave.toFixed(0)} lx</p>
+                  <PassRow label="Task Em" check={en12464Check.checks.taskEm} />
+                  <PassRow label="Task Uo" check={en12464Check.checks.taskUo} />
+                  <PassRow label="Surr. Em" check={en12464Check.checks.surroundingEm} />
+                  <PassRow label="UGR" check={en12464Check.checks.ugr} />
+                </div>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets.</p>
+          )}
 
           {selected && (
-            <div className="border-t border-[var(--line)] pt-3 space-y-2">
-              <p className="text-xs uppercase text-[var(--muted)]">Selected</p>
+            <div
+              className={`cad-props-card space-y-2 ${
+                workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
+              }`}
+            >
+              <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
               <input
                 className="input"
                 value={selected.name}
@@ -1297,11 +2179,198 @@ export function BuildingEditor({
                   />
                 </div>
               ))}
+              <div>
+                <label className="label">Rotation (°)</label>
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    type="number"
+                    step={1}
+                    value={selected.rotationDeg}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      updateInstanceRotation(selected.instanceId, v);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-secondary !px-2 !text-xs"
+                    onClick={() =>
+                      updateInstanceRotation(selected.instanceId, selected.rotationDeg - 90)
+                    }
+                  >
+                    −90°
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary !px-2 !text-xs"
+                    onClick={() =>
+                      updateInstanceRotation(selected.instanceId, selected.rotationDeg + 90)
+                    }
+                  >
+                    +90°
+                  </button>
+                </div>
+                <p className="text-[10px] text-[var(--muted)] mt-1">
+                  Arrow on Top view shows photometric rotation (IES C0 = +X at 0°).
+                </p>
+              </div>
             </div>
           )}
 
-          <div className="border-t border-[var(--line)] pt-3 space-y-2">
-            <h3 className="font-semibold text-sm">Export</h3>
+          {workflow === "light" && (
+            <RcpDetectPanel
+              disabled={!underlay || (!underlay.pageRasterAssetId && underlay.kind !== "image")}
+              detecting={rcpDetecting}
+              proposals={scene.rcpProposals ?? []}
+              codeMapRules={scene.fixtureCodeMap ?? []}
+              luminaireNames={codeMapLuminaireNames}
+              selectedId={selectedRcpId}
+              onSelectId={setSelectedRcpId}
+              onProposalsChange={(next) => patchScene((s) => ({ ...s, rcpProposals: next }))}
+              showOverlay={showRcpOverlay}
+              onShowOverlayChange={setShowRcpOverlay}
+              onDetect={() => void runRcpDetect()}
+              lastWarnings={rcpWarnings}
+              scene={scene}
+              committing={rcpCommitting}
+              onCommit={(opts) => runRcpCommit(opts)}
+            />
+          )}
+
+          {workflow === "light" && (
+            <ScheduleImportPanel
+              room={activeRoom}
+              rooms={scene.rooms.filter((r) => r.storeyId === scene.ui.activeStoreyId)}
+              storeyId={scene.ui.activeStoreyId}
+              codeMapRules={scene.fixtureCodeMap ?? []}
+              luminaireNames={codeMapLuminaireNames}
+              rows={scheduleRows}
+              onRowsChange={setScheduleRows}
+              parseErrors={scheduleParseErrors}
+              onParseErrorsChange={setScheduleParseErrors}
+              calcAfterCommit={calcAfterSchedule}
+              onCalcAfterCommitChange={setCalcAfterSchedule}
+              committing={scheduleCommitting}
+              onCommit={(opts) => void runScheduleCommit(opts)}
+            />
+          )}
+
+          {workflow === "light" && (
+            <FixtureCodeMapPanel
+              rules={scene.fixtureCodeMap ?? []}
+              luminaires={codeMapLuminaires}
+              onChange={(rules) => patchScene((s) => ({ ...s, fixtureCodeMap: rules }))}
+            />
+          )}
+
+          {workflow === "light" && (
+            <FixtureArrayPanel
+              room={activeRoom}
+              luminaires={arrayLuminaireOptions}
+              preview={arrayPreview}
+              onPreviewChange={setArrayPreview}
+              calcAfterPlace={calcAfterPlace}
+              onCalcAfterPlaceChange={setCalcAfterPlace}
+              applying={arrayApplying}
+              onApply={(params, luminaireId) => void applyFixtureArray(params, luminaireId)}
+              onCancel={() => setArrayPreview(null)}
+            />
+          )}
+
+          <div
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Fixture library</p>
+          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
+            <label className="label">Upload IES / LDT</label>
+            <input
+              ref={fileRef}
+              className="input text-xs"
+              type="file"
+              accept=".ies,.ldt"
+              disabled={uploading}
+              onChange={(e) => void onUploadPhotometry(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-[10px] text-[var(--muted)]">
+              Adds to list only — drag to place on the plan.
+            </p>
+          </div>
+
+          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
+            <GenerateLdtForm
+              compact
+              tone="cad"
+              onCreated={async (lum, photometric) => {
+                await loadLibrary();
+                setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
+                patchScene((s) => ({
+                  ...s,
+                  fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
+                    ? s.fixtureLibraryIds
+                    : [...s.fixtureLibraryIds, lum.id],
+                }));
+                setStatus(`Generated “${lum.name}” and added to project fixture list (not placed)`);
+              }}
+            />
+          </div>
+
+          <div>
+            <label className="label">Add from org library</label>
+            <select
+              className="select"
+              defaultValue=""
+              onChange={(e) => {
+                addFromLibrary(e.target.value);
+                e.target.value = "";
+              }}
+            >
+              <option value="">Select…</option>
+              {library.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {luminaireListLabel(l.name, l)}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <ul className="space-y-2">
+            {projectFixtures.map((lum) => (
+              <li
+                key={lum.id}
+                draggable
+                onDragStart={(e) => {
+                  e.dataTransfer.setData("application/x-luxsim-luminaire", lum.id);
+                  e.dataTransfer.effectAllowed = "copy";
+                }}
+                className="border border-[#3d5563] p-2 bg-[#243540] cursor-grab active:cursor-grabbing rounded-sm"
+              >
+                <div className="text-sm font-medium">{lum.name}</div>
+                <div className="text-[10px] text-[var(--muted)] mb-1">
+                  {libraryConeLabel(lum) ? `${libraryConeLabel(lum)} · ` : ""}
+                  {lum.lumens ? Math.round(lum.lumens) : "—"} lm ·{" "}
+                  {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
+                </div>
+                {photoCache[lum.id] && (
+                  <PolarPreview photo={photoCache[lum.id]!} size={120} />
+                )}
+              </li>
+            ))}
+            {!projectFixtures.length && (
+              <li className="text-xs text-[var(--muted)]">No fixtures in project yet.</li>
+            )}
+          </ul>
+          </div>
+
+          <div
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "export" ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Documentation &amp; export</p>
             <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
               Full PDF report
             </button>
@@ -1327,62 +2396,80 @@ export function BuildingEditor({
               Save .luxsim
             </button>
             <button
-              className="btn btn-secondary w-full"
-              onClick={async () => {
-                for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
-                const names: Record<string, string> = {};
-                for (const l of library) names[l.id] = l.name;
-                await exportDialuxPack({
-                  projectName: name,
-                  scene: {
-                    version: 1,
-                    room: {
-                      width: 8,
-                      depth: 6,
-                      height: 2.8,
-                      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
-                      workplaneHeight: 0.75,
-                    },
-                    gridSpacing: 0.5,
-                    luminaires: scene.instances.map((i) => ({
-                      instanceId: i.instanceId,
-                      luminaireId: i.luminaireId,
-                      name: i.name,
-                      position: i.position,
-                      rotationDeg: i.rotationDeg,
-                    })),
-                    calcOptions: {
-                      interreflection: true,
-                      bounces: 2,
-                      computeUgr: true,
-                    },
-                  },
-                  sourceFiles: sourceCache,
-                  luminaireNames: names,
-                });
-              }}
+              className="btn btn-accent w-full"
+              data-help-key="export.dialuxVerification"
+              onClick={() => void onExportDialuxVerification()}
             >
-              DIALux pack (zip)
+              DIALux verification (zip)
             </button>
+            <p className="text-[10px] text-[var(--muted)]">
+              Multi-room geometry, IES/LDT, DXF, and results CSV for desktop DIALux cross-check.
+            </p>
           </div>
         </aside>
       </div>
 
-      {status && <p className="text-sm text-[var(--muted)]">{status}</p>}
-      {assets.length > 0 && (
-        <p className="text-xs text-[var(--muted)]">
-          Assets: {assets.map((a) => a.fileName).join(", ")}
-        </p>
-      )}
+      <EditorResultsStrip
+        results={stripResults}
+        en12464Check={activeRoom ? en12464Check : null}
+        maintenanceFactor={
+          activeRoom
+            ? resolveMaintenanceFactor({
+                maintenanceFactor: activeRoom.calc.maintenanceFactor,
+                mfBreakdown: activeRoom.calc.mfBreakdown,
+              }).mf
+            : storeyAggregate?.maintenanceFactor ?? 0.8
+        }
+        roomName={activeRoom?.name ?? activeStorey?.name ?? null}
+        scope={activeRoom ? "room" : activeStorey ? "storey" : "room"}
+      />
+
+      <div className="cad-status-bar">
+        {status || "Autosave after idle · Ctrl+Z undo · Top view: drop fixtures into rooms"}
+        {assets.length > 0 && (
+          <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
+        )}
+      </div>
     </div>
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function PassRow({
+  label,
+  check,
+}: {
+  label: string;
+  check: { pass: boolean | null; target: number | null; actual: number | null; note?: string };
+}) {
+  if (check.pass === null && check.target == null && !check.note) return null;
+  const detail =
+    check.actual != null && check.target != null
+      ? label.includes("Uo")
+        ? `${check.actual.toFixed(2)} / ${check.target}`
+        : label.includes("UGR")
+          ? `${check.actual.toFixed(1)} / ${check.target}`
+          : `${check.actual.toFixed(0)} / ${check.target} lx`
+      : check.target != null
+        ? `target ${check.target}${label.includes("UGR") ? "" : " lx"}`
+        : "";
+  if (check.pass === null) {
+    return (
+      <div className="flex flex-col gap-0.5 text-[var(--muted)]">
+        <span>
+          {label} {detail && `(${detail})`} — not evaluated
+        </span>
+        {check.note && <span className="text-[10px]">{check.note}</span>}
+      </div>
+    );
+  }
   return (
-    <div>
-      <div className="label">{label}</div>
-      <div className="text-lg font-semibold">{value}</div>
+    <div className="flex items-center justify-between gap-2">
+      <span>
+        {label} {detail && <span className="text-[var(--muted)]">({detail})</span>}
+      </span>
+      <span className={`pass-badge ${check.pass ? "ok" : "fail"}`}>
+        {check.pass ? "pass" : "fail"}
+      </span>
     </div>
   );
 }

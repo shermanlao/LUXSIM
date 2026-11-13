@@ -1,27 +1,40 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
-import type { SceneJson } from "@luxsim/project-io";
+import type { Display3dMode, FalseColorScale, SceneJson } from "@luxsim/project-io";
+import { normalizeFalseColorScale } from "@luxsim/project-io";
 import { RoomScene, type CameraViewState } from "./RoomScene";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { Display3dToggle } from "./Display3dToggle";
 
 export function SceneViewer({
   scene,
   results,
   selectedId,
   onSelect,
+  photometry,
 }: {
   scene: SceneJson;
   results: CalcResults | null;
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  photometry?: Record<string, import("@luxsim/photometry").PhotometricData>;
 }) {
   const [fullscreen, setFullscreen] = useState(false);
-  /** Survives layout mode changes; Canvas is NOT remounted so orbit stays live */
+  const [display3d, setDisplay3d] = useState<Display3dMode>(results ? "falsecolor" : "greyscale");
   const viewRef = useRef<CameraViewState | null>(null);
-  /** Only used if Canvas must remount — seed from last known view */
   const [seedView, setSeedView] = useState<CameraViewState | null>(null);
+  const autoScale = useMemo<FalseColorScale>(
+    () =>
+      normalizeFalseColorScale(results?.summary.emin ?? 56, results?.summary.emax ?? 500),
+    [results?.summary.emin, results?.summary.emax]
+  );
+  const [scale, setScale] = useState<FalseColorScale>(autoScale);
+  const [scalePinned, setScalePinned] = useState(false);
+  useEffect(() => {
+    if (!scalePinned) setScale(autoScale);
+  }, [autoScale, scalePinned]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -38,7 +51,6 @@ export function SceneViewer({
   }, [fullscreen]);
 
   function toggleFullscreen() {
-    // Snapshot current orbit before container size changes
     if (viewRef.current) setSeedView({ ...viewRef.current });
     setFullscreen((v) => !v);
   }
@@ -47,10 +59,13 @@ export function SceneViewer({
     <div
       className={
         fullscreen
-          ? "fixed inset-0 z-[100] bg-[#0f1c24]"
-          : "panel relative overflow-hidden"
+          ? "fixed inset-0 z-[100] bg-[#0f1c24] flex flex-col"
+          : "panel relative overflow-hidden flex flex-col"
       }
     >
+      <div className="absolute top-3 left-3 z-10">
+        <Display3dToggle value={display3d} onChange={setDisplay3d} />
+      </div>
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -63,26 +78,41 @@ export function SceneViewer({
       </div>
 
       {fullscreen && (
-        <p className="absolute top-3 left-3 z-10 text-xs text-white/70">
+        <p className="absolute top-3 left-3 z-10 mt-10 text-xs text-white/70">
           Esc to exit · orbit drag · scroll zoom
         </p>
       )}
 
-      {/* Same Canvas instance across modes — only the wrapper size changes */}
-      <RoomScene
-        scene={scene}
-        results={results}
-        selectedId={selectedId}
-        onSelect={onSelect}
-        className={fullscreen ? "h-screen w-screen" : "h-[520px] w-full"}
-        viewRef={viewRef}
-        initialView={seedView}
-      />
+      <div className={fullscreen ? "relative flex-1 min-h-0" : "relative h-[520px] w-full"}>
+        <RoomScene
+          scene={scene}
+          results={results}
+          display3d={display3d}
+          selectedId={selectedId}
+          onSelect={onSelect}
+          className="h-full w-full"
+          viewRef={viewRef}
+          initialView={seedView}
+          photometry={photometry}
+          falseColorScale={scale}
+        />
+      </div>
 
-      {fullscreen && (
-        <div className="absolute bottom-4 left-4 z-10 w-[min(320px,calc(100vw-2rem))] shadow-lg">
-          <FalseColorLegend results={results} />
-        </div>
+      {display3d === "falsecolor" && (
+        <FalseColorLegend
+          results={results}
+          scale={scale}
+          onChange={(next) => {
+            setScalePinned(true);
+            setScale(next);
+          }}
+          onReset={() => {
+            setScalePinned(false);
+            setScale(autoScale);
+          }}
+          layout="bar"
+          tone="dark"
+        />
       )}
     </div>
   );
