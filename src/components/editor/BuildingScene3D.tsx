@@ -277,7 +277,12 @@ export function BuildingScene3D({
           );
         })}
 
-        <OrbitControls makeDefault target={startTarget.current} />
+        <OrbitControls
+          makeDefault
+          target={startTarget.current}
+          minPolarAngle={0.2}
+          maxPolarAngle={Math.PI / 2 - 0.05}
+        />
         <OrbitViewBridge
           viewRef={viewRef}
           initialView={startView}

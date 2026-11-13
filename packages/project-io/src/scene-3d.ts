@@ -161,12 +161,65 @@ export function editorRoomCamera(room: RoomV2, elevationM = 0): Camera3dView {
   return { position: view.position, target: view.target };
 }
 
+/** Minimum tilt from straight-down (radians) so world-up stays stable. */
+export const MIN_PLAN_POLAR = 0.2;
+/** When closer to top-down than this, keep the camera on the south side of the target. */
+export const PLAN_ALIGN_POLAR = 0.7;
+
+/** Straight-down poses are unstable: world-up is parallel to the view and the plan can invert. */
+export function isNearlyVerticalOrbit(view: Camera3dView, minHoriz = 0.2): boolean {
+  const dx = view.position[0] - view.target[0];
+  const dz = view.position[2] - view.target[2];
+  return Math.hypot(dx, dz) < minHoriz;
+}
+
 /**
- * A camera on or north of its target looks south, so the plan appears
+ * A camera on or north of its target, or almost straight down, shows the plan
  * upside-down versus Top view (north at the bottom of the frame).
  */
 export function isInvertedPlanOrbit(view: Camera3dView): boolean {
+  if (isNearlyVerticalOrbit(view)) return true;
   return view.position[2] >= view.target[2];
+}
+
+/**
+ * Keep a near-plan 3D view aligned with Top: north toward the top, east to the right.
+ * Reflects a north-side top-down pose to the south and pushes a vertical pose south.
+ * Oblique views from the north (standing on that side) are left alone.
+ */
+export function enforcePlanAlignedOrbit(view: Camera3dView): Camera3dView {
+  const [px, py, pz] = view.position;
+  const [tx, ty, tz] = view.target;
+  let dx = px - tx;
+  let dy = py - ty;
+  let dz = pz - tz;
+  const height = Math.max(dy, 0.5);
+  let horiz = Math.hypot(dx, dz);
+  const minHoriz = Math.tan(MIN_PLAN_POLAR) * height;
+  if (horiz < minHoriz) {
+    dx = horiz < 1e-9 ? 0 : (dx / horiz) * minHoriz;
+    dz = horiz < 1e-9 ? -minHoriz : (dz / horiz) * minHoriz;
+    if (dz >= 0) {
+      dz = -Math.abs(dz) || -minHoriz;
+    }
+    horiz = Math.hypot(dx, dz);
+  }
+  const polar = Math.atan2(horiz, height);
+  if (polar < PLAN_ALIGN_POLAR && dz >= 0) {
+    dz = -Math.abs(dz) || -minHoriz;
+  }
+  const next: Camera3dView = {
+    position: [tx + dx, ty + height, tz + dz],
+    target: [tx, ty, tz],
+  };
+  if (
+    next.position[0] === px &&
+    next.position[1] === py &&
+    next.position[2] === pz
+  ) {
+    return view;
+  }
+  return next;
 }
 
 export function resolveEditorCamera(

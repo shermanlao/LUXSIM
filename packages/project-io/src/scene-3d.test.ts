@@ -3,10 +3,12 @@ import { rectPolygon } from "./geometry";
 import {
   defaultDisplay3d,
   editorRoomCamera,
+  enforcePlanAlignedOrbit,
   fitOverviewCamera,
   fitRoomCamera,
   isInvertedPlanOrbit,
   isLegacyNortheastOrbit,
+  isNearlyVerticalOrbit,
   projectLuxRange,
   resolveEditorCamera,
   storeyCenter,
@@ -167,5 +169,47 @@ describe("editor 3D camera orientation", () => {
     const cam = editorRoomCamera(room, 0);
     expect(cam.position[2]).toBeLessThan(cam.target[2]);
     expect(cam.up).toBeUndefined();
+  });
+
+  it("treats a nearly straight-down camera as inverted, even if z is only a hair north", () => {
+    const stored = {
+      position: [15.561325248151713, 7.693986271079127, 7.122988807276707] as [number, number, number],
+      target: [15.561325168717328, 1.1199999999999999, 7.122982233770362] as [number, number, number],
+    };
+    expect(isNearlyVerticalOrbit(stored)).toBe(true);
+    expect(isInvertedPlanOrbit(stored)).toBe(true);
+    const resolved = resolveEditorCamera(stored, sceneWithOffice());
+    expect(resolved.position[2]).toBeLessThan(resolved.target[2]);
+    const horiz = Math.hypot(
+      resolved.position[0] - resolved.target[0],
+      resolved.position[2] - resolved.target[2]
+    );
+    expect(horiz).toBeGreaterThan(0.2);
+  });
+
+  it("pushes a vertical camera south and reflects a north top-down pose, but keeps a south orbit", () => {
+    const vertical = {
+      position: [5, 8, 4] as [number, number, number],
+      target: [5, 1, 4] as [number, number, number],
+    };
+    const fixed = enforcePlanAlignedOrbit(vertical);
+    expect(fixed.position[2]).toBeLessThan(fixed.target[2]);
+    expect(
+      Math.hypot(fixed.position[0] - fixed.target[0], fixed.position[2] - fixed.target[2])
+    ).toBeGreaterThan(0.2);
+
+    const fromNorth = {
+      position: [5, 8, 6] as [number, number, number],
+      target: [5, 1, 4] as [number, number, number],
+    };
+    const reflected = enforcePlanAlignedOrbit(fromNorth);
+    expect(reflected.position[2]).toBeLessThan(reflected.target[2]);
+    expect(reflected.position[0]).toBe(fromNorth.position[0]);
+
+    const fromSouth = {
+      position: [1, 12, -20] as [number, number, number],
+      target: [3, 1, 2] as [number, number, number],
+    };
+    expect(enforcePlanAlignedOrbit(fromSouth)).toEqual(fromSouth);
   });
 });
