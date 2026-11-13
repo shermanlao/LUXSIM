@@ -14,7 +14,7 @@ import type {
   ProjectSceneV2,
   ResultsV2,
 } from "@luxsim/project-io";
-import { resolveEditorCamera, roomBounds } from "@luxsim/project-io";
+import { editorRoomCamera, resolveEditorCamera, roomBounds } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
@@ -145,17 +145,27 @@ export function BuildingScene3D({
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
-  const rooms = scene.rooms.filter((r) => r.storeyId === storeyId);
-  const instances = scene.instances.filter((i) => i.storeyId === storeyId);
-  const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
+  const isolateId = scene.ui.activeRoomId ?? null;
+  const rooms = scene.rooms.filter((r) => {
+    if (r.storeyId !== storeyId) return false;
+    return isolateId ? r.id === isolateId : true;
+  });
+  const instances = scene.instances.filter((i) => {
+    if (i.storeyId !== storeyId) return false;
+    return isolateId ? i.roomId === isolateId : true;
+  });
+  const underlay = isolateId ? undefined : scene.underlays.find((u) => u.storeyId === storeyId);
   const elev = storey?.elevationM ?? 0;
 
-  const startView = useMemo(
-    () => resolveEditorCamera(initialView ?? viewRef.current, scene, storeyId),
-    // Only seed the first pose; orbit is then owned by OrbitViewBridge.
+  const startView = useMemo(() => {
+    if (isolateId) {
+      const room = scene.rooms.find((r) => r.id === isolateId);
+      if (room) return editorRoomCamera(room, elev);
+    }
+    return resolveEditorCamera(initialView ?? viewRef.current, scene, storeyId);
+    // Reframe when the isolated room or storey changes; orbit is then owned by OrbitViewBridge.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scene, storeyId]
-  );
+  }, [storeyId, isolateId, elev]);
   const startPosition = useRef(startView.position);
   const startTarget = useRef(startView.target);
 
@@ -268,7 +278,11 @@ export function BuildingScene3D({
         })}
 
         <OrbitControls makeDefault target={startTarget.current} />
-        <OrbitViewBridge viewRef={viewRef} initialView={startView} />
+        <OrbitViewBridge
+          viewRef={viewRef}
+          initialView={startView}
+          frameKey={`${storeyId ?? ""}:${isolateId ?? ""}`}
+        />
       </Canvas>
     </div>
   );

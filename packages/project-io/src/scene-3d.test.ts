@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 import { rectPolygon } from "./geometry";
 import {
   defaultDisplay3d,
+  editorRoomCamera,
   fitOverviewCamera,
   fitRoomCamera,
+  isInvertedPlanOrbit,
   isLegacyNortheastOrbit,
   projectLuxRange,
   resolveEditorCamera,
@@ -138,12 +140,32 @@ describe("editor 3D camera orientation", () => {
     expect(isLegacyNortheastOrbit(resolved, center)).toBe(false);
   });
 
-  it("keeps a camera the user has actually orbited", () => {
+  it("keeps a camera the user has actually orbited from the south", () => {
     const scene = sceneWithOffice();
     const stored = {
       position: [1, 12, -20] as [number, number, number],
       target: [3, 1, 2] as [number, number, number],
     };
+    expect(isInvertedPlanOrbit(stored)).toBe(false);
     expect(resolveEditorCamera(stored, scene)).toEqual(stored);
+  });
+
+  it("replaces a stored camera that looks from the north, so the plan is not upside-down vs Top", () => {
+    const scene = sceneWithOffice();
+    const stored = {
+      position: [3, 12, 20] as [number, number, number],
+      target: [3, 1, 2] as [number, number, number],
+    };
+    expect(isInvertedPlanOrbit(stored)).toBe(true);
+    const resolved = resolveEditorCamera(stored, scene);
+    expect(resolved.position[2]).toBeLessThan(resolved.target[2]);
+    expect(resolved).not.toEqual(stored);
+  });
+
+  it("frames a selected room from the south without a plan-north up vector", () => {
+    const room = office();
+    const cam = editorRoomCamera(room, 0);
+    expect(cam.position[2]).toBeLessThan(cam.target[2]);
+    expect(cam.up).toBeUndefined();
   });
 });

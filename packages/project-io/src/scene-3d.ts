@@ -155,6 +155,20 @@ export function editorOverviewCamera(scene: ProjectSceneV2, storeyId?: string | 
   return { position: view.position, target: view.target };
 }
 
+/** Plan-aligned room framing for the editor (world-up, from the south). */
+export function editorRoomCamera(room: RoomV2, elevationM = 0): Camera3dView {
+  const view = fitRoomCamera(room, elevationM);
+  return { position: view.position, target: view.target };
+}
+
+/**
+ * A camera on or north of its target looks south, so the plan appears
+ * upside-down versus Top view (north at the bottom of the frame).
+ */
+export function isInvertedPlanOrbit(view: Camera3dView): boolean {
+  return view.position[2] >= view.target[2];
+}
+
 export function resolveEditorCamera(
   stored: Camera3dView | null | undefined,
   scene: ProjectSceneV2,
@@ -163,5 +177,6 @@ export function resolveEditorCamera(
   const fallback = editorOverviewCamera(scene, storeyId);
   if (!stored) return fallback;
   if (isLegacyNortheastOrbit(stored, storeyCenter(scene, storeyId))) return fallback;
+  if (isInvertedPlanOrbit(stored)) return fallback;
   return stored;
 }

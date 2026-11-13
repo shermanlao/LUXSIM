@@ -113,7 +113,9 @@ export {
   defaultDisplay3d,
   storeyCenter,
   isLegacyNortheastOrbit,
+  isInvertedPlanOrbit,
   editorOverviewCamera,
+  editorRoomCamera,
   resolveEditorCamera,
 } from "./scene-3d";
 
