@@ -25,7 +25,7 @@ export default async function ProjectsPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-10">
+    <div className="projects-list-shell mx-auto max-w-7xl px-4 py-10">
       <div className="flex flex-wrap items-end justify-between gap-4 mb-8">
         <div>
           <h1 className="display text-4xl mb-2">Projects</h1>

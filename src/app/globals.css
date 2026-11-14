@@ -359,6 +359,58 @@ body:has(.cad-editor-root) header nav {
   color: #b8c8d0;
 }
 
+/* ——— Dark CAD palette for the signed-in project list ——— */
+/* Hook lives only on /projects, not /projects/[id]. Do not use
+   .cad-editor-root here: that selector hides the LightX footer and
+   restyles the header for the editor. The list must keep the site
+   header and footer. Colours reuse the official CAD shell. */
+html:has(.projects-list-shell),
+body:has(.projects-list-shell) {
+  background: #141e26;
+}
+
+body:has(.projects-list-shell) header {
+  background: #121c24;
+  border-bottom-color: #2a3842;
+  color: #e8eef2;
+}
+
+body:has(.projects-list-shell) header a.display {
+  color: #f0f4f6;
+}
+
+body:has(.projects-list-shell) header nav {
+  color: #b8c8d0;
+}
+
+/* Footer stays visible on the list page. */
+body:has(.projects-list-shell) footer {
+  background: #121c24;
+  border-top-color: #2a3842;
+  color: #b8c8d0;
+}
+
+.projects-list-shell {
+  color: #e8eef2;
+  --ink: #e8eef2;
+  --muted: #b8c8d0;
+  --panel: #0a1218;
+  --line: #2a3842;
+  --bg: #141e26;
+}
+
+.projects-list-shell .panel {
+  background: #0a1218;
+  border-color: #2a3842;
+  color: #e8eef2;
+}
+
+.projects-list-shell .select {
+  background: #0a1218;
+  color: #e8eef2;
+  border-color: #2a3842;
+}
+
 .cad-editor-root {
   flex: 1;
   display: flex;
