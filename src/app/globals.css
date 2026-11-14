@@ -323,6 +323,15 @@ a {
 }
 
 /* ——— Dark CAD editor shell (project routes only) ——— */
+/* Keep the page behind the official CAD shell dark so the light office
+   gradient cannot peek at edges, overscroll, or around the editor root.
+   :has() applies as soon as CadEditorRoot is in the tree and drops on
+   leave, without a first-paint flash or a leftover root class. */
+html:has(.cad-editor-root),
+body:has(.cad-editor-root) {
+  background: #141e26;
+}
+
 main:has(.cad-editor-root) {
   padding: 0 !important;
   max-width: none !important;
