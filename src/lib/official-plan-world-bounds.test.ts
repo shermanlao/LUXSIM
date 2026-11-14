@@ -314,11 +314,13 @@ describe("TopView2D wiring", () => {
     expect(src).toContain("[...draft, preview ?? draft[draft.length - 1]!]");
   });
 
-  it("does not invent a user pan/zoom camera or change the official fit constants", () => {
+  it("layers user wheel zoom on the official fit and still ignores draft in auto-fit constants", () => {
     const src = topViewSrc();
     const helper = helperSrc();
-    expect(src).not.toContain("planViewTransform");
-    expect(src).not.toContain("plan-zoom");
+    expect(src).toContain("planViewTransform");
+    expect(src).toContain("plan-zoom");
+    expect(src).toContain("officialPlanFitTransform");
+    expect(src).toContain("zoomPlanToward");
     expect(helper).toContain("void input.draft");
     expect(helper).not.toMatch(/for \(const p of input\.draft/);
     expect(helper).toContain("OFFICIAL_PLAN_EMPTY_MAX_X = 12");

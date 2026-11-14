@@ -21,6 +21,12 @@ import {
   officialPlanFitTransform,
   officialPlanWorldBounds,
 } from "@/lib/official-plan-world-bounds";
+import {
+  DEFAULT_PLAN_ZOOM,
+  planViewTransform,
+  wheelZoomFactor,
+  zoomPlanToward,
+} from "@/lib/plan-zoom";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
 
@@ -75,6 +81,7 @@ export function TopView2D({
   photometry,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
+  const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [lengthBuf, setLengthBuf] = useState("");
@@ -110,6 +117,10 @@ export function TopView2D({
       setLengthBuf("");
     }
   }, [drawing]);
+
+  useEffect(() => {
+    setPlanView(DEFAULT_PLAN_ZOOM);
+  }, [storeyId]);
 
   useEffect(() => {
     if (!underlayUrl || !underlay) return;
@@ -161,7 +172,8 @@ export function TopView2D({
 
   const viewW = OFFICIAL_PLAN_VIEW_W;
   const viewH = OFFICIAL_PLAN_VIEW_H;
-  const { scale, ox, oy } = officialPlanFitTransform(world, viewW, viewH);
+  const { scale: fitScale, ox: fitOx, oy: fitOy } = officialPlanFitTransform(world, viewW, viewH);
+  const { scale, ox, oy } = planViewTransform(fitOx, fitOy, fitScale, viewW, viewH, planView);
   /**
    * Look-down plan: +X right, +Y up (north), matching world coordinates,
    * the 3D view, and a typical CAD / lighting-plan top view.
@@ -288,10 +300,42 @@ export function TopView2D({
   const liveMm =
     last && preview ? Math.round(mToMm(Math.hypot(preview.x - last.x, preview.y - last.y))) : null;
 
+  useEffect(() => {
+    const el = svgRef.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const { x, y } = clientToSvgPoint(el, e.clientX, e.clientY);
+      const factor = wheelZoomFactor(e.deltaY);
+      setPlanView((view) =>
+        zoomPlanToward(view, {
+          factor,
+          cursorX: x,
+          cursorY: y,
+          viewW,
+          viewH,
+          fitOx,
+          fitOy,
+          fitScale,
+        })
+      );
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, [fitOx, fitOy, fitScale]);
+
   return (
     <div
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
+      onDoubleClick={(e) => {
+        if (drawing) return;
+        const target = e.target;
+        if (!(target instanceof Element) || !target.closest("[data-plan-bg]")) return;
+        e.preventDefault();
+        setPlanView(DEFAULT_PLAN_ZOOM);
+      }}
       onDrop={(e) => {
         e.preventDefault();
         const luminaireId = e.dataTransfer.getData("application/x-luxsim-luminaire");
@@ -347,7 +391,7 @@ export function TopView2D({
           roomDragLast.current = null;
         }}
       >
-        <rect width={viewW} height={viewH} fill="#0f1c24" />
+        <rect data-plan-bg="true" width={viewW} height={viewH} fill="#0f1c24" />
 
         {underlayUrl && underlay && underlayScreen && (() => {
           const fx = underlayScreen.flipImageX ? -1 : 1;
@@ -610,8 +654,10 @@ export function TopView2D({
         })}
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
-        {variant === "bottom" ? "Bottom" : "Top"} view · drop fixtures into
-        rooms · tool: {scene.ui.tool}
+        {variant === "bottom" ? "Bottom" : "Top"} view · scroll to zoom
+        {planView.zoom !== 1 ? " · double-click empty area to reset" : ""}
+        {" "}
+        · drop fixtures into rooms · tool: {scene.ui.tool}
         {drawing && (
           <>
             {" "}
