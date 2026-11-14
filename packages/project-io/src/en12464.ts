@@ -180,7 +180,7 @@ export function evaluateEn12464(input: En12464EvaluateInput): En12464Check | nul
     pass: null,
     target: null,
     actual: null,
-    note: "Single workplane — no surrounding grid in LUXSIM v2",
+    note: "No surrounding-area target for template",
   };
   if (template.surroundingEmRatio != null) {
     const target = template.em * template.surroundingEmRatio;
@@ -249,6 +249,29 @@ export function evaluateEn12464(input: En12464EvaluateInput): En12464Check | nul
       ugr: ugrPass,
     },
     overallPass,
+  };
+}
+
+/**
+ * Status after the em-dash in the editor EN assist PassRow when pass is null.
+ * Keeps "no target in this template" distinct from "target defined, not evaluated".
+ */
+export function enAssistPendingStatus(check: En12464ZoneCheck): {
+  status: "no-target" | "not-evaluated";
+  label: string;
+  showNoteBelow: boolean;
+} {
+  if (check.target == null) {
+    return {
+      status: "no-target",
+      label: check.note ?? "No target in this template",
+      showNoteBelow: false,
+    };
+  }
+  return {
+    status: "not-evaluated",
+    label: "not evaluated",
+    showNoteBelow: Boolean(check.note),
   };
 }
 

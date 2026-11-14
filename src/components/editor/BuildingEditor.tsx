@@ -28,6 +28,7 @@ import {
   type Vec2,
   type ViewMode,
   EN12464_TEMPLATES,
+  enAssistPendingStatus,
   evaluateEn12464,
   clampMf,
   clampGridSpacingM,
@@ -2190,6 +2191,7 @@ export function BuildingEditor({
                   <PassRow label="Task Em" check={en12464Check.checks.taskEm} />
                   <PassRow label="Task Uo" check={en12464Check.checks.taskUo} />
                   <PassRow label="Surr. Em" check={en12464Check.checks.surroundingEm} />
+                  <PassRow label="Background Em" check={en12464Check.checks.backgroundEm} />
                   <PassRow label="UGR" check={en12464Check.checks.ugr} />
                 </div>
               )}
@@ -2525,12 +2527,13 @@ function PassRow({
         ? `target ${check.target}${label.includes("UGR") ? "" : " lx"}`
         : "";
   if (check.pass === null) {
+    const pending = enAssistPendingStatus(check);
     return (
       <div className="flex flex-col gap-0.5 text-[var(--muted)]">
         <span>
-          {label} {detail && `(${detail})`} — not evaluated
+          {label} {detail && `(${detail})`} — {pending.label}
         </span>
-        {check.note && <span className="text-[10px]">{check.note}</span>}
+        {pending.showNoteBelow && check.note && <span className="text-[10px]">{check.note}</span>}
       </div>
     );
   }

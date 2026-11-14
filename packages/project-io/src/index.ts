@@ -38,6 +38,7 @@ export {
 export type { PreparedLuxsimImport } from "./luxsim";
 export {
   EN12464_TEMPLATES,
+  enAssistPendingStatus,
   evaluateEn12464,
   getEn12464Template,
 } from "./en12464";
