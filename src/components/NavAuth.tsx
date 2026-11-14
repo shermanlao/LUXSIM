@@ -67,8 +67,8 @@ export function NavAuth() {
           Admin
         </Link>
       )}
-      <Link href="/docs" className="hover:text-[var(--accent-2)]">
-        Docs
+      <Link href="/docs/guide" className="hover:text-[var(--accent-2)]">
+        User guide
       </Link>
       <div className="relative" ref={rootRef}>
         <button

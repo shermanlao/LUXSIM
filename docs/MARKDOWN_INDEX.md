@@ -2,6 +2,7 @@
 
 | Doc | Purpose |
 |-----|---------|
+| [USER_GUIDE.md](./USER_GUIDE.md) | End-user manual (in-app /docs/guide): plan zoom, draw room, Backspace / Esc, properties |
 | [PRODUCT_MVP.md](./PRODUCT_MVP.md) | Product v2 scope |
 | [PROJECT_MODEL_V2.md](./PROJECT_MODEL_V2.md) | Scene schema v2 |
 | [EDITOR_WORKFLOW.md](./EDITOR_WORKFLOW.md) | User steps |
