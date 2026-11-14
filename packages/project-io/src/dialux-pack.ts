@@ -160,6 +160,16 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
   );
 
   const packWarnings = getDialuxPackWarnings(scene, results);
+  const usedIds = new Set(scene.instances.map((i) => i.luminaireId));
+  const referencedIds = [...usedIds, ...scene.fixtureLibraryIds.filter((id) => !usedIds.has(id))];
+  const missingSourceIds = referencedIds.filter((id) => !input.sourceFiles[id]?.text);
+  const missingSourceNotes = missingSourceIds.length
+    ? [
+        `  • WARNING: original IES/LDT files are missing for: ${missingSourceIds
+          .map((id) => input.luminaireNames[id] || id)
+          .join(", ")}. This pack is incomplete — re-export after the library finishes loading, or restore the source files.`,
+      ]
+    : [];
 
   zip.file(
     "README.txt",
@@ -175,6 +185,7 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
       "",
       "LUXSIM pre-check:",
       ...packWarnings.map((w) => `  • ${w.message}`),
+      ...missingSourceNotes,
       "",
       "Contents:",
       "  rooms.json       — heights, reflectance (ρ), maintenanceFactor, polygons",
@@ -197,7 +208,6 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
   );
 
   const folder = zip.folder("luminaires");
-  const usedIds = new Set(scene.instances.map((i) => i.luminaireId));
   for (const id of usedIds) {
     const file = input.sourceFiles[id];
     if (file) {

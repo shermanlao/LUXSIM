@@ -41,6 +41,12 @@ import {
   exportDialuxPack,
   exportLuxsimFile,
 } from "@/lib/exports-client";
+import {
+  collectOfficialExportSources,
+  missingExportSourceStatus,
+  officialExportLuminaireIds,
+  type LuminaireExportPayload,
+} from "@/lib/export-source-files";
 import { runSolverClient } from "@/lib/run-solver";
 import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
@@ -183,6 +189,10 @@ export function BuildingEditor({
   const [sourceCache, setSourceCache] = useState<
     Record<string, { filename: string; text: string }>
   >({});
+  const photoCacheRef = useRef(photoCache);
+  const sourceCacheRef = useRef(sourceCache);
+  photoCacheRef.current = photoCache;
+  sourceCacheRef.current = sourceCache;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [calculating, setCalculating] = useState(false);
@@ -326,19 +336,44 @@ export function BuildingEditor({
     });
   }, [scene.underlays]);
 
-  async function ensurePhotometry(id: string) {
-    if (photoCache[id]) return photoCache[id]!;
+  async function fetchLuminaireExport(id: string): Promise<LuminaireExportPayload> {
     const res = await fetch(`/api/luminaires/${id}`);
-    if (!res.ok) return null;
-    const data = await res.json();
-    setPhotoCache((c) => ({ ...c, [id]: data.photometric }));
-    if (data.sourceText) {
-      setSourceCache((c) => ({
-        ...c,
-        [id]: { filename: data.originalName, text: data.sourceText },
-      }));
+    if (!res.ok) {
+      return {
+        photometric: photoCacheRef.current[id] ?? null,
+        source: sourceCacheRef.current[id] ?? null,
+      };
     }
-    return data.photometric as PhotometricData;
+    const data = await res.json();
+    const photometric = (data.photometric ?? null) as PhotometricData | null;
+    const source =
+      typeof data.sourceText === "string" && data.sourceText.length
+        ? { filename: String(data.originalName || `${id}.ies`), text: data.sourceText as string }
+        : null;
+    if (photometric) {
+      photoCacheRef.current = { ...photoCacheRef.current, [id]: photometric };
+      setPhotoCache((c) => ({ ...c, [id]: photometric }));
+    }
+    if (source) {
+      sourceCacheRef.current = { ...sourceCacheRef.current, [id]: source };
+      setSourceCache((c) => ({ ...c, [id]: source }));
+    }
+    return { photometric, source };
+  }
+
+  async function ensurePhotometry(id: string) {
+    if (photoCacheRef.current[id]) return photoCacheRef.current[id]!;
+    const loaded = await fetchLuminaireExport(id);
+    return loaded.photometric;
+  }
+
+  async function collectSourcesForOfficialExport(ids: string[]) {
+    return collectOfficialExportSources({
+      luminaireIds: ids,
+      photoCache: photoCacheRef.current,
+      sourceCache: sourceCacheRef.current,
+      loadLuminaire: fetchLuminaireExport,
+    });
   }
 
   const writeCalcDeps = useCallback((): WriteInstancesCalcDeps => {
@@ -1299,16 +1334,20 @@ export function BuildingEditor({
       setStatus(blocking.map((w) => w.message).join(" "));
       return;
     }
-    for (const id of scene.fixtureLibraryIds) await ensurePhotometry(id);
     const names: Record<string, string> = {};
     for (const l of library) names[l.id] = l.name;
+    const collected = await collectSourcesForOfficialExport(officialExportLuminaireIds(toExport));
     await exportDialuxPack({
       projectName: name,
       scene: toExport,
       results,
-      sourceFiles: sourceCache,
+      sourceFiles: collected.sourceFiles,
       luminaireNames: names,
     });
+    if (collected.missingSourceIds.length) {
+      setStatus(missingExportSourceStatus("dialux", collected.missingSourceIds, names));
+      return;
+    }
     const soft = warnings.filter((w) => w.code !== "dialux_general").map((w) => w.message);
     setStatus(
       soft.length
@@ -2377,20 +2416,24 @@ export function BuildingEditor({
             <button
               className="btn btn-secondary w-full"
               onClick={async () => {
-                const photometry: Record<string, PhotometricData> = {};
-                for (const id of scene.fixtureLibraryIds) {
-                  const p = await ensurePhotometry(id);
-                  if (p) photometry[id] = p;
-                }
+                const toExport = sceneWithView(scene);
+                const names: Record<string, string> = {};
+                for (const l of library) names[l.id] = l.name;
+                const collected = await collectSourcesForOfficialExport(
+                  officialExportLuminaireIds(toExport)
+                );
                 exportLuxsimFile(
                   buildLuxsimProject({
                     name,
-                    scene: sceneWithView(scene) as never,
+                    scene: toExport as never,
                     results: results as never,
-                    photometry,
-                    sourceFiles: sourceCache,
+                    photometry: collected.photometry,
+                    sourceFiles: collected.sourceFiles,
                   })
                 );
+                if (collected.missingSourceIds.length) {
+                  setStatus(missingExportSourceStatus("luxsim", collected.missingSourceIds, names));
+                }
               }}
             >
               Save .luxsim

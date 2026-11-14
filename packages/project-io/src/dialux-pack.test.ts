@@ -114,5 +114,21 @@ describe("buildDialuxPack", () => {
     expect(readme).toMatch(/CLOSED spaces/);
     expect(readme).toMatch(/rotation_deg/);
     expect(readme).not.toMatch(/\.evo/);
+    expect(readme).not.toMatch(/original IES\/LDT files are missing/);
+    expect(await zip.file("luminaires/sample.ies")!.async("string")).toBe("IESNA TEST");
+  });
+
+  it("warns in README when a referenced original source file is missing", async () => {
+    const blob = await buildDialuxPack({
+      projectName: "Test",
+      scene,
+      results: null,
+      sourceFiles: {},
+      luminaireNames: { lum1: "Sample" },
+    });
+    const zip = await JSZip.loadAsync(await blob.arrayBuffer());
+    const readme = await zip.file("README.txt")!.async("string");
+    expect(readme).toMatch(/WARNING: original IES\/LDT files are missing for: Sample/);
+    expect(Object.keys(zip.files).filter((n) => n.startsWith("luminaires/") && n !== "luminaires/")).toEqual([]);
   });
 });
