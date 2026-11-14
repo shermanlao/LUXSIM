@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { defaultSceneV2, rectPolygon } from "@luxsim/project-io";
 import type { ProjectSceneV2, RoomV2 } from "@luxsim/project-io";
-import { formatCalcEmptyError, planCalcRooms } from "./editor-calc-rooms";
+import { formatCalcCompleteStatus, formatCalcEmptyError, planCalcRooms } from "./editor-calc-rooms";
 
 function room(id: string, name: string, storeyId: string): RoomV2 {
   return {
@@ -82,5 +82,36 @@ describe("planCalcRooms", () => {
     expect(plan.ok).toBe(false);
     if (!plan.ok) expect(plan.reason).toBe("all-empty");
     expect(plan.roomIds).toEqual([]);
+  });
+});
+
+describe("formatCalcCompleteStatus", () => {
+  it("keeps the empty-room skip wording", () => {
+    expect(formatCalcCompleteStatus([{ id: "r2", name: "Room 2" }], true)).toBe(
+      "Calculation complete (client-side) / 客戶端計算完成 · skipped Room 2 (no fixtures)"
+    );
+    expect(
+      formatCalcCompleteStatus(
+        [
+          { id: "r1", name: "Empty" },
+          { id: "r3", name: "Also empty" },
+        ],
+        true
+      )
+    ).toBe(
+      "Calculation complete (client-side) / 客戶端計算完成 · skipped Empty, Also empty (no fixtures)"
+    );
+  });
+
+  it("explains rooms skipped for missing photometry without dropping the empty-room clause", () => {
+    expect(
+      formatCalcCompleteStatus(
+        [{ id: "r1", name: "Empty" }],
+        true,
+        [{ id: "r3", name: "Broken" }]
+      )
+    ).toBe(
+      "Calculation complete (client-side) / 客戶端計算完成 · skipped Empty (no fixtures), Broken (missing photometry)"
+    );
   });
 });

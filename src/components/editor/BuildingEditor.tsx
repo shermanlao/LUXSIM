@@ -68,7 +68,6 @@ import { commitScheduleImport, type ScheduleImportRow } from "@/lib/schedule-csv
 import {
   focusActiveRoomAfterPlacement,
   postPlaceCalcStatusSuffix,
-  runPostPlaceCalcForRooms,
 } from "@/lib/post-place-calc";
 import {
   patchProjectMinimal,
@@ -79,10 +78,10 @@ import {
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
   calcStatusTone,
-  formatCalcCompleteStatus,
   formatCalcEmptyError,
   planCalcRooms,
 } from "@/lib/editor-calc-rooms";
+import { runOfficialClientCalc } from "@/lib/official-client-calc";
 import {
   createUndoStack,
   editorUndoKeyAction,
@@ -1022,23 +1021,22 @@ export function BuildingEditor({
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
-      const calc = await runPostPlaceCalcForRooms(
+      const calc = await runOfficialClientCalc(
         scene,
         results,
-        plan.roomIds,
+        all,
         writeCalcDeps(),
-        { luminaireNames: luminaireNameMap() }
+        { luminaireNames: luminaireNameMap(), bilingual: true }
       );
-      if (calc.calcFailed) {
-        setStatus(calc.errorMessage ?? "Calculation failed / 計算失敗");
+      if (!calc.ok) {
+        setStatus(calc.status);
         return;
       }
       recordUndoFromLatest();
       setResults(calc.results);
-      const done = formatCalcCompleteStatus(plan.skippedEmpty, true);
-      setStatus(done);
+      setStatus(calc.status);
       await save(scene, calc.results, name);
-      setStatus(done);
+      setStatus(calc.status);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {

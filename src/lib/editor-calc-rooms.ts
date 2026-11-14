@@ -37,13 +37,23 @@ export function formatCalcEmptyError(plan: Extract<CalcRoomsPlan, { ok: false }>
   return "No rooms have fixtures to calculate";
 }
 
-export function formatCalcCompleteStatus(skippedEmpty: CalcRoomSkip[], bilingual: boolean): string {
+export function formatCalcCompleteStatus(
+  skippedEmpty: CalcRoomSkip[],
+  bilingual: boolean,
+  skippedMissing: CalcRoomSkip[] = []
+): string {
   const base = bilingual
     ? "Calculation complete (client-side) / 客戶端計算完成"
     : "Calculation complete (client-side)";
-  if (!skippedEmpty.length) return base;
-  const names = skippedEmpty.map((s) => s.name).join(", ");
-  return `${base} · skipped ${names} (no fixtures)`;
+  const parts: string[] = [];
+  if (skippedEmpty.length) {
+    parts.push(`${skippedEmpty.map((s) => s.name).join(", ")} (no fixtures)`);
+  }
+  if (skippedMissing.length) {
+    parts.push(`${skippedMissing.map((s) => s.name).join(", ")} (missing photometry)`);
+  }
+  if (!parts.length) return base;
+  return `${base} · skipped ${parts.join(", ")}`;
 }
 
 export function calcStatusTone(
