@@ -105,6 +105,7 @@ import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scen
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { PolarPreview } from "@/components/PolarPreview";
+import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
@@ -679,7 +680,6 @@ export function BuildingEditor({
     try {
       const form = new FormData();
       form.append("file", file);
-      form.append("name", file.name.replace(/\.(ies|ldt)$/i, ""));
       const res = await fetch("/api/luminaires", { method: "POST", body: form });
       const data = await res.json();
       if (!res.ok) {
@@ -2435,7 +2435,13 @@ export function BuildingEditor({
                   {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
                 </div>
                 {photoCache[lum.id] && (
-                  <PolarPreview photo={photoCache[lum.id]!} size={120} />
+                  <>
+                    <PolarPreview photo={photoCache[lum.id]!} size={120} />
+                    <PhotometricColorQuality
+                      photo={photoCache[lum.id]!}
+                      className="mt-1 grid grid-cols-2 gap-x-2 gap-y-0.5 text-[10px]"
+                    />
+                  </>
                 )}
               </li>
             ))}

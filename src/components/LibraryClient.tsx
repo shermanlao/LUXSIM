@@ -4,11 +4,13 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { PolarPreview } from "@/components/PolarPreview";
+import { resetForm } from "@/lib/form-reset";
 import {
   LIBRARY_INTRO_DISCLAIMER,
   selectedLibraryConeDisclaimer,
 } from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
+import { photometricColorQualityFields } from "@/lib/photometric-preview-fields";
 
 type LumRow = {
   id: string;
@@ -47,9 +49,10 @@ export function LibraryClient() {
 
   async function onUpload(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    const formEl = e.currentTarget;
     setUploading(true);
     setError(null);
-    const form = new FormData(e.currentTarget);
+    const form = new FormData(formEl);
     const res = await fetch("/api/luminaires", { method: "POST", body: form });
     const data = await res.json().catch(() => ({}));
     setUploading(false);
@@ -57,7 +60,7 @@ export function LibraryClient() {
       setError(data.error || "Upload failed");
       return;
     }
-    e.currentTarget.reset();
+    resetForm(formEl);
     await load();
     if (data.luminaire?.id) {
       await openDetail(data.luminaire.id);
@@ -210,6 +213,12 @@ export function LibraryClient() {
                   <dt className="label">H angles</dt>
                   <dd>{selected.photometric.horizontalAngles.length}</dd>
                 </div>
+                {photometricColorQualityFields(selected.photometric).map((field) => (
+                  <div key={field.label}>
+                    <dt className="label">{field.label}</dt>
+                    <dd>{field.value}</dd>
+                  </div>
+                ))}
               </dl>
             </div>
           ) : (

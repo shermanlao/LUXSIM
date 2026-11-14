@@ -4,6 +4,7 @@ import {
   parsePhotometricFile,
 } from "@luxsim/photometry";
 import { apiErrorResponse } from "@/lib/api-error";
+import { officialLuminaireDisplayName } from "@/lib/official-luminaire-name";
 import { prisma } from "@/lib/prisma";
 import { getUserOrgIds, requireOrgContext, requireUser } from "@/lib/session";
 import { saveTextFile } from "@/lib/storage";
@@ -56,11 +57,12 @@ export async function POST(req: Request) {
 
     const text = await file.text();
     const { data, warnings } = parsePhotometricFile(text, format);
-    const name =
-      (form.get("name") as string)?.trim() ||
-      data.description ||
-      data.catalogNumber ||
-      file.name;
+    const name = officialLuminaireDisplayName({
+      userName: form.get("name") as string | null,
+      description: data.description,
+      catalogNumber: data.catalogNumber,
+      fileName: file.name,
+    });
 
     const fileKey = await saveTextFile("luminaires", file.name, text);
 
