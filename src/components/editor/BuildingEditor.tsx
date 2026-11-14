@@ -94,6 +94,7 @@ import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { Display3dToggle } from "./Display3dToggle";
+import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
@@ -1271,27 +1272,23 @@ export function BuildingEditor({
       const snap = gridToFalseColorPngDataUrl(room, res);
       if (snap) falseColorSnapshots[room.id] = snap;
     }
-    let projectPerspectiveGreyscale: string | undefined;
-    let projectPerspectiveFalseColor: string | undefined;
-    let persp3dGreyscale: Record<string, string> | undefined;
-    let persp3dFalseColor: Record<string, string> | undefined;
-    try {
-      if (webglCaptureAvailable()) {
-        const views = renderAllReport3dViews({
+    const captured3d = captureOfficialReport3dViews({
+      captureAvailable: webglCaptureAvailable,
+      render: () =>
+        renderAllReport3dViews({
           scene,
           results,
           photometry,
           overviewCamera: fitOverviewCamera(scene),
-        });
-        projectPerspectiveGreyscale = views.projectGreyscale;
-        projectPerspectiveFalseColor = views.projectFalseColor;
-        persp3dGreyscale = views.roomGreyscale;
-        persp3dFalseColor = views.roomFalseColor;
-      }
-    } catch (err) {
-      console.warn("3D report capture failed", err);
-      setStatus("3D views could not be captured; the rest of the report was exported.");
-    }
+        }),
+    });
+    if (captured3d.status) setStatus(captured3d.status);
+    const {
+      projectPerspectiveGreyscale,
+      projectPerspectiveFalseColor,
+      persp3dGreyscale,
+      persp3dFalseColor,
+    } = captured3d.views;
     let website: string | undefined;
     try {
       const siteRes = await fetch("/api/site");
