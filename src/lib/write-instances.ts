@@ -49,7 +49,14 @@ export function clearResultsForRooms(
   for (const id of roomIds) {
     delete nextByRoom[id];
   }
-  return { version: 2, byRoomId: nextByRoom };
+  if (!results.wallsByRoomId) {
+    return { version: 2, byRoomId: nextByRoom };
+  }
+  const nextWalls = { ...results.wallsByRoomId };
+  for (const id of roomIds) {
+    delete nextWalls[id];
+  }
+  return { version: 2, byRoomId: nextByRoom, wallsByRoomId: nextWalls };
 }
 
 export function mergeInstanceDrafts(

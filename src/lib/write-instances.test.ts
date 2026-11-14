@@ -1,11 +1,46 @@
 import { describe, expect, it, vi } from "vitest";
-import { defaultSceneV2, rectPolygon } from "@luxsim/project-io";
 import type { PhotometricData } from "@luxsim/photometry";
+import {
+  defaultSceneV2,
+  rectPolygon,
+  type CalcResults,
+  type WallSurfaceResult,
+} from "@luxsim/project-io";
 import {
   clearResultsForRooms,
   mergeInstanceDrafts,
   writeFixtureInstances,
 } from "./write-instances";
+
+function workplane(eave: number): CalcResults {
+  return {
+    version: 1,
+    summary: { eave, emin: eave, emax: eave, uo: 1, ugr: 1, lpd: 1 },
+    grid: { originX: 0, originY: 0, spacing: 1, nx: 1, ny: 1, z: 0.75, lux: [eave] },
+  };
+}
+
+function stubWalls(roomId: string, eave: number): WallSurfaceResult[] {
+  return [
+    {
+      id: `${roomId}-wall`,
+      roomId,
+      name: `${roomId} wall`,
+      polyline: [
+        { x: 0, y: 0 },
+        { x: 1, y: 0 },
+      ],
+      normals: [{ x: 0, y: 1 }],
+      heightM: 2.8,
+      insetM: 0.05,
+      normal: { x: 0, y: 1 },
+      widthM: 1,
+      curved: false,
+      grid: { originU: 0, originV: 0, spacing: 0.5, nu: 1, nv: 1, lux: [eave] },
+      summary: { eave, emin: eave, emax: eave, uo: 1, areaM2: 2.8 },
+    },
+  ];
+}
 
 describe("writeFixtureInstances", () => {
   it("batch-writes instances and clears room results", async () => {
@@ -185,6 +220,68 @@ describe("writeFixtureInstances", () => {
     expect(out.calcFailed).toBe(true);
     expect(out.results.byRoomId[roomId]).toBeUndefined();
   });
+
+  it("placement without calc keeps other rooms' wall and workplane results", async () => {
+    let scene = defaultSceneV2();
+    const roomA = "room_place";
+    const roomB = "room_keep";
+    const room = (id: string, name: string) => ({
+      id,
+      storeyId: scene.ui.activeStoreyId,
+      name,
+      polygon: rectPolygon(0, 0, 6, 6),
+      heightM: 2.8,
+      workplaneHeightM: 0.75,
+      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+      calc: { gridSpacing: 0.5, maintenanceFactor: 0.8, en12464TemplateId: "" },
+    });
+    scene = {
+      ...scene,
+      rooms: [room(roomA, "Place"), room(roomB, "Keep")],
+      fixtureLibraryIds: ["lum_1"],
+    };
+    const wallsA = stubWalls(roomA, 111);
+    const wallsB = stubWalls(roomB, 222);
+    const results = {
+      version: 2 as const,
+      byRoomId: {
+        [roomA]: workplane(111),
+        [roomB]: workplane(222),
+      },
+      wallsByRoomId: {
+        [roomA]: wallsA,
+        [roomB]: wallsB,
+      },
+    };
+
+    const out = await writeFixtureInstances(
+      {
+        scene,
+        results,
+        drafts: [
+          {
+            luminaireId: "lum_1",
+            storeyId: scene.ui.activeStoreyId,
+            roomId: roomA,
+            name: "L1",
+            position: { x: 1, y: 1, z: 2.7 },
+            rotationDeg: 0,
+          },
+        ],
+        options: { runCalc: false, calcScope: "room" },
+      },
+      {
+        ensurePhotometry: async () => ({}) as PhotometricData,
+        getWatts: () => 30,
+      }
+    );
+
+    expect(out.results.byRoomId[roomA]).toBeUndefined();
+    expect(out.results.wallsByRoomId?.[roomA]).toBeUndefined();
+    expect(out.results.byRoomId[roomB]?.summary.eave).toBe(222);
+    expect(out.results.wallsByRoomId?.[roomB]).toBe(wallsB);
+    expect(results.wallsByRoomId[roomB]).toBe(wallsB);
+  });
 });
 
 describe("clearResultsForRooms", () => {
@@ -193,22 +290,53 @@ describe("clearResultsForRooms", () => {
       {
         version: 2,
         byRoomId: {
-          a: {
-            version: 1,
-            summary: { eave: 1, emin: 1, emax: 1, uo: 1, ugr: 1, lpd: 1 },
-            grid: { originX: 0, originY: 0, spacing: 1, nx: 1, ny: 1, z: 0.75, lux: [1] },
-          },
-          b: {
-            version: 1,
-            summary: { eave: 2, emin: 2, emax: 2, uo: 1, ugr: 1, lpd: 1 },
-            grid: { originX: 0, originY: 0, spacing: 1, nx: 1, ny: 1, z: 0.75, lux: [2] },
-          },
+          a: workplane(1),
+          b: workplane(2),
         },
       },
       ["a"]
     );
     expect(next.byRoomId.a).toBeUndefined();
     expect(next.byRoomId.b).toBeDefined();
+    expect(next.wallsByRoomId).toBeUndefined();
+  });
+
+  it("clears workplane and wall results for listed rooms only", () => {
+    const wallsA = stubWalls("a", 10);
+    const wallsB = stubWalls("b", 20);
+    const original = {
+      version: 2 as const,
+      byRoomId: {
+        a: workplane(1),
+        b: workplane(2),
+      },
+      wallsByRoomId: {
+        a: wallsA,
+        b: wallsB,
+      },
+    };
+    const next = clearResultsForRooms(original, ["a"]);
+    expect(next.byRoomId.a).toBeUndefined();
+    expect(next.byRoomId.b?.summary.eave).toBe(2);
+    expect(next.wallsByRoomId?.a).toBeUndefined();
+    expect(next.wallsByRoomId?.b).toBe(wallsB);
+    // Input is not mutated; a partial clear must not wipe another room's walls.
+    expect(original.byRoomId.a).toBeDefined();
+    expect(original.wallsByRoomId.a).toBe(wallsA);
+    expect(original.wallsByRoomId.b).toBe(wallsB);
+  });
+
+  it("clears every listed room when the set is the whole project", () => {
+    const next = clearResultsForRooms(
+      {
+        version: 2,
+        byRoomId: { a: workplane(1), b: workplane(2) },
+        wallsByRoomId: { a: stubWalls("a", 10), b: stubWalls("b", 20) },
+      },
+      ["a", "b"]
+    );
+    expect(next.byRoomId).toEqual({});
+    expect(next.wallsByRoomId).toEqual({});
   });
 });
 
