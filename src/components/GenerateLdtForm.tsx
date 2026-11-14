@@ -10,6 +10,7 @@ import {
   recommendPhotometricFamily,
 } from "@luxsim/photometry";
 import { PolarPreview } from "@/components/PolarPreview";
+import { GENERATE_LDT_FORM_DISCLAIMER } from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
 
 export type GeneratedLuminaireRow = {
@@ -152,8 +153,7 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
       <div>
         <h2 className="font-semibold">Generate LDT</h2>
         <p className={`text-[var(--muted)] ${compact ? "text-[10px]" : "text-sm"}`}>
-          Build a calculated library cone when you do not have a measured IES or LDT.
-          This is not a laboratory file.
+          {GENERATE_LDT_FORM_DISCLAIMER}
         </p>
       </div>
 

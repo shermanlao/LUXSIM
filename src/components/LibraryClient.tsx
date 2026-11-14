@@ -4,6 +4,10 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { PolarPreview } from "@/components/PolarPreview";
+import {
+  LIBRARY_INTRO_DISCLAIMER,
+  selectedLibraryConeDisclaimer,
+} from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
 
 type LumRow = {
@@ -85,7 +89,7 @@ export function LibraryClient() {
     <div className="mx-auto max-w-7xl px-4 py-10">
       <h1 className="display text-4xl mb-2">Luminaire library</h1>
       <p className="text-[var(--muted)] mb-8">
-        Import a measured IES / LDT, or generate a calculated library cone when you do not have a laboratory file.
+        {LIBRARY_INTRO_DISCLAIMER}
       </p>
 
       <div className="grid lg:grid-cols-[1fr_1.1fr] gap-6">
@@ -178,7 +182,7 @@ export function LibraryClient() {
               <h2 className="display text-2xl mb-1">{selected.name}</h2>
               <p className="text-sm text-[var(--muted)] mb-4">
                 {libraryConeLabel(selected)
-                  ? `${libraryConeLabel(selected)} — calculated photometry, not a measured laboratory file.`
+                  ? selectedLibraryConeDisclaimer(libraryConeLabel(selected) ?? "")
                   : `${selected.photometric.manufacturer || "Unknown manufacturer"} · ${selected.photometric.description}`}
               </p>
               {libraryConeLabel(selected) && (
