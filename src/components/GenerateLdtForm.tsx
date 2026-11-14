@@ -3,13 +3,17 @@
 import { FormEvent, useMemo, useState } from "react";
 import type { PhotometricData, PhotometricFamily } from "@luxsim/photometry";
 import {
-  generateLibraryCone,
   libraryBeamsForFamily,
   parseLdt,
   recommendLibraryBeam,
   recommendPhotometricFamily,
 } from "@luxsim/photometry";
 import { PolarPreview } from "@/components/PolarPreview";
+import {
+  buildGenerateLdtDownload,
+  optionalFormNumber,
+  triggerTextFileDownload,
+} from "@/lib/generate-ldt-download";
 import { GENERATE_LDT_FORM_DISCLAIMER } from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
 
@@ -30,13 +34,6 @@ type Props = {
   tone?: "light" | "cad";
   onCreated?: (luminaire: GeneratedLuminaireRow, photometric: PhotometricData) => void | Promise<void>;
 };
-
-function optionalNumber(value: string): number | undefined {
-  const t = value.trim();
-  if (!t) return undefined;
-  const n = Number(t);
-  return Number.isFinite(n) ? n : undefined;
-}
 
 export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: Props) {
   const [family, setFamily] = useState<PhotometricFamily>("circular");
@@ -64,28 +61,33 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
     [name, size]
   );
 
-  const lumenValue = optionalNumber(lumens);
+  const lumenValue = optionalFormNumber(lumens);
   const lumenOk = lumenValue != null && lumenValue > 0;
 
-  const livePhoto = useMemo(() => {
-    if (!lumenOk || lumenValue == null) return null;
-    try {
-      const generated = generateLibraryCone({
+  const prepared = useMemo(
+    () =>
+      buildGenerateLdtDownload({
         family,
         beamDegrees,
-        name: name.trim() || undefined,
-        catalogNumber: catalogNumber.trim() || undefined,
-        lumens: lumenValue,
-        watts: optionalNumber(watts) ?? null,
-        cctK: optionalNumber(cctK) ?? null,
-        cri: optionalNumber(cri) ?? null,
-        size: size.trim() || undefined,
-      });
-      return parseLdt(generated.text).data;
+        name,
+        catalogNumber,
+        lumens,
+        watts,
+        cctK,
+        cri,
+        size,
+      }),
+    [family, beamDegrees, name, catalogNumber, lumens, watts, cctK, cri, size]
+  );
+
+  const livePhoto = useMemo(() => {
+    if (!prepared.canDownload) return null;
+    try {
+      return parseLdt(prepared.text).data;
     } catch {
       return null;
     }
-  }, [lumenOk, lumenValue, family, beamDegrees, name, catalogNumber, watts, cctK, cri, size]);
+  }, [prepared]);
 
   function applyRecommendedBeam() {
     setBeamDegrees(recommendation.beamDegrees);
@@ -117,9 +119,9 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
           name: name.trim() || undefined,
           catalogNumber: catalogNumber.trim() || undefined,
           lumens: lumenValue,
-          watts: optionalNumber(watts) ?? undefined,
-          cctK: optionalNumber(cctK) ?? undefined,
-          cri: optionalNumber(cri) ?? undefined,
+          watts: optionalFormNumber(watts) ?? undefined,
+          cctK: optionalFormNumber(cctK) ?? undefined,
+          cri: optionalFormNumber(cri) ?? undefined,
           size: size.trim() || undefined,
         }),
       });
@@ -138,12 +140,13 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
     }
   }
 
-  function downloadSaved() {
-    if (!saved) return;
-    window.location.href = `/api/luminaires/${saved.id}/ldt`;
+  function downloadCurrent() {
+    if (!prepared.canDownload) return;
+    triggerTextFileDownload(prepared.text, prepared.filename);
   }
 
-  const preview = savedPhoto ?? livePhoto;
+  // Prefer the live cone so a post-save edit still matches the downloaded file.
+  const preview = livePhoto ?? savedPhoto;
   const coneLabel = saved
     ? libraryConeLabel(saved)
     : `Library cone · ${family === "linear" ? "Linear " : ""}${beamDegrees}°`;
@@ -327,8 +330,8 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
         <button
           type="button"
           className="btn-secondary"
-          disabled={!saved}
-          onClick={downloadSaved}
+          disabled={!prepared.canDownload}
+          onClick={downloadCurrent}
         >
           Download .ldt
         </button>
