@@ -20,13 +20,12 @@ export function loadGoldenRoomPhotometry(): PhotometricData {
 
 export function runGoldenRoomCalculation(): CalcResults {
   const photo = loadGoldenRoomPhotometry();
-  const raw = calculate(
-    roomToCalcOptions(
-      GOLDEN_ROOM,
-      GOLDEN_FIXTURES,
-      { ab_lum: photo },
-      { ab_lum: 30 }
-    )
+  const opts = roomToCalcOptions(
+    GOLDEN_ROOM,
+    GOLDEN_FIXTURES,
+    { ab_lum: photo },
+    { ab_lum: 30 }
   );
-  return clipResultsToPolygon(GOLDEN_ROOM, raw);
+  const raw = calculate(opts);
+  return clipResultsToPolygon(GOLDEN_ROOM, raw, opts.luminaires);
 }

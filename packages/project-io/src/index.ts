@@ -83,7 +83,8 @@ export {
   CLOSE_START_TOL_M,
 } from "./geometry";
 export { mmToM, mToMm, parseLengthToM } from "./units";
-export { roomToCalcOptions, clipResultsToPolygon } from "./room-adapter";
+export { roomToCalcOptions, clipResultsToPolygon, roomSpecFromV2 } from "./room-adapter";
+export { ugrObserverPositionsInRoom, polygonCentroid, interiorTarget } from "./ugr-observers";
 export { parseDxfEntities, dxfBounds } from "./dxf";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";

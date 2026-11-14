@@ -6,6 +6,12 @@ export type {
   CalcResults,
 } from "./types";
 export { calculate } from "./calculate";
+export {
+  computeUgr,
+  defaultUgrObserverPositions,
+  UGR_EYE_HEIGHT_M,
+} from "./ugr";
+export type { UgrObserverPosition } from "./ugr";
 export { estimateFlux } from "./direct";
 export { interreflectedWorkplaneBoost, interreflectedWallBoost } from "./interreflect";
 export {

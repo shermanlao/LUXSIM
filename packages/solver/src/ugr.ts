@@ -3,6 +3,30 @@ import type { PhotometricData } from "../../photometry/src/types";
 import { length, normalize, radToDeg, rotateZ, sub, type Vec3 } from "./geometry";
 import type { LuminaireInstance, RoomSpec } from "./types";
 
+/** Seated eye height used by the documented simplified CIE 117 assist. */
+export const UGR_EYE_HEIGHT_M = 1.2;
+
+export type UgrObserverPosition = { x: number; y: number; z: number };
+
+/**
+ * Default six assist observer positions in room-local (AABB) coordinates.
+ * These match the documented 0.25/0.5/0.75 by 0.15/0.85 layout.
+ */
+export function defaultUgrObserverPositions(
+  width: number,
+  depth: number,
+  eyeZ: number = UGR_EYE_HEIGHT_M
+): UgrObserverPosition[] {
+  return [
+    { x: width * 0.25, y: depth * 0.15, z: eyeZ },
+    { x: width * 0.5, y: depth * 0.15, z: eyeZ },
+    { x: width * 0.75, y: depth * 0.15, z: eyeZ },
+    { x: width * 0.25, y: depth * 0.85, z: eyeZ },
+    { x: width * 0.5, y: depth * 0.85, z: eyeZ },
+    { x: width * 0.75, y: depth * 0.85, z: eyeZ },
+  ];
+}
+
 /**
  * Simplified CIE 117:1995 unified glare rating (assist only — not certified UGR).
  *
@@ -15,18 +39,15 @@ import type { LuminaireInstance, RoomSpec } from "./types";
 export function computeUgr(
   room: RoomSpec,
   luminaires: LuminaireInstance[],
-  backgroundLux: number
+  backgroundLux: number,
+  observerPositions?: UgrObserverPosition[]
 ): { ugr: number; observers: { x: number; y: number; z: number; ugr: number }[] } {
-  const eyeZ = 1.2;
+  const positions: Vec3[] =
+    observerPositions && observerPositions.length
+      ? observerPositions.map((p) => ({ x: p.x, y: p.y, z: p.z }))
+      : defaultUgrObserverPositions(room.width, room.depth);
+
   const observers: { x: number; y: number; z: number; ugr: number }[] = [];
-  const positions: Vec3[] = [
-    { x: room.width * 0.25, y: room.depth * 0.15, z: eyeZ },
-    { x: room.width * 0.5, y: room.depth * 0.15, z: eyeZ },
-    { x: room.width * 0.75, y: room.depth * 0.15, z: eyeZ },
-    { x: room.width * 0.25, y: room.depth * 0.85, z: eyeZ },
-    { x: room.width * 0.5, y: room.depth * 0.85, z: eyeZ },
-    { x: room.width * 0.75, y: room.depth * 0.85, z: eyeZ },
-  ];
 
   // Lb (cd/m²) from average workplane illuminance and typical wall reflectance proxy.
   const rhoBg = 0.35;
@@ -70,7 +91,7 @@ export function computeUgr(
 /** Rough luminous area from flux / peak intensity when not explicit. */
 function projectedAreaM2(photo: PhotometricData): number {
   let peak = 0;
-  for (const row of photo.intensities) {
+  for (const row of photo.intensities ?? []) {
     for (const cd of row) peak = Math.max(peak, cd);
   }
   if (photo.luminousFlux && peak > 0) {

@@ -77,10 +77,9 @@ const scene: ProjectSceneV2 = {
 };
 
 const room = scene.rooms[0]!;
-const calcRaw = calculate(
-  roomToCalcOptions(room, scene.instances, { lum_sample: photometry }, { lum_sample: 30 })
-);
-const calc = clipResultsToPolygon(room, calcRaw);
+const opts = roomToCalcOptions(room, scene.instances, { lum_sample: photometry }, { lum_sample: 30 });
+const calcRaw = calculate(opts);
+const calc = clipResultsToPolygon(room, calcRaw, opts.luminaires);
 
 const results = { version: 2 as const, byRoomId: { [roomId]: calc } };
 

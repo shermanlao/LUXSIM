@@ -129,7 +129,7 @@ export async function runClientCalcForRooms(
     }
     const opts = roomToCalcOptions(room, inst, photometry, watts);
     let calc: CalcResults = await runSolver(opts);
-    calc = clipResultsToPolygon(room, calc);
+    calc = clipResultsToPolygon(room, calc, opts.luminaires);
     nextByRoom[room.id] = calc;
     try {
       nextWalls[room.id] = calculateRoomWalls({
