@@ -43,7 +43,7 @@ Solver uses **initial** lamp output. Maintained illuminance for EN assist = calc
 When a room is calculated, LUXSIM automatically builds one vertical calculation surface per wall of the floor polygon (DIALux evo “Automatically select room main surfaces” practice, without DIALux branding).
 
 - Colinear or gently turning segments (≤ 20°) merge into one surface, so a faceted curve stays one wall. CAD fillets shorter than 0.15 m are absorbed into the neighbouring wall. Sharp corners start a new surface.
-- Grid spacing matches the workplane (default 0.50 m). The first point is inset by the existing wall-zone (default 0.25 m = gridSpacing/2). EN 12464-1 allows a 0.5 m edge band; 0.25 m is kept so short walls still receive a grid. A wall shorter than two insets gets a single mid-length column.
+- Grid spacing matches the workplane (default 0.50 m, clamped to 0.25–2 m). The first point is inset by the existing wall-zone (default 0.25 m = clamped gridSpacing/2). EN 12464-1 allows a 0.5 m edge band; 0.25 m is kept so short walls still receive a grid. A wall shorter than two insets gets a single mid-length column.
 - Surface normals point into the room. Direct illuminance uses the existing `directIlluminance` with that vertical normal.
 - Results are stored in `ResultsV2.wallsByRoomId` beside, not inside, the workplane `CalcResults`. Workplane statistics are never overwritten by the wall pass.
 

@@ -30,6 +30,12 @@ import {
   EN12464_TEMPLATES,
   evaluateEn12464,
   clampMf,
+  clampGridSpacingM,
+  clampWorkplaneHeightM,
+  clampReflectance,
+  GRID_SPACING_MIN_M,
+  GRID_SPACING_MAX_M,
+  WORKPLANE_CLEARANCE_M,
   resolveMaintenanceFactor,
   aggregateStoreyResults,
   normalizeMfBreakdown,
@@ -2005,14 +2011,16 @@ export function BuildingEditor({
                 type="number"
                 step={0.05}
                 min={0}
+                max={Math.max(0, activeRoom.heightM - WORKPLANE_CLEARANCE_M)}
                 value={activeRoom.workplaneHeightM}
                 onChange={(e) => {
                   const next = Number(e.target.value);
                   if (!Number.isFinite(next)) return;
+                  const heightM = clampWorkplaneHeightM(next, activeRoom.heightM);
                   patchScene((s) => ({
                     ...s,
                     rooms: s.rooms.map((r) =>
-                      r.id === activeRoom.id ? { ...r, workplaneHeightM: next } : r
+                      r.id === activeRoom.id ? { ...r, workplaneHeightM: heightM } : r
                     ),
                   }));
                 }}
@@ -2030,13 +2038,14 @@ export function BuildingEditor({
                     onChange={(e) => {
                       const v = Number(e.target.value);
                       if (!Number.isFinite(v)) return;
+                      const rho = clampReflectance(v);
                       patchScene((s) => ({
                         ...s,
                         rooms: s.rooms.map((r) =>
                           r.id === activeRoom.id
                             ? {
                                 ...r,
-                                reflectance: { ...r.reflectance, [face]: v },
+                                reflectance: { ...r.reflectance, [face]: rho },
                               }
                             : r
                         ),
@@ -2050,16 +2059,18 @@ export function BuildingEditor({
                 className="input"
                 type="number"
                 step={0.1}
-                min={0.2}
+                min={GRID_SPACING_MIN_M}
+                max={GRID_SPACING_MAX_M}
                 value={activeRoom.calc.gridSpacing}
                 onChange={(e) => {
                   const v = Number(e.target.value);
-                  if (!(v >= 0.2)) return;
+                  if (!Number.isFinite(v)) return;
+                  const spacing = clampGridSpacingM(v);
                   patchScene((s) => ({
                     ...s,
                     rooms: s.rooms.map((r) =>
                       r.id === activeRoom.id
-                        ? { ...r, calc: { ...r.calc, gridSpacing: v } }
+                        ? { ...r, calc: { ...r.calc, gridSpacing: spacing } }
                         : r
                     ),
                   }));

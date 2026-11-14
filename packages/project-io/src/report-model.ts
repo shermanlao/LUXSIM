@@ -1,5 +1,6 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import { resolvedFlux } from "../../photometry/src/flux";
+import { wallZoneFromSpacingM } from "../../solver/src/grid-spacing";
 import type { CalcResults } from "../../solver/src/types";
 import { roomAreaM2, roomBounds } from "./geometry";
 import { resolveMaintenanceFactor } from "./maintenance-factor";
@@ -225,8 +226,9 @@ export function uniformitiesFromResults(res: CalcResults): { uo: number; g2: num
   return { uo, g2 };
 }
 
+/** Half of the solver-clamped workplane grid spacing (0.25–2 m). */
 export function wallZoneM(room: RoomV2): number {
-  return Math.max(0, room.calc.gridSpacing / 2);
+  return wallZoneFromSpacingM(room.calc.gridSpacing);
 }
 
 export function typicalMountingHeightM(

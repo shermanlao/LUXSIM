@@ -5,11 +5,12 @@
  * (surfaces sit on the walls, vertical / perpendicular illuminance, inward
  * normal, wall-zone inset) and EN 12464-1 guidance that walls get a grid and
  * an edge band. This project uses the same 0.25 m first-point inset as the
- * workplane (gridSpacing/2). EN 12464 allows up to 0.5 m; 0.25 m is used so
+ * workplane (clamped gridSpacing/2). EN 12464 allows up to 0.5 m; 0.25 m is used so
  * short walls in this project still receive a grid (DIALux skips a surface
  * when the wall zone is larger than the surface).
  */
 import { totalDirectIlluminance } from "../../solver/src/direct";
+import { clampGridSpacingM } from "../../solver/src/grid-spacing";
 import { interreflectedWallBoost } from "../../solver/src/interreflect";
 import type { LuminaireInstance } from "../../solver/src/types";
 import type { PhotometricData } from "../../photometry/src/types";
@@ -261,7 +262,7 @@ export interface CalculateWallsInput {
  */
 export function calculateRoomWalls(input: CalculateWallsInput): WallSurfaceResult[] {
   const { room, instances, photometry, wattsById } = input;
-  const spacing = Math.max(0.25, Math.min(2, room.calc.gridSpacing || 0.5));
+  const spacing = clampGridSpacingM(room.calc.gridSpacing);
   const insetM = wallZoneM(room);
   const chains = buildWallChains(room);
   const luminaires: LuminaireInstance[] = [];

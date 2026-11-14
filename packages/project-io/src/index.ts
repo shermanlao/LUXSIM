@@ -103,6 +103,16 @@ export {
 } from "./isolux-map";
 export type { IsoluxMode, IsoluxModel, FalseColorScale } from "./isolux-map";
 export {
+  GRID_SPACING_MIN_M,
+  GRID_SPACING_MAX_M,
+  DEFAULT_GRID_SPACING_M,
+  WORKPLANE_CLEARANCE_M,
+  clampGridSpacingM,
+  wallZoneFromSpacingM,
+  clampWorkplaneHeightM,
+  clampReflectance,
+} from "../../solver/src/grid-spacing";
+export {
   aggregateProjectLuminaires,
   enrichSummaryWithPolygonArea,
   formatLux,
@@ -110,6 +120,7 @@ export {
   roomLpdFromPolygon,
   roomMaintenanceFactor,
   roomPolygonArea,
+  wallZoneM,
 } from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,
