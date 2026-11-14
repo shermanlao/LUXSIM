@@ -3,14 +3,17 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { AUTH_FORBIDDEN, AUTH_UNAUTHORIZED } from "@/lib/access-control";
 import {
   addDays,
+  collectTrafficView,
   createMemoryTrafficStore,
   getTrafficSecret,
   hashVisitorIdentity,
   hongKongDateKey,
+  isValidVisitorId,
   loadTrafficStats,
   recordPageView,
   safeRecordPageView,
   shouldCountPath,
+  VISITOR_COOKIE,
   visitorIdentity,
 } from "@/lib/site-traffic";
 
@@ -239,6 +242,79 @@ describe("safeRecordPageView", () => {
     ).resolves.toEqual({ recorded: false });
     expect(error).toHaveBeenCalled();
     error.mockRestore();
+  });
+});
+
+describe("collectTrafficView cookie policy", () => {
+  const now = new Date("2026-11-12T08:00:00.000Z");
+
+  it("does not set luxsim_vid or write a traffic row for uncountable paths", async () => {
+    const store = createMemoryTrafficStore();
+    const uncountable = [
+      "/api/projects/test-project/save",
+      "/api/projects/1",
+      "/api/admin/traffic",
+      "/api/traffic/collect",
+      "/api/auth/session",
+      "/_next/static/chunks/main.js",
+      "/favicon.ico",
+      "/robots.txt",
+      "",
+      "not-a-path",
+    ];
+    for (const pathname of uncountable) {
+      const outcome = await collectTrafficView({
+        pathname,
+        visitorId: VISITOR_A,
+        ip: SAMPLE_IP,
+        secret: SECRET,
+        store,
+        now,
+      });
+      expect(outcome.recorded, pathname).toBe(false);
+      expect(outcome.setCookie, pathname).toBeNull();
+    }
+    expect(store.hits).toHaveLength(0);
+    expect(store.daily.size).toBe(0);
+    const dumped = JSON.stringify({ hits: store.hits, daily: [...store.daily.values()] });
+    expect(dumped).not.toContain(SAMPLE_IP);
+    expect(dumped).not.toContain(VISITOR_A);
+  });
+
+  it("still sets luxsim_vid for a countable page when the visitor has no cookie", async () => {
+    const store = createMemoryTrafficStore();
+    const outcome = await collectTrafficView({
+      pathname: "/projects",
+      secret: SECRET,
+      store,
+      now,
+    });
+    expect(outcome.recorded).toBe(true);
+    expect(outcome.setCookie).not.toBeNull();
+    expect(outcome.setCookie?.name).toBe(VISITOR_COOKIE);
+    expect(isValidVisitorId(outcome.setCookie?.value)).toBe(true);
+    expect(outcome.setCookie?.httpOnly).toBe(true);
+    expect(outcome.setCookie?.sameSite).toBe("lax");
+    expect(outcome.setCookie?.path).toBe("/");
+    expect(store.hits).toHaveLength(1);
+    const dumped = JSON.stringify({ hits: store.hits, daily: [...store.daily.values()], cookie: outcome.setCookie });
+    expect(dumped).not.toContain(SAMPLE_IP);
+  });
+
+  it("records a countable page with an existing cookie and does not re-set it", async () => {
+    const store = createMemoryTrafficStore();
+    const outcome = await collectTrafficView({
+      pathname: "/admin/traffic",
+      visitorId: VISITOR_A,
+      secret: SECRET,
+      store,
+      now,
+    });
+    expect(outcome.recorded).toBe(true);
+    expect(outcome.setCookie).toBeNull();
+    expect(store.hits).toHaveLength(1);
+    const dumped = JSON.stringify({ hits: store.hits, daily: [...store.daily.values()] });
+    expect(dumped).not.toContain(VISITOR_A);
   });
 });
 

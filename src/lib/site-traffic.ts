@@ -139,6 +139,52 @@ export async function safeRecordPageView(input: RecordPageViewInput): Promise<Re
   }
 }
 
+export const VISITOR_COOKIE_MAX_AGE = 60 * 60 * 24 * 365;
+
+export type VisitorCookieToSet = {
+  name: typeof VISITOR_COOKIE;
+  value: string;
+  httpOnly: true;
+  sameSite: "lax";
+  secure: boolean;
+  path: "/";
+  maxAge: number;
+};
+
+export type TrafficCollectOutcome = {
+  recorded: boolean;
+  setCookie: VisitorCookieToSet | null;
+};
+
+/**
+ * Collect-endpoint policy: only countable document / page navigations may
+ * set the visitor cookie or write a traffic row. Uncountable paths
+ * (API, autosave, /_next, favicon, …) return no cookie and do not record.
+ */
+export async function collectTrafficView(
+  input: RecordPageViewInput & { secureCookie?: boolean }
+): Promise<TrafficCollectOutcome> {
+  if (!shouldCountPath(input.pathname)) {
+    return { recorded: false, setCookie: null };
+  }
+  const hadValidCookie = isValidVisitorId(input.visitorId);
+  const visitorId = hadValidCookie ? input.visitorId : newVisitorId();
+  const result = await safeRecordPageView({ ...input, visitorId });
+  if (hadValidCookie) return { recorded: result.recorded, setCookie: null };
+  return {
+    recorded: result.recorded,
+    setCookie: {
+      name: VISITOR_COOKIE,
+      value: visitorId!,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: Boolean(input.secureCookie),
+      path: "/",
+      maxAge: VISITOR_COOKIE_MAX_AGE,
+    },
+  };
+}
+
 export type MemoryTrafficStore = TrafficStore & {
   hits: TrafficHit[];
   daily: Map<string, DailyCounts>;
