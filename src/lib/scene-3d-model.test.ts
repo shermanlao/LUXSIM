@@ -17,7 +17,10 @@ import {
   mirrorPlanX,
   sampleGridLux,
   wallShellOpacity,
+  workplaneFalseColorSpacing,
   workplaneVerticesInsideRoom,
+  WORKPLANE_FALSE_COLOR_MAX_DIVISIONS,
+  WORKPLANE_FALSE_COLOR_MIN_SPACING_M,
 } from "./scene-3d-model";
 import type { CalcResults } from "@luxsim/solver";
 
@@ -97,6 +100,158 @@ describe("clipped false-colour workplane", () => {
       }
     }
     expect(inNotch).toBe(0);
+
+    const index = geo!.getIndex();
+    expect(index).not.toBeNull();
+    let faceInNotch = 0;
+    for (let t = 0; t + 2 < index!.count; t += 3) {
+      const a = index!.getX(t);
+      const b = index!.getX(t + 1);
+      const c = index!.getX(t + 2);
+      const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cy = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+      if (cx > 3.08 && cy > 4.08 && !pointInPolygon({ x: cx, y: cy }, room.polygon)) {
+        faceInNotch += 1;
+      }
+    }
+    expect(faceInNotch).toBe(0);
+    geo!.dispose();
+  });
+
+  it("tessellates a rectangular workplane denser than the four polygon corners", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 3) };
+    const results = gridFor(room, 200);
+    results.grid.nx = 8;
+    results.grid.ny = 6;
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    results.grid.lux = Array.from({ length: 8 * 6 }, () => 200);
+    const geo = createClippedWorkplaneGeometry(room, results, 0.4);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(8);
+    const expectedY = 0.4 + 0.75 + 0.02;
+    for (let i = 0; i < pos.count; i += 1) {
+      expect(pos.getY(i)).toBeCloseTo(expectedY, 5);
+    }
+    const { inside, total } = workplaneVerticesInsideRoom(geo!, room, 0.05);
+    expect(total).toBe(pos.count);
+    expect(inside).toBe(total);
+    geo!.dispose();
+  });
+
+  it("colours an interior illuminance peak, not only the room corners", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 4) };
+    const results = gridFor(room, 100);
+    const nx = 8;
+    const ny = 8;
+    results.grid.nx = nx;
+    results.grid.ny = ny;
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    const lux = Array.from({ length: nx * ny }, () => 100);
+    const peakI = 4;
+    const peakJ = 4;
+    const peakLux = 2000;
+    const peakX = 0 + 0.25 + peakI * 0.5;
+    const peakY = 0 + 0.25 + peakJ * 0.5;
+    lux[peakJ * nx + peakI] = peakLux;
+    results.grid.lux = lux;
+
+    const scale = { minLux: 0, maxLux: peakLux };
+    const geo = createClippedWorkplaneGeometry(room, results, 0, scale);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    const color = geo!.getAttribute("color");
+    expect(pos.count).toBeGreaterThan(8);
+
+    const cornerLux = [
+      sampleGridLux(room, results.grid, 0, 0),
+      sampleGridLux(room, results.grid, 4, 0),
+      sampleGridLux(room, results.grid, 4, 4),
+      sampleGridLux(room, results.grid, 0, 4),
+    ];
+    expect(Math.max(...cornerLux)).toBeLessThan(peakLux * 0.3);
+
+    let bestLux = -Infinity;
+    let bestDist = Infinity;
+    for (let i = 0; i < pos.count; i += 1) {
+      const wx = pos.getX(i);
+      const wy = pos.getZ(i);
+      const sampled = sampleGridLux(room, results.grid, wx, wy);
+      const encoded = luxToRgb(sampled, scale);
+      expect(color.getX(i)).toBeCloseTo(encoded[0], 5);
+      expect(color.getY(i)).toBeCloseTo(encoded[1], 5);
+      expect(color.getZ(i)).toBeCloseTo(encoded[2], 5);
+      bestLux = Math.max(bestLux, sampled);
+      bestDist = Math.min(bestDist, Math.hypot(wx - peakX, wy - peakY));
+    }
+    expect(bestDist).toBeLessThan(0.2);
+    expect(bestLux).toBeGreaterThan(peakLux * 0.85);
+    expect(bestLux).toBeGreaterThan(Math.max(...cornerLux) * 2);
+    geo!.dispose();
+  });
+
+  it("keeps interior vertices and faces inside a non-orthogonal trapezoid", () => {
+    const room: RoomV2 = {
+      ...lShapedRoom(),
+      polygon: [
+        { x: 0, y: 0 },
+        { x: 6, y: 0 },
+        { x: 5, y: 4 },
+        { x: 1, y: 4 },
+      ],
+    };
+    const results = gridFor(room, 180);
+    const geo = createClippedWorkplaneGeometry(room, results, 0);
+    expect(geo).not.toBeNull();
+    const { inside, total } = workplaneVerticesInsideRoom(geo!, room, 0.05);
+    expect(total).toBeGreaterThan(8);
+    expect(inside).toBe(total);
+
+    const pos = geo!.getAttribute("position");
+    let outsideCorner = 0;
+    for (let i = 0; i < pos.count; i += 1) {
+      const p = { x: pos.getX(i), y: pos.getZ(i) };
+      // AABB leftover pockets left of the left slant and right of the right slant, near y=4.
+      if (p.y > 3.5 && (p.x < 0.85 || p.x > 5.15) && !pointInPolygon(p, room.polygon)) {
+        outsideCorner += 1;
+      }
+    }
+    expect(outsideCorner).toBe(0);
+
+    const index = geo!.getIndex();
+    expect(index).not.toBeNull();
+    let faceOutside = 0;
+    for (let t = 0; t + 2 < index!.count; t += 3) {
+      const a = index!.getX(t);
+      const b = index!.getX(t + 1);
+      const c = index!.getX(t + 2);
+      const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cy = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+      if (!pointInPolygon({ x: cx, y: cy }, room.polygon)) faceOutside += 1;
+    }
+    expect(faceOutside).toBe(0);
+    geo!.dispose();
+  });
+
+  it("caps workplane spacing so a large room cannot explode", () => {
+    expect(workplaneFalseColorSpacing(0.5, 4, 3)).toBeCloseTo(0.25, 5);
+    expect(workplaneFalseColorSpacing(0.2, 4, 3)).toBeCloseTo(WORKPLANE_FALSE_COLOR_MIN_SPACING_M, 5);
+    const huge = workplaneFalseColorSpacing(0.5, 200, 160);
+    expect(huge).toBeCloseTo(200 / WORKPLANE_FALSE_COLOR_MAX_DIVISIONS, 5);
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 200, 160) };
+    const results = gridFor(room, 150);
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    const geo = createClippedWorkplaneGeometry(room, results, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(8);
+    expect(pos.count).toBeLessThan(20_000);
     geo!.dispose();
   });
 });

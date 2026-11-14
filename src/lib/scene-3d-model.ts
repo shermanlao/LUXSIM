@@ -2,7 +2,7 @@
  * Shared Three.js scene construction for the in-app 3D viewer and report captures.
  * Rooms have a floor, walls, and a downward-facing ceiling so the underside is
  * visible from inside the room. Report cameras looking down still see into the space.
- * False-colour workplanes are clipped to the room polygon.
+ * False-colour workplanes are tessellated denser than the room corners and clipped to the polygon.
  */
 import * as THREE from "three";
 import type { PhotometricData } from "@luxsim/photometry";
@@ -102,6 +102,127 @@ function shapeFromPolygon(polygon: { x: number; y: number }[]): THREE.Shape | nu
   return shape;
 }
 
+/** Same family as wall false-colour sampling: half the calculation grid, with a floor. */
+export const WORKPLANE_FALSE_COLOR_MIN_SPACING_M = 0.15;
+/** Longest AABB side is split into at most this many steps so a large room cannot explode. */
+export const WORKPLANE_FALSE_COLOR_MAX_DIVISIONS = 80;
+
+export function workplaneFalseColorSpacing(gridSpacing: number, width: number, depth: number): number {
+  const preferred = Math.max(WORKPLANE_FALSE_COLOR_MIN_SPACING_M, gridSpacing / 2);
+  const maxDim = Math.max(width, depth, 1e-6);
+  return Math.max(preferred, maxDim / WORKPLANE_FALSE_COLOR_MAX_DIVISIONS);
+}
+
+type PlanPt = { x: number; y: number };
+
+function planSignedArea(poly: PlanPt[]): number {
+  let sum = 0;
+  for (let i = 0; i < poly.length; i += 1) {
+    const a = poly[i]!;
+    const b = poly[(i + 1) % poly.length]!;
+    sum += a.x * b.y - b.x * a.y;
+  }
+  return sum / 2;
+}
+
+function planEnsureCcw(poly: PlanPt[]): PlanPt[] {
+  return planSignedArea(poly) < 0 ? [...poly].reverse() : poly;
+}
+
+function uniqueSorted(values: number[], eps = 1e-9): number[] {
+  const sorted = [...values].sort((a, b) => a - b);
+  const out: number[] = [];
+  for (const v of sorted) {
+    if (!out.length || v - out[out.length - 1]! > eps) out.push(v);
+  }
+  return out;
+}
+
+/** Origin-aligned samples plus bounds and extra vertices, then uniqued. */
+function axisSamples(min: number, max: number, origin: number, spacing: number, extra: number[]): number[] {
+  const values = [min, max, ...extra.filter((v) => v >= min - 1e-9 && v <= max + 1e-9)];
+  const span = Math.max(max - min, 0);
+  const step = Math.max(spacing, 1e-6);
+  const startK = Math.ceil((min - origin) / step - 1e-9);
+  const endK = Math.floor((max - origin) / step + 1e-9);
+  for (let k = startK; k <= endK; k += 1) {
+    const v = origin + k * step;
+    if (v >= min - 1e-9 && v <= max + 1e-9) values.push(Math.min(max, Math.max(min, v)));
+  }
+  // If origin alignment produced almost no interior steps (degenerate origin),
+  // still walk from min so a typical room gets a dense mesh.
+  if (span > step * 1.5) {
+    const expected = Math.floor(span / step);
+    const interior = values.filter((v) => v > min + 1e-9 && v < max - 1e-9).length;
+    if (interior < expected * 0.5) {
+      for (let x = min + step; x < max - 1e-9; x += step) values.push(x);
+    }
+  }
+  return uniqueSorted(values);
+}
+
+function leftOfEdge(p: PlanPt, a: PlanPt, b: PlanPt): boolean {
+  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x) >= -1e-12;
+}
+
+function segmentIntersection(s: PlanPt, e: PlanPt, a: PlanPt, b: PlanPt): PlanPt {
+  const dsx = e.x - s.x;
+  const dsy = e.y - s.y;
+  const dax = b.x - a.x;
+  const day = b.y - a.y;
+  const den = dsx * day - dsy * dax;
+  if (Math.abs(den) < 1e-18) return { x: e.x, y: e.y };
+  const t = ((a.x - s.x) * day - (a.y - s.y) * dax) / den;
+  return { x: s.x + t * dsx, y: s.y + t * dsy };
+}
+
+/** Convex clip (Sutherland–Hodgman). Room polygons may be concave, so callers clip against triangles. */
+function clipPolygonByConvex(subject: PlanPt[], clip: PlanPt[]): PlanPt[] {
+  const clipCcw = planEnsureCcw(clip);
+  let output = subject;
+  for (let i = 0; i < clipCcw.length; i += 1) {
+    const a = clipCcw[i]!;
+    const b = clipCcw[(i + 1) % clipCcw.length]!;
+    const input = output;
+    output = [];
+    if (!input.length) break;
+    for (let j = 0; j < input.length; j += 1) {
+      const cur = input[j]!;
+      const prev = input[(j + input.length - 1) % input.length]!;
+      const curIn = leftOfEdge(cur, a, b);
+      const prevIn = leftOfEdge(prev, a, b);
+      if (curIn) {
+        if (!prevIn) output.push(segmentIntersection(prev, cur, a, b));
+        output.push(cur);
+      } else if (prevIn) {
+        output.push(segmentIntersection(prev, cur, a, b));
+      }
+    }
+  }
+  return output;
+}
+
+function triangulateRoomPlan(polygon: PlanPt[]): PlanPt[][] {
+  const shape = shapeFromPolygon(polygon);
+  if (!shape) return [];
+  const geo = new THREE.ShapeGeometry(shape);
+  const pos = geo.getAttribute("position");
+  const idx = geo.getIndex();
+  const tris: PlanPt[][] = [];
+  const at = (i: number): PlanPt => ({ x: pos.getX(i), y: -pos.getY(i) });
+  if (idx) {
+    for (let i = 0; i + 2 < idx.count; i += 3) {
+      tris.push([at(idx.getX(i)), at(idx.getX(i + 1)), at(idx.getX(i + 2))]);
+    }
+  } else if (pos) {
+    for (let i = 0; i + 2 < pos.count; i += 3) {
+      tris.push([at(i), at(i + 1), at(i + 2)]);
+    }
+  }
+  geo.dispose();
+  return tris.filter((t) => Math.abs(planSignedArea(t)) > 1e-16).map(planEnsureCcw);
+}
+
 /** Clipped workplane in Three.js world space (y-up). Vertex-coloured with the project-wide lux scale. */
 export function createClippedWorkplaneGeometry(
   room: RoomV2,
@@ -109,28 +230,99 @@ export function createClippedWorkplaneGeometry(
   elevationM: number,
   scale?: FalseColorScale
 ): THREE.BufferGeometry | null {
-  const shape = shapeFromPolygon(room.polygon);
-  if (!shape) return null;
-  const geo = new THREE.ShapeGeometry(shape);
-  geo.rotateX(-Math.PI / 2);
-  const z = elevationM + (results.grid.z ?? room.workplaneHeightM) + 0.02;
-  geo.translate(0, z, 0);
-  const pos = geo.getAttribute("position");
-  if (!pos) {
-    geo.dispose();
-    return null;
+  if (room.polygon.length < 3) return null;
+  const triangles = triangulateRoomPlan(room.polygon);
+  if (!triangles.length) return null;
+
+  const b = roomBounds(room);
+  const spacing = workplaneFalseColorSpacing(results.grid.spacing, b.width, b.depth);
+  const xs = axisSamples(
+    b.minX,
+    b.maxX,
+    b.minX + results.grid.originX,
+    spacing,
+    room.polygon.map((p) => p.x)
+  );
+  const ys = axisSamples(
+    b.minY,
+    b.maxY,
+    b.minY + results.grid.originY,
+    spacing,
+    room.polygon.map((p) => p.y)
+  );
+  if (xs.length < 2 || ys.length < 2) return null;
+
+  const positions: number[] = [];
+  const colors: number[] = [];
+  const indices: number[] = [];
+  const height = elevationM + (results.grid.z ?? room.workplaneHeightM) + 0.02;
+  const vertIndex = new Map<string, number>();
+
+  const vertexAt = (p: PlanPt): number => {
+    const key = `${p.x.toFixed(6)},${p.y.toFixed(6)}`;
+    const existing = vertIndex.get(key);
+    if (existing != null) return existing;
+    const i = positions.length / 3;
+    positions.push(p.x, height, p.y);
+    const lux = sampleGridLux(room, results.grid, p.x, p.y);
+    const [r, g, bl] = luxToRgb(lux, scale);
+    colors.push(r, g, bl);
+    vertIndex.set(key, i);
+    return i;
+  };
+
+  const almostSame = (a: PlanPt, b: PlanPt): boolean => Math.hypot(a.x - b.x, a.y - b.y) < 1e-9;
+
+  const cleanRing = (poly: PlanPt[]): PlanPt[] => {
+    const ccw = planEnsureCcw(poly);
+    const out: PlanPt[] = [];
+    for (const p of ccw) {
+      if (!out.length || !almostSame(out[out.length - 1]!, p)) out.push(p);
+    }
+    if (out.length >= 2 && almostSame(out[0]!, out[out.length - 1]!)) out.pop();
+    return out;
+  };
+
+  const emitFan = (poly: PlanPt[]) => {
+    const ring = cleanRing(poly);
+    if (ring.length < 3 || Math.abs(planSignedArea(ring)) < 1e-16) return;
+    const ids = ring.map(vertexAt);
+    for (let i = 1; i < ids.length - 1; i += 1) {
+      const ia = ids[0]!;
+      const ib = ids[i]!;
+      const ic = ids[i + 1]!;
+      if (ia === ib || ib === ic || ia === ic) continue;
+      const area = planSignedArea([ring[0]!, ring[i]!, ring[i + 1]!]);
+      if (Math.abs(area) < 1e-16) continue;
+      indices.push(ia, ib, ic);
+    }
+  };
+
+  for (let iy = 0; iy < ys.length - 1; iy += 1) {
+    const y0 = ys[iy]!;
+    const y1 = ys[iy + 1]!;
+    if (y1 - y0 < 1e-12) continue;
+    for (let ix = 0; ix < xs.length - 1; ix += 1) {
+      const x0 = xs[ix]!;
+      const x1 = xs[ix + 1]!;
+      if (x1 - x0 < 1e-12) continue;
+      const cell: PlanPt[] = [
+        { x: x0, y: y0 },
+        { x: x1, y: y0 },
+        { x: x1, y: y1 },
+        { x: x0, y: y1 },
+      ];
+      for (const tri of triangles) {
+        emitFan(clipPolygonByConvex(cell, tri));
+      }
+    }
   }
-  const colors = new Float32Array(pos.count * 3);
-  for (let i = 0; i < pos.count; i += 1) {
-    const wx = pos.getX(i);
-    const wy = pos.getZ(i);
-    const lux = sampleGridLux(room, results.grid, wx, wy);
-    const [r, g, b] = luxToRgb(lux, scale);
-    colors[i * 3] = r;
-    colors[i * 3 + 1] = g;
-    colors[i * 3 + 2] = b;
-  }
-  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+
+  if (positions.length < 9 || indices.length < 3) return null;
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+  geo.setIndex(indices);
   geo.computeVertexNormals();
   return geo;
 }
