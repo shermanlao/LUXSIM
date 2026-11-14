@@ -38,6 +38,7 @@ import {
   GRID_SPACING_MAX_M,
   WORKPLANE_CLEARANCE_M,
   resolveMaintenanceFactor,
+  appendOfficialNewRoom,
   aggregateStoreyResults,
   presentMfBreakdown,
   applyOverallMaintenanceFactor,
@@ -629,30 +630,8 @@ export function BuildingEditor({
       return;
     }
     const id = nid("room");
-    patchScene((s) => ({
-      ...s,
-      rooms: [
-        ...s.rooms,
-        {
-          id,
-          storeyId: s.ui.activeStoreyId,
-          name: `Room ${s.rooms.length + 1}`,
-          polygon: points.map((p) => ({ x: p.x, y: p.y })),
-          heightM: resolveNewRoomHeightM(),
-          workplaneHeightM: 0.75,
-          reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
-          calc: {
-            gridSpacing: 0.5,
-            interreflection: true,
-            bounces: 2,
-            computeUgr: true,
-            maintenanceFactor: activeRoom?.calc.maintenanceFactor ?? 0.8,
-            en12464TemplateId: activeRoom?.calc.en12464TemplateId ?? "",
-          },
-        },
-      ],
-      ui: { ...s.ui, activeRoomId: id, tool: "select" },
-    }));
+    const heightM = resolveNewRoomHeightM();
+    patchScene((s) => appendOfficialNewRoom(s, { id, polygon: points, heightM }));
     setStatus("Room created");
   }
 

@@ -172,6 +172,15 @@ export { aggregateStoreyResults } from "./storey-results";
 export type { StoreyResultsAggregate } from "./storey-results";
 
 export {
+  DEFAULT_NEW_ROOM_MAINTENANCE_FACTOR,
+  DEFAULT_NEW_ROOM_REFLECTANCE,
+  DEFAULT_NEW_ROOM_WORKPLANE_HEIGHT_M,
+  appendOfficialNewRoom,
+  defaultNewRoomCalc,
+  officialNewRoom,
+} from "./new-room-defaults";
+
+export {
   buildWallChains,
   calculateRoomWalls,
   inwardNormal,
