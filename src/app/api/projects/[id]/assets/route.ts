@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import fs from "fs/promises";
-import { parseDxfEntities, dxfBounds, importIfcText } from "@luxsim/project-io";
+import {
+  parseDxfEntities,
+  dxfBounds,
+  importIfcText,
+  projectAssetKindAllowed,
+} from "@luxsim/project-io";
 import { prisma } from "@/lib/prisma";
 import { apiErrorResponse } from "@/lib/api-error";
 import { requireProjectAccess } from "@/lib/session";
@@ -12,14 +17,6 @@ import {
 } from "@/lib/pdf-raster-ingest";
 
 type Params = { params: Promise<{ id: string }> };
-
-const KIND_EXT: Record<string, string[]> = {
-  image: [".png", ".jpg", ".jpeg", ".webp"],
-  pdf: [".pdf"],
-  dxf: [".dxf"],
-  dwg: [".dwg"],
-  ifc: [".ifc"],
-};
 
 export async function GET(_req: Request, { params }: Params) {
   try {
@@ -51,23 +48,14 @@ export async function POST(req: Request, { params }: Params) {
       return NextResponse.json({ error: "File too large (max 80MB)" }, { status: 400 });
     }
 
-    const lower = file.name.toLowerCase();
-    let kind = String(form.get("kind") || "");
-    if (!kind) {
-      if (lower.endsWith(".pdf")) kind = "pdf";
-      else if (lower.endsWith(".dxf")) kind = "dxf";
-      else if (lower.endsWith(".dwg")) kind = "dwg";
-      else if (lower.endsWith(".ifc")) kind = "ifc";
-      else kind = "image";
+    const classified = projectAssetKindAllowed(
+      file.name,
+      String(form.get("kind") || "")
+    );
+    if (!classified.ok) {
+      return NextResponse.json({ error: classified.error }, { status: 400 });
     }
-
-    const allowed = KIND_EXT[kind];
-    if (!allowed || !allowed.some((ext) => lower.endsWith(ext))) {
-      return NextResponse.json(
-        { error: `Unexpected extension for kind ${kind}` },
-        { status: 400 }
-      );
-    }
+    const kind = classified.kind;
 
     const meta: Record<string, unknown> = {};
     let fileKey: string;

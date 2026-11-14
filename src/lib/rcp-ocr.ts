@@ -1,7 +1,7 @@
 import { createCanvas } from "@napi-rs/canvas";
 import { createWorker, type Worker, PSM } from "tesseract.js";
 import type { RcpDetectionProposal, Underlay } from "@luxsim/project-io";
-import { initialMetersPerPixel } from "@luxsim/project-io";
+import { isUnderlayScaleCalibrated } from "@luxsim/project-io";
 import { normalizeFixtureCode } from "@/lib/fixture-code-map";
 import { randomId } from "@/lib/random-id";
 
@@ -110,14 +110,12 @@ export function underlayPixelToWorldM(
 }
 
 export function isLikelyUnscaledUnderlay(
-  underlay: Pick<Underlay, "sourceWidthPx" | "sourceHeightPx" | "metersPerUnit">
+  underlay: Pick<
+    Underlay,
+    "kind" | "sourceWidthPx" | "sourceHeightPx" | "metersPerUnit" | "scaleCalibrated"
+  >
 ): boolean {
-  const w = underlay.sourceWidthPx;
-  const h = underlay.sourceHeightPx;
-  if (!(w && h && w > 0 && h > 0)) return true;
-  const expected = initialMetersPerPixel(w, h);
-  const ratio = underlay.metersPerUnit / expected;
-  return ratio > 0.98 && ratio < 1.02;
+  return !isUnderlayScaleCalibrated(underlay);
 }
 
 function bboxCenter(b: { x0: number; y0: number; x1: number; y1: number }) {

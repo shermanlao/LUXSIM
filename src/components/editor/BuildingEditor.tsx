@@ -9,7 +9,9 @@ import {
   defaultDisplay3d,
   findRoomAt,
   fitOverviewCamera,
-  initialMetersPerPixel,
+  applyUnderlayCalibration,
+  isDisplayableRasterUnderlay,
+  officialImportedUnderlay,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
@@ -264,7 +266,9 @@ export function BuildingEditor({
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
   const underlayDisplayAssetId =
-    underlay?.pageRasterAssetId ?? underlay?.assetId ?? null;
+    underlay && isDisplayableRasterUnderlay(underlay)
+      ? (underlay.pageRasterAssetId ?? underlay.assetId)
+      : null;
   const underlayUrl = underlayDisplayAssetId
     ? `/api/projects/${projectId}/assets/${underlayDisplayAssetId}/file`
     : null;
@@ -818,34 +822,24 @@ export function BuildingEditor({
         asset.kind === "image" ? await readImagePixelSize(file) : null;
       let sourceWidthPx = pixelSize?.width ?? raster?.widthPx ?? meta.widthPx;
       let sourceHeightPx = pixelSize?.height ?? raster?.heightPx ?? meta.heightPx;
-      const metersPerUnit =
-        sourceWidthPx && sourceHeightPx
-          ? initialMetersPerPixel(sourceWidthPx, sourceHeightPx)
-          : 1;
       const underlayId = nid("underlay");
       patchScene((s) => ({
         ...s,
         underlays: [
           ...s.underlays.filter((u) => u.storeyId !== s.ui.activeStoreyId),
-          {
+          officialImportedUnderlay({
             id: underlayId,
             storeyId: s.ui.activeStoreyId,
             assetId: asset.id,
-            kind: asset.kind === "dxf" ? "dxf" : asset.kind === "pdf" ? "pdf" : "image",
-            opacity: 0.85,
-            metersPerUnit,
-            offsetX: 0,
-            offsetY: 0,
-            rotationDeg: 0,
+            assetKind: asset.kind,
             sourceWidthPx,
             sourceHeightPx,
-            orientationMigrated: true,
             dxfEntities: meta.entities,
             pageIndex: raster?.pageIndex ?? 0,
             pageRasterAssetId: rasterAsset?.id,
             rasterDpi: raster?.rasterDpi,
             pdfPageCount: raster?.pageCount ?? meta.pageCount,
-          },
+          }),
         ],
       }));
       if (asset.kind === "dwg") {
@@ -878,14 +872,11 @@ export function BuildingEditor({
     const real = Number(calibDist);
     if (!(real > 0) || !(distM > 1e-6) || !underlay) return;
     // Uniform meters-per-pixel scale — preserves import aspect ratio on both axes.
-    const factor = real / distM;
+    const next = applyUnderlayCalibration(underlay, a, b, real);
+    if (!next) return;
     patchScene((s) => ({
       ...s,
-      underlays: s.underlays.map((u) =>
-        u.id === underlay.id
-          ? { ...u, metersPerUnit: u.metersPerUnit * factor }
-          : u
-      ),
+      underlays: s.underlays.map((u) => (u.id === underlay.id ? next : u)),
       ui: { ...s.ui, tool: "select" },
     }));
     setStatus(`Calibrated: ${real} m across selection`);

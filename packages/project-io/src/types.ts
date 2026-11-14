@@ -78,13 +78,21 @@ export interface Underlay {
   id: string;
   storeyId: string;
   assetId: string;
-  kind: "image" | "pdf" | "dxf" | "ifc";
+  kind: "image" | "pdf" | "dxf" | "ifc" | "dwg";
   opacity: number;
   /**
    * Uniform meters per source pixel (same for X and Y).
    * World size = sourceWidthPx × metersPerUnit by sourceHeightPx × metersPerUnit.
+   * For a new image/PDF this is a preview scale until `scaleCalibrated` is true.
    */
   metersPerUnit: number;
+  /**
+   * False until the user calibrates scale on a raster/PDF underlay.
+   * DXF linework already in metres is stored as true. DWG (no conversion) is false.
+   * When omitted (legacy scenes), an image/PDF still at the default preview span
+   * is treated as uncalibrated.
+   */
+  scaleCalibrated?: boolean;
   offsetX: number;
   offsetY: number;
   rotationDeg: number;

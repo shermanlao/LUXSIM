@@ -102,12 +102,23 @@ export {
 } from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,
+  PROJECT_ASSET_KIND_EXT,
   underlayWorldSize,
+  underlayCalibratedWorldSize,
   underlayFlipX,
   underlayFlipY,
   initialMetersPerPixel,
+  initialUnderlayScale,
   legacyScaleToMetersPerPixel,
+  inferProjectAssetKind,
+  projectAssetKindAllowed,
+  underlayKindFromAssetKind,
+  isDisplayableRasterUnderlay,
+  isUnderlayScaleCalibrated,
+  officialImportedUnderlay,
+  applyUnderlayCalibration,
 } from "./underlay";
+export type { UnderlayKind } from "./underlay";
 
 export {
   projectLuxRange,

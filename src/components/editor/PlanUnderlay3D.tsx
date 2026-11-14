@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import type { DxfEntity, Underlay } from "@luxsim/project-io";
 import {
+  isDisplayableRasterUnderlay,
   legacyScaleToMetersPerPixel,
   underlayWorldSize,
 } from "@luxsim/project-io";
@@ -38,7 +39,7 @@ export function PlanUnderlay3D({
     setTexture(null);
     setResolvedPx(null);
 
-    if (underlay.kind !== "image" && underlay.kind !== "pdf") {
+    if (!isDisplayableRasterUnderlay(underlay)) {
       return;
     }
 

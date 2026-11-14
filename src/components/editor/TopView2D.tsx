@@ -10,6 +10,7 @@ import {
   parseLengthToM,
   resolveDraftPoint,
   roomBounds,
+  isDisplayableRasterUnderlay,
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
@@ -113,7 +114,7 @@ export function TopView2D({
     ) {
       return;
     }
-    if (underlay.kind !== "image" && underlay.kind !== "pdf") return;
+    if (!isDisplayableRasterUnderlay(underlay)) return;
 
     let cancelled = false;
     const img = new Image();
