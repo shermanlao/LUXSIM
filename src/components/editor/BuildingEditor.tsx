@@ -22,6 +22,8 @@ import {
   normalizeFalseColorScale,
   projectLuxRange,
   rectPolygon,
+  roomAreaM2,
+  roomBounds,
   underlayWorldSize,
   type Camera3dView,
   type Display3dMode,
@@ -69,6 +71,12 @@ import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
 } from "@/lib/array-occupied";
+import {
+  formatAreaM2,
+  formatMetresXy,
+  formatOriginMetres,
+  shouldShowBoundingMin,
+} from "@/lib/room-props-format";
 import {
   writeFixtureInstances,
   type WriteInstancesCalcDeps,
@@ -2048,6 +2056,18 @@ export function BuildingEditor({
                   }));
                 }}
               />
+              <p className="label mb-0">Area</p>
+              <p className="text-sm tabular-nums">{formatAreaM2(roomAreaM2(activeRoom))}</p>
+              <p className="label mb-0">Origin (first corner)</p>
+              <p className="text-sm tabular-nums">{formatOriginMetres(activeRoom.polygon[0])}</p>
+              {shouldShowBoundingMin(activeRoom.polygon[0], roomBounds(activeRoom)) && (
+                <>
+                  <p className="label mb-0">Bounding min</p>
+                  <p className="text-sm tabular-nums">
+                    {formatMetresXy(roomBounds(activeRoom).minX, roomBounds(activeRoom).minY)}
+                  </p>
+                </>
+              )}
               <label className="label">Workplane (m)</label>
               <input
                 className="input"
@@ -2231,7 +2251,7 @@ export function BuildingEditor({
               )}
             </div>
           ) : (
-            <p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets.</p>
+            <p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets. Area and origin appear after a room is selected.</p>
           )}
 
           {selected && (
