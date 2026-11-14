@@ -1,6 +1,6 @@
 "use client";
 
-import { clampMf, type En12464Check } from "@luxsim/project-io";
+import { clampMf, resultsStripLpdMetric, type En12464Check } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
 
 type Props = {
@@ -20,6 +20,7 @@ export function EditorResultsStrip({
 }: Props) {
   const mf = clampMf(maintenanceFactor);
   const s = results?.summary;
+  const lpdMetric = resultsStripLpdMetric(s?.lpd, s?.eave);
 
   return (
     <div className="cad-results-strip" role="region" aria-label="Calculation results">
@@ -55,7 +56,8 @@ export function EditorResultsStrip({
         />
         <Metric
           label="LPD"
-          value={s?.lpd != null ? `${s.lpd.toFixed(2)} W/m²` : "—"}
+          value={lpdMetric.value}
+          sub={lpdMetric.per100Lx}
         />
         {en12464Check && (
           <Metric

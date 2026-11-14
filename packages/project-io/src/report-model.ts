@@ -47,6 +47,19 @@ export function formatLpdPer100Lx(lpd: number | null, eave: number): string {
   return `${(lpd / (eave / 100)).toFixed(2)} W/m²/100 lx`;
 }
 
+/** LPD figures for the editor results strip: keep W/m², and show the official per-100-lx expression when both LPD and initial Ēm are usable. */
+export function resultsStripLpdMetric(
+  lpd: number | null | undefined,
+  eave: number | null | undefined
+): { value: string; per100Lx?: string } {
+  const value = lpd != null && Number.isFinite(lpd) ? formatLpd(lpd) : "—";
+  if (lpd == null || !Number.isFinite(lpd) || eave == null || !Number.isFinite(eave)) {
+    return { value };
+  }
+  const per100Lx = formatLpdPer100Lx(lpd, eave);
+  return per100Lx === "—" ? { value } : { value, per100Lx };
+}
+
 export function formatReflectancePct(r: number): string {
   return `${(r * 100).toFixed(1)}%`;
 }
