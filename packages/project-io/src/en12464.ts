@@ -125,7 +125,7 @@ export type En12464Check = {
   templateId: string;
   templateLabel: string;
   maintenanceFactor: number;
-  mfBreakdown: MfBreakdown;
+  mfBreakdown?: MfBreakdown;
   maintainedEave: number;
   checks: {
     taskEm: En12464ZoneCheck;

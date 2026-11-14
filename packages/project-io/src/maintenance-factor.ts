@@ -14,6 +14,19 @@ export interface MfBreakdown {
   rsmf: number;
 }
 
+export type MfSource = "breakdown" | "overall" | "default";
+
+export type MfResolution = {
+  mf: number;
+  /**
+   * Active CIE 97 components when they (or the built-in default product) are
+   * the source of MF. Absent when an overall value is in force, so callers must
+   * not present DEFAULT_MF_BREAKDOWN as if it were still applied.
+   */
+  breakdown: MfBreakdown | undefined;
+  source: MfSource;
+};
+
 /** Typical indoor office-style product ≈ 0.81 (not a standard mandate). */
 export const DEFAULT_MF_BREAKDOWN: MfBreakdown = {
   llmf: 0.89,
@@ -52,6 +65,21 @@ export function normalizeMfBreakdown(
   };
 }
 
+/** True when stored components are the active CIE 97 breakdown. */
+export function hasActiveMfBreakdown(
+  partial?: Partial<MfBreakdown> | null,
+  useBreakdown = true
+): boolean {
+  return (
+    useBreakdown !== false &&
+    partial != null &&
+    (partial.llmf != null ||
+      partial.lsf != null ||
+      partial.lmf != null ||
+      partial.rsmf != null)
+  );
+}
+
 /**
  * Prefer explicit breakdown when any component is stored on the room;
  * otherwise use overall maintenanceFactor or default product.
@@ -60,23 +88,75 @@ export function resolveMaintenanceFactor(opts: {
   maintenanceFactor?: number | null;
   mfBreakdown?: Partial<MfBreakdown> | null;
   useBreakdown?: boolean;
-}): { mf: number; breakdown: MfBreakdown; source: "breakdown" | "overall" | "default" } {
-  const hasBreakdown =
-    opts.useBreakdown !== false &&
-    opts.mfBreakdown != null &&
-    (opts.mfBreakdown.llmf != null ||
-      opts.mfBreakdown.lsf != null ||
-      opts.mfBreakdown.lmf != null ||
-      opts.mfBreakdown.rsmf != null);
-
-  if (hasBreakdown) {
+}): MfResolution {
+  if (hasActiveMfBreakdown(opts.mfBreakdown, opts.useBreakdown)) {
     const breakdown = normalizeMfBreakdown(opts.mfBreakdown);
     return { mf: productMf(breakdown), breakdown, source: "breakdown" };
   }
   if (opts.maintenanceFactor != null && Number.isFinite(opts.maintenanceFactor)) {
-    const mf = clampMf(opts.maintenanceFactor);
-    return { mf, breakdown: DEFAULT_MF_BREAKDOWN, source: "overall" };
+    return {
+      mf: clampMf(opts.maintenanceFactor),
+      breakdown: undefined,
+      source: "overall",
+    };
   }
-  const breakdown = DEFAULT_MF_BREAKDOWN;
-  return { mf: productMf(breakdown), breakdown, source: "default" };
+  return {
+    mf: productMf(DEFAULT_MF_BREAKDOWN),
+    breakdown: DEFAULT_MF_BREAKDOWN,
+    source: "default",
+  };
+}
+
+/**
+ * Component values the property panel may show as the active CIE 97 breakdown.
+ * Undefined when overall MF is in force, so stale defaults are not presented.
+ */
+export function presentMfBreakdown(opts: {
+  maintenanceFactor?: number | null;
+  mfBreakdown?: Partial<MfBreakdown> | null;
+  useBreakdown?: boolean;
+}): MfBreakdown | undefined {
+  const resolved = resolveMaintenanceFactor(opts);
+  return resolved.source === "overall" ? undefined : resolved.breakdown;
+}
+
+type CalcMfFields = {
+  maintenanceFactor?: number;
+  mfBreakdown?: Partial<MfBreakdown>;
+};
+
+/** Official property-panel write: set overall MF and clear the stored breakdown. */
+export function applyOverallMaintenanceFactor<T extends CalcMfFields>(
+  calc: T,
+  value: number
+): T {
+  return {
+    ...calc,
+    maintenanceFactor: clampMf(value),
+    mfBreakdown: undefined,
+  };
+}
+
+/**
+ * Official property-panel write: editing any component rebuilds the breakdown
+ * (defaults fill unspecified parts) and sets the product as overall MF.
+ */
+export function applyMfComponentEdit<T extends CalcMfFields>(
+  calc: T,
+  key: keyof MfBreakdown,
+  value: number
+): T {
+  const nextBd = normalizeMfBreakdown({
+    ...calc.mfBreakdown,
+    [key]: value,
+  });
+  const resolved = resolveMaintenanceFactor({
+    mfBreakdown: nextBd,
+    useBreakdown: true,
+  });
+  return {
+    ...calc,
+    mfBreakdown: nextBd,
+    maintenanceFactor: resolved.mf,
+  };
 }

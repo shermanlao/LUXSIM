@@ -44,14 +44,18 @@ export {
 export type { En12464Template, En12464Check, En12464ZoneCheck } from "./en12464";
 export {
   DEFAULT_MF_BREAKDOWN,
+  applyMfComponentEdit,
+  applyOverallMaintenanceFactor,
   clampMf,
   clampMfComponent,
   defaultMaintenanceFactor,
+  hasActiveMfBreakdown,
   normalizeMfBreakdown,
+  presentMfBreakdown,
   productMf,
   resolveMaintenanceFactor,
 } from "./maintenance-factor";
-export type { MfBreakdown } from "./maintenance-factor";
+export type { MfBreakdown, MfResolution, MfSource } from "./maintenance-factor";
 export {
   GOLDEN_FIXTURES,
   GOLDEN_LUXSIM_EXPECTED,

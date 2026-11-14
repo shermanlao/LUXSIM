@@ -1,7 +1,7 @@
 import JSZip from "jszip";
 import type { CalcResults } from "../../solver/src/types";
 import { clampMf, evaluateEn12464 } from "./en12464";
-import { resolveMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
+import { hasActiveMfBreakdown, resolveMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
 import { buildVerificationDxf } from "./dxf-export";
 import { roomBounds } from "./geometry";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
@@ -93,7 +93,9 @@ export async function buildDialuxPack(input: DialuxPackInput): Promise<Blob> {
           workplaneHeightM: room.workplaneHeightM,
           reflectance: room.reflectance,
           maintenanceFactor: clampMf(room.calc.maintenanceFactor),
-          mfBreakdown: normalizeMfBreakdown(room.calc.mfBreakdown),
+          mfBreakdown: hasActiveMfBreakdown(room.calc.mfBreakdown)
+            ? normalizeMfBreakdown(room.calc.mfBreakdown)
+            : undefined,
           en12464TemplateId: room.calc.en12464TemplateId ?? "",
           calc: room.calc,
         })),

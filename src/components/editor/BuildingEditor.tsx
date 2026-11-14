@@ -38,8 +38,9 @@ import {
   WORKPLANE_CLEARANCE_M,
   resolveMaintenanceFactor,
   aggregateStoreyResults,
-  normalizeMfBreakdown,
-  DEFAULT_MF_BREAKDOWN,
+  presentMfBreakdown,
+  applyOverallMaintenanceFactor,
+  applyMfComponentEdit,
   WORKFLOW_MODES,
   getDialuxPackWarnings,
   type EditorWorkflowMode,
@@ -269,6 +270,18 @@ export function BuildingEditor({
       taskResults: activeResults,
     });
   }, [activeRoom, activeResults]);
+  const mfResolved = activeRoom
+    ? resolveMaintenanceFactor({
+        maintenanceFactor: activeRoom.calc.maintenanceFactor,
+        mfBreakdown: activeRoom.calc.mfBreakdown,
+      })
+    : null;
+  const activeMfBreakdown = activeRoom
+    ? presentMfBreakdown({
+        maintenanceFactor: activeRoom.calc.maintenanceFactor,
+        mfBreakdown: activeRoom.calc.mfBreakdown,
+      })
+    : undefined;
 
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
   const underlayDisplayAssetId =
@@ -2075,6 +2088,11 @@ export function BuildingEditor({
                 <label className="label mb-0">Maintenance factor (CIE 97)</label>
                 <HelpTip helpKey="room.maintenanceFactor" />
               </div>
+              {mfResolved?.source === "overall" ? (
+                <p className="text-[10px] text-[var(--muted)]">
+                  CIE 97 breakdown not active — using overall MF {mfResolved.mf.toFixed(3)}. Edit a component to rebuild the product.
+                </p>
+              ) : null}
               {(
                 [
                   ["llmf", "LLMF (lamp lumen)"],
@@ -2082,58 +2100,39 @@ export function BuildingEditor({
                   ["lmf", "LMF (lamp survival)"],
                   ["rsmf", "RSMF (room surfaces)"],
                 ] as const
-              ).map(([key, lbl]) => {
-                const bd = normalizeMfBreakdown(activeRoom.calc.mfBreakdown);
-                return (
-                  <div key={key}>
-                    <label className="label">{lbl}</label>
-                    <input
-                      className="input"
-                      type="number"
-                      step={0.01}
-                      min={0.5}
-                      max={1}
-                      value={bd[key]}
-                      onChange={(e) => {
-                        const v = Number(e.target.value);
-                        if (!Number.isFinite(v)) return;
-                        patchScene((s) => ({
-                          ...s,
-                          rooms: s.rooms.map((r) => {
-                            if (r.id !== activeRoom.id) return r;
-                            const nextBd = normalizeMfBreakdown({
-                              ...r.calc.mfBreakdown,
-                              ...bd,
-                              [key]: v,
-                            });
-                            const resolved = resolveMaintenanceFactor({
-                              mfBreakdown: nextBd,
-                              useBreakdown: true,
-                            });
-                            return {
-                              ...r,
-                              calc: {
-                                ...r.calc,
-                                mfBreakdown: nextBd,
-                                maintenanceFactor: resolved.mf,
-                              },
-                            };
-                          }),
-                        }));
-                      }}
-                    />
-                  </div>
-                );
-              })}
+              ).map(([key, lbl]) => (
+                <div key={key}>
+                  <label className="label">{lbl}</label>
+                  <input
+                    className="input"
+                    type="number"
+                    step={0.01}
+                    min={0.5}
+                    max={1}
+                    value={activeMfBreakdown ? activeMfBreakdown[key] : ""}
+                    placeholder="—"
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      patchScene((s) => ({
+                        ...s,
+                        rooms: s.rooms.map((r) =>
+                          r.id !== activeRoom.id
+                            ? r
+                            : { ...r, calc: applyMfComponentEdit(r.calc, key, v) }
+                        ),
+                      }));
+                    }}
+                  />
+                </div>
+              ))}
               <p className="text-[10px] text-[var(--muted)]">
                 Product MF{" "}
-                <strong>
-                  {resolveMaintenanceFactor({
-                    maintenanceFactor: activeRoom.calc.maintenanceFactor,
-                    mfBreakdown: activeRoom.calc.mfBreakdown,
-                  }).mf.toFixed(3)}
-                </strong>{" "}
-                (LLMF×LSF×LMF×RSMF, clamped 0.5–1). Used for maintained EN checks only — solver uses initial output.
+                <strong>{mfResolved ? mfResolved.mf.toFixed(3) : "—"}</strong>{" "}
+                {mfResolved?.source === "overall"
+                  ? "(overall value; CIE 97 breakdown not active)."
+                  : "(LLMF×LSF×LMF×RSMF, clamped 0.5–1)."}{" "}
+                Used for maintained EN checks only — solver uses initial output.
               </p>
               <details className="text-xs">
                 <summary className="cursor-pointer text-[var(--muted)]">Override overall MF</summary>
@@ -2146,12 +2145,13 @@ export function BuildingEditor({
                   data-help-key="room.maintenanceFactor"
                   value={clampMf(activeRoom.calc.maintenanceFactor)}
                   onChange={(e) => {
-                    const v = clampMf(Number(e.target.value));
+                    const v = Number(e.target.value);
+                    if (!Number.isFinite(v)) return;
                     patchScene((s) => ({
                       ...s,
                       rooms: s.rooms.map((r) =>
                         r.id === activeRoom.id
-                          ? { ...r, calc: { ...r.calc, maintenanceFactor: v, mfBreakdown: undefined } }
+                          ? { ...r, calc: applyOverallMaintenanceFactor(r.calc, v) }
                           : r
                       ),
                     }));
