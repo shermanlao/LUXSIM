@@ -24,7 +24,16 @@ export type {
 export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
 export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
-export { serializeLuxsim, parseLuxsim, downloadBlob } from "./luxsim";
+export {
+  serializeLuxsim,
+  parseLuxsim,
+  prepareLuxsimImport,
+  collectReferencedLuminaireIds,
+  remapSceneLuminaireIds,
+  downloadBlob,
+  LuxsimImportError,
+} from "./luxsim";
+export type { PreparedLuxsimImport } from "./luxsim";
 export {
   EN12464_TEMPLATES,
   evaluateEn12464,

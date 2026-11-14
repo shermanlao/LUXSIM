@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserMemberships } from "@/lib/session";
-import { CreateProjectButton } from "@/components/CreateProjectButton";
+import { ProjectsListActions } from "@/components/CreateProjectButton";
 
 export default async function ProjectsPage() {
   const session = await auth();
@@ -31,7 +31,7 @@ export default async function ProjectsPage() {
           <h1 className="display text-4xl mb-2">Projects</h1>
           <p className="text-[var(--muted)]">Single-room lighting designs with client-side calculation</p>
         </div>
-        {workspaces.length > 0 && <CreateProjectButton workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))} />}
+        {workspaces.length > 0 && <ProjectsListActions workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))} />}
       </div>
 
       {workspaces.length === 0 && (

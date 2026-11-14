@@ -9,6 +9,7 @@
 | DXF | Line/polyline underlay |
 | DWG | Stored; convert to DXF externally in this build |
 | IFC | Storeys + spaces (text parser); draw/edit rooms after |
+| `.luxsim.json` | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present). Invalid files are rejected. Underlay / CAD binaries are not in this format. |
 
 ## Exports
 
