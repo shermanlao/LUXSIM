@@ -16,6 +16,7 @@ import {
   type ImportLuminaireRow,
   type ImportProjectRow,
 } from "./import-luxsim";
+import { isLibraryCone, LUMINAIRE_ORIGIN_LIBRARY_CONE } from "./luminaire-origin";
 
 function stubPhoto(catalog: string): PhotometricData {
   return {
@@ -332,5 +333,65 @@ describe("importLuxsimToWorkspace", () => {
     });
     expect(JSON.stringify(mem.projects[0])).not.toContain("should-not-import.example");
     expect(JSON.stringify(mem.projects[0])).not.toContain("footer.example");
+  });
+
+  it("restores a Generate LDT cone so the library still recognizes it, including after id remap", async () => {
+    const cone = {
+      origin: LUMINAIRE_ORIGIN_LIBRARY_CONE,
+      libraryFamily: "linear",
+      libraryBeamDeg: 120,
+    };
+    const text = exportedText({ luminaireLibrary: { "lum-a": cone } });
+    const parsed = JSON.parse(text) as { luminaireLibrary?: Record<string, unknown> };
+    expect(parsed.luminaireLibrary?.["lum-a"]).toEqual(cone);
+
+    const fresh = memoryDeps();
+    const imported = await importLuxsimToWorkspace({
+      orgId: "org-1",
+      text,
+      deps: fresh.deps,
+    });
+    expect(imported.project.id).not.toBe(GOLDEN_PROJECT_ID);
+    expect(fresh.luminaires).toHaveLength(1);
+    expect(isLibraryCone(fresh.luminaires[0])).toBe(true);
+    expect(fresh.luminaires[0]?.origin).toBe(LUMINAIRE_ORIGIN_LIBRARY_CONE);
+    expect(fresh.luminaires[0]?.libraryFamily).toBe("linear");
+    expect(fresh.luminaires[0]?.libraryBeamDeg).toBe(120);
+    expect(fresh.luminaires[0]?.originalName).toBe("sample-downlight.ies");
+
+    const remapped = memoryDeps([{ id: "lum-a", orgId: "other-org" }]);
+    const moved = await importLuxsimToWorkspace({
+      orgId: "org-1",
+      text,
+      deps: remapped.deps,
+    });
+    const created = remapped.luminaires.find((row) => row.orgId === "org-1");
+    expect(created).toBeDefined();
+    expect(created?.id).not.toBe("lum-a");
+    expect(moved.scene.fixtureLibraryIds[0]).toBe(created?.id);
+    expect(isLibraryCone(created)).toBe(true);
+    expect(created?.libraryFamily).toBe("linear");
+    expect(created?.libraryBeamDeg).toBe(120);
+  });
+
+  it("still imports an older file that omits luminaireLibrary and does not invent cone metadata", async () => {
+    const text = exportedText();
+    expect(JSON.parse(text).luminaireLibrary).toBeUndefined();
+    expect(text).not.toMatch(/library_cone/);
+    const mem = memoryDeps();
+    const imported = await importLuxsimToWorkspace({
+      orgId: "org-1",
+      text,
+      deps: mem.deps,
+    });
+    expect(imported.project.id).not.toBe(GOLDEN_PROJECT_ID);
+    expect(imported.scene.rooms[0]?.name).toBe("Office A");
+    expect(mem.projects).toHaveLength(1);
+    expect(mem.luminaires).toHaveLength(1);
+    expect(isLibraryCone(mem.luminaires[0])).toBe(false);
+    expect(mem.luminaires[0]?.origin).not.toBe(LUMINAIRE_ORIGIN_LIBRARY_CONE);
+    expect(mem.luminaires[0]?.origin).toBeUndefined();
+    expect(mem.luminaires[0]?.libraryFamily).toBeUndefined();
+    expect(mem.luminaires[0]?.libraryBeamDeg).toBeUndefined();
   });
 });

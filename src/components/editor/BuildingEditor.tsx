@@ -341,11 +341,18 @@ export function BuildingEditor({
   }, [scene.underlays]);
 
   async function fetchLuminaireExport(id: string): Promise<LuminaireExportPayload> {
+    const listed = library.find((row) => row.id === id);
+    const listedMeta = {
+      origin: listed?.origin,
+      libraryFamily: listed?.libraryFamily,
+      libraryBeamDeg: listed?.libraryBeamDeg,
+    };
     const res = await fetch(`/api/luminaires/${id}`);
     if (!res.ok) {
       return {
         photometric: photoCacheRef.current[id] ?? null,
         source: sourceCacheRef.current[id] ?? null,
+        ...listedMeta,
       };
     }
     const data = await res.json();
@@ -362,7 +369,19 @@ export function BuildingEditor({
       sourceCacheRef.current = { ...sourceCacheRef.current, [id]: source };
       setSourceCache((c) => ({ ...c, [id]: source }));
     }
-    return { photometric, source };
+    return {
+      photometric,
+      source,
+      origin: typeof data.origin === "string" ? data.origin : listedMeta.origin,
+      libraryFamily:
+        data.libraryFamily === null || typeof data.libraryFamily === "string"
+          ? data.libraryFamily
+          : listedMeta.libraryFamily,
+      libraryBeamDeg:
+        data.libraryBeamDeg === null || typeof data.libraryBeamDeg === "number"
+          ? data.libraryBeamDeg
+          : listedMeta.libraryBeamDeg,
+    };
   }
 
   async function ensurePhotometry(id: string) {
@@ -372,10 +391,22 @@ export function BuildingEditor({
   }
 
   async function collectSourcesForOfficialExport(ids: string[]) {
+    const libraryCache: Record<
+      string,
+      { origin?: string | null; libraryFamily?: string | null; libraryBeamDeg?: number | null }
+    > = {};
+    for (const row of library) {
+      libraryCache[row.id] = {
+        origin: row.origin,
+        libraryFamily: row.libraryFamily,
+        libraryBeamDeg: row.libraryBeamDeg,
+      };
+    }
     return collectOfficialExportSources({
       luminaireIds: ids,
       photoCache: photoCacheRef.current,
       sourceCache: sourceCacheRef.current,
+      libraryCache,
       loadLuminaire: fetchLuminaireExport,
     });
   }
@@ -2420,6 +2451,7 @@ export function BuildingEditor({
                     results: results as never,
                     photometry: collected.photometry,
                     sourceFiles: collected.sourceFiles,
+                    luminaireLibrary: collected.luminaireLibrary,
                   })
                 );
                 if (collected.missingSourceIds.length) {

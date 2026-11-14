@@ -9,14 +9,14 @@
 | DXF | Line/polyline underlay |
 | DWG | Stored; convert to DXF externally in this build |
 | IFC | Storeys + spaces (text parser); draw/edit rooms after |
-| `.luxsim.json` | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present). Invalid files are rejected. Underlay / CAD binaries are not in this format. |
+| `.luxsim.json` | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present, plus optional Generate LDT `origin` / `libraryFamily` / `libraryBeamDeg`). Invalid files are rejected. Older files without those library fields still import and are not given invented cone metadata. Underlay / CAD binaries are not in this format. Website / report footer fields are ignored. |
 
 ## Exports
 
 | Format | Support |
 |--------|---------|
 | Full PDF report | Cover, project summary, luminaire list, room list, calculation objects, per-room summary (properties + results + working plane / false-color), product polar sheets, coordinate schedule |
-| `.luxsim.json` | Native project |
+| `.luxsim.json` | Native project (optional `luminaireLibrary` map preserves Generate LDT cone origin / family / beam when present in the source library) |
 | DIALux verification zip | Multi-room `rooms.json`, `schedule.csv`, `luminaires/` (IES/LDT), `geometry.dxf` (walls + fixtures + grid points), `results-summary.csv`, optional `results-grid.csv` |
 
 ### DIALux verification zip (one click)

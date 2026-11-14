@@ -21,6 +21,9 @@ export type ImportLuminaireRow = {
   photometricJson: string;
   watts: number | null;
   lumens: number | null;
+  origin?: string;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 };
 
 export type ImportProjectRow = {
@@ -110,7 +113,8 @@ export async function applyPreparedLuxsimImport(opts: {
         );
         writtenKeys.push(fileKey);
       }
-      await deps.createLuminaire({
+      const library = prepared.luminaireLibrary[item.oldId];
+      const row: ImportLuminaireRow = {
         id: item.newId,
         orgId,
         name:
@@ -123,7 +127,11 @@ export async function applyPreparedLuxsimImport(opts: {
         photometricJson: JSON.stringify(photo),
         watts: photo.watts,
         lumens: photo.luminousFlux,
-      });
+      };
+      if (library?.origin) row.origin = library.origin;
+      if (library && "libraryFamily" in library) row.libraryFamily = library.libraryFamily;
+      if (library && "libraryBeamDeg" in library) row.libraryBeamDeg = library.libraryBeamDeg;
+      await deps.createLuminaire(row);
       createdLuminaireIds.push(item.newId);
     }
 

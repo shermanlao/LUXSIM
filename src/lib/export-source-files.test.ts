@@ -141,11 +141,13 @@ describe("collectOfficialExportSources", () => {
       luminaireIds: ["lum-a"],
       photoCache: { "lum-a": photoA },
       sourceCache: { "lum-a": sourceA },
+      libraryCache: { "lum-a": { origin: "upload" } },
       loadLuminaire,
     });
     expect(loadLuminaire).not.toHaveBeenCalled();
     expect(collected.sourceFiles["lum-a"]).toEqual(sourceA);
     expect(collected.photometry["lum-a"]).toEqual(photoA);
+    expect(collected.luminaireLibrary).toEqual({});
     expect(collected.missingSourceIds).toEqual([]);
   });
 
@@ -157,10 +159,12 @@ describe("collectOfficialExportSources", () => {
       luminaireIds: ["lum-a"],
       photoCache: { "lum-a": photoA, "lum-b": photoB },
       sourceCache: { "lum-a": sourceA, "lum-b": sourceB },
+      libraryCache: { "lum-a": { origin: "upload" }, "lum-b": { origin: "upload" } },
       loadLuminaire,
     });
     expect(loadLuminaire).not.toHaveBeenCalled();
     expect(collected.sourceFiles).toEqual({ "lum-a": sourceA, "lum-b": sourceB });
+    expect(collected.luminaireLibrary).toEqual({});
   });
 
   it("refetches the source when photometry is cached but sourceCache was not committed", async () => {
@@ -209,6 +213,7 @@ describe("official pack builders with collected sources", () => {
       luminaireIds: officialExportLuminaireIds(scene),
       photoCache: { "lum-a": photoA },
       sourceCache: { "lum-a": sourceA },
+      libraryCache: { "lum-a": { origin: "upload" } },
       loadLuminaire: async () => {
         throw new Error("cache should still be valid");
       },
@@ -271,5 +276,92 @@ describe("official pack builders with collected sources", () => {
     });
     const freshZip = await JSZip.loadAsync(await freshBlob.arrayBuffer());
     expect(await freshZip.file("luminaires/sample-downlight.ies")!.async("string")).toBe(sourceA.text);
+  });
+});
+
+describe("Generate LDT library metadata in official export", () => {
+  const coneMeta = {
+    origin: "library_cone" as const,
+    libraryFamily: "circular",
+    libraryBeamDeg: 36,
+  };
+
+  it("keeps Generate LDT cone metadata from the library cache without refetching", async () => {
+    const loadLuminaire = vi.fn(async () => {
+      throw new Error("should not refetch complete cache including library metadata");
+    });
+    const collected = await collectOfficialExportSources({
+      luminaireIds: ["lum-a"],
+      photoCache: { "lum-a": photoA },
+      sourceCache: { "lum-a": sourceA },
+      libraryCache: { "lum-a": coneMeta },
+      loadLuminaire,
+    });
+    expect(loadLuminaire).not.toHaveBeenCalled();
+    expect(collected.luminaireLibrary["lum-a"]).toEqual(coneMeta);
+  });
+
+  it("loads Generate LDT cone metadata when the library cache is missing", async () => {
+    const collected = await collectOfficialExportSources({
+      luminaireIds: ["lum-a"],
+      photoCache: { "lum-a": photoA },
+      sourceCache: { "lum-a": sourceA },
+      loadLuminaire: async () => ({
+        photometric: photoA,
+        source: sourceA,
+        ...coneMeta,
+      }),
+    });
+    expect(collected.luminaireLibrary["lum-a"]).toEqual(coneMeta);
+  });
+
+  it("does not invent Generate LDT cone metadata for a generic upload", async () => {
+    const collected = await collectOfficialExportSources({
+      luminaireIds: ["lum-a"],
+      photoCache: { "lum-a": photoA },
+      sourceCache: { "lum-a": sourceA },
+      loadLuminaire: async () => ({
+        photometric: photoA,
+        source: sourceA,
+        origin: "upload",
+      }),
+    });
+    expect(collected.luminaireLibrary["lum-a"]).toBeUndefined();
+    const project = buildLuxsimProject({
+      name: "Upload only",
+      scene,
+      results,
+      photometry: collected.photometry,
+      sourceFiles: collected.sourceFiles,
+      luminaireLibrary: collected.luminaireLibrary,
+    });
+    expect(project.luminaireLibrary).toBeUndefined();
+    const text = serializeLuxsim(project);
+    expect(text).not.toMatch(/library_cone/);
+    expect(text).not.toMatch(/libraryFamily/);
+    expect(text).not.toMatch(/libraryBeamDeg/);
+  });
+
+  it("fails if a Generate LDT cone is exported without its library metadata", async () => {
+    const collected = await collectOfficialExportSources({
+      luminaireIds: officialExportLuminaireIds(scene),
+      photoCache: { "lum-a": photoA },
+      sourceCache: { "lum-a": sourceA },
+      libraryCache: { "lum-a": coneMeta },
+      loadLuminaire: async () => {
+        throw new Error("cache should still be valid");
+      },
+    });
+    const project = buildLuxsimProject({
+      name: "Cone office",
+      scene,
+      results,
+      photometry: collected.photometry,
+      sourceFiles: collected.sourceFiles,
+      luminaireLibrary: collected.luminaireLibrary,
+    });
+    const parsed = parseLuxsim(serializeLuxsim(project));
+    expect(parsed.luminaireLibrary?.["lum-a"]).toEqual(coneMeta);
+    expect(serializeLuxsim(project)).not.toMatch(/reportWebsite/);
   });
 });

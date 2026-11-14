@@ -129,8 +129,13 @@ export function buildLuxsimProject(opts: {
   results: CalcResults | LuxsimProjectFile["results"];
   photometry: Record<string, PhotometricData>;
   sourceFiles?: Record<string, { filename: string; text: string }>;
+  luminaireLibrary?: LuxsimProjectFile["luminaireLibrary"];
 }): LuxsimProjectFile {
   const version = opts.scene.version === 2 ? 2 : 1;
+  const luminaireLibrary =
+    opts.luminaireLibrary && Object.keys(opts.luminaireLibrary).length
+      ? opts.luminaireLibrary
+      : undefined;
   return {
     format: "luxsim",
     version,
@@ -139,6 +144,7 @@ export function buildLuxsimProject(opts: {
     results: opts.results,
     photometry: opts.photometry,
     sourceFiles: opts.sourceFiles,
+    ...(luminaireLibrary ? { luminaireLibrary } : {}),
   };
 }
 

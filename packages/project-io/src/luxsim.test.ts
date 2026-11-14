@@ -304,9 +304,38 @@ describe("prepareLuxsimImport", () => {
       ["empty object scene", JSON.stringify({ format: "luxsim", version: 2, name: "x", scene: {} })],
       ["unsupported version", JSON.stringify({ format: "luxsim", version: 3, name: "x", scene: sampleScene() })],
       ["photometry array", JSON.stringify({ ...sampleFile(), photometry: [] })],
+      ["luminaireLibrary array", JSON.stringify({ ...sampleFile(), luminaireLibrary: [] })],
+      [
+        "invalid libraryBeamDeg",
+        JSON.stringify({
+          ...sampleFile(),
+          luminaireLibrary: { "lum-a": { origin: "library_cone", libraryBeamDeg: "wide" } },
+        }),
+      ],
     ];
     for (const [label, text] of rejects) {
       expect(() => prepareLuxsimImport(text), label).toThrow(LuxsimImportError);
     }
+  });
+
+  it("round-trips Generate LDT cone origin, family, and beam, and does not invent them on older files", () => {
+    const cone = {
+      origin: "library_cone",
+      libraryFamily: "circular",
+      libraryBeamDeg: 36,
+    };
+    const built = sampleFile({ luminaireLibrary: { "lum-a": cone } });
+    const parsed = parseLuxsim(serializeLuxsim(built));
+    expect(parsed.luminaireLibrary?.["lum-a"]).toEqual(cone);
+    const prepared = prepareLuxsimImport(serializeLuxsim(built));
+    expect(prepared.luminaireLibrary["lum-a"]).toEqual(cone);
+    expect(prepared.warnings).toEqual([]);
+
+    const older = sampleFile();
+    expect(older.luminaireLibrary).toBeUndefined();
+    const olderPrepared = prepareLuxsimImport(serializeLuxsim(older));
+    expect(olderPrepared.luminaireLibrary).toEqual({});
+    expect(JSON.stringify(olderPrepared)).not.toMatch(/library_cone/);
+    expect(olderPrepared.sourceFiles["lum-a"]?.text).toContain("SOURCE A");
   });
 });

@@ -1,6 +1,11 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import { isSceneV1, isSceneV2, normalizeResults, normalizeScene } from "./migrate";
-import type { LuxsimProjectFile, ProjectSceneV2, ResultsV2 } from "./types";
+import type {
+  LuxsimLuminaireLibraryEntry,
+  LuxsimProjectFile,
+  ProjectSceneV2,
+  ResultsV2,
+} from "./types";
 
 export function serializeLuxsim(project: LuxsimProjectFile): string {
   return JSON.stringify(project, null, 2);
@@ -27,6 +32,7 @@ export type PreparedLuxsimImport = {
   results: ResultsV2;
   photometry: Record<string, PhotometricData>;
   sourceFiles: Record<string, { filename: string; text: string }>;
+  luminaireLibrary: Record<string, LuxsimLuminaireLibraryEntry>;
   warnings: string[];
 };
 
@@ -67,6 +73,11 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
   if (raw.sourceFiles != null && !isPlainObject(raw.sourceFiles)) {
     throw new LuxsimImportError("Not a valid LUXSIM project file: sourceFiles must be an object");
   }
+  if (raw.luminaireLibrary != null && !isPlainObject(raw.luminaireLibrary)) {
+    throw new LuxsimImportError(
+      "Not a valid LUXSIM project file: luminaireLibrary must be an object"
+    );
+  }
 
   const photometry: Record<string, PhotometricData> = {};
   for (const [id, entry] of Object.entries(raw.photometry ?? {})) {
@@ -99,6 +110,12 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
     sourceFiles[id] = { filename: entry.filename, text: entry.text };
   }
 
+  const luminaireLibrary: Record<string, LuxsimLuminaireLibraryEntry> = {};
+  for (const [id, entry] of Object.entries(raw.luminaireLibrary ?? {})) {
+    const parsed = parseLuminaireLibraryEntry(id, entry);
+    if (parsed) luminaireLibrary[id] = parsed;
+  }
+
   const name = raw.name.trim().slice(0, 120) || "Imported project";
   const scene = normalizeScene(raw.scene);
   const results =
@@ -127,7 +144,7 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
     }
   }
 
-  return { name, scene, results, photometry, sourceFiles, warnings };
+  return { name, scene, results, photometry, sourceFiles, luminaireLibrary, warnings };
 }
 
 export function collectReferencedLuminaireIds(scene: ProjectSceneV2): string[] {
@@ -170,6 +187,98 @@ export function downloadBlob(filename: string, blob: Blob): void {
   a.download = filename;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+/**
+ * Keep only origin / family / beam fields that were actually present.
+ * Default "upload" rows with no family or beam are omitted so older-looking
+ * files stay unchanged and importers do not invent Generate LDT metadata.
+ */
+export function compactLuminaireLibraryEntry(
+  row:
+    | {
+        origin?: string | null;
+        libraryFamily?: string | null;
+        libraryBeamDeg?: number | null;
+      }
+    | null
+    | undefined
+): LuxsimLuminaireLibraryEntry | undefined {
+  if (!row) return undefined;
+  const entry: LuxsimLuminaireLibraryEntry = {};
+  if (typeof row.origin === "string" && row.origin.trim()) {
+    entry.origin = row.origin.trim();
+  }
+  if (typeof row.libraryFamily === "string" && row.libraryFamily.trim()) {
+    entry.libraryFamily = row.libraryFamily.trim();
+  } else if (row.libraryFamily === null) {
+    entry.libraryFamily = null;
+  }
+  if (row.libraryBeamDeg != null && typeof row.libraryBeamDeg === "number" && Number.isFinite(row.libraryBeamDeg)) {
+    entry.libraryBeamDeg = Math.round(row.libraryBeamDeg);
+  } else if (row.libraryBeamDeg === null) {
+    entry.libraryBeamDeg = null;
+  }
+  if (entry.origin == null && entry.libraryFamily == null && entry.libraryBeamDeg == null) {
+    return undefined;
+  }
+  if (
+    entry.origin === "upload" &&
+    entry.libraryFamily == null &&
+    entry.libraryBeamDeg == null
+  ) {
+    return undefined;
+  }
+  return entry;
+}
+
+function parseLuminaireLibraryEntry(
+  id: string,
+  value: unknown
+): LuxsimLuminaireLibraryEntry | undefined {
+  if (!isPlainObject(value)) {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: luminaireLibrary entry "${id}" is invalid`
+    );
+  }
+  if (value.origin !== undefined && (typeof value.origin !== "string" || !value.origin.trim())) {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: luminaireLibrary entry "${id}" has an invalid origin`
+    );
+  }
+  if (
+    value.libraryFamily !== undefined &&
+    value.libraryFamily !== null &&
+    (typeof value.libraryFamily !== "string" || !value.libraryFamily.trim())
+  ) {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: luminaireLibrary entry "${id}" has an invalid libraryFamily`
+    );
+  }
+  if (
+    value.libraryBeamDeg !== undefined &&
+    value.libraryBeamDeg !== null &&
+    (typeof value.libraryBeamDeg !== "number" || !Number.isFinite(value.libraryBeamDeg))
+  ) {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: luminaireLibrary entry "${id}" has an invalid libraryBeamDeg`
+    );
+  }
+  return compactLuminaireLibraryEntry({
+    origin: typeof value.origin === "string" ? value.origin : undefined,
+    libraryFamily:
+      value.libraryFamily === null
+        ? null
+        : typeof value.libraryFamily === "string"
+          ? value.libraryFamily
+          : undefined,
+    libraryBeamDeg:
+      value.libraryBeamDeg === null
+        ? null
+        : typeof value.libraryBeamDeg === "number"
+          ? value.libraryBeamDeg
+          : undefined,
+  });
 }
 
 function stripBom(text: string): string {

@@ -1,15 +1,26 @@
 import type { PhotometricData } from "@luxsim/photometry";
+import {
+  compactLuminaireLibraryEntry,
+  type LuxsimLuminaireLibraryEntry,
+} from "@luxsim/project-io";
 
 export type ExportSourceFile = { filename: string; text: string };
+
+export type LuminaireLibraryFields = {
+  origin?: string | null;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
+};
 
 export type LuminaireExportPayload = {
   photometric: PhotometricData | null;
   source: ExportSourceFile | null;
-};
+} & LuminaireLibraryFields;
 
 export type OfficialExportSources = {
   photometry: Record<string, PhotometricData>;
   sourceFiles: Record<string, ExportSourceFile>;
+  luminaireLibrary: Record<string, LuxsimLuminaireLibraryEntry>;
   missingSourceIds: string[];
 };
 
@@ -40,17 +51,24 @@ export async function collectOfficialExportSources(opts: {
   luminaireIds: string[];
   photoCache?: Record<string, PhotometricData>;
   sourceCache?: Record<string, ExportSourceFile>;
+  libraryCache?: Record<string, LuminaireLibraryFields>;
   loadLuminaire: (id: string) => Promise<LuminaireExportPayload>;
 }): Promise<OfficialExportSources> {
   const sourceFiles: Record<string, ExportSourceFile> = { ...(opts.sourceCache ?? {}) };
   const photometry: Record<string, PhotometricData> = {};
+  const luminaireLibrary: Record<string, LuxsimLuminaireLibraryEntry> = {};
   const missingSourceIds: string[] = [];
 
   for (const id of opts.luminaireIds) {
     if (opts.photoCache?.[id]) photometry[id] = opts.photoCache[id]!;
     const hasPhoto = Boolean(photometry[id]);
     const hasSource = Boolean(sourceFiles[id]?.text);
-    if (hasPhoto && hasSource) continue;
+    const hasLibraryCache = Object.prototype.hasOwnProperty.call(opts.libraryCache ?? {}, id);
+    if (hasLibraryCache) {
+      const entry = compactLuminaireLibraryEntry(opts.libraryCache![id]);
+      if (entry) luminaireLibrary[id] = entry;
+    }
+    if (hasPhoto && hasSource && hasLibraryCache) continue;
 
     const loaded = await opts.loadLuminaire(id);
     if (loaded.photometric) photometry[id] = loaded.photometric;
@@ -59,9 +77,13 @@ export async function collectOfficialExportSources(opts: {
     } else if (!sourceFiles[id]?.text) {
       missingSourceIds.push(id);
     }
+    if (!hasLibraryCache) {
+      const entry = compactLuminaireLibraryEntry(loaded);
+      if (entry) luminaireLibrary[id] = entry;
+    }
   }
 
-  return { photometry, sourceFiles, missingSourceIds };
+  return { photometry, sourceFiles, luminaireLibrary, missingSourceIds };
 }
 
 export function missingExportSourceStatus(

@@ -244,4 +244,16 @@ export interface LuxsimProjectFile {
   results: CalcResults | ResultsV2 | null;
   photometry: Record<string, PhotometricData>;
   sourceFiles?: Record<string, { filename: string; text: string }>;
+  /**
+   * Optional Generate LDT / library-origin metadata keyed by luminaire id.
+   * Absent on older files. Importers must not invent these fields.
+   */
+  luminaireLibrary?: Record<string, LuxsimLuminaireLibraryEntry>;
+}
+
+/** Library recognition fields for a luminaire stored in a .luxsim file. */
+export interface LuxsimLuminaireLibraryEntry {
+  origin?: string;
+  libraryFamily?: string | null;
+  libraryBeamDeg?: number | null;
 }
