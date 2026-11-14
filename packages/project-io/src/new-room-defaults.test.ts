@@ -117,7 +117,7 @@ describe("official editor create-room paths", () => {
       path.join(process.cwd(), "src/components/editor/BuildingEditor.tsx"),
       "utf8"
     );
-    expect(src).toContain("appendOfficialNewRoom");
+    expect(src).toContain("officialAppendDrawnRoom");
     expect(src).toContain("createRectRoom");
     const drawStart = src.indexOf("function drawRoomPolygon");
     const createStart = src.indexOf("function createRectRoom");
@@ -127,7 +127,7 @@ describe("official editor create-room paths", () => {
     expect(uploadStart).toBeGreaterThan(createStart);
     const drawFn = src.slice(drawStart, createStart);
     const createFn = src.slice(createStart, uploadStart);
-    expect(drawFn).toContain("appendOfficialNewRoom");
+    expect(drawFn).toContain("officialAppendDrawnRoom");
     expect(drawFn).not.toMatch(/activeRoom/);
     expect(drawFn).not.toMatch(/maintenanceFactor/);
     expect(drawFn).not.toMatch(/en12464TemplateId/);

@@ -148,7 +148,11 @@ export {
   isUnderlayScaleCalibrated,
   officialImportedUnderlay,
   applyUnderlayCalibration,
+  officialDrawRoomAllowed,
+  officialDrawRoomBlockedReason,
+  UNCALIBRATED_DRAW_ROOM_STATUS,
 } from "./underlay";
+export type { OfficialUnderlayScaleFields } from "./underlay";
 export type { UnderlayKind } from "./underlay";
 
 export {
@@ -176,6 +180,7 @@ export {
   DEFAULT_NEW_ROOM_REFLECTANCE,
   DEFAULT_NEW_ROOM_WORKPLANE_HEIGHT_M,
   appendOfficialNewRoom,
+  officialAppendDrawnRoom,
   defaultNewRoomCalc,
   officialNewRoom,
 } from "./new-room-defaults";

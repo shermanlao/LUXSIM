@@ -11,6 +11,7 @@ import {
   resolveDraftPoint,
   roomBounds,
   isDisplayableRasterUnderlay,
+  officialDrawRoomAllowed,
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
@@ -87,7 +88,8 @@ export function TopView2D({
   const rooms = scene.rooms.filter((r) => r.storeyId === storeyId);
   const instances = scene.instances.filter((i) => i.storeyId === storeyId);
   const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
-  const drawing = scene.ui.tool === "drawRoom";
+  const drawing =
+    scene.ui.tool === "drawRoom" && officialDrawRoomAllowed(underlay);
 
   const sourceWidthPx = underlay?.sourceWidthPx ?? resolvedSource?.width;
   const sourceHeightPx = underlay?.sourceHeightPx ?? resolvedSource?.height;

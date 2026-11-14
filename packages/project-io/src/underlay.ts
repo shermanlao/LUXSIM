@@ -241,3 +241,33 @@ export function applyUnderlayCalibration<
     scaleCalibrated: true,
   };
 }
+
+export type OfficialUnderlayScaleFields = Pick<
+  Underlay,
+  "kind" | "sourceWidthPx" | "sourceHeightPx" | "metersPerUnit" | "scaleCalibrated"
+> & { kind?: UnderlayKind };
+
+/**
+ * Official editor may create rooms unless the active underlay is a
+ * displayable image/PDF that has not been officially calibrated.
+ * No underlay, DXF (already metres), DWG (not a tracing raster), and
+ * already-calibrated rasters are allowed. Uses isUnderlayScaleCalibrated
+ * — do not invent a second notion of “calibrated”.
+ */
+export function officialDrawRoomAllowed(
+  underlay: OfficialUnderlayScaleFields | null | undefined
+): boolean {
+  if (!underlay) return true;
+  if (!isDisplayableRasterUnderlay(underlay)) return true;
+  return isUnderlayScaleCalibrated(underlay);
+}
+
+/** Status shown when official draw-room / rectangle-create is blocked. */
+export const UNCALIBRATED_DRAW_ROOM_STATUS =
+  "Calibrate scale first — the plan underlay is a preview size until you set a real distance.";
+
+export function officialDrawRoomBlockedReason(
+  underlay: OfficialUnderlayScaleFields | null | undefined
+): string | null {
+  return officialDrawRoomAllowed(underlay) ? null : UNCALIBRATED_DRAW_ROOM_STATUS;
+}

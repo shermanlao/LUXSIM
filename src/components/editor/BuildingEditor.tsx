@@ -12,6 +12,10 @@ import {
   applyUnderlayCalibration,
   isDisplayableRasterUnderlay,
   officialImportedUnderlay,
+  officialDrawRoomAllowed,
+  officialDrawRoomBlockedReason,
+  officialAppendDrawnRoom,
+  UNCALIBRATED_DRAW_ROOM_STATUS,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
@@ -38,7 +42,6 @@ import {
   GRID_SPACING_MAX_M,
   WORKPLANE_CLEARANCE_M,
   resolveMaintenanceFactor,
-  appendOfficialNewRoom,
   aggregateStoreyResults,
   presentMfBreakdown,
   applyOverallMaintenanceFactor,
@@ -294,6 +297,16 @@ export function BuildingEditor({
     ? `/api/projects/${projectId}/assets/${underlayDisplayAssetId}/file`
     : null;
   const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
+
+  useEffect(() => {
+    if (scene.ui.tool !== "drawRoom") return;
+    const blocked = officialDrawRoomBlockedReason(underlay);
+    if (!blocked) return;
+    patchSceneUi((s) =>
+      s.ui.tool === "drawRoom" ? { ...s, ui: { ...s.ui, tool: "select" } } : s
+    );
+    setStatus(blocked);
+  }, [underlay, scene.ui.tool]);
 
   const loadLibrary = useCallback(async () => {
     const res = await fetch("/api/luminaires");
@@ -624,18 +637,32 @@ export function BuildingEditor({
     return storey?.heightM ?? 2.8;
   }
 
+  function refuseUncalibratedDrawRoom(): boolean {
+    const blocked = officialDrawRoomBlockedReason(underlay);
+    if (!blocked) return false;
+    setStatus(blocked);
+    return true;
+  }
+
+  function selectEditorTool(tool: ProjectSceneV2["ui"]["tool"]) {
+    if (tool === "drawRoom" && refuseUncalibratedDrawRoom()) return;
+    patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }));
+  }
+
   function drawRoomPolygon(points: Vec2[]) {
+    if (refuseUncalibratedDrawRoom()) return;
     if (points.length < 3) {
       setStatus("Need at least 3 corners to close a room");
       return;
     }
     const id = nid("room");
     const heightM = resolveNewRoomHeightM();
-    patchScene((s) => appendOfficialNewRoom(s, { id, polygon: points, heightM }));
+    patchScene((s) => officialAppendDrawnRoom(s, { id, polygon: points, heightM }).scene);
     setStatus("Room created");
   }
 
   function createRectRoom() {
+    if (refuseUncalibratedDrawRoom()) return;
     const lengthM = parseLengthToM(rectLenMm);
     const widthM = parseLengthToM(rectWidMm);
     if (!(lengthM && lengthM >= 0.05) || !(widthM && widthM >= 0.05)) {
@@ -1736,7 +1763,7 @@ export function BuildingEditor({
                   className={`btn w-full !text-xs justify-start ${
                     scene.ui.tool === tool ? "btn-accent" : "btn-secondary"
                   }`}
-                  onClick={() => patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }))}
+                  onClick={() => selectEditorTool(tool)}
                 >
                   <Icon className="w-4 h-4 shrink-0 opacity-90" />
                   {label}
@@ -1744,6 +1771,11 @@ export function BuildingEditor({
                 {helpKey && <HelpTip helpKey={helpKey} />}
               </div>
             ))}
+            {!officialDrawRoomAllowed(underlay) && (
+              <p className="text-[10px] text-[var(--muted)]">
+                {UNCALIBRATED_DRAW_ROOM_STATUS}
+              </p>
+            )}
             {scene.ui.tool === "drawRoom" && (
               <p className="text-[10px] text-[var(--muted)]">
                 Click corners — type mm to lock length — click the start point to close.

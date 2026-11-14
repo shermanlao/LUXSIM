@@ -1,4 +1,5 @@
 import type { ProjectSceneV2, RoomV2, Vec2 } from "./types";
+import { officialDrawRoomBlockedReason } from "./underlay";
 
 /**
  * Documented blank-room overall maintenance factor (0.80).
@@ -66,5 +67,25 @@ export function appendOfficialNewRoom(
     ...scene,
     rooms: [...scene.rooms, room],
     ui: { ...scene.ui, activeRoomId: room.id, tool: "select" },
+  };
+}
+
+/**
+ * Official editor create-room write path. Refuses to append a room when
+ * the active storey's displayable image/PDF underlay is uncalibrated.
+ */
+export function officialAppendDrawnRoom(
+  scene: ProjectSceneV2,
+  input: { id: string; polygon: Vec2[]; heightM: number }
+): { scene: ProjectSceneV2; created: boolean; status: string } {
+  const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
+  const blocked = officialDrawRoomBlockedReason(underlay);
+  if (blocked) {
+    return { scene, created: false, status: blocked };
+  }
+  return {
+    scene: appendOfficialNewRoom(scene, input),
+    created: true,
+    status: "Room created",
   };
 }
