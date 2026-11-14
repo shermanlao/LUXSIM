@@ -1,13 +1,14 @@
 import type { CalcResults } from "../../solver/src/types";
 import { pointInPolygon, roomBounds } from "./geometry";
+import { luxToRgb } from "./isolux-map";
 import type { RoomV2 } from "./types";
 
-function luxToRgb(lux: number, max: number): [number, number, number] {
-  const t = Math.min(1, Math.max(0, lux / Math.max(max, 1)));
-  if (t < 0.25) return [0, t / 0.25, 1];
-  if (t < 0.5) return [0, 1, 1 - (t - 0.25) / 0.25];
-  if (t < 0.75) return [(t - 0.5) / 0.25, 1, 0];
-  return [1, 1 - (t - 0.75) / 0.25, 0];
+/**
+ * Workplane cell colour for the official report PNG.
+ * Uses the same absolute DIALux ramp as `drawLuxLegend` / `legendStopsForRange`.
+ */
+export function workplaneFalseColorRgb(lux: number): [number, number, number] {
+  return luxToRgb(lux);
 }
 
 /**
@@ -31,7 +32,6 @@ export function gridToFalseColorPngDataUrl(
   if (!ctx) return null;
 
   const b = roomBounds(room);
-  const max = Math.max(...grid.lux, results.summary.emax, 1);
   ctx.fillStyle = "#1a2630";
   ctx.fillRect(0, 0, w, h);
 
@@ -48,7 +48,7 @@ export function gridToFalseColorPngDataUrl(
         ctx.fillRect(x, y, scale, scale);
         continue;
       }
-      const [r, g, bch] = luxToRgb(lux, max);
+      const [r, g, bch] = workplaneFalseColorRgb(lux);
       ctx.fillStyle = `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(bch * 255)})`;
       ctx.fillRect(x, y, scale, scale);
     }

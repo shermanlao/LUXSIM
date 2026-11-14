@@ -78,7 +78,7 @@ export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";
 export type { ReportInput } from "./report";
-export { gridToFalseColorPngDataUrl } from "./false-color-snapshot";
+export { gridToFalseColorPngDataUrl, workplaneFalseColorRgb } from "./false-color-snapshot";
 export {
   luxToRgb,
   rgbCss,
@@ -93,9 +93,12 @@ export {
 export type { IsoluxMode, IsoluxModel, FalseColorScale } from "./isolux-map";
 export {
   aggregateProjectLuminaires,
-  roomLpdFromPolygon,
-  roomPolygonArea,
   enrichSummaryWithPolygonArea,
+  formatLux,
+  maintainedAverageLux,
+  roomLpdFromPolygon,
+  roomMaintenanceFactor,
+  roomPolygonArea,
 } from "./report-model";
 export {
   DEFAULT_PLAN_SPAN_M,

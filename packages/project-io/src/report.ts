@@ -8,7 +8,6 @@ import { legendStopsForRange } from "./isolux-map";
 import { choosePlanLayout, drawLightingPlan, storeysWithRooms, unionRoomBounds } from "./lighting-plan";
 import {
   REPORT_CALC_TYPE,
-  REPORT_MAINTENANCE_FACTOR,
   DESIGN_ASSIST_DISCLAIMER,
   aggregateProjectLuminaires,
   enrichSummaryWithPolygonArea,
@@ -21,10 +20,12 @@ import {
   formatReflectancePct,
   formatWatts,
   luminairesInRoom,
+  maintainedAverageLux,
   projectTotals,
   roomContextLabel,
   roomInstalledWatts,
   roomLpdFromPolygon,
+  roomMaintenanceFactor,
   roomPolygonArea,
   typicalMountingHeightM,
   uniformitiesFromResults,
@@ -309,7 +310,7 @@ class ReportPdfBuilder {
       "Room list",
       "Calculation objects",
       "Lighting Plan",
-      "3D views",
+      ...(this.hasProject3dViews() ? (["3D views"] as const) : []),
       "Per-room summary and working plane",
       "Product sheets",
       "Luminaire schedule appendix",
@@ -609,6 +610,10 @@ class ReportPdfBuilder {
     return this.input.projectPerspectiveFalseColor;
   }
 
+  private hasProject3dViews(): boolean {
+    return Boolean(this.projectGreyscale() || this.projectFalseColor());
+  }
+
   private roomGreyscale(roomId: string): string | undefined {
     return this.input.persp3dGreyscale?.[roomId] ?? this.input.persp3dSnapshots?.[roomId];
   }
@@ -668,12 +673,17 @@ class ReportPdfBuilder {
     let y = this.pageHeader("Summary", ctx);
     const area = roomPolygonArea(room);
     const mount = typicalMountingHeightM(room.id, this.input.scene);
+    const mf = roomMaintenanceFactor(room);
+    const res = this.input.results.byRoomId[room.id];
     this.doc.setFontSize(10);
     const left = [
       `Ground area: ${formatAreaM2(area)}`,
       `Reflection factors — Ceiling: ${formatReflectancePct(room.reflectance.ceiling)} · Walls: ${formatReflectancePct(room.reflectance.walls)} · Floor: ${formatReflectancePct(room.reflectance.floor)}`,
-      `Maintenance factor: ${REPORT_MAINTENANCE_FACTOR.toFixed(2)} (fixed)`,
+      `Maintenance factor: ${mf.toFixed(2)}`,
     ];
+    if (res) {
+      left.push(`Maintained Em: ${formatLux(maintainedAverageLux(res.summary.eave, mf))}`);
+    }
     const right = [
       `Clearance height: ${room.heightM.toFixed(3)} m`,
       `Mounting height (typical): ${mount != null ? `${mount.toFixed(3)} m` : "—"}`,
@@ -688,6 +698,9 @@ class ReportPdfBuilder {
     this.doc.text(left[2]!, MARGIN, y);
     this.doc.text(right[1]!, MARGIN + 95, y);
     y += 7;
+    if (left[3]) {
+      this.doc.text(left[3]!, MARGIN, y);
+    }
     this.doc.text(right[2]!, MARGIN + 95, y);
     y += 7;
     this.doc.text(right[3]!, MARGIN + 95, y);
@@ -751,8 +764,10 @@ class ReportPdfBuilder {
       this.input.wattsById
     );
     const lpd = summary.lpd;
+    const mf = roomMaintenanceFactor(room);
     const rows = [
       `E perpendicular (working plane): ${formatLux(summary.eave)}`,
+      `Maintained Em: ${formatLux(maintainedAverageLux(summary.eave, mf))}`,
       `Uo (g1): ${summary.uo.toFixed(2)}`,
       `Lighting power density: ${formatLpd(lpd)} (= ${formatLpdPer100Lx(lpd, summary.eave)} working plane)`,
       `Room lighting power density: ${formatLpd(lpd)} (= ${formatLpdPer100Lx(lpd, summary.eave)} room)`,

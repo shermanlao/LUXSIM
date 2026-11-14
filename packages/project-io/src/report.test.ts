@@ -8,6 +8,8 @@ import { buildFullReportPdf } from "./report";
 import {
   aggregateProjectLuminaires,
   enrichSummaryWithPolygonArea,
+  formatLux,
+  maintainedAverageLux,
   roomLpdFromPolygon,
 } from "./report-model";
 import { clipResultsToPolygon, roomToCalcOptions } from "./room-adapter";
@@ -228,8 +230,10 @@ describe("Lighting Plan section", () => {
     });
     const text = pdfText(doc);
     expect(text).toContain("5. Lighting Plan");
-    expect(text).toContain("6. 3D views");
-    expect(text).toContain("7. Per-room summary and working plane");
+    expect(text).not.toContain("3D views");
+    expect(text).toContain("6. Per-room summary and working plane");
+    expect(text).toContain("7. Product sheets");
+    expect(text).toContain("8. Luminaire schedule appendix");
     expect(text).toContain("Lighting Plan");
     expect(text).toContain("Scale 1:");
     expect(text).toContain("Legend");
@@ -325,7 +329,7 @@ describe("3D views section", () => {
     expect(pages).toBeGreaterThanOrEqual(12);
   });
 
-  it("still builds a multi-page PDF when 3D images are omitted", () => {
+  it("omits the 3D views contents entry and body when no 3D stills are provided", () => {
     const { data, calc, scene } = officeScene();
     const doc = buildFullReportPdf({
       projectName: "AED-180297 L9M",
@@ -336,11 +340,101 @@ describe("3D views section", () => {
       luxsimVersion: "0.1.0",
     });
     const text = pdfText(doc);
-    expect(text).toContain("6. 3D views");
+    expect(text).not.toContain("3D views");
+    expect(text).toContain("5. Lighting Plan");
+    expect(text).toContain("6. Per-room summary and working plane");
+    expect(text).toContain("7. Product sheets");
+    expect(text).toContain("8. Luminaire schedule appendix");
     expect(text).toContain("Lighting Plan");
     const pages =
       (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal?.getNumberOfPages?.() ?? 0;
     expect(pages).toBeGreaterThanOrEqual(11);
+  });
+});
+
+describe("room Summary maintenance factor and maintained Em", () => {
+  function officeScene(maintenanceFactor: number) {
+    const { data } = parseIes(fixture);
+    const room: RoomV2 = {
+      id: "r1",
+      storeyId: "s1",
+      name: "Office",
+      polygon: rectPolygon(0, 0, 6, 5),
+      heightM: 2.8,
+      workplaneHeightM: 0.75,
+      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+      calc: {
+        gridSpacing: 0.5,
+        interreflection: true,
+        bounces: 2,
+        computeUgr: true,
+        maintenanceFactor,
+      },
+    };
+    const inst: FixtureInstance = {
+      instanceId: "i1",
+      luminaireId: "lum",
+      storeyId: "s1",
+      roomId: "r1",
+      name: "DL",
+      position: { x: 3, y: 2.5, z: 2.6 },
+      rotationDeg: 0,
+    };
+    const calc = clipResultsToPolygon(
+      room,
+      calculate(roomToCalcOptions(room, [inst], { lum: data }, { lum: 30 }))
+    );
+    const scene: ProjectSceneV2 = {
+      version: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 3 }],
+      rooms: [room],
+      underlays: [],
+      fixtureLibraryIds: ["lum"],
+      instances: [inst],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", viewMode: "top", tool: "select" },
+    };
+    return { data, room, inst, calc, scene };
+  }
+
+  function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
+    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+  }
+
+  it("prints the room MF 0.80 and maintained Em, not a hardcoded 1.00 (fixed)", () => {
+    const { data, calc, scene } = officeScene(0.8);
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+      wattsById: { lum: 30 },
+      luxsimVersion: "0.1.0",
+    });
+    const text = pdfText(doc);
+    const maintained = formatLux(maintainedAverageLux(calc.summary.eave, 0.8));
+    expect(text).toContain("Maintenance factor: 0.80");
+    expect(text).toContain(`Maintained Em: ${maintained}`);
+    expect(text).not.toContain("1.00 (fixed)");
+    expect(text).not.toMatch(/Maintenance factor:\s*1\.00/);
+  });
+
+  it("prints recipe B maintained Em with the official formatLux rounding", () => {
+    const { data, calc, scene } = officeScene(0.8);
+    calc.summary.eave = 186.11;
+    const doc = buildFullReportPdf({
+      projectName: "Recipe B",
+      scene,
+      results: { version: 2, byRoomId: { r1: calc } },
+      photometry: { lum: data },
+      wattsById: { lum: 30 },
+    });
+    const text = pdfText(doc);
+    // 186.11 × 0.80 = 148.888… lx. formatLux rounds values ≥100 lx to integers
+    // (same family as Ēm 186.11 → "186 lx"), so the report prints 149 lx.
+    expect(formatLux(maintainedAverageLux(186.11, 0.8))).toBe("149 lx");
+    expect(text).toContain("Maintenance factor: 0.80");
+    expect(text).toContain("Maintained Em: 149 lx");
+    expect(text).not.toContain("1.00 (fixed)");
   });
 });
 

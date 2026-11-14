@@ -2,10 +2,23 @@ import type { PhotometricData } from "../../photometry/src/types";
 import { resolvedFlux } from "../../photometry/src/flux";
 import type { CalcResults } from "../../solver/src/types";
 import { roomAreaM2, roomBounds } from "./geometry";
+import { resolveMaintenanceFactor } from "./maintenance-factor";
 import type { FixtureInstance, ProjectSceneV2, RoomV2 } from "./types";
 
-export const REPORT_MAINTENANCE_FACTOR = 1.0;
 export const REPORT_CALC_TYPE = "Perpendicular illuminance";
+
+/** Maintenance factor already stored on the room (breakdown, overall, or default). */
+export function roomMaintenanceFactor(room: RoomV2): number {
+  return resolveMaintenanceFactor({
+    maintenanceFactor: room.calc.maintenanceFactor,
+    mfBreakdown: room.calc.mfBreakdown,
+  }).mf;
+}
+
+/** Maintained average illuminance: Ēm × MF. */
+export function maintainedAverageLux(eave: number, maintenanceFactor: number): number {
+  return eave * maintenanceFactor;
+}
 export const DESIGN_ASSIST_DISCLAIMER =
   "Design-assist only. Not tender-certified. Verify critical projects in DIALux or equivalent.";
 
