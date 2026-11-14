@@ -8,7 +8,9 @@ import {
   enrichScheduleRows,
   parseScheduleCsv,
   scheduleCommitBlockedReason,
+  scheduleImportCanCommit,
   setScheduleRowStatus,
+  summarizeScheduleImport,
 } from "./schedule-csv";
 
 function room10(): RoomV2 {
@@ -147,5 +149,65 @@ describe("commitScheduleImport", () => {
 
     expect(out.scene.instances).toHaveLength(1);
     expect(out.calcFailed).toBe(true);
+  });
+
+  it("commits ready mapped rows even when other accepted rows are unmapped", async () => {
+    const { rows: parsed } = parseScheduleCsv("code,x,y\nDL-01,2,2\nUNKNOWN,4,4\n");
+    const importRows = enrichScheduleRows(parsed, rules, [room10()], "s1");
+    const mixed = importRows.map((r) =>
+      r.codeRaw === "UNKNOWN" ? setScheduleRowStatus(r, "accepted") : r
+    );
+    expect(mixed[0]!.reviewStatus).toBe("accepted");
+    expect(mixed[0]!.mapStatus).toBe("mapped");
+    expect(mixed[1]!.reviewStatus).toBe("accepted");
+    expect(mixed[1]!.mapStatus).toBe("unmapped");
+
+    const summary = summarizeScheduleImport(mixed);
+    expect(summary.readyForCommit).toBe(1);
+    expect(summary.unmappedBlocked).toBe(1);
+    expect(scheduleCommitBlockedReason(mixed)).toBeNull();
+    expect(scheduleImportCanCommit(summary)).toBe(true);
+    expect(scheduleImportCanCommit(summary, true)).toBe(false);
+
+    const scene = {
+      version: 2 as const,
+      storeys: [{ id: "s1", name: "GF", elevationM: 0, heightM: 3 }],
+      rooms: [room10()],
+      underlays: [],
+      fixtureLibraryIds: ["lum_a"],
+      instances: [],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", tool: "select" as const },
+    };
+
+    const out = await commitScheduleImport(
+      {
+        scene,
+        results: { version: 2, byRoomId: {} },
+        rows: mixed,
+        luminaireNames: { lum_a: "Downlight" },
+        runCalc: false,
+      },
+      {
+        ensurePhotometry: async () => ({}) as PhotometricData,
+        getWatts: () => 20,
+      }
+    );
+
+    expect(out.blockedReason).toBeUndefined();
+    expect(out.instanceIds).toHaveLength(1);
+    expect(out.scene.instances).toHaveLength(1);
+    expect(out.scene.instances[0]!.position.x).toBeCloseTo(2, 3);
+    expect(out.scene.instances[0]!.position.y).toBeCloseTo(2, 3);
+    expect(out.scene.instances.some((i) => /UNKNOWN/i.test(i.name))).toBe(false);
+  });
+
+  it("does not enable commit when only unmapped accepted rows exist", () => {
+    const { rows: parsed } = parseScheduleCsv("code,x,y\nUNKNOWN,2,2\n");
+    const rows = [setScheduleRowStatus(enrichScheduleRows(parsed, rules, [room10()], "s1")[0]!, "accepted")];
+    const summary = summarizeScheduleImport(rows);
+    expect(summary.readyForCommit).toBe(0);
+    expect(summary.unmappedBlocked).toBe(1);
+    expect(scheduleImportCanCommit(summary)).toBe(false);
+    expect(scheduleCommitBlockedReason(rows)).toMatch(/unmapped/i);
   });
 });

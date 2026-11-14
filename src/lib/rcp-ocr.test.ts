@@ -1,13 +1,33 @@
 import { describe, expect, it } from "vitest";
 import {
+  PLAN_RASTER_SIZE_UNKNOWN,
   buildSyntheticRcpTestPng,
   dedupeRcpProposals,
   detectRcpFromImageBuffer,
   looksLikeFixtureCode,
   proposalsFromOcrWords,
+  underlayHasKnownRasterSize,
+  validateUnderlayForRcpDetect,
 } from "./rcp-ocr";
 import { normalizeFixtureCode } from "./fixture-code-map";
 import type { Underlay } from "@luxsim/project-io";
+
+
+function baseUnderlay(overrides: Partial<Underlay> = {}): Underlay {
+  return {
+    id: "u1",
+    storeyId: "s1",
+    assetId: "a1",
+    kind: "image",
+    opacity: 1,
+    metersPerUnit: 0.02,
+    offsetX: 0,
+    offsetY: 0,
+    sourceWidthPx: 800,
+    sourceHeightPx: 600,
+    ...overrides,
+  };
+}
 
 describe("looksLikeFixtureCode", () => {
   it("accepts schedule-style codes", () => {
@@ -153,4 +173,76 @@ describe("detectRcpFromImageBuffer (tesseract e2e)", () => {
     },
     120_000
   );
+});
+
+const SAMPLE_OCR_WORD = {
+  text: "DL-01",
+  confidence: 92,
+  bbox: { x0: 90, y0: 170, x1: 180, y1: 210 },
+};
+
+describe("validateUnderlayForRcpDetect", () => {
+  it("rejects a missing underlay", () => {
+    const gate = validateUnderlayForRcpDetect(null);
+    expect(gate.ok).toBe(false);
+    if (!gate.ok) {
+      expect(gate.status).toBe(400);
+      expect(gate.error).toMatch(/No plan underlay/i);
+    }
+  });
+
+  it("rejects an underlay with no raster asset", () => {
+    const gate = validateUnderlayForRcpDetect(
+      baseUnderlay({ kind: "pdf", assetId: "", pageRasterAssetId: undefined })
+    );
+    expect(gate.ok).toBe(false);
+    if (!gate.ok) {
+      expect(gate.status).toBe(400);
+      expect(gate.error).toMatch(/no raster image/i);
+    }
+  });
+
+  it("rejects an underlay whose raster size is unknown", () => {
+    const gate = validateUnderlayForRcpDetect(
+      baseUnderlay({ sourceWidthPx: undefined, sourceHeightPx: undefined })
+    );
+    expect(gate.ok).toBe(false);
+    if (!gate.ok) {
+      expect(gate.status).toBe(400);
+      expect(gate.error).toBe(PLAN_RASTER_SIZE_UNKNOWN);
+    }
+  });
+
+  it("accepts an image underlay with known pixel size", () => {
+    const gate = validateUnderlayForRcpDetect(baseUnderlay());
+    expect(gate.ok).toBe(true);
+    if (gate.ok) expect(gate.rasterId).toBe("a1");
+  });
+});
+
+describe("Detect refuses unknown raster dimensions", () => {
+  it("treats missing or non-positive pixel size as unknown", () => {
+    expect(underlayHasKnownRasterSize(baseUnderlay())).toBe(true);
+    expect(
+      underlayHasKnownRasterSize(baseUnderlay({ sourceWidthPx: undefined, sourceHeightPx: 600 }))
+    ).toBe(false);
+    expect(
+      underlayHasKnownRasterSize(baseUnderlay({ sourceWidthPx: 800, sourceHeightPx: 0 }))
+    ).toBe(false);
+  });
+
+  it("does not create proposals when pixel size is missing", () => {
+    const underlay = baseUnderlay({ sourceWidthPx: undefined, sourceHeightPx: undefined });
+    expect(() =>
+      proposalsFromOcrWords([SAMPLE_OCR_WORD], { underlay, underlayId: "u1" })
+    ).toThrow(PLAN_RASTER_SIZE_UNKNOWN);
+  });
+
+  it("does not run Detect or invent coordinates when height is unknown", async () => {
+    const png = buildSyntheticRcpTestPng([{ text: "DL-01", x: 100, y: 200 }]);
+    const underlay = baseUnderlay({ sourceHeightPx: undefined });
+    await expect(
+      detectRcpFromImageBuffer(png, { underlay, underlayId: "u1" })
+    ).rejects.toThrow(PLAN_RASTER_SIZE_UNKNOWN);
+  });
 });

@@ -92,6 +92,29 @@ describe("planRcpCommit", () => {
     expect(plan.drafts).toHaveLength(0);
   });
 
+  it("commits ready mapped rows and skips other accepted unmapped rows", () => {
+    const proposals = [
+      setProposalStatus(baseProposal({ id: "ready", pointM: { x: 2, y: 3 } }), "accepted"),
+      setProposalStatus(
+        baseProposal({ id: "blocked", codeRaw: "UNKNOWN", pointM: { x: 4, y: 4 } }),
+        "accepted"
+      ),
+    ];
+    expect(acceptedForCommitCandidates(proposals, rules).map((p) => p.id)).toEqual(["ready"]);
+    const plan = planRcpCommit({
+      proposals,
+      rules,
+      rooms,
+      storeyId: "s1",
+      luminaireNames: { lum_a: "Downlight A" },
+      scene: emptyScene(rooms),
+    });
+    expect(plan.drafts).toHaveLength(1);
+    expect(plan.committedProposalIds).toEqual(["ready"]);
+    expect(plan.drafts[0]!.position.x).toBe(2);
+    expect(plan.drafts[0]!.position.y).toBe(3);
+  });
+
   it("uses pointM coordinates and room mount height", () => {
     const proposals = [
       setProposalStatus(

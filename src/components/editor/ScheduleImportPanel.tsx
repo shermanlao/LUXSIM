@@ -7,6 +7,7 @@ import {
   acceptAllMappedScheduleRows,
   enrichScheduleRows,
   parseScheduleCsv,
+  scheduleImportCanCommit,
   setScheduleRowStatus,
   summarizeScheduleImport,
   type ScheduleImportRow,
@@ -80,7 +81,7 @@ export function ScheduleImportPanel({
     onRowsChange(rows.map((r) => (r.id === id ? patch(r) : r)));
   }
 
-  const canCommit = summary.readyForCommit > 0 && summary.unmappedBlocked === 0 && !committing;
+  const canCommit = scheduleImportCanCommit(summary, committing);
 
   return (
     <div className="cad-props-card space-y-2">
@@ -193,8 +194,8 @@ export function ScheduleImportPanel({
             className="btn btn-accent w-full !text-xs"
             disabled={!canCommit}
             title={
-              summary.unmappedBlocked
-                ? "Resolve unmapped accepted rows / 請處理未對應的已接受列"
+              summary.readyForCommit === 0
+                ? "Accept mapped rows first / 請先接受已對應列"
                 : undefined
             }
             onClick={() => onCommit({ calcAfterCommit })}
@@ -206,7 +207,8 @@ export function ScheduleImportPanel({
 
           {summary.unmappedBlocked > 0 && (
             <p className="text-[10px] text-[#ffb088]">
-              Unmapped accepted rows block commit — update code map or reject. / 已接受但未對應會阻止提交。
+              {summary.unmappedBlocked} accepted row(s) will not be written — update code map or
+              reject. / 已接受但未對應的列不會寫入。
             </p>
           )}
         </>

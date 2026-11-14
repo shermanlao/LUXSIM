@@ -267,7 +267,13 @@ export function summarizeScheduleImport(rows: ScheduleImportRow[]): ScheduleImpo
   };
 }
 
+/**
+ * Whole-batch block only when nothing ready can be written.
+ * Ready, fully mapped rows may commit even if other accepted rows are
+ * unmapped or ambiguous; those incomplete rows stay unwritten and are not guessed.
+ */
 export function scheduleCommitBlockedReason(rows: ScheduleImportRow[]): string | null {
+  if (rows.some(scheduleRowReady)) return null;
   const bad = rows.filter(
     (r) =>
       isSchedulePositiveReview(r.reviewStatus) &&
@@ -278,6 +284,14 @@ export function scheduleCommitBlockedReason(rows: ScheduleImportRow[]): string |
     return `${bad.length} accepted row(s) unmapped or ambiguous — map codes or reject / 已接受但未對應`;
   }
   return null;
+}
+
+/** Same gate as RCP: enable commit when at least one row is ready. */
+export function scheduleImportCanCommit(
+  summary: ScheduleImportSummary,
+  committing = false
+): boolean {
+  return summary.readyForCommit > 0 && !committing;
 }
 
 export function acceptAllMappedScheduleRows(rows: ScheduleImportRow[]): ScheduleImportRow[] {

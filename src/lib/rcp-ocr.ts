@@ -26,6 +26,59 @@ export type RcpDetectResult = {
 
 const CLOUD_OPT_IN_ENV = "LUXSIM_ALLOW_CLOUD_RCP_VISION";
 
+/** Same wording as the editor button — API and library must use this gate. */
+export const PLAN_RASTER_SIZE_UNKNOWN =
+  "Plan raster size unknown — re-import the underlay";
+
+export function underlayHasKnownRasterSize(
+  underlay: Pick<Underlay, "sourceWidthPx" | "sourceHeightPx">
+): boolean {
+  const w = underlay.sourceWidthPx;
+  const h = underlay.sourceHeightPx;
+  return (
+    typeof w === "number" &&
+    typeof h === "number" &&
+    Number.isFinite(w) &&
+    Number.isFinite(h) &&
+    w > 0 &&
+    h > 0
+  );
+}
+
+export function requireUnderlayRasterDimensions(
+  underlay: Pick<Underlay, "sourceWidthPx" | "sourceHeightPx">
+): void {
+  if (!underlayHasKnownRasterSize(underlay)) {
+    throw new Error(PLAN_RASTER_SIZE_UNKNOWN);
+  }
+}
+
+export type RcpDetectUnderlayGate =
+  | { ok: true; rasterId: string; underlay: Underlay }
+  | { ok: false; status: 400; error: string };
+
+/** Official Detect path: refuse missing underlay, missing raster, or unknown pixel size. */
+export function validateUnderlayForRcpDetect(
+  underlay: Underlay | null | undefined
+): RcpDetectUnderlayGate {
+  if (!underlay) {
+    return { ok: false, status: 400, error: "No plan underlay on this storey" };
+  }
+  const rasterId =
+    underlay.pageRasterAssetId ?? (underlay.kind === "image" ? underlay.assetId : null);
+  if (!rasterId) {
+    return {
+      ok: false,
+      status: 400,
+      error: "Underlay has no raster image — re-import PDF or use PNG/JPG plan",
+    };
+  }
+  if (!underlayHasKnownRasterSize(underlay)) {
+    return { ok: false, status: 400, error: PLAN_RASTER_SIZE_UNKNOWN };
+  }
+  return { ok: true, rasterId, underlay };
+}
+
 /** Fixture-like schedule token (deterministic, not fuzzy). */
 export function looksLikeFixtureCode(raw: string): boolean {
   const trimmed = raw.trim();
@@ -106,6 +159,9 @@ export function proposalsFromOcrWords(
   words: OcrWordBox[],
   options: RcpDetectOptions = {}
 ): RcpDetectResult {
+  if (options.underlay) {
+    requireUnderlayRasterDimensions(options.underlay);
+  }
   const confidenceMin = options.confidenceMin ?? 0.45;
   const warnings: string[] = [];
   const raw: RcpDetectionProposal[] = [];
@@ -187,6 +243,9 @@ export async function detectRcpFromImageBuffer(
       throw new Error("Cloud vision is disabled — local OCR only (privacy mode).");
     }
     throw new Error("Cloud RCP vision is not implemented.");
+  }
+  if (options.underlay) {
+    requireUnderlayRasterDimensions(options.underlay);
   }
   const words = await ocrWordsFromImageBuffer(image);
   return proposalsFromOcrWords(words, options);
