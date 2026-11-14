@@ -4,11 +4,16 @@ import * as THREE from "three";
 import { editorOverviewCamera, type ProjectSceneV2 } from "@luxsim/project-io";
 import {
   FALSE_COLOR_WALL_SHELL_OPACITY,
+  WALL_FALSE_COLOR_INSET_M,
+  WALL_SHELL_INNER_INSET_M,
+  WALL_SHELL_OUTER_INSET_M,
+  WALL_SHELL_THICKNESS_M,
   createCeilingGeometry,
   createClippedWorkplaneGeometry,
   createFloorGeometry,
   createPlanHandednessRoot,
   createWallFalseColorGeometry,
+  createWallGeometry,
   mirrorPlanX,
   sampleGridLux,
   wallShellOpacity,
@@ -280,6 +285,144 @@ describe("false-colour exterior facing and scale", () => {
     expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
     expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeGreaterThanOrEqual(0.9);
     expect(wallShellOpacity("greyscale")).toBeLessThan(FALSE_COLOR_WALL_SHELL_OPACITY);
+  });
+});
+
+function rectRoom(x: number, y: number, w: number, d: number, heightM = 2.8): RoomV2 {
+  return {
+    ...lShapedRoom(),
+    id: `r-${x}-${y}`,
+    name: "Rect",
+    polygon: rectPolygon(x, y, w, d),
+    heightM,
+  };
+}
+
+function wallPlanVerts(geo: THREE.BufferGeometry): { x: number; y: number; z: number }[] {
+  const pos = geo.getAttribute("position");
+  const out: { x: number; y: number; z: number }[] = [];
+  for (let i = 0; i < pos.count; i += 1) {
+    out.push({ x: pos.getX(i), y: pos.getZ(i), z: pos.getY(i) });
+  }
+  return out;
+}
+
+function uniquePlanVerts(verts: { x: number; y: number }[], digits = 5): { x: number; y: number }[] {
+  const seen = new Set<string>();
+  const out: { x: number; y: number }[] = [];
+  for (const v of verts) {
+    const key = `${v.x.toFixed(digits)},${v.y.toFixed(digits)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ x: v.x, y: v.y });
+  }
+  return out;
+}
+
+function distToPolygon(p: { x: number; y: number }, polygon: { x: number; y: number }[]): number {
+  let min = Infinity;
+  const n = polygon.length;
+  for (let e = 0; e < n; e += 1) {
+    const a = polygon[e]!;
+    const c = polygon[(e + 1) % n]!;
+    const dx = c.x - a.x;
+    const dy = c.y - a.y;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+    min = Math.min(min, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+  }
+  return min;
+}
+
+describe("wall shell slab geometry", () => {
+  it("builds a non-zero-thickness inward slab for a rectangular room", () => {
+    const room = rectRoom(0, 0, 4, 3, 2.8);
+    const elev = 0.4;
+    const geo = createWallGeometry(room, elev);
+    expect(geo).not.toBeNull();
+    const verts = wallPlanVerts(geo!);
+    expect(verts.length).toBeGreaterThan(0);
+
+    const ys = verts.map((v) => v.z);
+    expect(Math.min(...ys)).toBeCloseTo(elev, 5);
+    expect(Math.max(...ys)).toBeCloseTo(elev + room.heightM, 5);
+
+    // South edge (y=0): inner and outer faces are separated by the wall thickness.
+    const south = verts.filter((v) => v.y < 0.05);
+    expect(south.length).toBeGreaterThan(0);
+    const southY = south.map((v) => v.y);
+    const outerY = Math.min(...southY);
+    const innerY = Math.max(...southY);
+    expect(outerY).toBeCloseTo(WALL_SHELL_OUTER_INSET_M, 4);
+    expect(innerY).toBeCloseTo(WALL_SHELL_INNER_INSET_M, 4);
+    expect(innerY - outerY).toBeCloseTo(WALL_SHELL_THICKNESS_M, 4);
+    expect(Math.abs(innerY - outerY)).toBeGreaterThan(WALL_SHELL_THICKNESS_M * 0.9);
+
+    for (const v of uniquePlanVerts(verts)) {
+      const inside = pointInPolygon(v, room.polygon);
+      const near = distToPolygon(v, room.polygon) <= WALL_SHELL_OUTER_INSET_M + 1e-4;
+      expect(inside || near).toBe(true);
+      expect(distToPolygon(v, room.polygon)).toBeGreaterThanOrEqual(WALL_SHELL_OUTER_INSET_M - 1e-4);
+    }
+    geo!.dispose();
+  });
+
+  it("keeps an L-shaped shell closed and out of the missing rectangle", () => {
+    const room = lShapedRoom();
+    const geo = createWallGeometry(room, 0);
+    expect(geo).not.toBeNull();
+    const verts = wallPlanVerts(geo!);
+    const unique = uniquePlanVerts(verts);
+    // Closed shell: an inner and outer vertex at each ring corner.
+    expect(unique.length).toBe(room.polygon.length * 2);
+    let inNotch = 0;
+    for (const v of unique) {
+      if (v.x > 3.08 && v.y > 4.08) inNotch += 1;
+      expect(pointInPolygon(v, room.polygon) || distToPolygon(v, room.polygon) <= WALL_SHELL_OUTER_INSET_M + 1e-4).toBe(
+        true
+      );
+    }
+    expect(inNotch).toBe(0);
+    geo!.dispose();
+  });
+
+  it("insets shared walls of adjacent rooms so their slabs are not coplanar", () => {
+    const left = rectRoom(0, 0, 4, 4);
+    const right = rectRoom(4, 0, 4, 4);
+    const leftGeo = createWallGeometry(left, 0);
+    const rightGeo = createWallGeometry(right, 0);
+    expect(leftGeo).not.toBeNull();
+    expect(rightGeo).not.toBeNull();
+    const leftMaxX = Math.max(...wallPlanVerts(leftGeo!).map((v) => v.x));
+    const rightMinX = Math.min(...wallPlanVerts(rightGeo!).map((v) => v.x));
+    expect(leftMaxX).toBeCloseTo(4 - WALL_SHELL_OUTER_INSET_M, 4);
+    expect(rightMinX).toBeCloseTo(4 + WALL_SHELL_OUTER_INSET_M, 4);
+    expect(rightMinX - leftMaxX).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
+    leftGeo!.dispose();
+    rightGeo!.dispose();
+  });
+
+  it("places default false-colour wall geometry inward of the shell slab", () => {
+    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    for (let i = 0; i < pos.count; i += 1) {
+      expect(pos.getZ(i)).toBeCloseTo(WALL_FALSE_COLOR_INSET_M, 4);
+      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+    }
+    geo!.dispose();
   });
 });
 

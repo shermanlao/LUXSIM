@@ -88,7 +88,7 @@ function RoomShell({
             transparent={wallShellOpacity(display3d) < 0.999}
             opacity={wallShellOpacity(display3d)}
             depthWrite
-            side={THREE.DoubleSide}
+            side={THREE.FrontSide}
           />
           <Edges threshold={20} color={edgeColor} />
         </mesh>

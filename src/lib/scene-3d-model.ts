@@ -31,6 +31,14 @@ export const REPORT_BG = "#f3f3f0";
 export const FALSE_COLOR_WALL_SHELL_OPACITY = 0.96;
 export const GREYSCALE_WALL_SHELL_OPACITY = 0.82;
 
+/** Outer wall face sits this far inside the room polygon so adjacent rooms do not share a plane. */
+export const WALL_SHELL_OUTER_INSET_M = 0.005;
+/** Visual wall thickness (inner face is this far inward of the outer face). */
+export const WALL_SHELL_THICKNESS_M = 0.02;
+export const WALL_SHELL_INNER_INSET_M = WALL_SHELL_OUTER_INSET_M + WALL_SHELL_THICKNESS_M;
+/** False-colour wall overlay, just inside the inner shell face so it does not z-fight the slab. */
+export const WALL_FALSE_COLOR_INSET_M = WALL_SHELL_INNER_INSET_M + 0.01;
+
 export function wallShellOpacity(mode: Display3dMode): number {
   return mode === "falsecolor" ? FALSE_COLOR_WALL_SHELL_OPACITY : GREYSCALE_WALL_SHELL_OPACITY;
 }
@@ -132,7 +140,7 @@ export function createClippedWorkplaneGeometry(
 export function createWallFalseColorGeometry(
   surface: WallSurfaceResult,
   elevationM: number,
-  inwardOffset = 0.02,
+  inwardOffset = WALL_FALSE_COLOR_INSET_M,
   scale?: FalseColorScale
 ): THREE.BufferGeometry | null {
   const poly = surface.polyline;
@@ -270,32 +278,157 @@ export function createCeilingGeometry(room: RoomV2, elevationM: number): THREE.B
   return geo;
 }
 
-export function createWallGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
-  const poly = room.polygon;
-  if (poly.length < 2) return null;
-  const h = Math.max(0.1, room.heightM);
-  const positions: number[] = [];
-  const normals: number[] = [];
+function signedPolygonArea(poly: { x: number; y: number }[]): number {
+  let sum = 0;
   const n = poly.length;
   for (let i = 0; i < n; i += 1) {
     const a = poly[i]!;
     const b = poly[(i + 1) % n]!;
-    const y0 = elevationM;
-    const y1 = elevationM + h;
-    // Two triangles in Three.js (x, y-up, z=worldY)
-    const ax = a.x,
-      az = a.y,
-      bx = b.x,
-      bz = b.y;
-    positions.push(ax, y0, az, bx, y0, bz, bx, y1, bz);
-    positions.push(ax, y0, az, bx, y1, bz, ax, y1, az);
-    const nx = az - bz;
-    const nz = bx - ax;
-    const len = Math.hypot(nx, nz) || 1;
-    const nnx = nx / len;
-    const nnz = nz / len;
-    for (let k = 0; k < 6; k += 1) normals.push(nnx, 0, nnz);
+    sum += a.x * b.y - b.x * a.y;
   }
+  return sum / 2;
+}
+
+function closedRing(poly: { x: number; y: number }[]): { x: number; y: number }[] {
+  if (poly.length < 3) return [];
+  const ring = poly.map((p) => ({ x: p.x, y: p.y }));
+  const first = ring[0]!;
+  const last = ring[ring.length - 1]!;
+  if (Math.hypot(first.x - last.x, first.y - last.y) < 1e-9) ring.pop();
+  return ring.length >= 3 ? ring : [];
+}
+
+/** Unit inward perpendicular. Left of the edge for a CCW ring, right for CW. */
+function inwardEdgeNormal(
+  a: { x: number; y: number },
+  b: { x: number; y: number },
+  ccw: boolean
+): { x: number; z: number } | null {
+  let nx = a.y - b.y;
+  let nz = b.x - a.x;
+  const len = Math.hypot(nx, nz);
+  if (len < 1e-12) return null;
+  nx /= len;
+  nz /= len;
+  if (!ccw) {
+    nx = -nx;
+    nz = -nz;
+  }
+  return { x: nx, z: nz };
+}
+
+const WALL_SHELL_MITER_LIMIT = 4;
+
+function offsetRing(
+  ring: { x: number; y: number }[],
+  dist: number,
+  ccw: boolean
+): { x: number; y: number }[] {
+  const n = ring.length;
+  const out: { x: number; y: number }[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const prev = ring[(i - 1 + n) % n]!;
+    const curr = ring[i]!;
+    const next = ring[(i + 1) % n]!;
+    const n1 = inwardEdgeNormal(prev, curr, ccw);
+    const n2 = inwardEdgeNormal(curr, next, ccw);
+    if (!n1 && !n2) {
+      out.push({ x: curr.x, y: curr.y });
+      continue;
+    }
+    if (!n1 || !n2) {
+      const nn = (n1 ?? n2)!;
+      out.push({ x: curr.x + nn.x * dist, y: curr.y + nn.z * dist });
+      continue;
+    }
+    const bx = n1.x + n2.x;
+    const bz = n1.z + n2.z;
+    const blen = Math.hypot(bx, bz);
+    if (blen < 1e-8) {
+      out.push({ x: curr.x + n2.x * dist, y: curr.y + n2.z * dist });
+      continue;
+    }
+    const ux = bx / blen;
+    const uz = bz / blen;
+    const denom = n1.x * ux + n1.z * uz;
+    if (denom < 1e-6) {
+      out.push({ x: curr.x + n2.x * dist, y: curr.y + n2.z * dist });
+      continue;
+    }
+    const along = Math.min(dist / denom, dist * WALL_SHELL_MITER_LIMIT);
+    out.push({ x: curr.x + ux * along, y: curr.y + uz * along });
+  }
+  return out;
+}
+
+function pushVerticalQuad(
+  positions: number[],
+  normals: number[],
+  ax: number,
+  az: number,
+  bx: number,
+  bz: number,
+  y0: number,
+  y1: number,
+  nx: number,
+  nz: number
+): void {
+  // CCW when viewed from the front (normal toward the camera): bottom a → bottom b → top.
+  positions.push(ax, y0, az, bx, y0, bz, bx, y1, bz);
+  positions.push(ax, y0, az, bx, y1, bz, ax, y1, az);
+  for (let k = 0; k < 6; k += 1) normals.push(nx, 0, nz);
+}
+
+/** Thin inward wall slab (not a zero-thickness plane) so adjacent rooms and inner/outer faces do not z-fight. */
+export function createWallGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
+  const ring = closedRing(room.polygon);
+  if (ring.length < 3) return null;
+  const h = Math.max(0.1, room.heightM);
+  const y0 = elevationM;
+  const y1 = elevationM + h;
+  const ccw = signedPolygonArea(ring) >= 0;
+  const outer = offsetRing(ring, WALL_SHELL_OUTER_INSET_M, ccw);
+  const inner = offsetRing(ring, WALL_SHELL_INNER_INSET_M, ccw);
+  const positions: number[] = [];
+  const normals: number[] = [];
+  const n = ring.length;
+  for (let i = 0; i < n; i += 1) {
+    const a = ring[i]!;
+    const b = ring[(i + 1) % n]!;
+    const inward = inwardEdgeNormal(a, b, ccw);
+    if (!inward) continue;
+    const oa = outer[i]!;
+    const ob = outer[(i + 1) % n]!;
+    const ia = inner[i]!;
+    const ib = inner[(i + 1) % n]!;
+    // Outer face: front points out of the room.
+    pushVerticalQuad(
+      positions,
+      normals,
+      oa.x,
+      oa.y,
+      ob.x,
+      ob.y,
+      y0,
+      y1,
+      -inward.x,
+      -inward.z
+    );
+    // Inner face: front points into the room (walk the edge in reverse).
+    pushVerticalQuad(
+      positions,
+      normals,
+      ib.x,
+      ib.y,
+      ia.x,
+      ia.y,
+      y0,
+      y1,
+      inward.x,
+      inward.z
+    );
+  }
+  if (positions.length < 9) return null;
   const geo = new THREE.BufferGeometry();
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
@@ -519,9 +652,9 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       metalness: 0.04,
       transparent: shellOpacity < 0.999,
       opacity: shellOpacity,
-      side: THREE.DoubleSide,
-      // Exterior faces stay opaque grey. Inward false-colour meshes are FrontSide
-      // only, so no lux colour is visible from outside the room.
+      side: THREE.FrontSide,
+      // Inner and outer slab faces are separate, so FrontSide is enough.
+      // Inward false-colour meshes stay just inside the inner face.
       depthWrite: true,
     })
   );
@@ -532,7 +665,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       metalness: 0.04,
       transparent: shellOpacity < 0.999,
       opacity: opts.mode === "falsecolor" ? Math.min(1, shellOpacity + 0.02) : 0.86,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthWrite: true,
     })
   );
@@ -598,7 +731,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       }
       const wallSurfaces = opts.results?.wallsByRoomId?.[room.id] ?? [];
       for (const surface of wallSurfaces) {
-        const wg = createWallFalseColorGeometry(surface, elev, 0.02, scale);
+        const wg = createWallFalseColorGeometry(surface, elev, WALL_FALSE_COLOR_INSET_M, scale);
         if (wg) {
           track(wg);
           content.add(new THREE.Mesh(wg, wallFalseColorMat));

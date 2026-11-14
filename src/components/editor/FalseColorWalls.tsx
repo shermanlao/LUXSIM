@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { FalseColorScale, WallSurfaceResult } from "@luxsim/project-io";
-import { createWallFalseColorGeometry } from "@/lib/scene-3d-model";
+import { WALL_FALSE_COLOR_INSET_M, createWallFalseColorGeometry } from "@/lib/scene-3d-model";
 
 function WallSurfaceMesh({
   surface,
@@ -15,7 +15,7 @@ function WallSurfaceMesh({
   scale?: FalseColorScale;
 }) {
   const geometry = useMemo(
-    () => createWallFalseColorGeometry(surface, elevationM, 0.02, scale),
+    () => createWallFalseColorGeometry(surface, elevationM, WALL_FALSE_COLOR_INSET_M, scale),
     [surface, elevationM, scale]
   );
   useLayoutEffect(() => {
