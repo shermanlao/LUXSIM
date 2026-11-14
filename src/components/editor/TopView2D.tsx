@@ -15,6 +15,7 @@ import {
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import { applyDrawRoomBackspace, drawRoomEscapeAction } from "@/lib/draw-room-keys";
 import {
   OFFICIAL_PLAN_VIEW_H,
   OFFICIAL_PLAN_VIEW_W,
@@ -226,7 +227,9 @@ export function TopView2D({
         return;
       }
       if (e.key === "Escape") {
+        if (drawRoomEscapeAction(lengthBuf, draft.length) === "pass") return;
         e.preventDefault();
+        e.stopImmediatePropagation();
         setDraft([]);
         setCursor(null);
         setLengthBuf("");
@@ -234,11 +237,9 @@ export function TopView2D({
       }
       if (e.key === "Backspace") {
         e.preventDefault();
-        if (lengthBuf) {
-          setLengthBuf((s) => s.slice(0, -1));
-          return;
-        }
-        setDraft((pts) => pts.slice(0, -1));
+        const next = applyDrawRoomBackspace(lengthBuf, draft);
+        setLengthBuf(next.lengthBuf);
+        setDraft(next.draft);
         return;
       }
       if (e.key === "Enter") {
@@ -259,10 +260,10 @@ export function TopView2D({
     const onUp = (e: KeyboardEvent) => {
       if (e.key === "Shift") setOrtho(false);
     };
-    window.addEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
     window.addEventListener("keyup", onUp);
     return () => {
-      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("keydown", onKey, { capture: true });
       window.removeEventListener("keyup", onUp);
     };
     // commitPoint uses latest draft/preview via closure; lengthBuf + draft keep it current

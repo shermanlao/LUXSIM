@@ -309,8 +309,9 @@ describe("TopView2D wiring", () => {
     expect(src).toContain("setOrtho(true)");
     expect(src).toContain('if (e.key === "Enter")');
     expect(src).toContain('if (e.key === "Escape")');
-    expect(src).toContain("setLengthBuf((s) => s.slice(0, -1))");
-    expect(src).not.toContain("applyDrawRoomBackspace");
+    expect(src).toContain("applyDrawRoomBackspace");
+    expect(src).toContain("drawRoomEscapeAction");
+    expect(src).not.toContain("setLengthBuf((s) => s.slice(0, -1))");
     expect(src).toContain("[...draft, preview ?? draft[draft.length - 1]!]");
   });
 

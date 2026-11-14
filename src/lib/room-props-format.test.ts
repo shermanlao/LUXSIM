@@ -136,7 +136,6 @@ describe("BuildingEditor Properties wiring", () => {
     expect(src).toContain("formatOriginMetres");
     expect(src).toContain("shouldShowBoundingMin");
     expect(src).not.toContain("plan-zoom");
-    expect(src).not.toContain("applyDrawRoomBackspace");
     expect(src).not.toContain("onRoomDrag");
     expect(src).not.toContain("startRoomDrag");
     expect(src).not.toContain("text-[#e8eef2]");
