@@ -9,13 +9,18 @@ import {
   mToMm,
   parseLengthToM,
   resolveDraftPoint,
-  roomBounds,
   isDisplayableRasterUnderlay,
   officialDrawRoomAllowed,
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import {
+  OFFICIAL_PLAN_VIEW_H,
+  OFFICIAL_PLAN_VIEW_W,
+  officialPlanFitTransform,
+  officialPlanWorldBounds,
+} from "@/lib/official-plan-world-bounds";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
 
@@ -149,81 +154,14 @@ export function TopView2D({
     });
   }, [underlay, sourceWidthPx, sourceHeightPx]);
 
-  const world = useMemo(() => {
-    let minX = 0,
-      minY = 0,
-      maxX = 12,
-      maxY = 10;
-    let hasContent = false;
+  const world = useMemo(
+    () => officialPlanWorldBounds({ rooms, dxfEntities, underlay, underlaySize }),
+    [rooms, dxfEntities, underlay, underlaySize]
+  );
 
-    for (const r of rooms) {
-      const b = roomBounds(r);
-      if (!hasContent) {
-        minX = b.minX;
-        minY = b.minY;
-        maxX = b.maxX;
-        maxY = b.maxY;
-        hasContent = true;
-      } else {
-        minX = Math.min(minX, b.minX);
-        minY = Math.min(minY, b.minY);
-        maxX = Math.max(maxX, b.maxX);
-        maxY = Math.max(maxY, b.maxY);
-      }
-    }
-    for (const e of dxfEntities) {
-      for (const p of e.points) {
-        if (!hasContent) {
-          minX = maxX = p.x;
-          minY = maxY = p.y;
-          hasContent = true;
-        } else {
-          minX = Math.min(minX, p.x);
-          minY = Math.min(minY, p.y);
-          maxX = Math.max(maxX, p.x);
-          maxY = Math.max(maxY, p.y);
-        }
-      }
-    }
-    if (underlay && underlaySize) {
-      const x0 = underlay.offsetX;
-      const y0 = underlay.offsetY;
-      const x1 = x0 + underlaySize.widthM;
-      const y1 = y0 + underlaySize.heightM;
-      if (!hasContent) {
-        minX = x0;
-        minY = y0;
-        maxX = x1;
-        maxY = y1;
-        hasContent = true;
-      } else {
-        minX = Math.min(minX, x0);
-        minY = Math.min(minY, y0);
-        maxX = Math.max(maxX, x1);
-        maxY = Math.max(maxY, y1);
-      }
-    }
-    for (const p of draft) {
-      minX = Math.min(minX, p.x);
-      minY = Math.min(minY, p.y);
-      maxX = Math.max(maxX, p.x);
-      maxY = Math.max(maxY, p.y);
-    }
-
-    const pad = 1;
-    return {
-      minX: minX - pad,
-      minY: minY - pad,
-      width: Math.max(4, maxX - minX + 2 * pad),
-      depth: Math.max(4, maxY - minY + 2 * pad),
-    };
-  }, [rooms, dxfEntities, underlay, underlaySize, draft]);
-
-  const viewW = 640;
-  const viewH = 480;
-  const scale = Math.min(viewW / world.width, viewH / world.depth) * 0.92;
-  const ox = (viewW - world.width * scale) / 2;
-  const oy = (viewH - world.depth * scale) / 2;
+  const viewW = OFFICIAL_PLAN_VIEW_W;
+  const viewH = OFFICIAL_PLAN_VIEW_H;
+  const { scale, ox, oy } = officialPlanFitTransform(world, viewW, viewH);
   /**
    * Look-down plan: +X right, +Y up (north), matching world coordinates,
    * the 3D view, and a typical CAD / lighting-plan top view.
