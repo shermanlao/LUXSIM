@@ -66,6 +66,10 @@ import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
 import {
+  formatArrayApplyStatus,
+  prepareFixtureArrayApply,
+} from "@/lib/array-occupied";
+import {
   writeFixtureInstances,
   type WriteInstancesCalcDeps,
 } from "@/lib/write-instances";
@@ -1215,17 +1219,31 @@ export function BuildingEditor({
       setStatus("No array points inside room — adjust spacing or wall offset");
       return;
     }
-    if (plan.skippedOutside > 0) {
-      const ok = window.confirm(
-        `${plan.skippedOutside} point(s) fall outside the room and will be skipped. Place ${plan.inside.length} fixture(s)?`
-      );
+    const decision = prepareFixtureArrayApply(
+      plan,
+      latestRef.current.scene.instances,
+      activeRoom.id
+    );
+    if (decision.confirmMessage) {
+      const ok = window.confirm(decision.confirmMessage);
       if (!ok) return;
+    }
+    if (!decision.placeable.length) {
+      setArrayPreview(null);
+      setStatus(
+        formatArrayApplyStatus({
+          placed: 0,
+          skippedOccupied: decision.skippedOccupied.length,
+          roomName: activeRoom.name,
+        })
+      );
+      return;
     }
 
     const lib = library.find((l) => l.id === luminaireId);
     const photo = photoCache[luminaireId];
     const mountZ = activeRoom.heightM - 0.1;
-    const drafts = plan.inside.map((p) => ({
+    const drafts = decision.placeable.map((p) => ({
       luminaireId,
       storeyId: scene.ui.activeStoreyId,
       roomId: activeRoom.id,
@@ -1267,7 +1285,12 @@ export function BuildingEditor({
         ? " · Estimate only — run Calc for final Ēm / 估算 — 請用 Calc 確認"
         : "";
       setStatus(
-        `Array placed ${out.instanceIds.length} fixture(s) in ${activeRoom.name}${calcNote}${estimateNote}`
+        formatArrayApplyStatus({
+          placed: out.instanceIds.length,
+          skippedOccupied: decision.skippedOccupied.length,
+          roomName: activeRoom.name,
+          suffix: `${calcNote}${estimateNote}`,
+        })
       );
       await save(nextScene, out.results, latest.name);
     } catch (e) {
@@ -2348,6 +2371,7 @@ export function BuildingEditor({
           {workflow === "light" && (
             <FixtureArrayPanel
               room={activeRoom}
+              existingInstances={scene.instances}
               luminaires={arrayLuminaireOptions}
               preview={arrayPreview}
               onPreviewChange={setArrayPreview}

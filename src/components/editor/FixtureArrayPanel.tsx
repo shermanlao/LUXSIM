@@ -10,6 +10,10 @@ import {
 } from "@/lib/arrange-by-em";
 import type { ArrayMode, ArrayParams, ArrayPoint } from "@/lib/arrange-array";
 import { planFixtureArray } from "@/lib/arrange-array";
+import {
+  filterPointsOccupiedInRoom,
+  type OccupiedFixtureRef,
+} from "@/lib/array-occupied";
 import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
@@ -18,6 +22,8 @@ type PanelMode = ArrayMode | "targetEm";
 
 type Props = {
   room: RoomV2 | null;
+  /** Scene instances used to omit already-occupied XY from Preview (same room, 1 mm). */
+  existingInstances: OccupiedFixtureRef[];
   luminaires: LumOption[];
   preview: ArrayPoint[] | null;
   onPreviewChange: (points: ArrayPoint[] | null) => void;
@@ -30,6 +36,7 @@ type Props = {
 
 export function FixtureArrayPanel({
   room,
+  existingInstances,
   luminaires,
   preview,
   onPreviewChange,
@@ -52,12 +59,17 @@ export function FixtureArrayPanel({
   const [utilance, setUtilance] = useState(String(DEFAULT_UTILANCE));
   const [utilanceTouched, setUtilanceTouched] = useState(false);
   const [emEstimate, setEmEstimate] = useState<TargetEmArrangeEstimate | null>(null);
+  const [previewSkippedOccupied, setPreviewSkippedOccupied] = useState(0);
 
   useEffect(() => {
     if (luminaires.length && !luminaires.some((l) => l.id === luminaireId)) {
       setLuminaireId(luminaires[0]!.id);
     }
   }, [luminaires, luminaireId]);
+
+  useEffect(() => {
+    if (!preview) setPreviewSkippedOccupied(0);
+  }, [preview]);
 
   const selectedFlux = luminaires.find((l) => l.id === luminaireId)?.fluxLm ?? null;
 
@@ -108,10 +120,23 @@ export function FixtureArrayPanel({
     };
   }
 
+  function publishPreview(inside: ArrayPoint[]) {
+    if (!room) {
+      setPreviewSkippedOccupied(0);
+      onPreviewChange(null);
+      return;
+    }
+    const filtered = filterPointsOccupiedInRoom(inside, existingInstances, room.id);
+    setPreviewSkippedOccupied(filtered.skippedOccupied.length);
+    // Keep an empty array (not null) so an all-skipped preview can still show the skip count.
+    onPreviewChange(filtered.placeable);
+  }
+
   function handlePreview() {
     if (!room) {
       onPreviewChange(null);
       setEmEstimate(null);
+      setPreviewSkippedOccupied(0);
       return;
     }
     if (mode === "targetEm") {
@@ -119,26 +144,29 @@ export function FixtureArrayPanel({
       if (!input) {
         onPreviewChange(null);
         setEmEstimate(null);
+        setPreviewSkippedOccupied(0);
         return;
       }
       const out = previewTargetEmArrange(room, input);
       if (!out) {
         onPreviewChange(null);
         setEmEstimate(null);
+        setPreviewSkippedOccupied(0);
         return;
       }
       setEmEstimate(out.estimate);
-      onPreviewChange(out.plan.inside);
+      publishPreview(out.plan.inside);
       return;
     }
     setEmEstimate(null);
     const params = buildParams();
     if (!params) {
       onPreviewChange(null);
+      setPreviewSkippedOccupied(0);
       return;
     }
     const plan = planFixtureArray(room, params);
-    onPreviewChange(plan.inside);
+    publishPreview(plan.inside);
   }
 
   function handleApplyClick() {
@@ -180,6 +208,7 @@ export function FixtureArrayPanel({
             onClick={() => {
               setMode(m);
               setEmEstimate(null);
+              setPreviewSkippedOccupied(0);
               onPreviewChange(null);
             }}
           >
@@ -336,8 +365,13 @@ export function FixtureArrayPanel({
         Calc after place / 放置後計算
       </label>
 
-      {previewCount > 0 && (
-        <p className="text-[10px] text-[#8fa3ad]">Preview: {previewCount} fixture(s) inside room</p>
+      {(previewCount > 0 || previewSkippedOccupied > 0) && (
+        <p className="text-[10px] text-[#8fa3ad]">
+          Preview: {previewCount} fixture(s) inside room
+          {previewSkippedOccupied > 0
+            ? ` · ${previewSkippedOccupied} skipped (already at that position)`
+            : ""}
+        </p>
       )}
 
       <div className="flex flex-wrap gap-2 pt-1">
