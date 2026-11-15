@@ -2077,7 +2077,7 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.createRoomsFromDxf" />
               </div>
               <p className="text-[10px] text-[var(--muted)]">
-                Adds one room per closed DXF polyline on this storey, using the Building Room height and official new-room defaults. Open lines are not auto-traced. Scale follows the current Calibrate scale.
+                Adds rooms from closed DXF polylines and from simple closed loops of connected lines on this storey, using the Building Room height and official new-room defaults. T-junction and shared-wall networks are not auto-traced. Scale follows the current Calibrate scale.
               </p>
             </div>
           </div>

@@ -12,7 +12,7 @@ Tool **Draw room** on **Top** or **Bottom**.
 4. Left-click or **Enter** commits the preview point.
 5. Close by clicking (or Enter) within 200 mm of the first corner after 3+ points.
 6. **Esc** cancels the draft. **Backspace** clears the typed length, then removes the last corner.
-7. With a parsed DXF underlay, official Top/Bottom corner picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. **Create rooms from DXF** (beside Draw room / Create rectangle) makes one room per closed polyline on the current storey, using official new-room defaults and the current Calibrate scale. Open lines are not auto-traced.
+7. With a parsed DXF underlay, official Top/Bottom corner picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. **Create rooms from DXF** (beside Draw room / Create rectangle) makes rooms from closed polylines and from simple closed loops of connected lines on the current storey, using official new-room defaults and the current Calibrate scale. It does not trace T-junctions or shared walls.
 
 Help tip key: `tool.drawRoom`.
 
@@ -24,9 +24,9 @@ In the tools panel, enter **Length** and **Width** (mm, or `m` / `cm` suffix) an
 
 Help tip key: `tool.drawRect`.
 
-## Create rooms from DXF — closed polylines only
+## Create rooms from DXF — closed polylines and simple line loops
 
-When the current storey’s underlay is a parsed DXF, **Create rooms from DXF** adds one official new room per closed LWPOLYLINE (group 70 bit 1, or first and last vertices coincident) on that storey. Polygons are created in official world space, so they follow the current Calibrate scale (`metersPerUnit` and origin offset). New rooms use the same defaults as Draw room / Create rectangle (maintenance factor 0.80, no EN template, Building Room height). Open LINE / LWPOLYLINE networks are not auto-traced. Degenerate rings and outlines that already exist on the storey are skipped; existing rooms are not modified.
+When the current storey’s underlay is a parsed DXF, **Create rooms from DXF** adds official new rooms from closed LWPOLYLINE entities (group 70 bit 1, or first and last vertices coincident) and from simple closed loops of connected LINE and open LWPOLYLINE segments on that storey. A simple loop is a single closed chain in which every vertex has degree 2. T-junction, shared-wall, and nested multi-room networks are not auto-traced. Polygons are created in official world space, so they follow the current Calibrate scale (`metersPerUnit` and origin offset). New rooms use the same defaults as Draw room / Create rectangle (maintenance factor 0.80, no EN template, Building Room height). Degenerate rings and outlines that already exist on the storey are skipped; existing rooms are not modified.
 
 Help tip key: `tool.createRoomsFromDxf`.
 

@@ -100,6 +100,11 @@ export {
   officialDxfPolylineStrokePoints,
 } from "./official-dxf-polyline";
 export {
+  officialDxfHasSimpleLineLoop,
+  officialDxfOpenPathSegments,
+  officialDxfSimpleLineLoopRings,
+} from "./official-dxf-line-loops";
+export {
   DXF_CLOSED_ROOM_MIN_AREA_M2,
   DXF_CLOSED_ROOMS_NEED_DXF_STATUS,
   DXF_CLOSED_ROOMS_NONE_STATUS,

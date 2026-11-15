@@ -5,6 +5,10 @@ import {
   type OfficialDxfWorldUnderlay,
 } from "./official-dxf-world";
 import {
+  officialDxfHasSimpleLineLoop,
+  officialDxfSimpleLineLoopRings,
+} from "./official-dxf-line-loops";
+import {
   DXF_CLOSED_VERTEX_EPS_M,
   officialDxfClosedRingVertices,
   officialDxfPointsCoincide,
@@ -12,11 +16,11 @@ import {
 } from "./official-dxf-polyline";
 import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "./types";
 
-/** Official skip threshold for a degenerate closed-polyline room. */
+/** Official skip threshold for a degenerate closed-polyline or line-loop room. */
 export const DXF_CLOSED_ROOM_MIN_AREA_M2 = 0.01;
 
 export const DXF_CLOSED_ROOMS_NONE_STATUS =
-  "No valid closed DXF polylines to create as rooms. Open lines are not auto-traced. Degenerate outlines and rooms that already exist on this storey are skipped.";
+  "No valid closed DXF polylines or simple line loops to create as rooms. T-junction and shared-wall networks are not auto-traced. Degenerate outlines and rooms that already exist on this storey are skipped.";
 
 export const DXF_CLOSED_ROOMS_NEED_DXF_STATUS =
   "Create rooms from DXF needs a DXF underlay on the current storey.";
@@ -43,13 +47,16 @@ export function officialDxfWorldEntitiesForRooms(
 
 /**
  * The official command is enabled when the current storey’s underlay is a
- * parsed DXF and at least one polyline is closed after world mapping.
+ * parsed DXF and at least one closed polyline or simple LINE / open-polyline
+ * loop exists after world mapping.
  */
 export function officialCanCreateRoomsFromDxf(
   underlay: OfficialDxfRoomsUnderlay | null | undefined
 ): boolean {
-  return officialDxfWorldEntitiesForRooms(underlay).some((entity) =>
-    officialDxfPolylineClosed(entity)
+  const world = officialDxfWorldEntitiesForRooms(underlay);
+  return (
+    world.some((entity) => officialDxfPolylineClosed(entity)) ||
+    officialDxfHasSimpleLineLoop(world)
   );
 }
 
@@ -107,11 +114,38 @@ export type OfficialAppendDxfClosedRoomsResult = {
   status: string;
 };
 
+function considerRing(
+  ring: Vec2[],
+  existingRings: Vec2[][],
+  next: ProjectSceneV2,
+  input: OfficialAppendDxfClosedRoomsInput
+): { next: ProjectSceneV2; created: boolean } {
+  if (
+    ring.length < 3 ||
+    uniqueVertexCount(ring, DXF_CLOSED_VERTEX_EPS_M) < 3 ||
+    polygonAreaM2(ring) < DXF_CLOSED_ROOM_MIN_AREA_M2
+  ) {
+    return { next, created: false };
+  }
+  if (existingRings.some((other) => ringsMatch(ring, other, DXF_CLOSED_VERTEX_EPS_M))) {
+    return { next, created: false };
+  }
+  const created = appendOfficialNewRoom(next, {
+    id: input.nextId(),
+    polygon: ring,
+    heightM: input.heightM,
+  });
+  existingRings.push(ring);
+  return { next: created, created: true };
+}
+
 /**
- * Create one official new room on the current storey for each valid closed
- * DXF polyline. Open LINE / LWPOLYLINE entities are not auto-traced.
- * Existing rooms are left unchanged. Degenerate rings and outlines that
- * already exist on the storey are skipped.
+ * Create official new rooms on the current storey from (a) each valid closed
+ * DXF polyline, then (b) each valid simple loop of connected LINE / open
+ * LWPOLYLINE segments. T-junction, figure-8, and shared-wall networks are
+ * not auto-traced. Existing rooms are left unchanged. Degenerate rings and
+ * outlines that already exist on the storey (including a loop that matches a
+ * closed polyline just created) are skipped.
  */
 export function officialAppendRoomsFromDxfClosedPolylines(
   scene: ProjectSceneV2,
@@ -140,26 +174,21 @@ export function officialAppendRoomsFromDxfClosedPolylines(
   for (const entity of world) {
     if (!officialDxfPolylineClosed(entity)) continue;
     const ring = officialDxfClosedRingVertices(entity);
-    if (
-      !ring ||
-      ring.length < 3 ||
-      uniqueVertexCount(ring, DXF_CLOSED_VERTEX_EPS_M) < 3 ||
-      polygonAreaM2(ring) < DXF_CLOSED_ROOM_MIN_AREA_M2
-    ) {
+    if (!ring) {
       skipped += 1;
       continue;
     }
-    if (existingRings.some((other) => ringsMatch(ring, other, DXF_CLOSED_VERTEX_EPS_M))) {
-      skipped += 1;
-      continue;
-    }
-    next = appendOfficialNewRoom(next, {
-      id: input.nextId(),
-      polygon: ring,
-      heightM: input.heightM,
-    });
-    existingRings.push(ring);
-    created += 1;
+    const out = considerRing(ring, existingRings, next, input);
+    next = out.next;
+    if (out.created) created += 1;
+    else skipped += 1;
+  }
+
+  for (const ring of officialDxfSimpleLineLoopRings(world)) {
+    const out = considerRing(ring, existingRings, next, input);
+    next = out.next;
+    if (out.created) created += 1;
+    else skipped += 1;
   }
 
   if (created === 0) {
