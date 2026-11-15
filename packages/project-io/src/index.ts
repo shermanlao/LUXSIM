@@ -327,6 +327,32 @@ export type {
 } from "./official-room-subtract";
 
 export {
+  INTERSECT_ROOMS_CANCELLED_STATUS,
+  INTERSECT_ROOMS_PICK_FIRST_STATUS,
+  INTERSECT_ROOMS_PICK_SECOND_STATUS,
+  INTERSECT_ROOMS_REFUSE_AREA_STATUS,
+  INTERSECT_ROOMS_REFUSE_CROSS_STATUS,
+  INTERSECT_ROOMS_REFUSE_DISJOINT_STATUS,
+  INTERSECT_ROOMS_REFUSE_EMPTY_STATUS,
+  INTERSECT_ROOMS_REFUSE_HOLE_STATUS,
+  INTERSECT_ROOMS_REFUSE_INVALID_STATUS,
+  INTERSECT_ROOMS_REFUSE_MISSING_STATUS,
+  INTERSECT_ROOMS_REFUSE_SAME_STATUS,
+  INTERSECT_ROOMS_REFUSE_SPLIT_STATUS,
+  INTERSECT_ROOMS_REFUSE_STOREY_STATUS,
+  INTERSECT_ROOMS_REFUSE_VERTICES_STATUS,
+  formatIntersectRoomsSuccessStatus,
+  officialPointInIntersectInclusive,
+  officialIntersectRooms,
+  intersectOfficialRoomPolygons,
+} from "./official-room-intersect";
+export type {
+  OfficialPolygonIntersectResult,
+  OfficialIntersectRoomsReason,
+  OfficialIntersectRoomsResult,
+} from "./official-room-intersect";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

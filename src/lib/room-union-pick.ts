@@ -1,4 +1,8 @@
 import {
+  INTERSECT_ROOMS_PICK_FIRST_STATUS,
+  INTERSECT_ROOMS_PICK_SECOND_STATUS,
+  INTERSECT_ROOMS_REFUSE_SAME_STATUS,
+  INTERSECT_ROOMS_REFUSE_STOREY_STATUS,
   SUBTRACT_ROOMS_PICK_FIRST_STATUS,
   SUBTRACT_ROOMS_PICK_SECOND_STATUS,
   SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
@@ -9,7 +13,7 @@ import {
   UNION_ROOMS_REFUSE_STOREY_STATUS,
 } from "@luxsim/project-io";
 
-export type OfficialTwoRoomPickKind = "union" | "subtract";
+export type OfficialTwoRoomPickKind = "union" | "subtract" | "intersect";
 
 export type RoomUnionPickState = {
   active: boolean;
@@ -256,4 +260,70 @@ function applyOfficialTwoRoomPick(
   };
 }
 
+const INTERSECT_PICK_COPY: TwoRoomPickCopy = {
+  pickFirst: INTERSECT_ROOMS_PICK_FIRST_STATUS,
+  pickSecond: INTERSECT_ROOMS_PICK_SECOND_STATUS,
+  refuseSame: INTERSECT_ROOMS_REFUSE_SAME_STATUS,
+  refuseStorey: INTERSECT_ROOMS_REFUSE_STOREY_STATUS,
+};
 
+export function startOfficialRoomIntersectPick(
+  selectedRoomId: string | null,
+  currentStoreyRoomIds: string[]
+): RoomUnionPickState {
+  return startOfficialRoomUnionPick(selectedRoomId, currentStoreyRoomIds);
+}
+
+export function intersectRoomsPickHint(state: RoomUnionPickState): string {
+  if (!state.active) return "";
+  return state.firstRoomId
+    ? INTERSECT_ROOMS_PICK_SECOND_STATUS
+    : INTERSECT_ROOMS_PICK_FIRST_STATUS;
+}
+
+export type OfficialRoomIntersectPickResult =
+  | {
+      kind: "status";
+      state: RoomUnionPickState;
+      status: string;
+      selectRoomId?: string;
+    }
+  | {
+      kind: "intersect";
+      state: RoomUnionPickState;
+      status: string;
+      keepId: string;
+      removeId: string;
+      selectRoomId?: string;
+    };
+
+/**
+ * Same official two-step pick as Union rooms: the first room is kept as the
+ * intersection, the second is removed after a successful intersect. Rooms
+ * on another storey are refused. Esc cancels via roomUnionPickEscapeAction.
+ */
+export function applyOfficialRoomIntersectPick(
+  state: RoomUnionPickState,
+  roomId: string,
+  roomStoreyId: string,
+  currentStoreyId: string
+): OfficialRoomIntersectPickResult {
+  const picked = applyOfficialTwoRoomPick(
+    state,
+    roomId,
+    roomStoreyId,
+    currentStoreyId,
+    INTERSECT_PICK_COPY
+  );
+  if (picked.kind === "ready") {
+    return {
+      kind: "intersect",
+      state: picked.state,
+      status: picked.status,
+      keepId: picked.keepId,
+      removeId: picked.removeId,
+      selectRoomId: picked.selectRoomId,
+    };
+  }
+  return picked;
+}

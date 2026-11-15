@@ -23,12 +23,16 @@ import {
   officialSetRoomPolygon,
   officialUnionRooms,
   officialSubtractRooms,
+  officialIntersectRooms,
   UNION_ROOMS_CANCELLED_STATUS,
   UNION_ROOMS_PICK_FIRST_STATUS,
   UNION_ROOMS_PICK_SECOND_STATUS,
   SUBTRACT_ROOMS_CANCELLED_STATUS,
   SUBTRACT_ROOMS_PICK_FIRST_STATUS,
   SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+  INTERSECT_ROOMS_CANCELLED_STATUS,
+  INTERSECT_ROOMS_PICK_FIRST_STATUS,
+  INTERSECT_ROOMS_PICK_SECOND_STATUS,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -94,10 +98,13 @@ import { EMPTY_CIRCLE_PICK, type CirclePickState } from "@/lib/circle-array-pick
 import { EMPTY_POLYGON_PATH_PICK, type PolygonPathPickState } from "@/lib/polygon-array-pick";
 import {
   EMPTY_OFFICIAL_TWO_ROOM_PICK,
+  applyOfficialRoomIntersectPick,
   applyOfficialRoomSubtractPick,
   applyOfficialRoomUnionPick,
+  startOfficialRoomIntersectPick,
   startOfficialRoomSubtractPick,
   startOfficialRoomUnionPick,
+  type OfficialTwoRoomPickKind,
   type OfficialTwoRoomPickState,
 } from "@/lib/room-union-pick";
 import {
@@ -783,12 +790,35 @@ export function BuildingEditor({
     );
   }
 
+  function startIntersectRooms() {
+    if (booleanPick.active && booleanPick.kind === "intersect") {
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+      setStatus(INTERSECT_ROOMS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    const next = startOfficialRoomIntersectPick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    setBooleanPick({ ...next, kind: "intersect" });
+    setStatus(
+      next.firstRoomId ? INTERSECT_ROOMS_PICK_SECOND_STATUS : INTERSECT_ROOMS_PICK_FIRST_STATUS
+    );
+  }
+
+  function booleanPickCancelledStatus(kind: OfficialTwoRoomPickKind): string {
+    if (kind === "subtract") return SUBTRACT_ROOMS_CANCELLED_STATUS;
+    if (kind === "intersect") return INTERSECT_ROOMS_CANCELLED_STATUS;
+    return UNION_ROOMS_CANCELLED_STATUS;
+  }
+
+  function booleanPickFirstStatus(kind: OfficialTwoRoomPickKind): string {
+    if (kind === "subtract") return SUBTRACT_ROOMS_PICK_FIRST_STATUS;
+    if (kind === "intersect") return INTERSECT_ROOMS_PICK_FIRST_STATUS;
+    return UNION_ROOMS_PICK_FIRST_STATUS;
+  }
+
   function cancelUnionRoomsPick() {
     if (!booleanPick.active) return;
-    const cancelled =
-      booleanPick.kind === "subtract"
-        ? SUBTRACT_ROOMS_CANCELLED_STATUS
-        : UNION_ROOMS_CANCELLED_STATUS;
+    const cancelled = booleanPickCancelledStatus(booleanPick.kind);
     setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     setStatus(cancelled);
   }
@@ -796,11 +826,36 @@ export function BuildingEditor({
   function onUnionRoomPick(roomId: string) {
     const room = scene.rooms.find((r) => r.id === roomId);
     if (!room) {
-      setStatus(
-        booleanPick.kind === "subtract"
-          ? SUBTRACT_ROOMS_PICK_FIRST_STATUS
-          : UNION_ROOMS_PICK_FIRST_STATUS
+      setStatus(booleanPickFirstStatus(booleanPick.kind));
+      return;
+    }
+    if (booleanPick.kind === "intersect") {
+      const picked = applyOfficialRoomIntersectPick(
+        booleanPick,
+        room.id,
+        room.storeyId,
+        scene.ui.activeStoreyId
       );
+      if (picked.selectRoomId) {
+        patchSceneUi((s) => ({
+          ...s,
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+        }));
+      }
+      if (picked.kind !== "intersect") {
+        setBooleanPick({ ...picked.state, kind: "intersect" });
+        setStatus(picked.status);
+        return;
+      }
+      endCoalesce();
+      const result = officialIntersectRooms(scene, picked.keepId, picked.removeId);
+      setStatus(result.status);
+      if (result.ok) {
+        setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+        patchScene(() => result.scene);
+        return;
+      }
+      setBooleanPick({ ...picked.state, kind: "intersect" });
       return;
     }
     if (booleanPick.kind === "subtract") {
@@ -2259,7 +2314,7 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.unionRooms" />
               </div>
               <p className="text-[10px] text-[var(--muted)]">
-                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. Intersect, XOR, and alignment are not included. Esc cancels the pick.
+                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. XOR and alignment are not included. Esc cancels the pick.
               </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
@@ -2276,7 +2331,24 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.subtractRooms" />
               </div>
               <p className="text-[10px] text-[var(--muted)]">
-                Cuts the first room on this storey by the second (the cutter). The first room keeps its name, maintenance factor, and other properties; the cutter stays in place. The result must be a single simple outline. Intersect, XOR, and alignment are not included. Esc cancels the pick.
+                Cuts the first room on this storey by the second (the cutter). The first room keeps its name, maintenance factor, and other properties; the cutter stays in place. The result must be a single simple outline. XOR and alignment are not included. Esc cancels the pick.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.intersectRooms"
+                  className={`btn w-full !text-xs justify-start ${
+                    booleanPick.active && booleanPick.kind === "intersect" ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startIntersectRooms}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Intersect rooms
+                </button>
+                <HelpTip helpKey="tool.intersectRooms" />
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Keeps the overlapping area of two rooms on this storey as the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. The rooms must overlap in area, and the result must be a single simple outline. XOR and alignment are not included. Esc cancels the pick.
               </p>
             </div>
           </div>
