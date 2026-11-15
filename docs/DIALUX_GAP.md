@@ -34,7 +34,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 |------------|--------|--------------|
 | Draw room | Click corners; type length; polar lock | Click corners; type mm; close on start. See [ROOM_DRAW.md](./ROOM_DRAW.md) |
 | Typed distance | Next point locked to radius circle | Bare number = mm; suffixes `m` / `cm` / `mm` |
-| Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. No DXF object snap |
+| Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. Official DXF underlays snap to endpoints, midpoints, and the nearest point on a segment (8 CSS px at the current zoom). No intersection, grid, or raster snap. Auto-rooms not yet |
 | Edit outline | Move vertices, stretch walls | Select-tool drag translates a selected room, or every room on a storey when the storey is selected in Building. No vertex handles |
 | Room inspector | Height, workplane, materials | **BuildingEditor** properties panel (height, workplane, ρ, grid, MF, EN template) |
 | 3D volume | Extrude true polygon | Extruded floor polygon |
@@ -50,7 +50,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **RCP confirm (F2.3)**: human review table (code map column, accept/reject, edit code → `codeNorm`); autosaved proposals only
 - **RCP commit (F2.4)**: **Commit accepted** places mapped proposals as fixtures (`rcpProposalId` on instance); optional replace prior detect-sourced fixtures on storey; room results cleared; optional calc after commit
 - **Post-place calc (F2.6)**: RCP commit, array apply, drag-drop, and **Calc room/all** use shared **`post-place-calc`** → `runClientCalcForRooms` / `packages/solver`; bottom results strip + EN/MF assist; photometry gaps surfaced by luminaire name
-- DXF is display-only (no snap / convert-to-room)
+- Official DXF object snap on Top/Bottom picks (endpoint, midpoint, nearest-on-segment, 8 CSS px). Auto-convert DXF entities into rooms is not yet implemented
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)
 - No Metaroom / LiDAR scan path
@@ -81,13 +81,13 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ## CAD room draw (implemented)
 
-See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are millimetres (`15000` = 15 m). L×W creates a rectangle at `(0, 0)`. Remaining geometry gaps: vertex edit, DXF object snap.
+See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are millimetres (`15000` = 15 m). L×W creates a rectangle at `(0, 0)`. Remaining geometry gaps: vertex edit. Auto-convert DXF entities into rooms is not yet implemented.
 
 ## Suggested order
 
 1. **P0 done** — Point-to-point draw + typed polar lock + ortho + close; L×W; room translate; 3D polygon extrusion; workspace chrome; room inspector; DIALux verification pack.
 2. **P0 leftover** — vertex edit.
-3. **P1** — Snap, fixture arrays + rotation, extra calc surfaces, richer standard libraries. (Wall calculation surfaces, rectangular/line/circular/polygon arrays, and official isolines / value labels: done.)
+3. **P1** — Snap, fixture arrays + rotation, extra calc surfaces, richer standard libraries. (Official DXF object snap on endpoint / midpoint / nearest, wall calculation surfaces, rectangular/line/circular/polygon arrays, and official isolines / value labels: done. Intersection / grid snap and auto-rooms are not yet implemented.)
 4. **P2+** — Daylight, emergency, furniture, catalog, raytrace, outdoor, IFC/Office export.
 
 ## Non-claims (unchanged)

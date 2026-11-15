@@ -206,6 +206,19 @@ describe("user guide", () => {
     expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
   });
 
+  it("documents official DXF object snap on Top/Bottom picks", () => {
+    expect(guide).toMatch(/snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels/i);
+    expect(guide).toMatch(/吸附到線段端點、中點，或線段上最近的一點/);
+    expect(guide).toMatch(/8 個 CSS 像素/);
+    expect(guide).toMatch(/Auto-converting DXF entities into rooms is not included/);
+    expect(guide).toMatch(/不包括由 DXF 自動建立房間/);
+    expect(guide).toMatch(/Image and PDF underlays do not get raster snap/);
+    expect(guide).toMatch(/圖像或 PDF 底圖不會做像素吸附/);
+    expect(guide).toMatch(/DWG is not parsed and is not snappable/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toMatch(/With a DXF underlay, official Top\/Bottom picks snap to endpoints/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

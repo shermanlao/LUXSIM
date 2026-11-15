@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，直線排列的端點點選、圓形排列和多邊形排列，以及計算後在平面與 3D 視圖切換等照度線與數值圖，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，直線排列的端點點選、圓形排列和多邊形排列，DXF 物件吸附，以及計算後在平面與 3D 視圖切換等照度線與數值圖，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, how to place a Circular or Polygon array, and how to switch Isolines and value labels on the plan and in the 3D view after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, how to place a Circular or Polygon array, DXF object snap, and how to switch Isolines and value labels on the plan and in the 3D view after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -18,6 +18,7 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
 - 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。若要一次移動整層，先在 **Building** 選取該樓層，再於該層任一房間填色範圍上拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
+- 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 或 **Bottom** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。此功能不包括由 DXF 自動建立房間。
 
 On the **Top** or **Bottom** view:
 
@@ -27,6 +28,7 @@ On the **Top** or **Bottom** view:
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
 - Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill. To move a whole storey, select the storey in **Building** first, then drag a room fill.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
+- When the active storey’s official underlay is a parsed DXF, picks on the **Top** or **Bottom** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, and fixture drop placement. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. Auto-converting DXF entities into rooms is not included.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
 
@@ -43,7 +45,7 @@ When zoomed in, the plan shows the hint *double-click empty area to reset*.
 5. 若已輸入並鎖定長度，按一次 **Backspace** 會整段清掉該長度，再按一次才撤回上一個角點。
 6. 畫房途中按 **Esc** 會取消草稿。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有草稿時，**Esc** 仍可用來退出全畫面。
 
-If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan.
+If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan. With a DXF underlay, official Top/Bottom picks (including Draw room corners and Calibrate scale clicks) snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels; auto-converting the DXF into rooms is not included.
 
 房間建立後，可在 **Select** 工具下於 **Top** 或 **Bottom** 平面圖拖移該房的填色範圍，把整個多邊形平移到新位置。矩形、L 形或不規則形狀都適用，形狀不變。該房內的燈具會一併移動，其他房間與樓層標高／層高不變。按住 **Shift** 可限制為水平或垂直移動。這次移動可用 **Ctrl+Z** 撤銷。單一燈具仍可用 **Select / move** 單獨拖移。
 

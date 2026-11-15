@@ -46,6 +46,12 @@ import {
   type PolygonPathPickState,
 } from "@/lib/polygon-array-pick";
 import {
+  dxfObjectSnapRadiusM,
+  officialDxfSnapEntities,
+  pickDxfObjectSnap,
+  type DxfSnapHit,
+} from "@/lib/official-dxf-object-snap";
+import {
   OFFICIAL_PLAN_VIEW_H,
   OFFICIAL_PLAN_VIEW_W,
   officialPlanFitTransform,
@@ -163,6 +169,7 @@ export function TopView2D({
   } | null>(null);
   const [lineCursor, setLineCursor] = useState<{ x: number; y: number } | null>(null);
   const [polygonCursor, setPolygonCursor] = useState<{ x: number; y: number } | null>(null);
+  const [snapHit, setSnapHit] = useState<DxfSnapHit | null>(null);
   const polygonPickRef = useRef<PolygonPathPickState>(polygonPick ?? EMPTY_POLYGON_PATH_PICK);
   polygonPickRef.current = polygonPick ?? EMPTY_POLYGON_PATH_PICK;
 
@@ -271,6 +278,16 @@ export function TopView2D({
       y: world.minY + world.depth - (svgY - oy) / scale,
     };
   };
+
+  const snapEntities = officialDxfSnapEntities(underlay, dxfEntities);
+
+  function snappedWorldAt(clientX: number, clientY: number): { x: number; y: number; hit: DxfSnapHit | null } {
+    const raw = toWorld(clientX, clientY);
+    if (snapEntities.length === 0) return { ...raw, hit: null };
+    const radiusM = dxfObjectSnapRadiusM(worldMetresPerCssPixel(toWorld, clientX, clientY));
+    const hit = pickDxfObjectSnap(raw, snapEntities, radiusM);
+    return hit ? { x: hit.point.x, y: hit.point.y, hit } : { ...raw, hit: null };
+  }
 
   const radiusM = parseLengthToM(lengthBuf);
   const last = draft[draft.length - 1] ?? null;
@@ -415,9 +432,10 @@ export function TopView2D({
 
   function commitPolygonPathClick(clientX: number, clientY: number) {
     if (!onPolygonPickChange) return;
+    const snapped = snappedWorldAt(clientX, clientY);
     const next = applyPolygonPathVertexPick(
       polygonPickRef.current,
-      toWorld(clientX, clientY),
+      { x: snapped.x, y: snapped.y },
       { closeSnapM: closeSnapMAt(clientX, clientY) }
     );
     polygonPickRef.current = next;
@@ -565,6 +583,7 @@ export function TopView2D({
     <div
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
+      onMouseLeave={() => setSnapHit(null)}
       onDoubleClick={(e) => {
         if (drawing || linePickActive || circlePickActive) return;
         if (polygonPickActive && polygonPathEnterAction(polygonPickRef.current) === "finish-open") {
@@ -584,8 +603,8 @@ export function TopView2D({
         e.preventDefault();
         const luminaireId = e.dataTransfer.getData("application/x-luxsim-luminaire");
         if (!luminaireId) return;
-        const w = toWorld(e.clientX, e.clientY);
-        onDropLuminaire(luminaireId, w.x, w.y);
+        const snapped = snappedWorldAt(e.clientX, e.clientY);
+        onDropLuminaire(luminaireId, snapped.x, snapped.y);
       }}
     >
       <svg
@@ -594,7 +613,9 @@ export function TopView2D({
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
         onMouseDown={(e) => {
-          const w = toWorld(e.clientX, e.clientY);
+          const snapped = snappedWorldAt(e.clientX, e.clientY);
+          const w = { x: snapped.x, y: snapped.y };
+          setSnapHit(snapped.hit);
           if (scene.ui.tool === "calibrate" && onCalibratePoints) {
             if (!calib.current) calib.current = w;
             else {
@@ -629,7 +650,9 @@ export function TopView2D({
         }}
         onMouseMove={(e) => {
           setOrtho(e.shiftKey);
-          const w = toWorld(e.clientX, e.clientY);
+          const snapped = snappedWorldAt(e.clientX, e.clientY);
+          const w = { x: snapped.x, y: snapped.y };
+          setSnapHit(snapped.hit);
           if (drawing) {
             setCursor(w);
             return;
@@ -705,7 +728,7 @@ export function TopView2D({
                   e.stopPropagation();
                   if (e.detail === 1) {
                     onLinePickChange(
-                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, toWorld(e.clientX, e.clientY))
+                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, snappedWorldAt(e.clientX, e.clientY))
                     );
                   }
                   return;
@@ -714,7 +737,7 @@ export function TopView2D({
                   e.stopPropagation();
                   if (e.detail === 1) {
                     onCirclePickChange(
-                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, toWorld(e.clientX, e.clientY))
+                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, snappedWorldAt(e.clientX, e.clientY))
                     );
                   }
                   return;
@@ -990,7 +1013,7 @@ export function TopView2D({
                 if (linePickActive && onLinePickChange) {
                   if (e.detail === 1) {
                     onLinePickChange(
-                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, toWorld(e.clientX, e.clientY))
+                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, snappedWorldAt(e.clientX, e.clientY))
                     );
                   }
                   return;
@@ -998,7 +1021,7 @@ export function TopView2D({
                 if (circlePickActive && onCirclePickChange) {
                   if (e.detail === 1) {
                     onCirclePickChange(
-                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, toWorld(e.clientX, e.clientY))
+                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, snappedWorldAt(e.clientX, e.clientY))
                     );
                   }
                   return;
@@ -1082,6 +1105,46 @@ export function TopView2D({
             </g>
           );
         })}
+
+        {snapHit &&
+          (() => {
+            const spt = toScreen(snapHit.point.x, snapHit.point.y);
+            const r = 6;
+            const stroke = "#f4d35e";
+            return (
+              <g
+                data-dxf-snap={snapHit.kind}
+                transform={`translate(${spt.x},${spt.y})`}
+                pointerEvents="none"
+              >
+                {snapHit.kind === "endpoint" && (
+                  <rect
+                    x={-r}
+                    y={-r}
+                    width={r * 2}
+                    height={r * 2}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth={1.5}
+                  />
+                )}
+                {snapHit.kind === "midpoint" && (
+                  <polygon
+                    points={`0,${-r} ${r},${r} ${-r},${r}`}
+                    fill="none"
+                    stroke={stroke}
+                    strokeWidth={1.5}
+                  />
+                )}
+                {snapHit.kind === "nearest" && (
+                  <>
+                    <line x1={-r} y1={-r} x2={r} y2={r} stroke={stroke} strokeWidth={1.5} />
+                    <line x1={r} y1={-r} x2={-r} y2={r} stroke={stroke} strokeWidth={1.5} />
+                  </>
+                )}
+              </g>
+            );
+          })()}
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
         {variant === "bottom" ? "Bottom" : "Top"} view · scroll to zoom

@@ -12,6 +12,7 @@ Tool **Draw room** on **Top** or **Bottom**.
 4. Left-click or **Enter** commits the preview point.
 5. Close by clicking (or Enter) within 200 mm of the first corner after 3+ points.
 6. **Esc** cancels the draft. **Backspace** clears the typed length, then removes the last corner.
+7. With a parsed DXF underlay, official Top/Bottom corner picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. Auto-converting DXF entities into rooms is not included.
 
 Help tip key: `tool.drawRoom`.
 
