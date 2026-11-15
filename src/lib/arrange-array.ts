@@ -32,6 +32,14 @@ export type ArrayParams = {
    * numeric fallback).
    */
   circleCentre?: Vec2 | null;
+  /**
+   * Optional world-metre path from official Polygon click-to-pick.
+   * When missing or empty, the selected room's official outline is used.
+   * `polygonPathClosed` selects closed spacing (perimeter / Count) versus
+   * open spacing (start to end, including the endpoints when Count ≥ 2).
+   */
+  polygonPath?: Vec2[] | null;
+  polygonPathClosed?: boolean;
 };
 
 export type ArrayPoint = { x: number; y: number; rotationDeg: number };
@@ -266,36 +274,118 @@ export function pointAlongClosedPolygon(polygon: Vec2[], distanceM: number): Vec
 }
 
 /**
- * Place `count` fixtures equally spaced along the official room outline.
- * Starts at the first corner (Origin). Spacing is perimeter / Count, so the
- * first and last points do not coincide on the closing vertex.
- * Count = 1 sits at the first corner.
- * `rotationDeg` is fixture orientation only — fixtures are not aimed along the tangent or inward.
- * Spacing X, Spacing Y, and wall offset are intentionally unused.
+ * Length of an open polyline (not closed). A single vertex has length 0.
  */
-export function planPolygonArray(
-  room: RoomV2,
-  params: Pick<ArrayParams, "count" | "rotationDeg">
-): ArrayPoint[] {
-  const n = Math.max(1, Math.floor(params.count));
-  const rotationDeg = params.rotationDeg;
-  const polygon = room.polygon;
-  if (polygon.length === 0) return [];
-  const first = polygon[0]!;
+export function openPolylineLengthM(path: Vec2[]): number {
+  if (path.length < 2) return 0;
+  let sum = 0;
+  for (let i = 0; i < path.length - 1; i += 1) {
+    const a = path[i]!;
+    const b = path[i + 1]!;
+    sum += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return sum;
+}
+
+/**
+ * Walk a distance along an open polyline, starting at the first vertex.
+ * Distances are clamped to [0, length].
+ */
+export function pointAlongOpenPolyline(path: Vec2[], distanceM: number): Vec2 | null {
+  if (path.length === 0) return null;
+  const first = path[0]!;
+  const last = path[path.length - 1]!;
+  const length = openPolylineLengthM(path);
+  if (length < DEGENERATE_SEGMENT_M) return { x: first.x, y: first.y };
+  if (distanceM <= OUTLINE_EPS_M) return { x: first.x, y: first.y };
+  if (distanceM >= length - OUTLINE_EPS_M) return { x: last.x, y: last.y };
+  let remaining = distanceM;
+  for (let i = 0; i < path.length - 1; i += 1) {
+    const a = path[i]!;
+    const b = path[i + 1]!;
+    const segLen = Math.hypot(b.x - a.x, b.y - a.y);
+    if (remaining <= segLen + OUTLINE_EPS_M) {
+      const t = segLen < OUTLINE_EPS_M ? 0 : Math.min(1, remaining / segLen);
+      return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    }
+    remaining -= segLen;
+  }
+  return { x: last.x, y: last.y };
+}
+
+/**
+ * Place `count` fixtures equally spaced along an open path.
+ * Count ≥ 2: equally spaced from start to end, including the endpoints.
+ * Count = 1 sits at the first vertex.
+ * A degenerate (sub-millimetre) path yields a single point at the start.
+ */
+export function planOpenPathArray(path: Vec2[], count: number, rotationDeg: number): ArrayPoint[] {
+  if (path.length === 0) return [];
+  const n = Math.max(1, Math.floor(count));
+  const first = path[0]!;
   if (n === 1) {
     return [{ x: first.x, y: first.y, rotationDeg }];
   }
-  const perimeter = closedPolygonPerimeterM(polygon);
+  const length = openPolylineLengthM(path);
+  if (length < DEGENERATE_SEGMENT_M) {
+    return [{ x: first.x, y: first.y, rotationDeg }];
+  }
+  const points: ArrayPoint[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const at = pointAlongOpenPolyline(path, (i / (n - 1)) * length) ?? first;
+    points.push({ x: at.x, y: at.y, rotationDeg });
+  }
+  return points;
+}
+
+/**
+ * Place `count` fixtures equally spaced along a closed path.
+ * Starts at the first vertex. Spacing is perimeter / Count, so the first
+ * and last points do not coincide on the closing vertex.
+ * Count = 1 sits at the first vertex.
+ */
+export function planClosedPathArray(path: Vec2[], count: number, rotationDeg: number): ArrayPoint[] {
+  const n = Math.max(1, Math.floor(count));
+  if (path.length === 0) return [];
+  const first = path[0]!;
+  if (n === 1) {
+    return [{ x: first.x, y: first.y, rotationDeg }];
+  }
+  const perimeter = closedPolygonPerimeterM(path);
   if (perimeter < DEGENERATE_SEGMENT_M) {
     return [{ x: first.x, y: first.y, rotationDeg }];
   }
   const spacing = perimeter / n;
   const points: ArrayPoint[] = [];
   for (let i = 0; i < n; i += 1) {
-    const at = pointAlongClosedPolygon(polygon, i * spacing) ?? first;
+    const at = pointAlongClosedPolygon(path, i * spacing) ?? first;
     points.push({ x: at.x, y: at.y, rotationDeg });
   }
   return points;
+}
+
+/**
+ * Place `count` fixtures equally spaced along the official room outline,
+ * or along an optional custom path from official Polygon click-to-pick.
+ * Room-outline and closed custom paths start at the first vertex (Origin
+ * on the room). Spacing is perimeter / Count, so the first and last points
+ * do not coincide on the closing vertex. Count = 1 sits at the first vertex.
+ * An open custom path uses start-to-end spacing, including the endpoints
+ * when Count ≥ 2; Count = 1 sits at the first picked vertex.
+ * `rotationDeg` is fixture orientation only — fixtures are not aimed along the tangent or inward.
+ * Spacing X, Spacing Y, and wall offset are intentionally unused.
+ */
+export function planPolygonArray(
+  room: RoomV2,
+  params: Pick<ArrayParams, "count" | "rotationDeg" | "polygonPath" | "polygonPathClosed">
+): ArrayPoint[] {
+  const path = params.polygonPath;
+  if (path && path.length > 0) {
+    return params.polygonPathClosed
+      ? planClosedPathArray(path, params.count, params.rotationDeg)
+      : planOpenPathArray(path, params.count, params.rotationDeg);
+  }
+  return planClosedPathArray(room.polygon, params.count, params.rotationDeg);
 }
 
 export function clipArrayPointsToRoom(room: RoomV2, proposed: ArrayPoint[]): ArrayPlanResult {

@@ -45,12 +45,6 @@ describe("official Polygon array wiring", () => {
     expect(arrange).toMatch(/pointOnClosedPolygonOutline/);
     expect(arrange).toMatch(/official outline points stay valid/);
 
-    // No second polygon-drawing / click-to-pick tool in this slice.
-    expect(panel).not.toContain("polygonPick");
-    expect(panel).not.toContain("onPolygonPickChange");
-    expect(top).not.toContain("polygonPick");
-    expect(editor).not.toContain("polygonPick");
-
     expect(panel).toContain('from "@/lib/polygon-array"');
     expect(panel).toContain('["polygon", "Polygon", "多邊形"]');
     expect(panel).toContain("planFixtureArray");
@@ -65,7 +59,7 @@ describe("official Polygon array wiring", () => {
     expect(panel).not.toMatch(/previewTargetEmArrange.*polygon/);
 
     expect(editor).toContain("planFixtureArray(activeRoom, params)");
-    expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
+    expect(top).toContain("if (drawing || linePickActive || circlePickActive || polygonPickActive) return;");
     expect(top).toContain("wheelZoomFactor");
     expect(top).toContain("zoomPlanToward");
   });
@@ -135,8 +129,8 @@ describe("official Polygon array wiring", () => {
     expect(guide).toMatch(/不會自動沿切線或指向室內/);
     expect(guide).toMatch(/Spacing X, Spacing Y and wall offset stay disabled/);
     expect(guide).toMatch(/Spacing X、Spacing Y 與離牆在多邊形模式維持停用/);
-    expect(guide).toMatch(/does not add a separate path-drawing tool/);
-    expect(guide).toMatch(/沒有另設繪製路徑的工具/);
+    expect(guide).toMatch(/If you do not pick a custom path/);
+    expect(guide).toMatch(/若未點選自訂路徑/);
     expect(tips).toContain('helpKey: "tool.polygonArray"');
     expect(tips).toContain("POLYGON_ARRAY_HINT");
     expect(tips).toContain("POLYGON_ARRAY_UNUSED_FIELDS_REASON");

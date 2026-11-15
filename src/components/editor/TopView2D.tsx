@@ -33,6 +33,19 @@ import {
   type CirclePickState,
 } from "@/lib/circle-array-pick";
 import {
+  applyPolygonPathVertexPick,
+  EMPTY_POLYGON_PATH_PICK,
+  finishOpenPolygonPath,
+  isCloseToPolygonPathStart,
+  isPolygonPathComplete,
+  isPolygonPathInProgress,
+  polygonPathCloseSnapM,
+  polygonPathEnterAction,
+  polygonPathEscapeAction,
+  worldMetresPerCssPixel,
+  type PolygonPathPickState,
+} from "@/lib/polygon-array-pick";
+import {
   OFFICIAL_PLAN_VIEW_H,
   OFFICIAL_PLAN_VIEW_W,
   officialPlanFitTransform,
@@ -78,6 +91,10 @@ type Props = {
   circlePick?: CirclePickState;
   circlePickActive?: boolean;
   onCirclePickChange?: (next: CirclePickState) => void;
+  /** Official Polygon-array custom path click-to-pick (world m). */
+  polygonPick?: PolygonPathPickState;
+  polygonPickActive?: boolean;
+  onPolygonPickChange?: (next: PolygonPathPickState) => void;
   /** Calculation results for the plan isolux / value-label overlay. */
   results?: ResultsV2 | null;
   planIsoluxMode?: IsoluxMode;
@@ -116,6 +133,9 @@ export function TopView2D({
   circlePick,
   circlePickActive = false,
   onCirclePickChange,
+  polygonPick,
+  polygonPickActive = false,
+  onPolygonPickChange,
   results = null,
   planIsoluxMode = "falsecolor",
   showValueLabels = false,
@@ -142,6 +162,9 @@ export function TopView2D({
     height: number;
   } | null>(null);
   const [lineCursor, setLineCursor] = useState<{ x: number; y: number } | null>(null);
+  const [polygonCursor, setPolygonCursor] = useState<{ x: number; y: number } | null>(null);
+  const polygonPickRef = useRef<PolygonPathPickState>(polygonPick ?? EMPTY_POLYGON_PATH_PICK);
+  polygonPickRef.current = polygonPick ?? EMPTY_POLYGON_PATH_PICK;
 
   const storeyId = scene.ui.activeStoreyId;
   const rooms = scene.rooms.filter((r) => r.storeyId === storeyId);
@@ -168,6 +191,10 @@ export function TopView2D({
   useEffect(() => {
     if (!linePickActive) setLineCursor(null);
   }, [linePickActive]);
+
+  useEffect(() => {
+    if (!polygonPickActive) setPolygonCursor(null);
+  }, [polygonPickActive]);
 
   useEffect(() => {
     setPlanView(DEFAULT_PLAN_ZOOM);
@@ -348,6 +375,55 @@ export function TopView2D({
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [circlePickActive, circlePick, drawing, onCirclePickChange]);
 
+  useEffect(() => {
+    if (!polygonPickActive || drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingField(e.target)) return;
+      const current = polygonPickRef.current;
+      if (e.key === "Escape") {
+        if (polygonPathEscapeAction(current) === "pass") return;
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        setPolygonCursor(null);
+        const next = EMPTY_POLYGON_PATH_PICK;
+        polygonPickRef.current = next;
+        onPolygonPickChange?.(next);
+        return;
+      }
+      if (e.key === "Enter") {
+        if (polygonPathEnterAction(current) === "pass") return;
+        e.preventDefault();
+        const next = finishOpenPolygonPath(current);
+        polygonPickRef.current = next;
+        onPolygonPickChange?.(next);
+      }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [polygonPickActive, polygonPick, drawing, onPolygonPickChange]);
+
+  function closeSnapMAt(clientX: number, clientY: number): number {
+    return polygonPathCloseSnapM(worldMetresPerCssPixel(toWorld, clientX, clientY));
+  }
+
+  function currentPolygonCloseSnapM(): number {
+    const svg = svgRef.current;
+    if (!svg) return polygonPathCloseSnapM(0);
+    const rect = svg.getBoundingClientRect();
+    return closeSnapMAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+
+  function commitPolygonPathClick(clientX: number, clientY: number) {
+    if (!onPolygonPickChange) return;
+    const next = applyPolygonPathVertexPick(
+      polygonPickRef.current,
+      toWorld(clientX, clientY),
+      { closeSnapM: closeSnapMAt(clientX, clientY) }
+    );
+    polygonPickRef.current = next;
+    onPolygonPickChange(next);
+  }
+
   function polyPoints(room: RoomV2) {
     return room.polygon
       .map((p) => {
@@ -491,6 +567,14 @@ export function TopView2D({
       onDragOver={(e) => e.preventDefault()}
       onDoubleClick={(e) => {
         if (drawing || linePickActive || circlePickActive) return;
+        if (polygonPickActive && polygonPathEnterAction(polygonPickRef.current) === "finish-open") {
+          e.preventDefault();
+          const next = finishOpenPolygonPath(polygonPickRef.current);
+          polygonPickRef.current = next;
+          onPolygonPickChange?.(next);
+          return;
+        }
+        if (drawing || linePickActive || circlePickActive || polygonPickActive) return;
         const target = e.target;
         if (!(target instanceof Element) || !target.closest("[data-plan-bg]")) return;
         e.preventDefault();
@@ -537,6 +621,10 @@ export function TopView2D({
             onCirclePickChange(applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, w));
             return;
           }
+          if (polygonPickActive && onPolygonPickChange && e.detail === 1) {
+            commitPolygonPathClick(e.clientX, e.clientY);
+            return;
+          }
           onSelect(null);
         }}
         onMouseMove={(e) => {
@@ -548,6 +636,10 @@ export function TopView2D({
           }
           if (linePickActive) {
             setLineCursor(w);
+            return;
+          }
+          if (polygonPickActive) {
+            setPolygonCursor(w);
             return;
           }
         }}
@@ -627,6 +719,13 @@ export function TopView2D({
                   }
                   return;
                 }
+                if (polygonPickActive && onPolygonPickChange) {
+                  e.stopPropagation();
+                  if (e.detail === 1) {
+                    commitPolygonPathClick(e.clientX, e.clientY);
+                  }
+                  return;
+                }
                 e.stopPropagation();
                 if (
                   shouldBeginStoreyDrag({
@@ -635,6 +734,7 @@ export function TopView2D({
                     calibrating: scene.ui.tool === "calibrate",
                     linePickActive,
                     circlePickActive,
+                    polygonPickActive,
                     activeRoomId: scene.ui.activeRoomId,
                     activeStoreyId: scene.ui.activeStoreyId,
                     hitRoomStoreyId: room.storeyId,
@@ -656,6 +756,7 @@ export function TopView2D({
                     calibrating: scene.ui.tool === "calibrate",
                     linePickActive,
                     circlePickActive,
+                    polygonPickActive,
                     onMoveRoom,
                   })
                 ) {
@@ -798,6 +899,51 @@ export function TopView2D({
           );
         })()}
 
+        {polygonPickActive && (polygonPick?.vertices.length ?? 0) > 0 && (() => {
+          const vertices = polygonPick!.vertices;
+          const rubber = !polygonPick!.finished ? polygonCursor : null;
+          const first = vertices[0]!;
+          const willClose = Boolean(
+            rubber &&
+              vertices.length >= 3 &&
+              isCloseToPolygonPathStart(rubber, first, currentPolygonCloseSnapM())
+          );
+          const screenPts = [
+            ...vertices,
+            ...(polygonPick!.finished && polygonPick!.closed ? [first] : []),
+            ...(rubber && !polygonPick!.finished ? [willClose ? first : rubber] : []),
+          ].map((pt) => toScreen(pt.x, pt.y));
+          return (
+            <g pointerEvents="none">
+              {screenPts.length >= 2 && (
+                <polyline
+                  fill="none"
+                  stroke="#7ec8e3"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  opacity={0.9}
+                  points={screenPts.map((pt) => `${pt.x},${pt.y}`).join(" ")}
+                />
+              )}
+              {vertices.map((pt, idx) => {
+                const s = toScreen(pt.x, pt.y);
+                const start = idx === 0;
+                return (
+                  <circle
+                    key={idx}
+                    cx={s.x}
+                    cy={s.y}
+                    r={start ? 5 : 4}
+                    fill={start && willClose ? "#e8c27a" : "#7ec8e3"}
+                    stroke="#fff"
+                    strokeWidth={1}
+                  />
+                );
+              })}
+            </g>
+          );
+        })()}
+
         {arrayPreview.map((ghost, idx) => {
           const s = toScreen(ghost.x, ghost.y);
           const rad = (ghost.rotationDeg * Math.PI) / 180;
@@ -854,6 +1000,12 @@ export function TopView2D({
                     onCirclePickChange(
                       applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, toWorld(e.clientX, e.clientY))
                     );
+                  }
+                  return;
+                }
+                if (polygonPickActive && onPolygonPickChange) {
+                  if (e.detail === 1) {
+                    commitPolygonPathClick(e.clientX, e.clientY);
                   }
                   return;
                 }
@@ -954,6 +1106,17 @@ export function TopView2D({
             {isCircleCentrePicked(circlePick ?? EMPTY_CIRCLE_PICK)
               ? " · click again to move it · Esc clears the centre"
               : ""}
+          </>
+        )}
+        {polygonPickActive && (
+          <>
+            {" "}
+            · click to add polygon path vertices
+            {isPolygonPathInProgress(polygonPick ?? EMPTY_POLYGON_PATH_PICK)
+              ? " · Enter or double-click finishes an open path · click near the first vertex to close · Esc cancels the path"
+              : isPolygonPathComplete(polygonPick ?? EMPTY_POLYGON_PATH_PICK)
+                ? " · click again to start a new path"
+                : ""}
           </>
         )}
         {drawing && (

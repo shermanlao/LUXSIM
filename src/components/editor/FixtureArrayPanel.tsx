@@ -35,6 +35,12 @@ import {
   POLYGON_ARRAY_ROTATION_REASON,
   POLYGON_ARRAY_UNUSED_FIELDS_REASON,
 } from "@/lib/polygon-array";
+import {
+  EMPTY_POLYGON_PATH_PICK,
+  isPolygonPathComplete,
+  isPolygonPathInProgress,
+  type PolygonPathPickState,
+} from "@/lib/polygon-array-pick";
 import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
@@ -59,6 +65,9 @@ type Props = {
   circlePick: CirclePickState;
   onCirclePickChange: (next: CirclePickState) => void;
   onCirclePickActiveChange: (active: boolean) => void;
+  polygonPick: PolygonPathPickState;
+  onPolygonPickChange: (next: PolygonPathPickState) => void;
+  onPolygonPickActiveChange: (active: boolean) => void;
 };
 
 export function FixtureArrayPanel({
@@ -78,6 +87,9 @@ export function FixtureArrayPanel({
   circlePick,
   onCirclePickChange,
   onCirclePickActiveChange,
+  polygonPick,
+  onPolygonPickChange,
+  onPolygonPickActiveChange,
 }: Props) {
   const [mode, setMode] = useState<PanelMode>("rect");
   const [luminaireId, setLuminaireId] = useState(luminaires[0]?.id ?? "");
@@ -117,13 +129,21 @@ export function FixtureArrayPanel({
   }, [mode, room, onCirclePickActiveChange]);
 
   useEffect(() => {
+    onPolygonPickActiveChange(mode === "polygon" && Boolean(room));
+    return () => onPolygonPickActiveChange(false);
+  }, [mode, room, onPolygonPickActiveChange]);
+
+  useEffect(() => {
     if (mode !== "line" && (linePick.start || linePick.end)) {
       onLinePickChange(EMPTY_LINE_PICK);
     }
     if (mode !== "circle" && circlePick.centre) {
       onCirclePickChange(EMPTY_CIRCLE_PICK);
     }
-  }, [mode, linePick.start, linePick.end, circlePick.centre, onLinePickChange, onCirclePickChange]);
+    if (mode !== "polygon" && (polygonPick.vertices.length > 0 || polygonPick.finished)) {
+      onPolygonPickChange(EMPTY_POLYGON_PATH_PICK);
+    }
+  }, [mode, linePick.start, linePick.end, circlePick.centre, polygonPick.vertices, polygonPick.finished, onLinePickChange, onCirclePickChange, onPolygonPickChange]);
 
   useEffect(() => {
     if (!room) return;
@@ -153,6 +173,7 @@ export function FixtureArrayPanel({
     if (mode === "circle" && rad < 0) return null;
     const lineComplete = mode === "line" && isLinePickComplete(linePick);
     const circlePicked = mode === "circle" && isCircleCentrePicked(circlePick);
+    const pathComplete = mode === "polygon" && isPolygonPathComplete(polygonPick);
     return {
       mode: mode === "targetEm" ? "rect" : mode,
       rows: Math.max(1, Math.floor(Number(rows) || 1)),
@@ -167,6 +188,8 @@ export function FixtureArrayPanel({
       lineEnd: lineComplete ? linePick.end : null,
       radius: rad,
       circleCentre: circlePicked ? circlePick.centre : null,
+      polygonPath: pathComplete ? polygonPick.vertices : null,
+      polygonPathClosed: pathComplete ? polygonPick.closed : false,
     };
   }
 
@@ -280,6 +303,23 @@ export function FixtureArrayPanel({
     // Numeric room-centre fallback is previewed only when the user presses Preview.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, room, circlePick.centre, count, radius, rotationDeg, existingInstances, luminaireId]);
+
+  useEffect(() => {
+    if (mode !== "polygon" || !room) return;
+    if (isPolygonPathComplete(polygonPick)) {
+      const params = buildParams();
+      if (!params) return;
+      const plan = planFixtureArray(room, params);
+      publishPreview(plan.inside);
+      return;
+    }
+    if (isPolygonPathInProgress(polygonPick)) {
+      setPreviewSkippedOccupied(0);
+      onPreviewChange(null);
+    }
+    // Room-outline fallback is previewed only when the user presses Preview.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, room, polygonPick.vertices, polygonPick.finished, polygonPick.closed, count, rotationDeg, existingInstances, luminaireId]);
 
   const lineComplete = mode === "line" && isLinePickComplete(linePick);
   const derivedLineSpacing =
@@ -467,6 +507,36 @@ export function FixtureArrayPanel({
           </div>
           <p className="text-[10px] text-[#8fa3ad]">{POLYGON_ARRAY_HINT}</p>
           <p className="text-[10px] text-[#8fa3ad]">{POLYGON_ARRAY_ROTATION_REASON}</p>
+          {!room ? null : polygonPick.vertices.length === 0 ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Optional: click on the Top plan to set a custom path / 可在平面圖點選自訂路徑
+            </p>
+          ) : !polygonPick.finished ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Click to add vertices, Enter or double-click to finish, or click near the first vertex to close / 請繼續點選頂點，Enter 或雙擊完成開放路徑，或點近起點閉合
+            </p>
+          ) : polygonPick.closed ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Closed path with {polygonPick.vertices.length} vertices / 已設定封閉路徑
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Open path with {polygonPick.vertices.length} vertices / 已設定開放路徑
+            </p>
+          )}
+          {(polygonPick.vertices.length > 0 || polygonPick.finished) && (
+            <button
+              type="button"
+              className="btn btn-secondary !text-[10px]"
+              onClick={() => {
+                onPolygonPickChange(EMPTY_POLYGON_PATH_PICK);
+                setPreviewSkippedOccupied(0);
+                onPreviewChange(null);
+              }}
+            >
+              Clear path / 清除路徑
+            </button>
+          )}
         </div>
       ) : (
         <div className="space-y-2">

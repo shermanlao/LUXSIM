@@ -58,7 +58,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 ### Fixtures
 
 - No manufacturer catalog
-- **Rectangular / line / circular / polygon / target-Ēm arrays** in Light mode (Arrange · array panel; preview on Top view). Polygon mode places Count fixtures equally along the selected room outline, starting at the first corner; rotation is fixture orientation. Boolean and alignment are not yet available. Target-Ēm estimate remains a rectangular grid only.
+- **Rectangular / line / circular / polygon / target-Ēm arrays** in Light mode (Arrange · array panel; preview on Top view). Polygon mode places Count fixtures equally along the selected room outline, starting at the first corner, or along an optional custom path picked on the plan (open or closed); rotation is fixture orientation. Boolean and alignment are not yet available. Target-Ēm estimate remains a rectangular grid only.
 - **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous on accepted OCR rows (F2.3); F2.4 commit writes instances
 - No automatic placement (intentionally out of v2 scope)
 - `rotationDeg` stored; **BuildingEditor** rotation control + Top view arrow; included in DIALux schedule.csv

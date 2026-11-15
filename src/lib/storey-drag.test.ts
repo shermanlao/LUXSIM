@@ -13,6 +13,7 @@ const ready = {
   calibrating: false,
   linePickActive: false,
   circlePickActive: false,
+  polygonPickActive: false,
   activeRoomId: null as string | null,
   activeStoreyId: "storey-gf",
   hitRoomStoreyId: "storey-gf",
@@ -31,6 +32,7 @@ describe("storey drag pointer helpers", () => {
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, calibrating: true })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, linePickActive: true })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, circlePickActive: true })).toBe(false);
+    expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, polygonPickActive: true })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, activeRoomId: "room-1" })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, hitRoomStoreyId: "other" })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, activeStoreyId: null })).toBe(false);

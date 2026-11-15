@@ -12,6 +12,7 @@ const ready = {
   calibrating: false,
   linePickActive: false,
   circlePickActive: false,
+  polygonPickActive: false,
 };
 
 describe("room drag pointer helpers", () => {
@@ -27,6 +28,7 @@ describe("room drag pointer helpers", () => {
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, calibrating: true })).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, linePickActive: true })).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, circlePickActive: true })).toBe(false);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, polygonPickActive: true })).toBe(false);
   });
 
   it("applies the pointer delta and snaps to X or Y when Shift is held", () => {

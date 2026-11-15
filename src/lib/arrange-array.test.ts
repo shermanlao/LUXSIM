@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rectPolygon } from "@luxsim/project-io";
 import type { RoomV2 } from "@luxsim/project-io";
-import { closedPolygonPerimeterM, defaultCircleRadiusM, planFixtureArray, pointsRoughlyEqual, roomAabbCentre } from "./arrange-array";
+import { closedPolygonPerimeterM, defaultCircleRadiusM, openPolylineLengthM, planFixtureArray, pointsRoughlyEqual, roomAabbCentre } from "./arrange-array";
 
 function testRoom(): RoomV2 {
   return {
@@ -476,6 +476,63 @@ describe("planFixtureArray polygon", () => {
     expect(plan.skippedOutside).toBe(0);
     expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0, y: 0 })).toBe(true);
     // First and last must not coincide on the closing vertex.
+    expect(pointsRoughlyEqual(plan.inside[0]!, plan.inside[3]!)).toBe(false);
+  });
+});
+
+
+describe("planFixtureArray polygon custom path", () => {
+  it("spaces an open custom path from start to end, including the endpoints", () => {
+    const path = [
+      { x: 0.5, y: 1 },
+      { x: 2.5, y: 1 },
+      { x: 2.5, y: 3 },
+    ];
+    expect(openPolylineLengthM(path)).toBeCloseTo(4, 5);
+    const plan = planFixtureArray(testRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 5,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 2,
+      rotationDeg: 20,
+      polygonPath: path,
+      polygonPathClosed: false,
+    });
+    expect(plan.inside).toHaveLength(5);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0.5, y: 1 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 1.5, y: 1 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[2]!, { x: 2.5, y: 1 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[3]!, { x: 2.5, y: 2 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[4]!, { x: 2.5, y: 3 })).toBe(true);
+    expect(plan.inside.every((pt) => pt.rotationDeg === 20)).toBe(true);
+  });
+
+  it("uses perimeter/Count on a closed custom path and does not coincide on the close vertex", () => {
+    const path = [
+      { x: 1, y: 1 },
+      { x: 3, y: 1 },
+      { x: 3, y: 3 },
+      { x: 1, y: 3 },
+    ];
+    const plan = planFixtureArray(testRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 4,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 2,
+      rotationDeg: 0,
+      polygonPath: path,
+      polygonPathClosed: true,
+    });
+    expect(closedPolygonPerimeterM(path)).toBeCloseTo(8, 5);
+    expect(plan.inside).toHaveLength(4);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 1, y: 1 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[3]!, { x: 1, y: 3 })).toBe(true);
     expect(pointsRoughlyEqual(plan.inside[0]!, plan.inside[3]!)).toBe(false);
   });
 });

@@ -12,6 +12,7 @@ export type StoreyDragBeginInput = {
   calibrating?: boolean;
   linePickActive?: boolean;
   circlePickActive?: boolean;
+  polygonPickActive?: boolean;
   activeRoomId?: string | null;
   activeStoreyId?: string | null;
   hitRoomStoreyId?: string | null;
@@ -21,7 +22,7 @@ export type StoreyDragBeginInput = {
 /**
  * Begin a storey drag only with the official Select tool, a move handler, a
  * storey selected in Building (no active room), a hit on a room of that
- * storey, and no active Draw room draft, calibrate click, or line/circle pick.
+ * storey, and no active Draw room draft, calibrate click, or line/circle/polygon pick.
  */
 export function shouldBeginStoreyDrag(input: StoreyDragBeginInput = {}): boolean {
   return (
@@ -32,6 +33,7 @@ export function shouldBeginStoreyDrag(input: StoreyDragBeginInput = {}): boolean
     !input.calibrating &&
     !input.linePickActive &&
     !input.circlePickActive &&
+    !input.polygonPickActive &&
     !input.activeRoomId &&
     !!input.activeStoreyId &&
     input.hitRoomStoreyId === input.activeStoreyId

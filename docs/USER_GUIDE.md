@@ -138,19 +138,23 @@ In **Light** mode, select a room in the building tree, then choose **Circle** in
 
 在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Polygon**（多邊形）。
 
-1. 用 **Count** 和 **Rotation** 放置燈具。路徑是所選房間的官方封閉輪廓，由第一個角點（Origin）開始，沿周長均勻分布。
-2. 沿路徑的間距是周長除以 **Count**，因此第一點與最後一點不會重疊在閉合頂點上。**Count** 為 1 時，單一燈具放在第一個角點。
-3. **Rotation** 是燈具朝向，與直線和圓形模式相同，不會自動沿切線或指向室內。
-4. Spacing X、Spacing Y 與離牆在多邊形模式維持停用。多邊形排列只沿房間輪廓放置，不會用這些欄位做內縮或再排第二圈。矩形排列才使用這些欄位。目標照度估算仍只用矩形網格，沒有多邊形目標照度路徑。本模式沒有另設繪製路徑的工具。
-5. 落在房間多邊形外的點不會放置；剛好在房間邊上的點視為有效。與同房已有燈具相距 1 mm 內的點會略過，既有燈具不會被刪除。
+1. 用 **Count** 和 **Rotation** 放置燈具。若未點選自訂路徑，路徑是所選房間的官方封閉輪廓，由第一個角點（Origin）開始，沿周長均勻分布。
+2. 可在 **Top** 或 **Bottom** 平面圖上逐點點選自訂路徑，座標使用當前縮放或貼合後的世界座標。路徑完成後，再點一下會開始一條新路徑。
+3. 按 **Enter** 或在空白處雙擊，可完成一條開放路徑。在目前縮放下點近第一個頂點（約 4 CSS 像素，與整層拖移的點擊容差同一量級）則閉合路徑。未完成路徑時按 **Esc** 會取消該路徑，回到房間輪廓後備；即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有未完成路徑時，**Esc** 仍可用來退出全畫面。點 **Clear path** 同樣回到房間輪廓後備，也不會退出全畫面。
+4. 封閉的自訂路徑（以及未點選時的房間輪廓）沿路徑間距是周長除以 **Count**，因此第一點與最後一點不會重疊在閉合頂點上。**Count** 為 1 時，單一燈具放在第一個角點；自訂路徑則放在第一個點選頂點。開放的自訂路徑由起點到終點均勻分布，**Count** ≥ 2 時包含兩端；**Count** 為 1 時，單一燈具放在起點。
+5. **Rotation** 是燈具朝向，與直線和圓形模式相同，不會自動沿切線或指向室內。
+6. Spacing X、Spacing Y 與離牆在多邊形模式維持停用。多邊形排列只沿房間輪廓或自訂路徑放置，不會用這些欄位做內縮或再排第二圈。矩形排列才使用這些欄位。目標照度估算仍只用矩形網格，沒有多邊形目標照度路徑。
+7. 落在房間多邊形外的點不會放置；剛好在房間邊上的點視為有效。自訂路徑的頂點可以在房間內；規劃點若在房間多邊形外仍會丟棄。與同房已有燈具相距 1 mm 內的點會略過，既有燈具不會被刪除。預覽會顯示已佔略過數，並在點選中及設定後顯示自訂路徑。點選自訂路徑進行中，雙擊空白處不會重置視野（會用來完成開放路徑），仍可用滾輪縮放。畫房、校正、直線或圓心點選進行中不會開始多邊形路徑點選；路徑點選進行中，不會開始拖移燈具、房間或樓層。
 
 In **Light** mode, select a room in the building tree, then choose **Polygon** in **Arrange**.
 
-1. Place fixtures with **Count** and **Rotation**. The path is the selected room’s official closed outline, starting at the first corner (Origin), with fixtures spaced equally along the perimeter.
-2. Spacing along the path is the perimeter divided by **Count**, so the first and last points do not coincide on the closing vertex. When **Count** is 1, the single fixture sits at the first corner.
-3. **Rotation** is the fixture orientation, as in Line and Circle modes; fixtures are not aimed along the tangent or inward.
-4. **Spacing X, Spacing Y and wall offset stay disabled** in Polygon mode because a polygon array places fixtures on the room outline only. Those fields are used by Rectangular arrays. There is no inset or second ring. Target-Ēm estimate still uses a rectangular grid only. This mode does not add a separate path-drawing tool.
-5. Points outside the room polygon are not placed. Points that lie exactly on the room edge are treated as valid. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept.
+1. Place fixtures with **Count** and **Rotation**. If you do not pick a custom path, the path is the selected room’s official closed outline, starting at the first corner (Origin), with fixtures spaced equally along the perimeter.
+2. Click on the **Top** or **Bottom** plan to add path vertices in the current zoomed or fitted world coordinates. After a path is finished, a later click starts a new path.
+3. **Enter** or a double-click on empty background finishes an open path. Click near the first vertex (within about 4 CSS pixels at the current zoom, the same order as the storey-drag click slop) to close the path. **Esc** cancels an unfinished path and returns to the room-outline fallback. It does not exit the browser’s fullscreen view. When you are not mid-pick, **Esc** can still exit fullscreen. **Clear path** also returns to the room-outline fallback and does not exit fullscreen.
+4. A closed custom path, and the room outline when no custom path is set, uses spacing equal to the perimeter divided by **Count**, so the first and last points do not coincide on the closing vertex. When **Count** is 1, the single fixture sits at the first corner, or at the first picked vertex on a custom path. An open custom path spaces fixtures equally from start to end, including the endpoints when **Count** ≥ 2; when **Count** is 1, the single fixture sits at the start.
+5. **Rotation** is the fixture orientation, as in Line and Circle modes; fixtures are not aimed along the tangent or inward.
+6. **Spacing X, Spacing Y and wall offset stay disabled** in Polygon mode because a polygon array places fixtures on the room outline or a custom path. Those fields are used by Rectangular arrays. There is no inset or second ring. Target-Ēm estimate still uses a rectangular grid only.
+7. Points outside the room polygon are not placed. Points that lie exactly on the room edge are treated as valid. Custom-path vertices may lie inside the room; planned points outside the room polygon are still dropped. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept. The preview still shows the skipped occupied count, and the custom path is visible while picking and after it is set. While you are mid-pick, double-click does not reset the view (it finishes an open path); wheel zoom still works toward the cursor. Polygon path pick does not start during Draw room, calibrate, or a mid line or circle pick. Fixture hits, room drag, and storey drag do not start while a polygon path is mid-pick.
 
 ## 等照度線與數值圖 / Isolines and value labels
 

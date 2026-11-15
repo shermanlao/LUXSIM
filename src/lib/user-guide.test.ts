@@ -193,8 +193,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/不會自動沿切線或指向室內/);
     expect(guide).toMatch(/Spacing X, Spacing Y and wall offset stay disabled/);
     expect(guide).toMatch(/Spacing X、Spacing Y 與離牆在多邊形模式維持停用/);
-    expect(guide).toMatch(/does not add a separate path-drawing tool/);
-    expect(guide).toMatch(/沒有另設繪製路徑的工具/);
+    expect(guide).toMatch(/If you do not pick a custom path/);
+    expect(guide).toMatch(/若未點選自訂路徑/);
+    expect(guide).toMatch(/Clear path/);
+    expect(guide).toMatch(/custom path/);
     expect(tips).toContain('helpKey: "tool.polygonArray"');
     expect(tips).toContain("POLYGON_ARRAY_HINT");
     expect(tips).toContain("POLYGON_ARRAY_UNUSED_FIELDS_REASON");

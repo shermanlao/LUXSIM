@@ -80,6 +80,7 @@ import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
 import { EMPTY_LINE_PICK, type LinePickState } from "@/lib/line-array-pick";
 import { EMPTY_CIRCLE_PICK, type CirclePickState } from "@/lib/circle-array-pick";
+import { EMPTY_POLYGON_PATH_PICK, type PolygonPathPickState } from "@/lib/polygon-array-pick";
 import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
@@ -253,6 +254,8 @@ export function BuildingEditor({
   const [linePickActive, setLinePickActive] = useState(false);
   const [circlePick, setCirclePick] = useState<CirclePickState>(EMPTY_CIRCLE_PICK);
   const [circlePickActive, setCirclePickActive] = useState(false);
+  const [polygonPick, setPolygonPick] = useState<PolygonPathPickState>(EMPTY_POLYGON_PATH_PICK);
+  const [polygonPickActive, setPolygonPickActive] = useState(false);
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -1289,6 +1292,7 @@ export function BuildingEditor({
       setArrayPreview(null);
       setLinePick(EMPTY_LINE_PICK);
       setCirclePick(EMPTY_CIRCLE_PICK);
+      setPolygonPick(EMPTY_POLYGON_PATH_PICK);
       setStatus(
         formatArrayApplyStatus({
           placed: 0,
@@ -1332,6 +1336,7 @@ export function BuildingEditor({
       setArrayPreview(null);
       setLinePick(EMPTY_LINE_PICK);
       setCirclePick(EMPTY_CIRCLE_PICK);
+      setPolygonPick(EMPTY_POLYGON_PATH_PICK);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
       const calcNote = postPlaceCalcStatusSuffix(
         {
@@ -1491,14 +1496,17 @@ export function BuildingEditor({
   useEffect(() => {
     setLinePick(EMPTY_LINE_PICK);
     setCirclePick(EMPTY_CIRCLE_PICK);
+    setPolygonPick(EMPTY_POLYGON_PATH_PICK);
   }, [activeRoom?.id]);
 
   useEffect(() => {
     if (workflow !== "light") {
       setLinePick(EMPTY_LINE_PICK);
       setCirclePick(EMPTY_CIRCLE_PICK);
+      setPolygonPick(EMPTY_POLYGON_PATH_PICK);
       setLinePickActive(false);
       setCirclePickActive(false);
+      setPolygonPickActive(false);
     }
   }, [workflow]);
 
@@ -1663,6 +1671,9 @@ export function BuildingEditor({
           circlePick={circlePick}
           circlePickActive={circlePickActive}
           onCirclePickChange={setCirclePick}
+          polygonPick={polygonPick}
+          polygonPickActive={polygonPickActive}
+          onPolygonPickChange={setPolygonPick}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -2566,6 +2577,7 @@ export function BuildingEditor({
                 setArrayPreview(null);
                 setLinePick(EMPTY_LINE_PICK);
                 setCirclePick(EMPTY_CIRCLE_PICK);
+                setPolygonPick(EMPTY_POLYGON_PATH_PICK);
               }}
               linePick={linePick}
               onLinePickChange={setLinePick}
@@ -2573,6 +2585,9 @@ export function BuildingEditor({
               circlePick={circlePick}
               onCirclePickChange={setCirclePick}
               onCirclePickActiveChange={setCirclePickActive}
+              polygonPick={polygonPick}
+              onPolygonPickChange={setPolygonPick}
+              onPolygonPickActiveChange={setPolygonPickActive}
             />
           )}
 
