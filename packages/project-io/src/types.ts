@@ -81,9 +81,13 @@ export interface Underlay {
   kind: "image" | "pdf" | "dxf" | "ifc" | "dwg";
   opacity: number;
   /**
-   * Uniform meters per source pixel (same for X and Y).
-   * World size = sourceWidthPx × metersPerUnit by sourceHeightPx × metersPerUnit.
-   * For a new image/PDF this is a preview scale until `scaleCalibrated` is true.
+   * Uniform metres per source unit on both axes (metres per pixel for a raster;
+   * metres per drawing unit for a DXF). Raster world size = sourceWidthPx ×
+   * metersPerUnit by sourceHeightPx × metersPerUnit. For a new image/PDF this
+   * is a preview scale until `scaleCalibrated` is true. A new DXF starts at 1
+   * (entities already in metres); official Calibrate scale updates this value
+   * and DXF strokes, object snap, and plan bounds use entity × metersPerUnit
+   * plus the underlay origin offset.
    */
   metersPerUnit: number;
   /**

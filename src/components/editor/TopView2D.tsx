@@ -12,6 +12,7 @@ import {
   resolveDraftPoint,
   isDisplayableRasterUnderlay,
   officialDrawRoomAllowed,
+  officialDxfEntitiesToWorld,
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
@@ -279,7 +280,8 @@ export function TopView2D({
     };
   };
 
-  const snapEntities = officialDxfSnapEntities(underlay, dxfEntities);
+  const dxfWorldEntities = officialDxfEntitiesToWorld(dxfEntities, underlay);
+  const snapEntities = officialDxfSnapEntities(underlay, dxfWorldEntities);
 
   function snappedWorldAt(clientX: number, clientY: number): { x: number; y: number; hit: DxfSnapHit | null } {
     const raw = toWorld(clientX, clientY);
@@ -691,7 +693,7 @@ export function TopView2D({
           );
         })()}
 
-        {dxfEntities.map((ent, idx) => {
+        {dxfWorldEntities.map((ent, idx) => {
           const pts = ent.points.map((p) => toScreen(p.x, p.y));
           if (pts.length < 2) return null;
           return (

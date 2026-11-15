@@ -219,6 +219,15 @@ describe("user guide", () => {
     expect(tips).toMatch(/With a DXF underlay, official Top\/Bottom picks snap to endpoints/);
   });
 
+  it("documents official Calibrate scale on a DXF underlay", () => {
+    expect(guide).toMatch(/newly imported DXF starts at 1 metre per drawing unit/);
+    expect(guide).toMatch(/新匯入的 DXF 預設每個繪圖單位為 1 公尺/);
+    expect(guide).toMatch(/resizes the DXF drawing and the snap points together/);
+    expect(guide).toMatch(/DXF 描線與吸附點會一併按同一比例縮放/);
+    expect(guide).toMatch(/Draw room stays allowed without a prior calibrate/);
+    expect(guide).toMatch(/不必先校正即可畫房/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

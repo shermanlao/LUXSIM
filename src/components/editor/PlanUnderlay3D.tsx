@@ -7,6 +7,7 @@ import type { DxfEntity, Underlay } from "@luxsim/project-io";
 import {
   isDisplayableRasterUnderlay,
   legacyScaleToMetersPerPixel,
+  officialDxfEntitiesToWorld,
   underlayWorldSize,
 } from "@luxsim/project-io";
 
@@ -141,7 +142,7 @@ export function PlanUnderlay3D({
         </mesh>
       )}
 
-      {dxfEntities.map((ent, idx) => {
+      {officialDxfEntitiesToWorld(dxfEntities, underlay).map((ent, idx) => {
         if (ent.points.length < 2) return null;
         const points = ent.points.map(
           (p) => [p.x, floorY + 0.005, p.y] as [number, number, number]

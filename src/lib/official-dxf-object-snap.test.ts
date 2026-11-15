@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { DxfEntity, Vec2 } from "@luxsim/project-io";
+import { officialDxfEntitiesToWorld } from "@luxsim/project-io";
 import {
   collectDxfSnapCandidates,
   DXF_OBJECT_SNAP_CSS_PX,
@@ -163,6 +164,46 @@ describe("officialDxfSnapEntities", () => {
   });
 });
 
+describe("official DXF snap follows entity→world scale", () => {
+  it("hits the same raw endpoints when metersPerUnit is 1", () => {
+    const raw = [LINE];
+    const world = officialDxfEntitiesToWorld(raw, { metersPerUnit: 1, offsetX: 0, offsetY: 0 });
+    expect(world).toBe(raw);
+    const hit = pickDxfObjectSnap({ x: 0, y: 0.05 }, world, 0.2);
+    expect(hit?.kind).toBe("endpoint");
+    expect(hit?.point).toEqual({ x: 0, y: 0 });
+  });
+
+  it("hits scaled endpoints when metersPerUnit is 2 or 0.001", () => {
+    const twice = officialDxfEntitiesToWorld([LINE], { metersPerUnit: 2 });
+    expect(twice[0]?.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 20, y: 0 },
+    ]);
+    const mid = pickDxfObjectSnap({ x: 10, y: 0.05 }, twice, 0.2);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point).toEqual({ x: 10, y: 0 });
+    const end = pickDxfObjectSnap({ x: 20.04, y: 0 }, twice, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point).toEqual({ x: 20, y: 0 });
+    // The unscaled endpoint at x=10 is no longer a candidate after mpu 2.
+    expect(pickDxfObjectSnap({ x: 10, y: 0 }, [LINE], 0.2)?.point).toEqual({ x: 10, y: 0 });
+    expect(pickDxfObjectSnap({ x: 10, y: 0 }, twice, 0.2)?.kind).toBe("midpoint");
+
+    const mm = officialDxfEntitiesToWorld(
+      [{ type: "line", points: [{ x: 0, y: 0 }, { x: 10000, y: 0 }] }],
+      { metersPerUnit: 0.001 }
+    );
+    const mmHit = pickDxfObjectSnap({ x: 10.02, y: 0 }, mm, 0.05);
+    expect(mmHit?.kind).toBe("endpoint");
+    expect(mmHit?.point.x).toBeCloseTo(10);
+    expect(mmHit?.point.y).toBeCloseTo(0);
+    // 8 CSS px still convert to world metres; only the candidate points scale.
+    expect(DXF_OBJECT_SNAP_CSS_PX).toBe(8);
+    expect(dxfObjectSnapRadiusM(0.01)).toBeCloseTo(0.08);
+  });
+});
+
 describe("official DXF object-snap wiring", () => {
   it("snaps official plan picks through pickDxfObjectSnap and does not start drags from the marker", () => {
     const top = readFileSync(
@@ -170,8 +211,18 @@ describe("official DXF object-snap wiring", () => {
       "utf8"
     );
     expect(top).toContain('from "@/lib/official-dxf-object-snap"');
+    expect(top).toContain("officialDxfEntitiesToWorld");
     expect(top).toContain("officialDxfSnapEntities");
     expect(top).toContain("pickDxfObjectSnap");
+    expect(top).toContain("officialDxfEntitiesToWorld(dxfEntities, underlay)");
+    expect(top).toContain("officialDxfSnapEntities(underlay, dxfWorldEntities)");
+    expect(top).toContain("dxfWorldEntities.map");
+    const underlay3d = readFileSync(
+      path.join(process.cwd(), "src/components/editor/PlanUnderlay3D.tsx"),
+      "utf8"
+    );
+    expect(underlay3d).toContain("officialDxfEntitiesToWorld");
+    expect(underlay3d).toContain("officialDxfEntitiesToWorld(dxfEntities, underlay)");
     expect(top).toContain("dxfObjectSnapRadiusM");
     expect(top).toContain("worldMetresPerCssPixel");
     expect(top).toContain("data-dxf-snap");

@@ -166,6 +166,13 @@ export {
 } from "./underlay";
 export type { OfficialUnderlayScaleFields } from "./underlay";
 export type { UnderlayKind } from "./underlay";
+export {
+  officialDxfEntityToWorld,
+  officialDxfEntitiesToWorld,
+  officialDxfMetersPerUnit,
+  officialDxfWorldOffset,
+} from "./official-dxf-world";
+export type { OfficialDxfWorldUnderlay } from "./official-dxf-world";
 
 export {
   projectLuxRange,

@@ -158,6 +158,84 @@ describe("officialPlanWorldBounds — no-draft content", () => {
     });
   });
 
+  it("leaves DXF extents unchanged when metersPerUnit is 1", () => {
+    const entities = [{ points: [{ x: -2, y: -3 }, { x: 8, y: 1 }] }];
+    expect(
+      officialPlanWorldBounds({
+        dxfEntities: entities,
+        underlay: { offsetX: 0, offsetY: 0, metersPerUnit: 1 },
+      })
+    ).toEqual(
+      officialPlanWorldBounds({
+        dxfEntities: entities,
+        underlay: { offsetX: 0, offsetY: 0 },
+      })
+    );
+    expect(
+      officialPlanWorldBounds({
+        dxfEntities: entities,
+        underlay: { offsetX: 0, offsetY: 0, metersPerUnit: 1 },
+      })
+    ).toEqual({
+      minX: -3,
+      minY: -4,
+      width: 12,
+      depth: 6,
+    });
+  });
+
+  it("scales official DXF bounds by metersPerUnit 2 and 0.001, then adds the origin", () => {
+    expect(
+      officialPlanWorldBounds({
+        dxfEntities: [{ points: [{ x: -2, y: -3 }, { x: 8, y: 1 }] }],
+        underlay: { offsetX: 0, offsetY: 0, metersPerUnit: 2 },
+      })
+    ).toEqual({
+      minX: -5,
+      minY: -7,
+      width: 22,
+      depth: 10,
+    });
+    expect(
+      officialPlanWorldBounds({
+        dxfEntities: [{ points: [{ x: 0, y: 0 }, { x: 10000, y: 5000 }] }],
+        underlay: { offsetX: 0, offsetY: 0, metersPerUnit: 0.001 },
+      })
+    ).toEqual({
+      minX: -1,
+      minY: -1,
+      width: 12,
+      depth: 7,
+    });
+    expect(
+      officialPlanWorldBounds({
+        dxfEntities: [{ points: [{ x: 10, y: 5 }] }],
+        underlay: { offsetX: 1, offsetY: -3, metersPerUnit: 2 },
+      })
+    ).toEqual({
+      minX: 20,
+      minY: 6,
+      width: 4,
+      depth: 4,
+    });
+  });
+
+  it("does not multiply existing room polygons by metersPerUnit", () => {
+    // Room stays 5×4 m. The DXF corner at entity (5, 4) becomes (10, 8) after mpu 2.
+    expect(
+      officialPlanWorldBounds({
+        rooms: [room(0, 0, 5, 4)],
+        dxfEntities: [{ points: [{ x: 5, y: 4 }] }],
+        underlay: { offsetX: 0, offsetY: 0, metersPerUnit: 2 },
+      })
+    ).toEqual({
+      minX: -1,
+      minY: -1,
+      width: 12,
+      depth: 10,
+    });
+  });
+
   it("applies the 4 m minimum span to a tiny room", () => {
     expect(officialPlanWorldBounds({ rooms: [room(0, 0, 0.5, 0.5)] })).toEqual({
       minX: -1,

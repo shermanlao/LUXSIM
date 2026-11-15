@@ -1,5 +1,5 @@
 import type { DxfEntity, RoomV2, Vec2 } from "@luxsim/project-io";
-import { roomBounds } from "@luxsim/project-io";
+import { officialDxfEntityToWorld, roomBounds } from "@luxsim/project-io";
 
 /** Empty-plan default span, before the 1 m pad, matching today's Top auto-fit. */
 export const OFFICIAL_PLAN_EMPTY_MIN_X = 0;
@@ -28,7 +28,7 @@ export type OfficialPlanFitTransform = {
 export type OfficialPlanBoundsInput = {
   rooms?: Array<Pick<RoomV2, "polygon">>;
   dxfEntities?: Array<Pick<DxfEntity, "points">>;
-  underlay?: { offsetX: number; offsetY: number } | null;
+  underlay?: { offsetX: number; offsetY: number; metersPerUnit?: number } | null;
   underlaySize?: { widthM: number; heightM: number } | null;
   /**
    * Accepted but ignored. A live draw-room draft (and its preview points)
@@ -39,7 +39,9 @@ export type OfficialPlanBoundsInput = {
 
 /**
  * Official Top-plan auto-fit bounds from rooms, DXF entities, and underlay
- * size. Same path as today's non-draft fit: 1 m pad and a 4 m minimum span.
+ * size. DXF points use the official entity→world mapping (entity ×
+ * metersPerUnit + origin offset). Room polygons stay in metres and are not
+ * scaled. Same path as today's non-draft fit: 1 m pad and a 4 m minimum span.
  * Draft points are deliberately excluded so adding a corner cannot move the
  * camera; when the draft is cleared, callers simply use this helper again
  * (now including any newly closed room).
@@ -70,15 +72,16 @@ export function officialPlanWorldBounds(
   }
   for (const e of input.dxfEntities ?? []) {
     for (const p of e.points) {
+      const w = officialDxfEntityToWorld(p, input.underlay);
       if (!hasContent) {
-        minX = maxX = p.x;
-        minY = maxY = p.y;
+        minX = maxX = w.x;
+        minY = maxY = w.y;
         hasContent = true;
       } else {
-        minX = Math.min(minX, p.x);
-        minY = Math.min(minY, p.y);
-        maxX = Math.max(maxX, p.x);
-        maxY = Math.max(maxY, p.y);
+        minX = Math.min(minX, w.x);
+        minY = Math.min(minY, w.y);
+        maxX = Math.max(maxX, w.x);
+        maxY = Math.max(maxY, w.y);
       }
     }
   }
