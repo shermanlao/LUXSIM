@@ -105,9 +105,7 @@ describe("room property formatting", () => {
 describe("BuildingEditor Properties wiring", () => {
   const src = readSrc("src/components/editor/BuildingEditor.tsx");
   const roomBranchStart = src.indexOf("{activeRoom ? (");
-  const roomBranchEnd = src.indexOf(
-    '<p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets.'
-  );
+  const roomBranchEnd = src.indexOf("No room selected. Set Room height in the Building panel");
 
   it("shows Area and Origin only on the selected-room Properties path", () => {
     expect(roomBranchStart).toBeGreaterThan(0);
@@ -123,9 +121,8 @@ describe("BuildingEditor Properties wiring", () => {
     expect(unselected).not.toContain('>Area<');
     expect(unselected).not.toContain("Origin (first corner)");
     expect(unselected).not.toContain("Bounding min");
-    expect(src).toContain(
-      "Select a room to edit height, materials, and targets. Area and origin appear after a room is selected."
-    );
+    expect(src).toContain("No room selected. Set Room height in the Building panel");
+    expect(src).toContain("Area and origin appear after a room is selected.");
   });
 
   it("uses official roomAreaM2 / roomBounds and does not start leftover Method 1 UX ports", () => {

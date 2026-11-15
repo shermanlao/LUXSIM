@@ -45,6 +45,8 @@ If the plan underlay is an image or PDF that has not been calibrated, drawing a 
 
 房間建立後不能拖移位置，請在預定位置畫出。燈具可用 **Select / move** 拖移。
 
+在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room** 或 **Create rectangle** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
+
 矩形房間：在工具列輸入 **Length** 和 **Width**（毫米，或加 `m` / `cm` 後綴）後建立，房間會放在樓層原點 `(0, 0)`。高度取自 **Room height**。
 
 On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
@@ -57,6 +59,8 @@ On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
 6. **Esc** cancels the draft while you are drawing. It does not exit the browser’s fullscreen view. When you are not drawing, **Esc** can still exit fullscreen.
 
 Rooms cannot be dragged after they are created, so draw them in the intended place. Use **Select / move** to drag fixtures.
+
+Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room** or **Create rectangle**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
 
 For a simple rectangle, enter **Length** and **Width** in millimetres (or with an `m` / `cm` suffix). The room is placed at the storey origin `(0, 0)`. Height comes from **Room height**.
 

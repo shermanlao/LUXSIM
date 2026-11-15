@@ -186,6 +186,14 @@ export {
 } from "./new-room-defaults";
 
 export {
+  DEFAULT_NEW_ROOM_HEIGHT_M,
+  DEFAULT_NEW_ROOM_HEIGHT_MM,
+  MIN_ROOM_HEIGHT_M,
+  applyOfficialRoomHeightMm,
+  resolveOfficialNewRoomHeightM,
+} from "./official-room-height";
+
+export {
   buildWallChains,
   calculateRoomWalls,
   inwardNormal,

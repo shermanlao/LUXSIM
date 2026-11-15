@@ -15,6 +15,10 @@ import {
   officialDrawRoomAllowed,
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
+  applyOfficialRoomHeightMm,
+  resolveOfficialNewRoomHeightM,
+  DEFAULT_NEW_ROOM_HEIGHT_M,
+  DEFAULT_NEW_ROOM_HEIGHT_MM,
   UNCALIBRATED_DRAW_ROOM_STATUS,
   legacyScaleToMetersPerPixel,
   mToMm,
@@ -246,7 +250,7 @@ export function BuildingEditor({
   const [roomHeightMm, setRoomHeightMm] = useState(() => {
     const first = initialScene.rooms.find((r) => r.id === initialScene.ui.activeRoomId)
       ?? initialScene.rooms[0];
-    return first ? String(Math.round(mToMm(first.heightM))) : "2800";
+    return first ? String(Math.round(mToMm(first.heightM))) : DEFAULT_NEW_ROOM_HEIGHT_MM;
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
@@ -643,11 +647,19 @@ export function BuildingEditor({
     }));
   }
 
+  function applyRoomHeightMm(raw: string) {
+    setRoomHeightMm(raw);
+    const selectedId = activeRoom?.id ?? null;
+    if (!selectedId) return;
+    patchScene((s) => applyOfficialRoomHeightMm(s, raw, selectedId).scene);
+  }
+
   function resolveNewRoomHeightM(): number {
-    const fromField = parseLengthToM(roomHeightMm);
-    if (fromField && fromField >= 0.5) return fromField;
     const storey = scene.storeys.find((st) => st.id === scene.ui.activeStoreyId);
-    return storey?.heightM ?? 2.8;
+    return resolveOfficialNewRoomHeightM(
+      roomHeightMm,
+      storey?.heightM ?? DEFAULT_NEW_ROOM_HEIGHT_M
+    );
   }
 
   function refuseUncalibratedDrawRoom(): boolean {
@@ -1774,6 +1786,30 @@ export function BuildingEditor({
             ))}
           </ul>
 
+          <div className="border-t border-[#3d5563] pt-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="label mb-0" htmlFor="buildingRoomHeightMm">
+                Room height (mm)
+              </label>
+              <HelpTip helpKey="tool.roomHeight" />
+            </div>
+            <input
+              id="buildingRoomHeightMm"
+              className="input"
+              type="number"
+              min={500}
+              step={100}
+              data-help-key="tool.roomHeight"
+              value={roomHeightMm}
+              onChange={(e) => applyRoomHeightMm(e.target.value)}
+            />
+            <p className="text-[10px] text-[var(--muted)] leading-snug">
+              Used for the next room you draw or create (default 2800 mm). If a room is
+              selected, this also updates that room’s ceiling. Other rooms are left
+              unchanged.
+            </p>
+          </div>
+
           <div
             className={`border-t border-[#3d5563] pt-2 space-y-2 ${
               workflow !== "construction" ? "cad-panel-hidden" : ""
@@ -1810,7 +1846,7 @@ export function BuildingEditor({
             {scene.ui.tool === "drawRoom" && (
               <p className="text-[10px] text-[var(--muted)]">
                 Click corners — type mm to lock length — click the start point to close.
-                Uses Room height above.
+                Uses the Building Room height above (default 2800 mm).
               </p>
             )}
             {scene.ui.tool === "calibrate" && (
@@ -1853,7 +1889,7 @@ export function BuildingEditor({
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using Room height. Rooms cannot be dragged.
+                Places a rectangle at 0, 0 using the Building Room height. Rooms cannot be dragged.
               </p>
             </div>
           </div>
@@ -2042,19 +2078,7 @@ export function BuildingEditor({
                 step={100}
                 data-help-key="tool.roomHeight"
                 value={roomHeightMm}
-                onChange={(e) => {
-                  const raw = e.target.value;
-                  setRoomHeightMm(raw);
-                  const next = Number(raw) / 1000;
-                  if (!(next >= 0.5)) return;
-                  const roomId = activeRoom.id;
-                  patchScene((s) => ({
-                    ...s,
-                    rooms: s.rooms.map((r) =>
-                      r.id === roomId ? { ...r, heightM: next } : r
-                    ),
-                  }));
-                }}
+                onChange={(e) => applyRoomHeightMm(e.target.value)}
               />
               <p className="label mb-0">Area</p>
               <p className="text-sm tabular-nums">{formatAreaM2(roomAreaM2(activeRoom))}</p>
@@ -2251,7 +2275,10 @@ export function BuildingEditor({
               )}
             </div>
           ) : (
-            <p className="text-xs text-[var(--muted)]">Select a room to edit height, materials, and targets. Area and origin appear after a room is selected.</p>
+            <p className="text-xs text-[var(--muted)]">
+              No room selected. Set Room height in the Building panel for the next room
+              you draw or create. Area and origin appear after a room is selected.
+            </p>
           )}
 
           {selected && (

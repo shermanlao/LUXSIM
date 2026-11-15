@@ -17,7 +17,7 @@ Help tip key: `tool.drawRoom`.
 
 ## Rectangle L×W — simple simulation
 
-**Room height** is a standalone field (mm) under Building. It sets the selected room’s ceiling and is used for the next CAD outline or rectangle. It is not part of the L×W form.
+**Room height** is a standalone field (mm) under Building. It is visible even when no room is selected (default 2800 mm). It sets the selected room’s ceiling, when a room is selected, and is used for the next CAD outline or rectangle. Changing the field with no room selected does not alter existing rooms. It is not part of the L×W form.
 
 In the tools panel, enter **Length** and **Width** (mm, or `m` / `cm` suffix) and **Create rectangle**. The room is placed at the storey origin `(0, 0)` using the current Room height. Rooms can be selected but not dragged. Use **Select / move** to drag fixtures, not rooms.
 

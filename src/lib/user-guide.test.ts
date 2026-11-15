@@ -38,6 +38,11 @@ describe("user guide", () => {
     expect(guide).toMatch(/Origin \(first corner\)/);
     expect(guide).toMatch(/Bounding min/);
     expect(guide).toMatch(/Calibrate scale first/);
+    expect(guide).toMatch(/Set \*\*Room height\*\* in the \*\*Building\*\* panel/);
+    expect(guide).toMatch(/before you create a room/);
+    expect(guide).toMatch(/The field stays visible when no room is selected/);
+    expect(guide).toMatch(/未選房間時此欄仍可見/);
+    expect(guide).toMatch(/預設 2800/);
   });
 
   it("parses the main headings", () => {

@@ -18,7 +18,7 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.roomHeight",
     title: "Room height",
-    body: "Standalone ceiling height in millimetres. Applies to the selected room (polygon or rectangle) and to the next room you draw or create.",
+    body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",
   },
   {
     helpKey: "room.maintenanceFactor",
