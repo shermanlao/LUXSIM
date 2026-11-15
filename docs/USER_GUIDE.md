@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野和畫房操作，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房，以及直線排列的端點點選，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view and room drawing, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, and how to pick Line array endpoints, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -79,6 +79,29 @@ After you select a storey, the **Building** panel shows **Elevation** (metres) a
 - **Storey height** is the floor-to-floor spacing (default 3.0 m). **Add storey** places the next floor at this storey’s elevation + storey height, so L1 added above the default GF is at elevation 3.0 m with a storey height of 3.0 m.
 - **Room height** (default 2800 mm) is the ceiling inside a room, and is separate from storey height. The 0.2 m difference between 3.0 m and 2.8 m is left for the slab / structure; it is not modelled automatically.
 - Changing these values does not move other storeys or existing rooms.
+
+
+## 直線排列 / Line array
+
+在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Line**（直線）。
+
+1. 可在 **Top** 或 **Bottom** 平面圖上點兩下，設定線段的起點與終點。第一次點擊是起點，第二次點擊完成線段，預覽會沿這條線更新。
+2. 線段完成後，再點一下會開始一條新線（先重設起點，再點終點）。
+3. 未完成起點時按 **Esc** 會取消該起點，回到用數量與間距的預設直線。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有未完成點選時，**Esc** 仍可用來退出全畫面。
+4. 若未點選端點，**Count**、**Spacing X** 與 **Rotation** 仍會在房間中心沿旋轉方向排成一直線，行為與先前相同。
+5. 點選端點後，燈具由起點到終點均勻分布；沿線間距由線段長度與 **Count** 決定，並顯示在 **Along line** 欄。**Rotation** 仍是燈具朝向，不是線的方向。
+6. Spacing Y 在直線模式維持停用。直線排列只沿一條線放置，不會用 Spacing Y 再排第二列。矩形排列才使用 Spacing Y。
+7. 落在房間多邊形外的點不會放置；與同房已有燈具相距 1 mm 內的點會略過，既有燈具不會被刪除。點 **Clear line** 可清除已選線段。點選直線時，雙擊空白處不會重置視野，仍可用滾輪縮放。
+
+In **Light** mode, select a room in the building tree, then choose **Line** in **Arrange**.
+
+1. Click two points on the **Top** or **Bottom** plan to set the line start and end. The first click is the start; the second click completes the segment and the preview follows that line.
+2. After a segment is complete, a later click starts a new line.
+3. **Esc** cancels an unfinished start and returns to the centred numeric line. It does not exit the browser’s fullscreen view. When you are not mid-pick, **Esc** can still exit fullscreen.
+4. If you do not pick endpoints, **Count**, **Spacing X** and **Rotation** still place a line through the room centre, as before.
+5. With endpoints picked, fixtures are spaced evenly from start to end. The along-line spacing comes from the segment length and **Count**, and is shown in **Along line**. **Rotation** is still the fixture orientation, not the line direction.
+6. **Spacing Y stays disabled** in Line mode because a line array places fixtures along one line only. **Spacing Y** is used by Rectangular arrays.
+7. Points outside the room polygon are not placed. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept. **Clear line** removes the picked segment. While you are picking a line, double-click does not reset the view; wheel zoom still works toward the cursor.
 
 ## 房間屬性 / Room properties
 

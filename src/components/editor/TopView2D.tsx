@@ -17,6 +17,13 @@ import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
 import { applyDrawRoomBackspace, drawRoomEscapeAction } from "@/lib/draw-room-keys";
 import {
+  applyLineEndpointPick,
+  EMPTY_LINE_PICK,
+  isLinePickInProgress,
+  linePickEscapeAction,
+  type LinePickState,
+} from "@/lib/line-array-pick";
+import {
   OFFICIAL_PLAN_VIEW_H,
   OFFICIAL_PLAN_VIEW_W,
   officialPlanFitTransform,
@@ -53,6 +60,10 @@ type Props = {
   showRcpOverlay?: boolean;
   selectedRcpId?: string | null;
   photometry?: Record<string, PhotometricData>;
+  /** Official Line-array click-to-pick (world m). */
+  linePick?: LinePickState;
+  linePickActive?: boolean;
+  onLinePickChange?: (next: LinePickState) => void;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -80,6 +91,9 @@ export function TopView2D({
   showRcpOverlay = false,
   selectedRcpId = null,
   photometry,
+  linePick,
+  linePickActive = false,
+  onLinePickChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
@@ -96,6 +110,7 @@ export function TopView2D({
     width: number;
     height: number;
   } | null>(null);
+  const [lineCursor, setLineCursor] = useState<{ x: number; y: number } | null>(null);
 
   const storeyId = scene.ui.activeStoreyId;
   const rooms = scene.rooms.filter((r) => r.storeyId === storeyId);
@@ -118,6 +133,10 @@ export function TopView2D({
       setLengthBuf("");
     }
   }, [drawing]);
+
+  useEffect(() => {
+    if (!linePickActive) setLineCursor(null);
+  }, [linePickActive]);
 
   useEffect(() => {
     setPlanView(DEFAULT_PLAN_ZOOM);
@@ -269,6 +288,21 @@ export function TopView2D({
     // commitPoint uses latest draft/preview via closure; lengthBuf + draft keep it current
   }, [drawing, lengthBuf, last, preview, draft]);
 
+  useEffect(() => {
+    if (!linePickActive || !linePick || drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingField(e.target)) return;
+      if (e.key !== "Escape") return;
+      if (linePickEscapeAction(linePick) === "pass") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      setLineCursor(null);
+      onLinePickChange?.(EMPTY_LINE_PICK);
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [linePickActive, linePick, drawing, onLinePickChange]);
+
   function polyPoints(room: RoomV2) {
     return room.polygon
       .map((p) => {
@@ -331,7 +365,7 @@ export function TopView2D({
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDoubleClick={(e) => {
-        if (drawing) return;
+        if (drawing || linePickActive) return;
         const target = e.target;
         if (!(target instanceof Element) || !target.closest("[data-plan-bg]")) return;
         e.preventDefault();
@@ -370,6 +404,10 @@ export function TopView2D({
             if (preview) commitPoint(preview);
             return;
           }
+          if (linePickActive && onLinePickChange && e.detail === 1) {
+            onLinePickChange(applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, w));
+            return;
+          }
           onSelect(null);
         }}
         onMouseMove={(e) => {
@@ -377,6 +415,10 @@ export function TopView2D({
           const w = toWorld(e.clientX, e.clientY);
           if (drawing) {
             setCursor(w);
+            return;
+          }
+          if (linePickActive) {
+            setLineCursor(w);
             return;
           }
           if (applyRoomDrag(onMoveRoom, movingRoomId, roomDragLast.current, w)) {
@@ -442,6 +484,15 @@ export function TopView2D({
               style={{ cursor: scene.ui.tool === "select" ? "pointer" : "inherit" }}
               onMouseDown={(e) => {
                 if (drawing || scene.ui.tool === "calibrate") return;
+                if (linePickActive && onLinePickChange) {
+                  e.stopPropagation();
+                  if (e.detail === 1) {
+                    onLinePickChange(
+                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, toWorld(e.clientX, e.clientY))
+                    );
+                  }
+                  return;
+                }
                 e.stopPropagation();
                 onSelectRoom?.(room.id);
                 if (!shouldBeginRoomDrag(onMoveRoom)) return;
@@ -537,6 +588,32 @@ export function TopView2D({
             );
           })}
 
+        {linePickActive && linePick?.start && (() => {
+          const start = toScreen(linePick.start.x, linePick.start.y);
+          const rubber = linePick.end ?? lineCursor;
+          const end = rubber ? toScreen(rubber.x, rubber.y) : null;
+          return (
+            <g pointerEvents="none">
+              {end && (
+                <line
+                  x1={start.x}
+                  y1={start.y}
+                  x2={end.x}
+                  y2={end.y}
+                  stroke="#7ec8e3"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  opacity={0.9}
+                />
+              )}
+              <circle cx={start.x} cy={start.y} r={4} fill="#7ec8e3" stroke="#fff" strokeWidth={1} />
+              {linePick.end && end && (
+                <circle cx={end.x} cy={end.y} r={4} fill="#7ec8e3" stroke="#fff" strokeWidth={1} />
+              )}
+            </g>
+          );
+        })()}
+
         {arrayPreview.map((ghost, idx) => {
           const s = toScreen(ghost.x, ghost.y);
           const rad = (ghost.rotationDeg * Math.PI) / 180;
@@ -580,6 +657,14 @@ export function TopView2D({
               style={{ cursor: movingId === inst.instanceId ? "grabbing" : "grab" }}
               onMouseDown={(e) => {
                 e.stopPropagation();
+                if (linePickActive && onLinePickChange) {
+                  if (e.detail === 1) {
+                    onLinePickChange(
+                      applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, toWorld(e.clientX, e.clientY))
+                    );
+                  }
+                  return;
+                }
                 onSelect(inst.instanceId);
                 beginMove(inst.instanceId, e.clientX, e.clientY, inst.position);
 
@@ -659,6 +744,17 @@ export function TopView2D({
         {planView.zoom !== 1 ? " · double-click empty area to reset" : ""}
         {" "}
         · drop fixtures into rooms · tool: {scene.ui.tool}
+        {linePickActive && (
+          <>
+            {" "}
+            · click two points to set the line
+            {isLinePickInProgress(linePick ?? { start: null, end: null })
+              ? " · click the end point · Esc cancels the start"
+              : linePick?.end
+                ? " · click again to start a new line"
+                : ""}
+          </>
+        )}
         {drawing && (
           <>
             {" "}

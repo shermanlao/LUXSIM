@@ -14,6 +14,15 @@ import {
   filterPointsOccupiedInRoom,
   type OccupiedFixtureRef,
 } from "@/lib/array-occupied";
+import { HelpTip } from "@/components/HelpTip";
+import {
+  EMPTY_LINE_PICK,
+  LINE_ARRAY_PICK_HINT,
+  LINE_ARRAY_SPACING_Y_REASON,
+  isLinePickComplete,
+  lineArrayDerivedSpacingM,
+  type LinePickState,
+} from "@/lib/line-array-pick";
 import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
@@ -32,6 +41,9 @@ type Props = {
   applying: boolean;
   onApply: (params: ArrayParams, luminaireId: string) => void;
   onCancel: () => void;
+  linePick: LinePickState;
+  onLinePickChange: (next: LinePickState) => void;
+  onLinePickActiveChange: (active: boolean) => void;
 };
 
 export function FixtureArrayPanel({
@@ -45,6 +57,9 @@ export function FixtureArrayPanel({
   applying,
   onApply,
   onCancel,
+  linePick,
+  onLinePickChange,
+  onLinePickActiveChange,
 }: Props) {
   const [mode, setMode] = useState<PanelMode>("rect");
   const [luminaireId, setLuminaireId] = useState(luminaires[0]?.id ?? "");
@@ -71,6 +86,17 @@ export function FixtureArrayPanel({
     if (!preview) setPreviewSkippedOccupied(0);
   }, [preview]);
 
+  useEffect(() => {
+    onLinePickActiveChange(mode === "line" && Boolean(room));
+    return () => onLinePickActiveChange(false);
+  }, [mode, room, onLinePickActiveChange]);
+
+  useEffect(() => {
+    if (mode !== "line" && (linePick.start || linePick.end)) {
+      onLinePickChange(EMPTY_LINE_PICK);
+    }
+  }, [mode, linePick.start, linePick.end, onLinePickChange]);
+
   const selectedFlux = luminaires.find((l) => l.id === luminaireId)?.fluxLm ?? null;
 
   const maintenanceFactor = useMemo(() => {
@@ -88,6 +114,7 @@ export function FixtureArrayPanel({
     const wo = Number(wallOffset);
     const rot = Number(rotationDeg);
     if (![sx, sy, wo, rot].every((n) => Number.isFinite(n))) return null;
+    const lineComplete = mode === "line" && isLinePickComplete(linePick);
     return {
       mode: mode === "targetEm" ? "rect" : mode,
       rows: Math.max(1, Math.floor(Number(rows) || 1)),
@@ -98,6 +125,8 @@ export function FixtureArrayPanel({
       wallOffset: wo,
       rotationDeg: rot,
       estimateByTargetEm: mode === "targetEm",
+      lineStart: lineComplete ? linePick.start : null,
+      lineEnd: lineComplete ? linePick.end : null,
     };
   }
 
@@ -183,12 +212,38 @@ export function FixtureArrayPanel({
     onApply(params, luminaireId);
   }
 
+  useEffect(() => {
+    if (mode !== "line" || !room) return;
+    if (isLinePickComplete(linePick)) {
+      const params = buildParams();
+      if (!params) return;
+      const plan = planFixtureArray(room, params);
+      publishPreview(plan.inside);
+      return;
+    }
+    if (linePick.start && !linePick.end) {
+      setPreviewSkippedOccupied(0);
+      onPreviewChange(null);
+    }
+    // Numeric fallback is previewed only when the user presses Preview.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, room, linePick.start, linePick.end, count, rotationDeg, existingInstances, luminaireId]);
+
+  const lineComplete = mode === "line" && isLinePickComplete(linePick);
+  const derivedLineSpacing =
+    lineComplete
+      ? lineArrayDerivedSpacingM(linePick.start, linePick.end, Math.max(1, Math.floor(Number(count) || 1)))
+      : null;
+
   const previewCount = preview?.length ?? 0;
   const fluxBlocked = mode === "targetEm" && (!selectedFlux || selectedFlux <= 0);
 
   return (
     <div className="cad-props-card space-y-2">
-      <p className="cad-section-title !mt-0">Arrange · array / 排列</p>
+      <p className="cad-section-title !mt-0 flex items-center gap-1">
+        Arrange · array / 排列
+        {mode === "line" && <HelpTip helpKey="tool.lineArray" />}
+      </p>
       {!room && (
         <p className="text-xs text-[#8fa3ad]">Select a room in the building tree first. / 請先在左側選房間。</p>
       )}
@@ -210,6 +265,7 @@ export function FixtureArrayPanel({
               setEmEstimate(null);
               setPreviewSkippedOccupied(0);
               onPreviewChange(null);
+              if (m !== "line") onLinePickChange(EMPTY_LINE_PICK);
             }}
           >
             {en}
@@ -310,9 +366,39 @@ export function FixtureArrayPanel({
           </div>
         </div>
       ) : (
-        <div>
-          <label className="label">Count</label>
-          <input className="input" value={count} onChange={(e) => setCount(e.target.value)} />
+        <div className="space-y-2">
+          <div>
+            <label className="label">Count</label>
+            <input className="input" value={count} onChange={(e) => setCount(e.target.value)} />
+          </div>
+          <p className="text-[10px] text-[#8fa3ad]">{LINE_ARRAY_PICK_HINT}</p>
+          {!room ? null : !linePick.start ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Optional: click two points on the Top plan / 可在平面圖點兩下設定線段
+            </p>
+          ) : !linePick.end ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Click the end point on the Top plan / 請在平面圖點選終點
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Line from ({linePick.start.x.toFixed(2)}, {linePick.start.y.toFixed(2)}) to (
+              {linePick.end.x.toFixed(2)}, {linePick.end.y.toFixed(2)}) m / 已設定線段
+            </p>
+          )}
+          {(linePick.start || linePick.end) && (
+            <button
+              type="button"
+              className="btn btn-secondary !text-[10px]"
+              onClick={() => {
+                onLinePickChange(EMPTY_LINE_PICK);
+                setPreviewSkippedOccupied(0);
+                onPreviewChange(null);
+              }}
+            >
+              Clear line / 清除線段
+            </button>
+          )}
         </div>
       )}
 
@@ -320,8 +406,21 @@ export function FixtureArrayPanel({
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="label">Spacing X (m)</label>
-              <input className="input" value={spacingX} onChange={(e) => setSpacingX(e.target.value)} />
+              <label className="label">
+                {lineComplete ? "Along line (m) / 沿線間距" : "Spacing X (m)"}
+              </label>
+              <input
+                className="input"
+                value={
+                  lineComplete
+                    ? derivedLineSpacing != null
+                      ? derivedLineSpacing.toFixed(2)
+                      : "—"
+                    : spacingX
+                }
+                onChange={(e) => setSpacingX(e.target.value)}
+                disabled={lineComplete}
+              />
             </div>
             <div>
               <label className="label">Spacing Y (m)</label>
@@ -353,6 +452,14 @@ export function FixtureArrayPanel({
               />
             </div>
           </div>
+          {mode === "line" && (
+            <p className="text-[10px] text-[#8fa3ad]">{LINE_ARRAY_SPACING_Y_REASON}</p>
+          )}
+          {lineComplete && derivedLineSpacing == null && (
+            <p className="text-[10px] text-[#8fa3ad]">
+              One fixture is placed at the midpoint of the line. / 單盞放在線段中點。
+            </p>
+          )}
         </>
       )}
 

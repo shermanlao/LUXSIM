@@ -74,6 +74,7 @@ import { runSolverClient } from "@/lib/run-solver";
 import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
+import { EMPTY_LINE_PICK, type LinePickState } from "@/lib/line-array-pick";
 import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
@@ -238,6 +239,8 @@ export function BuildingEditor({
     null
   );
   const [arrayApplying, setArrayApplying] = useState(false);
+  const [linePick, setLinePick] = useState<LinePickState>(EMPTY_LINE_PICK);
+  const [linePickActive, setLinePickActive] = useState(false);
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -1246,6 +1249,7 @@ export function BuildingEditor({
     }
     if (!decision.placeable.length) {
       setArrayPreview(null);
+      setLinePick(EMPTY_LINE_PICK);
       setStatus(
         formatArrayApplyStatus({
           placed: 0,
@@ -1287,6 +1291,7 @@ export function BuildingEditor({
       setScene(nextScene);
       setResults(out.results);
       setArrayPreview(null);
+      setLinePick(EMPTY_LINE_PICK);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
       const calcNote = postPlaceCalcStatusSuffix(
         {
@@ -1441,6 +1446,17 @@ export function BuildingEditor({
   const workflow: EditorWorkflowMode = scene.ui.workflowMode ?? "construction";
   const workflowMeta = WORKFLOW_MODES.find((m) => m.id === workflow)!;
 
+  useEffect(() => {
+    setLinePick(EMPTY_LINE_PICK);
+  }, [activeRoom?.id]);
+
+  useEffect(() => {
+    if (workflow !== "light") {
+      setLinePick(EMPTY_LINE_PICK);
+      setLinePickActive(false);
+    }
+  }, [workflow]);
+
   function setWorkflowMode(mode: EditorWorkflowMode) {
     patchSceneUi((s) => {
       let ui = { ...s.ui, workflowMode: mode };
@@ -1566,6 +1582,9 @@ export function BuildingEditor({
           onCalibratePoints={onCalibrate}
           onUnderlaySourceSize={persistUnderlaySourceSize}
           arrayPreview={arrayPreview ?? undefined}
+          linePick={linePick}
+          linePickActive={linePickActive}
+          onLinePickChange={setLinePick}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -2465,7 +2484,13 @@ export function BuildingEditor({
               onCalcAfterPlaceChange={setCalcAfterPlace}
               applying={arrayApplying}
               onApply={(params, luminaireId) => void applyFixtureArray(params, luminaireId)}
-              onCancel={() => setArrayPreview(null)}
+              onCancel={() => {
+                setArrayPreview(null);
+                setLinePick(EMPTY_LINE_PICK);
+              }}
+              linePick={linePick}
+              onLinePickChange={setLinePick}
+              onLinePickActiveChange={setLinePickActive}
             />
           )}
 

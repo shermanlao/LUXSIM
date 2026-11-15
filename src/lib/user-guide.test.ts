@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
 import { parseUserGuideMarkdown } from "./user-guide-markdown";
+import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "./line-array-pick";
 
 function read(rel: string) {
   return readFileSync(path.join(process.cwd(), rel), "utf8");
@@ -50,6 +51,21 @@ describe("user guide", () => {
     expect(guide).toMatch(/樓層標高/);
     expect(guide).toMatch(/層高/);
     expect(guide).toMatch(/不會移動其他樓層或既有房間/);
+    expect(guide).toMatch(/直線排列 \/ Line array/);
+    expect(guide).toMatch(/Click two points/);
+    expect(guide).toMatch(/點兩下/);
+    expect(guide).toMatch(/second click completes/);
+    expect(guide).toMatch(/第二次點擊完成線段/);
+    expect(guide).toMatch(/later click starts a new line/);
+    expect(guide).toMatch(/再點一下會開始一條新線/);
+    expect(guide).toMatch(/\*\*Esc\*\* cancels an unfinished start/);
+    expect(guide).toMatch(/未完成起點時按 \*\*Esc\*\*/);
+    expect(guide).toMatch(/If you do not pick endpoints/);
+    expect(guide).toMatch(/若未點選端點/);
+    expect(guide).toMatch(/Spacing Y stays disabled/);
+    expect(guide).toMatch(/Spacing Y 在直線模式維持停用/);
+    expect(guide).toMatch(/one line only/);
+    expect(guide).toMatch(/只沿一條線/);
   });
 
   it("parses the main headings", () => {
@@ -58,6 +74,7 @@ describe("user guide", () => {
     expect(headings).toContain("平面圖視野 / Plan view");
     expect(headings).toContain("畫房 / Draw room");
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
+    expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
@@ -80,5 +97,14 @@ describe("user guide", () => {
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toMatch(/Esc cancels/);
     expect(tips).toMatch(/Backspace clears the typed length in one press, then removes the last corner/);
+  });
+
+  it("keeps the Line array tip in sync with click-to-pick and disabled Spacing Y", () => {
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.lineArray"');
+    expect(tips).toContain("LINE_ARRAY_PICK_HINT");
+    expect(tips).toContain("LINE_ARRAY_SPACING_Y_REASON");
+    expect(LINE_ARRAY_PICK_HINT).toMatch(/Click two points on the Top plan/);
+    expect(LINE_ARRAY_SPACING_Y_REASON).toMatch(/Spacing Y stays disabled/);
   });
 });

@@ -1,4 +1,5 @@
 import { STOREY_METRICS_EXPLANATION } from "@luxsim/project-io";
+import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "@/lib/line-array-pick";
 
 export type UiTipSeed = {
   helpKey: string;
@@ -26,6 +27,11 @@ export const UI_TIPS: UiTipSeed[] = [
     helpKey: "tool.storeyHeight",
     title: "Storey elevation and height",
     body: STOREY_METRICS_EXPLANATION,
+  },
+  {
+    helpKey: "tool.lineArray",
+    title: "Line array",
+    body: `${LINE_ARRAY_PICK_HINT} ${LINE_ARRAY_SPACING_Y_REASON}`,
   },
   {
     helpKey: "room.maintenanceFactor",
