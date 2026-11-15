@@ -8,6 +8,7 @@ import {
   isDisplayableRasterUnderlay,
   legacyScaleToMetersPerPixel,
   officialDxfEntitiesToWorld,
+  officialDxfPolylineStrokePoints,
   underlayWorldSize,
 } from "@luxsim/project-io";
 
@@ -143,8 +144,9 @@ export function PlanUnderlay3D({
       )}
 
       {officialDxfEntitiesToWorld(dxfEntities, underlay).map((ent, idx) => {
-        if (ent.points.length < 2) return null;
-        const points = ent.points.map(
+        const stroke = officialDxfPolylineStrokePoints(ent);
+        if (stroke.length < 2) return null;
+        const points = stroke.map(
           (p) => [p.x, floorY + 0.005, p.y] as [number, number, number]
         );
         return (

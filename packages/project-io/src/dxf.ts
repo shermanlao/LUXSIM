@@ -1,4 +1,5 @@
 import type { DxfEntity, Vec2 } from "./types";
+import { officialDxfPointsCoincide } from "./official-dxf-polyline";
 
 /**
  * Minimal DXF LINE / LWPOLYLINE extractor (ASCII DXF).
@@ -50,6 +51,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
     } else if (type === "LWPOLYLINE") {
       const pts: Vec2[] = [];
       let x: number | null = null;
+      let flags = 0;
       while (i < lines.length) {
         const p = readPair();
         if (!p) break;
@@ -57,13 +59,26 @@ export function parseDxfEntities(text: string): DxfEntity[] {
           i -= 2;
           break;
         }
+        if (p.code === 70) flags = Number(p.value);
         if (p.code === 10) x = Number(p.value);
         if (p.code === 20 && x != null) {
           pts.push({ x, y: Number(p.value) });
           x = null;
         }
       }
-      if (pts.length >= 2) entities.push({ type: "polyline", points: pts });
+      if (pts.length >= 2) {
+        const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
+        const closedByCoincide = officialDxfPointsCoincide(
+          pts[0]!,
+          pts[pts.length - 1]!
+        );
+        const points = closedByCoincide ? pts.slice(0, -1) : pts;
+        if (points.length >= 2) {
+          const entity: DxfEntity = { type: "polyline", points };
+          if (closedByFlag || closedByCoincide) entity.closed = true;
+          entities.push(entity);
+        }
+      }
     }
   }
 

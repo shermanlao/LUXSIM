@@ -210,8 +210,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels/i);
     expect(guide).toMatch(/吸附到線段端點、中點，或線段上最近的一點/);
     expect(guide).toMatch(/8 個 CSS 像素/);
-    expect(guide).toMatch(/Auto-converting DXF entities into rooms is not included/);
-    expect(guide).toMatch(/不包括由 DXF 自動建立房間/);
+    expect(guide).toMatch(/Create rooms from DXF\*\* makes one room per closed polyline/);
+    expect(guide).toMatch(/Create rooms from DXF\*\* 為每條封閉折線在該層建立一間房間/);
+    expect(guide).toMatch(/open lines are not auto-traced/);
+    expect(guide).toMatch(/開放線段不會自動描成房間/);
     expect(guide).toMatch(/Image and PDF underlays do not get raster snap/);
     expect(guide).toMatch(/圖像或 PDF 底圖不會做像素吸附/);
     expect(guide).toMatch(/DWG is not parsed and is not snappable/);
@@ -226,6 +228,24 @@ describe("user guide", () => {
     expect(guide).toMatch(/DXF 描線與吸附點會一併按同一比例縮放/);
     expect(guide).toMatch(/Draw room stays allowed without a prior calibrate/);
     expect(guide).toMatch(/不必先校正即可畫房/);
+  });
+
+  it("documents Create rooms from DXF on closed polylines only", () => {
+    expect(guide).toMatch(/Create rooms from DXF\*\* makes one room per closed polyline on the current storey/);
+    expect(guide).toMatch(/開放的 LINE 或未封閉的折線不會自動描成房間/);
+    expect(guide).toMatch(/Open LINE entities and open polylines are not auto-traced/);
+    expect(guide).toMatch(/official defaults \(maintenance factor 0\.80, no EN template inherited from the selected room\)/);
+    expect(guide).toMatch(/官方預設（維護係數 0\.80，不繼承所選房間的 EN 範本）/);
+    expect(guide).toMatch(/Scale follows the current \*\*Calibrate scale\*\*/);
+    expect(guide).toMatch(/比例跟隨目前的 \*\*Calibrate scale\*\*/);
+    expect(guide).toMatch(/Existing rooms are left unchanged/);
+    expect(guide).toMatch(/既有房間不會被改寫/);
+    expect(guide).not.toMatch(/Auto-converting DXF entities into rooms is not included/);
+    expect(guide).not.toMatch(/不包括由 DXF 自動建立房間/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.createRoomsFromDxf"');
+    expect(tips).toMatch(/one room per closed polyline/);
+    expect(tips).toMatch(/Open lines are not auto-traced/);
   });
 
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {

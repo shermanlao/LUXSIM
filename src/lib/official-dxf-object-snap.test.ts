@@ -105,6 +105,27 @@ describe("collectDxfSnapCandidates", () => {
     const hit = pickDxfObjectSnap(pointer, [L_POLY], 0.2);
     expect(hit).toBeNull();
   });
+
+  it("includes the official closing segment on a closed polyline", () => {
+    const closed: DxfEntity = {
+      type: "polyline",
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+        { x: 4, y: 3 },
+        { x: 0, y: 3 },
+      ],
+    };
+    const pointer: Vec2 = { x: 0, y: 1.5 };
+    const candidates = collectDxfSnapCandidates([closed], pointer);
+    const mids = candidates.filter((c) => c.kind === "midpoint").map((c) => c.point);
+    expect(mids).toEqual(expect.arrayContaining([{ x: 0, y: 1.5 }]));
+    const hit = pickDxfObjectSnap(pointer, [closed], 0.2);
+    expect(hit?.kind).toBe("midpoint");
+    expect(hit?.point).toEqual({ x: 0, y: 1.5 });
+    expect(kindsAt([closed], pointer).filter((k) => k === "midpoint")).toHaveLength(4);
+  });
 });
 
 describe("pickDxfObjectSnap priority and empty input", () => {

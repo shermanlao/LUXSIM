@@ -1,4 +1,8 @@
-import type { DxfEntity, Vec2 } from "@luxsim/project-io";
+import {
+  officialDxfEntitySegments,
+  type DxfEntity,
+  type Vec2,
+} from "@luxsim/project-io";
 
 /**
  * Official DXF object-snap aperture, in CSS pixels at the current official
@@ -52,17 +56,6 @@ export function officialDxfSnapEntities(
   return list.length > 0 ? list : [];
 }
 
-function entitySegments(entity: Pick<DxfEntity, "points">): [Vec2, Vec2][] {
-  const pts = entity.points;
-  const segs: [Vec2, Vec2][] = [];
-  for (let i = 0; i < pts.length - 1; i++) {
-    const a = pts[i]!;
-    const b = pts[i + 1]!;
-    if (Math.hypot(b.x - a.x, b.y - a.y) > 0) segs.push([a, b]);
-  }
-  return segs;
-}
-
 export function nearestPointOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
@@ -74,16 +67,17 @@ export function nearestPointOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
 
 /**
  * Endpoint and midpoint of every displayed segment, plus the nearest point
- * on that segment to the pointer. Polylines follow the open LINE / LWPOLYLINE
- * display path (no invented closing edge).
+ * on that segment to the pointer. Closed polylines include the official
+ * closing segment. Open LINE / LWPOLYLINE paths stay open — no invented
+ * closing edge.
  */
 export function collectDxfSnapCandidates(
-  entities: Array<Pick<DxfEntity, "points">>,
+  entities: Array<Pick<DxfEntity, "points" | "closed"> & { type?: DxfEntity["type"] }>,
   pointer: Vec2
 ): DxfSnapCandidate[] {
   const candidates: DxfSnapCandidate[] = [];
   for (const ent of entities) {
-    for (const [a, b] of entitySegments(ent)) {
+    for (const [a, b] of officialDxfEntitySegments(ent)) {
       candidates.push({ kind: "endpoint", point: { x: a.x, y: a.y } });
       candidates.push({ kind: "endpoint", point: { x: b.x, y: b.y } });
       candidates.push({
@@ -126,7 +120,7 @@ export function pickDxfSnapCandidate(
 
 export function pickDxfObjectSnap(
   pointer: Vec2,
-  entities: Array<Pick<DxfEntity, "points">>,
+  entities: Array<Pick<DxfEntity, "points" | "closed"> & { type?: DxfEntity["type"] }>,
   radiusM: number
 ): DxfSnapHit | null {
   if (!entities.length) return null;

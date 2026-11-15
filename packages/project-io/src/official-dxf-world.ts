@@ -33,7 +33,9 @@ export function officialDxfWorldOffset(underlay: OfficialDxfWorldUnderlay): Vec2
  * Official world mapping for a DXF entity point:
  * `(entity × metersPerUnit) + (offsetX, offsetY)`.
  * When `metersPerUnit` is 1 and the origin is 0, the result equals the entity
- * point. Room polygons and fixture coordinates must not use this helper.
+ * point. Existing room polygons and fixture coordinates are already in world
+ * metres and must not be remapped with this helper. New rooms created from
+ * DXF entities must use it so their polygons land in official world space.
  */
 export function officialDxfEntityToWorld(
   point: Vec2,

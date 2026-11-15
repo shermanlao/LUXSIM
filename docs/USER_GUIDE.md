@@ -18,7 +18,7 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
 - 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。若要一次移動整層，先在 **Building** 選取該樓層，再於該層任一房間填色範圍上拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
-- 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 或 **Bottom** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。此功能不包括由 DXF 自動建立房間。
+- 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 或 **Bottom** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。若目前樓層的底圖是 DXF，可用 **Create rooms from DXF** 為每條封閉折線在該層建立一間房間；開放線段不會自動描成房間。新房間使用官方預設，比例跟隨目前的 **Calibrate scale**。
 - 新匯入的 DXF 預設每個繪圖單位為 1 公尺，不必先校正即可畫房。若使用官方 **Calibrate scale** 兩點校正，DXF 描線與吸附點會一併按同一比例縮放（兩個軸使用同一個 `metersPerUnit`）。既有房間多邊形和燈具的世界座標已是公尺，不會再乘這個比例。
 
 On the **Top** or **Bottom** view:
@@ -29,7 +29,7 @@ On the **Top** or **Bottom** view:
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
 - Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill. To move a whole storey, select the storey in **Building** first, then drag a room fill.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
-- When the active storey’s official underlay is a parsed DXF, picks on the **Top** or **Bottom** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, and fixture drop placement. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. Auto-converting DXF entities into rooms is not included.
+- When the active storey’s official underlay is a parsed DXF, picks on the **Top** or **Bottom** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, and fixture drop placement. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. With a DXF underlay, **Create rooms from DXF** makes one room per closed polyline on the current storey; open lines are not auto-traced. New rooms use the official defaults, and scale follows the current **Calibrate scale**.
 - A newly imported DXF starts at 1 metre per drawing unit, so Draw room stays allowed without a prior calibrate. Official **Calibrate scale** (two points plus a real length) resizes the DXF drawing and the snap points together, using the same uniform `metersPerUnit` on both axes. Existing room polygons and fixture world coordinates are already in metres and are not multiplied by that scale.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
@@ -47,15 +47,17 @@ When zoomed in, the plan shows the hint *double-click empty area to reset*.
 5. 若已輸入並鎖定長度，按一次 **Backspace** 會整段清掉該長度，再按一次才撤回上一個角點。
 6. 畫房途中按 **Esc** 會取消草稿。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有草稿時，**Esc** 仍可用來退出全畫面。
 
-If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan. A new DXF still starts at 1 metre per drawing unit. After official **Calibrate scale** on a DXF underlay, the drawing and the snap points resize together. With a DXF underlay, official Top/Bottom picks (including Draw room corners and Calibrate scale clicks) snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels; auto-converting the DXF into rooms is not included.
+If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan. A new DXF still starts at 1 metre per drawing unit. After official **Calibrate scale** on a DXF underlay, the drawing and the snap points resize together. With a DXF underlay, official Top/Bottom picks (including Draw room corners and Calibrate scale clicks) snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels. **Create rooms from DXF** makes one room per closed polyline on the current storey; open lines are not auto-traced. New rooms use the official defaults (maintenance factor 0.80, no EN template, and the Building Room height). Scale follows the current **Calibrate scale**.
 
 房間建立後，可在 **Select** 工具下於 **Top** 或 **Bottom** 平面圖拖移該房的填色範圍，把整個多邊形平移到新位置。矩形、L 形或不規則形狀都適用，形狀不變。該房內的燈具會一併移動，其他房間與樓層標高／層高不變。按住 **Shift** 可限制為水平或垂直移動。這次移動可用 **Ctrl+Z** 撤銷。單一燈具仍可用 **Select / move** 單獨拖移。
 
 若在左側 **Building** 樹選取的是樓層（該層平面被選取，而不是單一房間），用 **Select** 在該層任一房間的填色範圍上按下並拖曳，會把該層所有房間一次沿同一世界 XY 位移平移。各房形狀不變，屬於這些房間的燈具會一併移動（高度與旋轉不變）。其他樓層不會移動。允許房間重疊。計算結果會留在原位，直到再按 Calculate。若只是點一下房間而未拖移，仍會改為選取該房間；選取房間之後，拖移則只移動該房，行為與原本單一房間拖移相同。按住 **Shift** 同樣限制為水平或垂直。一次整層拖移可用 **Ctrl+Z** 撤銷。這不是平移圖面：空白處拖曳仍不會移動視野。
 
-在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room** 或 **Create rectangle** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
+在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room**、**Create rectangle** 或 **Create rooms from DXF** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
 
 矩形房間：在工具列輸入 **Length** 和 **Width**（毫米，或加 `m` / `cm` 後綴）後建立，房間會放在樓層原點 `(0, 0)`。高度取自 **Room height**。建立後可用 **Select** 拖移到圖則位置。
+
+若目前樓層的底圖是已解析的 DXF，工具列的 **Create rooms from DXF** 會在該層為每條封閉折線建立一間房間。開放的 LINE 或未封閉的折線不會自動描成房間。新房間使用官方預設（維護係數 0.80，不繼承所選房間的 EN 範本），高度取自 **Room height**，比例跟隨目前的 **Calibrate scale**。既有房間不會被改寫。
 
 On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
 
@@ -70,9 +72,11 @@ After a room is created, choose the **Select** tool and drag the room fill on th
 
 If the **Building** tree selection is a storey (the plan / storey is selected, not a single room), use the **Select** tool and press-and-drag the fill of any room on that storey to translate every room on that storey by the same world XY delta. Room shapes stay the same. Fixtures whose room belongs to those rooms move with them (Z and rotation unchanged). Rooms on other storeys do not move. Overlap is allowed. Calculation results stay in place until you recalculate. A click without movement on a room still selects that room. Once a room is selected, drag still moves only that room, as before. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the whole-storey move as one step. This is not plan panning: dragging an empty area still does not move the view.
 
-Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room** or **Create rectangle**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
+Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room**, **Create rectangle**, or **Create rooms from DXF**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
 
 For a simple rectangle, enter **Length** and **Width** in millimetres (or with an `m` / `cm` suffix). The room is placed at the storey origin `(0, 0)`. Height comes from **Room height**. After creation, drag it with **Select** if you need to place it on the plan.
+
+When the current storey’s underlay is a parsed DXF, **Create rooms from DXF** makes one room per closed polyline on that storey. Open LINE entities and open polylines are not auto-traced. New rooms use the official defaults (maintenance factor 0.80, no EN template inherited from the selected room) and the Building **Room height**. Scale follows the current **Calibrate scale**. Existing rooms are left unchanged.
 
 ## 樓層標高與層高 / Storey elevation and height
 

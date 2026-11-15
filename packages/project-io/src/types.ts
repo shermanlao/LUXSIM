@@ -125,6 +125,11 @@ export interface Underlay {
 export interface DxfEntity {
   type: "line" | "polyline";
   points: Vec2[];
+  /**
+   * LWPOLYLINE closed flag (group 70 bit 1), or first and last vertices
+   * coincide. Omitted on open LINE / LWPOLYLINE entities.
+   */
+  closed?: boolean;
 }
 
 export interface FixtureInstance {

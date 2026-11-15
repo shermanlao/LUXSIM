@@ -91,6 +91,28 @@ export { mmToM, mToMm, parseLengthToM } from "./units";
 export { roomToCalcOptions, clipResultsToPolygon, roomSpecFromV2 } from "./room-adapter";
 export { ugrObserverPositionsInRoom, polygonCentroid, interiorTarget } from "./ugr-observers";
 export { parseDxfEntities, dxfBounds } from "./dxf";
+export {
+  DXF_CLOSED_VERTEX_EPS_M,
+  officialDxfClosedRingVertices,
+  officialDxfEntitySegments,
+  officialDxfPointsCoincide,
+  officialDxfPolylineClosed,
+  officialDxfPolylineStrokePoints,
+} from "./official-dxf-polyline";
+export {
+  DXF_CLOSED_ROOM_MIN_AREA_M2,
+  DXF_CLOSED_ROOMS_NEED_DXF_STATUS,
+  DXF_CLOSED_ROOMS_NONE_STATUS,
+  formatDxfClosedRoomsCreatedStatus,
+  officialAppendRoomsFromDxfClosedPolylines,
+  officialCanCreateRoomsFromDxf,
+  officialDxfWorldEntitiesForRooms,
+} from "./official-dxf-closed-rooms";
+export type {
+  OfficialAppendDxfClosedRoomsInput,
+  OfficialAppendDxfClosedRoomsResult,
+  OfficialDxfRoomsUnderlay,
+} from "./official-dxf-closed-rooms";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf } from "./report";

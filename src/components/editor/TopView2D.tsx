@@ -13,6 +13,7 @@ import {
   isDisplayableRasterUnderlay,
   officialDrawRoomAllowed,
   officialDxfEntitiesToWorld,
+  officialDxfPolylineStrokePoints,
   underlayWorldSize,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
@@ -694,7 +695,9 @@ export function TopView2D({
         })()}
 
         {dxfWorldEntities.map((ent, idx) => {
-          const pts = ent.points.map((p) => toScreen(p.x, p.y));
+          const pts = officialDxfPolylineStrokePoints(ent).map((p) =>
+            toScreen(p.x, p.y)
+          );
           if (pts.length < 2) return null;
           return (
             <polyline

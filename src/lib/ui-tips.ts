@@ -30,6 +30,11 @@ export const UI_TIPS: UiTipSeed[] = [
     body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. After creation, use Select to drag the room on the Top plan; fixtures in that room follow and the shape stays the same. If the storey is selected in Building, dragging a room fill moves every room on that storey. Use Select / move to drag fixtures on their own. For irregular rooms, use Draw room instead.",
   },
   {
+    helpKey: "tool.createRoomsFromDxf",
+    title: "Create rooms from DXF",
+    body: "With a DXF underlay on the current storey, this makes one room per closed polyline. Open lines are not auto-traced. New rooms use the official defaults (maintenance factor 0.80, no EN template) and the Building Room height. Scale follows the current Calibrate scale. Existing rooms are left unchanged.",
+  },
+  {
     helpKey: "tool.roomHeight",
     title: "Room height",
     body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",

@@ -16,6 +16,8 @@ import {
   officialDrawRoomAllowed,
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
+  officialAppendRoomsFromDxfClosedPolylines,
+  officialCanCreateRoomsFromDxf,
   officialTranslateRoom,
   officialTranslateStorey,
   applyOfficialRoomHeightMm,
@@ -709,6 +711,18 @@ export function BuildingEditor({
       return;
     }
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
+  }
+
+  function createRoomsFromDxf() {
+    const heightM = resolveNewRoomHeightM();
+    const result = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM,
+      nextId: () => nid("room"),
+    });
+    setStatus(result.status);
+    if (result.created > 0) {
+      patchScene(() => result.scene);
+    }
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -2048,6 +2062,22 @@ export function BuildingEditor({
               </button>
               <p className="text-[10px] text-[var(--muted)]">
                 Places a rectangle at 0, 0 using the Building Room height. After creation, drag the room with Select to move it. If the storey is selected in Building, dragging a room fill moves every room on that storey.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.createRoomsFromDxf"
+                  className="btn btn-secondary w-full !text-xs justify-start"
+                  disabled={!officialCanCreateRoomsFromDxf(underlay)}
+                  onClick={createRoomsFromDxf}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Create rooms from DXF
+                </button>
+                <HelpTip helpKey="tool.createRoomsFromDxf" />
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Adds one room per closed DXF polyline on this storey, using the Building Room height and official new-room defaults. Open lines are not auto-traced. Scale follows the current Calibrate scale.
               </p>
             </div>
           </div>
