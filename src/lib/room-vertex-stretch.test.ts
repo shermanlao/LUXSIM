@@ -7,10 +7,15 @@ import {
 import { shouldBeginRoomDrag } from "@/lib/room-drag";
 import {
   VERTEX_HANDLE_CSS_PX,
+  hitRoomEdgeInsert,
+  hitRoomOutlineEdit,
   hitRoomVertexHandle,
+  roomEdgeInsertAffordances,
+  shouldBeginEdgeInsert,
   shouldBeginVertexStretch,
   vertexHandleRadiusM,
 } from "@/lib/room-vertex-stretch";
+import type { Vec2 } from "@luxsim/project-io";
 
 const ready = {
   tool: "select" as const,
@@ -22,6 +27,15 @@ const ready = {
 };
 
 const RECT = rectPolygon(0, 0, 5, 4);
+
+const L_POLYGON: Vec2[] = [
+  { x: 0, y: 0 },
+  { x: 8, y: 0 },
+  { x: 8, y: 4 },
+  { x: 4, y: 4 },
+  { x: 4, y: 8 },
+  { x: 0, y: 8 },
+];
 
 describe("vertex handle hit testing", () => {
   it("uses the official 8 CSS pixel snap aperture in world metres", () => {
@@ -85,5 +99,72 @@ describe("shouldBeginVertexStretch vs whole-room drag", () => {
       false
     );
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+  });
+});
+
+describe("mid-edge insert hit testing and priority", () => {
+  const radiusM = vertexHandleRadiusM(0.01); // 0.08 m
+
+  it("hits a rectangle edge and an L-shaped closing edge within the 8 CSS px aperture", () => {
+    expect(hitRoomEdgeInsert({ x: 2.5, y: 0 }, RECT, radiusM)).toEqual({
+      edgeIndex: 0,
+      point: { x: 2.5, y: 0 },
+    });
+    expect(hitRoomEdgeInsert({ x: 2.5, y: -0.05 }, RECT, radiusM)?.edgeIndex).toBe(0);
+    expect(hitRoomEdgeInsert({ x: 2.5, y: -0.05 }, RECT, radiusM)?.point).toEqual({ x: 2.5, y: 0 });
+    const closing = hitRoomEdgeInsert({ x: 0, y: 4 }, L_POLYGON, radiusM);
+    expect(closing).toEqual({ edgeIndex: 5, point: { x: 0, y: 4 } });
+    expect(roomEdgeInsertAffordances(RECT, radiusM)).toHaveLength(4);
+    expect(roomEdgeInsertAffordances([...RECT, { x: 0, y: 0 }], radiusM)).toHaveLength(4);
+  });
+
+  it("does not insert on a point coincident with an endpoint, or steal a corner", () => {
+    expect(hitRoomEdgeInsert({ x: 0, y: 0 }, RECT, radiusM)).toBeNull();
+    expect(hitRoomEdgeInsert({ x: 0.05, y: 0 }, RECT, radiusM)).toBeNull();
+    expect(hitRoomVertexHandle({ x: 0.05, y: 0 }, RECT, radiusM)).toBe(0);
+    expect(hitRoomEdgeInsert({ x: 0.2, y: 0 }, RECT, 0.08)).toEqual({
+      edgeIndex: 0,
+      point: { x: 0.2, y: 0 },
+    });
+    const short = rectPolygon(0, 0, 0.1, 4);
+    expect(hitRoomEdgeInsert({ x: 0.05, y: 0 }, short, radiusM)).toBeNull();
+  });
+
+  it("lets a corner handle win over mid-edge, and mid-edge win over whole-room drag", () => {
+    const onSetRoomPolygon = vi.fn();
+    const onMoveRoom = vi.fn();
+    const nearCorner = hitRoomOutlineEdit({ x: 0.04, y: -0.02 }, RECT, radiusM);
+    expect(nearCorner).toEqual({ kind: "vertex", index: 0 });
+    const midEdge = hitRoomOutlineEdit({ x: 2.5, y: 0.02 }, RECT, radiusM);
+    expect(midEdge).toEqual({ kind: "edge-insert", edgeIndex: 0, point: { x: 2.5, y: 0 } });
+    const interior = hitRoomOutlineEdit({ x: 2.5, y: 2 }, RECT, radiusM);
+    expect(interior).toBeNull();
+
+    expect(
+      shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: 0 })
+    ).toBe(true);
+    expect(
+      shouldBeginEdgeInsert({ ...ready, onSetRoomPolygon, edgeIndex: midEdge && midEdge.kind === "edge-insert" ? midEdge.edgeIndex : null })
+    ).toBe(true);
+    expect(shouldBeginEdgeInsert({ ...ready, onSetRoomPolygon })).toBe(false);
+    expect(shouldBeginEdgeInsert({ ...ready, edgeIndex: 0 })).toBe(false);
+    expect(
+      shouldBeginEdgeInsert({ ...ready, onSetRoomPolygon, edgeIndex: 0, tool: "drawRoom" })
+    ).toBe(false);
+    expect(
+      shouldBeginEdgeInsert({ ...ready, onSetRoomPolygon, edgeIndex: 0, drawing: true })
+    ).toBe(false);
+    expect(
+      shouldBeginEdgeInsert({
+        ...ready,
+        onSetRoomPolygon,
+        edgeIndex: 0,
+        polygonPickActive: true,
+      })
+    ).toBe(false);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+    expect(shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: null })).toBe(
+      false
+    );
   });
 });

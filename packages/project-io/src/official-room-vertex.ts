@@ -210,3 +210,107 @@ export function officialStretchRoomVertex(
   if (!room) return scene;
   return officialSetRoomPolygon(scene, roomId, moveRoomVertex(room.polygon, vertexIndex, point));
 }
+
+export function officialClosestPointOnSegment(a: Vec2, b: Vec2, p: Vec2): Vec2 {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (!(len2 > 0)) return { x: a.x, y: a.y };
+  const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+export type OfficialRoomEdge = {
+  edgeIndex: number;
+  a: Vec2;
+  b: Vec2;
+};
+
+/** Closed-ring edges, including the closing edge, with no duplicated first-vertex edge. */
+export function officialRoomEdges(polygon: Vec2[]): OfficialRoomEdge[] {
+  const ring = officialRoomRingVertices(polygon);
+  const n = ring.length;
+  const edges: OfficialRoomEdge[] = [];
+  for (let i = 0; i < n; i++) {
+    edges.push({ edgeIndex: i, a: ring[i]!, b: ring[(i + 1) % n]! });
+  }
+  return edges;
+}
+
+export function canInsertRoomVertex(polygon: Vec2[], edgeIndex: number, point: Vec2): boolean {
+  if (!Number.isInteger(edgeIndex) || edgeIndex < 0) return false;
+  if (!Number.isFinite(point.x) || !Number.isFinite(point.y)) return false;
+  const ring = officialRoomRingVertices(polygon);
+  if (edgeIndex >= ring.length) return false;
+  const a = ring[edgeIndex]!;
+  const b = ring[(edgeIndex + 1) % ring.length]!;
+  if (officialDxfPointsCoincide(a, b)) return false;
+  if (officialDxfPointsCoincide(point, a) || officialDxfPointsCoincide(point, b)) return false;
+  return true;
+}
+
+/**
+ * Insert a vertex on the given open edge (including the closing edge of a
+ * closed ring). Zero-length edges and points coincident with either endpoint
+ * within DXF_CLOSED_VERTEX_EPS_M are a no-op and return a copy of the input.
+ * A duplicated closing vertex, if present, stays coincident with the first.
+ */
+export function insertRoomVertex(polygon: Vec2[], edgeIndex: number, point: Vec2): Vec2[] {
+  const copy = polygon.map((p) => ({ x: p.x, y: p.y }));
+  if (!canInsertRoomVertex(polygon, edgeIndex, point)) return copy;
+  const closed =
+    polygon.length >= 2 &&
+    officialDxfPointsCoincide(polygon[0]!, polygon[polygon.length - 1]!);
+  const ring = officialRoomRingVertices(polygon).map((p) => ({ x: p.x, y: p.y }));
+  ring.splice(edgeIndex + 1, 0, { x: point.x, y: point.y });
+  if (closed && ring[0]) {
+    ring.push({ x: ring[0].x, y: ring[0].y });
+  }
+  return ring;
+}
+
+export type OfficialEdgeInsert = {
+  polygon: Vec2[];
+  vertexIndex: number;
+  point: Vec2;
+};
+
+/**
+ * Choose the official insert point on an edge: a DXF object-snap landing when
+ * one is supplied, otherwise the closest point on the segment to the pointer.
+ * Returns null when the edge is zero-length or the point would coincide with
+ * either endpoint (a no-op).
+ */
+export function resolveOfficialEdgeInsert(
+  polygon: Vec2[],
+  edgeIndex: number,
+  pointer: Vec2,
+  snappedPoint?: Vec2 | null
+): OfficialEdgeInsert | null {
+  const ring = officialRoomRingVertices(polygon);
+  if (!Number.isInteger(edgeIndex) || edgeIndex < 0 || edgeIndex >= ring.length) return null;
+  const a = ring[edgeIndex]!;
+  const b = ring[(edgeIndex + 1) % ring.length]!;
+  const useSnap =
+    snappedPoint != null && Number.isFinite(snappedPoint.x) && Number.isFinite(snappedPoint.y);
+  const candidate = useSnap
+    ? { x: snappedPoint.x, y: snappedPoint.y }
+    : officialClosestPointOnSegment(a, b, pointer);
+  if (!canInsertRoomVertex(polygon, edgeIndex, candidate)) return null;
+  return {
+    polygon: insertRoomVertex(polygon, edgeIndex, candidate),
+    vertexIndex: edgeIndex + 1,
+    point: candidate,
+  };
+}
+
+export function officialInsertRoomVertex(
+  scene: ProjectSceneV2,
+  roomId: string,
+  edgeIndex: number,
+  point: Vec2
+): ProjectSceneV2 {
+  const room = scene.rooms.find((r) => r.id === roomId);
+  if (!room) return scene;
+  return officialSetRoomPolygon(scene, roomId, insertRoomVertex(room.polygon, edgeIndex, point));
+}

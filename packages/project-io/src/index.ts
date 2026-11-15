@@ -243,17 +243,25 @@ export { officialTranslateRoom, officialTranslateStorey, translatePlanPoint } fr
 
 export {
   VERTEX_STRETCH_REVERT_STATUS,
+  canInsertRoomVertex,
   commitStretchedRoomPolygon,
+  insertRoomVertex,
   moveRoomVertex,
+  officialClosestPointOnSegment,
+  officialInsertRoomVertex,
+  officialRoomEdges,
   officialRoomPolygonSelfIntersects,
   officialRoomRingVertices,
   officialSegmentsIntersect,
   officialSetRoomPolygon,
   officialStretchRoomVertex,
+  resolveOfficialEdgeInsert,
   validateStretchedRoomPolygon,
 } from "./official-room-vertex";
 export type {
   CommitStretchedRoomPolygonResult,
+  OfficialEdgeInsert,
+  OfficialRoomEdge,
   VertexStretchRejectReason,
   VertexStretchValidation,
 } from "./official-room-vertex";

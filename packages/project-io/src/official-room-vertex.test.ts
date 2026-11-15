@@ -5,11 +5,16 @@ import { officialNewRoom } from "./new-room-defaults";
 import { DXF_CLOSED_ROOM_MIN_AREA_M2 } from "./official-dxf-closed-rooms";
 import {
   VERTEX_STRETCH_REVERT_STATUS,
+  canInsertRoomVertex,
   commitStretchedRoomPolygon,
+  insertRoomVertex,
   moveRoomVertex,
+  officialInsertRoomVertex,
+  officialRoomEdges,
   officialRoomPolygonSelfIntersects,
   officialSetRoomPolygon,
   officialStretchRoomVertex,
+  resolveOfficialEdgeInsert,
   validateStretchedRoomPolygon,
 } from "./official-room-vertex";
 import type { FixtureInstance, ProjectSceneV2, Vec2 } from "./types";
@@ -175,5 +180,124 @@ describe("officialSetRoomPolygon / officialStretchRoomVertex", () => {
     expect(moved.rooms.find((r) => r.id === "room-other")).toEqual(beforeOther);
     expect(moved.instances).toEqual(beforeFixtures);
     expect(officialSetRoomPolygon(scene, "missing", rectPolygon(0, 0, 1, 1))).toBe(scene);
+  });
+});
+
+describe("insertRoomVertex", () => {
+  it("inserts a vertex on a rectangle edge and leaves the other corners put", () => {
+    const rect = rectPolygon(0, 0, 5, 4);
+    const next = insertRoomVertex(rect, 0, { x: 2.5, y: 0 });
+    expect(next).toEqual([
+      { x: 0, y: 0 },
+      { x: 2.5, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 4 },
+      { x: 0, y: 4 },
+    ]);
+    expect(rect).toHaveLength(4);
+    expect(canInsertRoomVertex(rect, 0, { x: 2.5, y: 0 })).toBe(true);
+    expect(officialRoomEdges(rect)).toHaveLength(4);
+  });
+
+  it("inserts on an L-shaped room edge, including the closing edge", () => {
+    const onLeg = insertRoomVertex(L_POLYGON, 2, { x: 6, y: 4 });
+    expect(onLeg).toEqual([
+      { x: 0, y: 0 },
+      { x: 8, y: 0 },
+      { x: 8, y: 4 },
+      { x: 6, y: 4 },
+      { x: 4, y: 4 },
+      { x: 4, y: 8 },
+      { x: 0, y: 8 },
+    ]);
+    const closing = insertRoomVertex(L_POLYGON, 5, { x: 0, y: 4 });
+    expect(closing[closing.length - 1]).toEqual({ x: 0, y: 4 });
+    expect(closing).toHaveLength(7);
+    expect(L_POLYGON).toHaveLength(6);
+  });
+
+  it("keeps a duplicated closing vertex when inserting on the first or last edge", () => {
+    const closed = [...rectPolygon(0, 0, 5, 4), { x: 0, y: 0 }];
+    const onFirst = insertRoomVertex(closed, 0, { x: 2.5, y: 0 });
+    expect(onFirst).toEqual([
+      { x: 0, y: 0 },
+      { x: 2.5, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 4 },
+      { x: 0, y: 4 },
+      { x: 0, y: 0 },
+    ]);
+    const onLast = insertRoomVertex(closed, 3, { x: 0, y: 2 });
+    expect(onLast[0]).toEqual({ x: 0, y: 0 });
+    expect(onLast[onLast.length - 1]).toEqual({ x: 0, y: 0 });
+    expect(onLast[4]).toEqual({ x: 0, y: 2 });
+    expect(onLast).toHaveLength(6);
+  });
+
+  it("does not insert a point coincident with either endpoint, or on a zero-length edge", () => {
+    const rect = rectPolygon(0, 0, 5, 4);
+    expect(canInsertRoomVertex(rect, 0, { x: 0, y: 0 })).toBe(false);
+    expect(canInsertRoomVertex(rect, 0, { x: 5, y: 0 })).toBe(false);
+    expect(canInsertRoomVertex(rect, 0, { x: 0, y: 1e-7 })).toBe(false);
+    expect(insertRoomVertex(rect, 0, { x: 0, y: 0 })).toEqual(rect);
+    const collapsed = [
+      { x: 0, y: 0 },
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 0, y: 2 },
+    ];
+    expect(canInsertRoomVertex(collapsed, 0, { x: 0, y: 0 })).toBe(false);
+    expect(insertRoomVertex(collapsed, 0, { x: 0.1, y: 0 })).toEqual(collapsed);
+  });
+
+  it("uses a DXF snap landing when one is supplied, otherwise the closest point on the edge", () => {
+    const rect = rectPolygon(0, 0, 5, 4);
+    const snapped = resolveOfficialEdgeInsert(rect, 1, { x: 5, y: 2 }, { x: 5.02, y: 1.9 });
+    expect(snapped).not.toBeNull();
+    expect(snapped!.point).toEqual({ x: 5.02, y: 1.9 });
+    expect(snapped!.vertexIndex).toBe(2);
+    expect(snapped!.polygon[2]).toEqual({ x: 5.02, y: 1.9 });
+    const raw = resolveOfficialEdgeInsert(rect, 0, { x: 2.4, y: -0.3 }, null);
+    expect(raw!.point).toEqual({ x: 2.4, y: 0 });
+    expect(raw!.vertexIndex).toBe(1);
+    expect(resolveOfficialEdgeInsert(rect, 0, { x: 0, y: 0 }, { x: 0, y: 0 })).toBeNull();
+  });
+
+  it("reverts an invalid insert-and-stretch back to the pre-insert polygon", () => {
+    const rect = rectPolygon(0, 0, 5, 4);
+    const inserted = insertRoomVertex(rect, 0, { x: 2.5, y: 0 });
+    const crossed = moveRoomVertex(inserted, 1, { x: 2.5, y: 5 });
+    expect(validateStretchedRoomPolygon(crossed).ok).toBe(false);
+    const committed = commitStretchedRoomPolygon(rect, crossed);
+    expect(committed.reverted).toBe(true);
+    expect(committed.polygon).toEqual(rect);
+    expect(committed.polygon).toHaveLength(4);
+    expect(committed.status).toBe(VERTEX_STRETCH_REVERT_STATUS["self-crossing"]);
+
+    const slim = rectPolygon(0, 0, 0.2, 0.06);
+    const slimInserted = insertRoomVertex(slim, 1, { x: 0.2, y: 0.03 });
+    const tiny = moveRoomVertex(slimInserted, 2, { x: 0.001, y: 0.03 });
+    expect(roomAreaM2({ polygon: tiny } as never)).toBeLessThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+    const thinCommit = commitStretchedRoomPolygon(slim, tiny);
+    expect(thinCommit.reverted).toBe(true);
+    expect(thinCommit.polygon).toEqual(slim);
+    expect(thinCommit.polygon).toHaveLength(4);
+    expect(thinCommit.status).toBe(VERTEX_STRETCH_REVERT_STATUS.area);
+
+    const kept = commitStretchedRoomPolygon(rect, inserted);
+    expect(kept.reverted).toBe(false);
+    expect(kept.polygon).toEqual(inserted);
+  });
+
+  it("updates only that room when inserting a vertex through the scene helper", () => {
+    const scene = defaultSceneV2();
+    addRoom(scene, "room-l", L_POLYGON);
+    addRoom(scene, "room-other", rectPolygon(20, 0, 4, 3));
+    const beforeOther = structuredClone(scene.rooms[1]!);
+    const moved = officialInsertRoomVertex(scene, "room-l", 0, { x: 4, y: 0 });
+    expect(moved.rooms[0]!.polygon).toHaveLength(7);
+    expect(moved.rooms[0]!.polygon[1]).toEqual({ x: 4, y: 0 });
+    expect(moved.rooms.find((r) => r.id === "room-other")).toEqual(beforeOther);
+    expect(officialInsertRoomVertex(scene, "missing", 0, { x: 1, y: 0 })).toBe(scene);
   });
 });

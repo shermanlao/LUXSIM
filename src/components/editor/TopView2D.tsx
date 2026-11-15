@@ -18,11 +18,15 @@ import {
   underlayWorldSize,
   commitStretchedRoomPolygon,
   moveRoomVertex,
+  resolveOfficialEdgeInsert,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
 import {
+  hitRoomEdgeInsert,
   hitRoomVertexHandle,
+  roomEdgeInsertAffordances,
+  shouldBeginEdgeInsert,
   shouldBeginVertexStretch,
   vertexHandleRadiusM,
 } from "@/lib/room-vertex-stretch";
@@ -567,15 +571,21 @@ export function TopView2D({
     return Math.max(5, radiusM * scale);
   }
 
-  function beginVertexStretch(roomId: string, index: number, original: Vec2[]) {
-    const source = original.map((p) => ({ x: p.x, y: p.y }));
+  function beginVertexStretch(
+    roomId: string,
+    index: number,
+    sourcePolygon: Vec2[],
+    commitOriginal: Vec2[] = sourcePolygon
+  ) {
+    const source = sourcePolygon.map((p) => ({ x: p.x, y: p.y }));
+    const original = commitOriginal.map((p) => ({ x: p.x, y: p.y }));
     setStretchingVertex({ roomId, index });
     const applyAt = (clientX: number, clientY: number, commit: boolean) => {
       const snapped = snappedWorldAt(clientX, clientY);
       setSnapHit(snapped.hit);
       const next = moveRoomVertex(source, index, { x: snapped.x, y: snapped.y });
       if (commit) {
-        const result = commitStretchedRoomPolygon(source, next);
+        const result = commitStretchedRoomPolygon(original, next);
         onSetRoomPolygon?.(roomId, result.polygon);
         if (result.reverted && result.status) onVertexStretchStatus?.(result.status);
         return;
@@ -593,6 +603,27 @@ export function TopView2D({
     };
     window.addEventListener("mousemove", move);
     window.addEventListener("mouseup", up);
+  }
+
+  function beginEdgeInsert(
+    roomId: string,
+    original: Vec2[],
+    edgeIndex: number,
+    pointer: Vec2,
+    clientX: number,
+    clientY: number
+  ) {
+    const snapped = snappedWorldAt(clientX, clientY);
+    setSnapHit(snapped.hit);
+    const resolved = resolveOfficialEdgeInsert(
+      original,
+      edgeIndex,
+      pointer,
+      snapped.hit ? { x: snapped.x, y: snapped.y } : null
+    );
+    if (!resolved) return;
+    onSetRoomPolygon?.(roomId, resolved.polygon);
+    beginVertexStretch(roomId, resolved.vertexIndex, resolved.polygon, original);
   }
 
   const underlayScreen =
@@ -831,6 +862,33 @@ export function TopView2D({
                     beginVertexStretch(room.id, handleIndex!, room.polygon);
                     return;
                   }
+                  const edgeHit = hitRoomEdgeInsert(
+                    toWorld(e.clientX, e.clientY),
+                    room.polygon,
+                    vertexRadiusMAt(e.clientX, e.clientY)
+                  );
+                  if (
+                    shouldBeginEdgeInsert({
+                      tool: scene.ui.tool,
+                      drawing,
+                      calibrating: scene.ui.tool === "calibrate",
+                      linePickActive,
+                      circlePickActive,
+                      polygonPickActive,
+                      edgeIndex: edgeHit?.edgeIndex,
+                      onSetRoomPolygon,
+                    })
+                  ) {
+                    beginEdgeInsert(
+                      room.id,
+                      room.polygon,
+                      edgeHit!.edgeIndex,
+                      toWorld(e.clientX, e.clientY),
+                      e.clientX,
+                      e.clientY
+                    );
+                    return;
+                  }
                 }
                 if (
                   shouldBeginStoreyDrag({
@@ -872,6 +930,96 @@ export function TopView2D({
             />
           );
         })}
+
+        {scene.ui.tool === "select" &&
+          !drawing &&
+          !linePickActive &&
+          !circlePickActive &&
+          !polygonPickActive &&
+          rooms
+            .filter((room) => room.id === scene.ui.activeRoomId)
+            .map((room) => {
+              const hitR = handleRadiusSvg();
+              const radiusM = hitR / scale;
+              return roomEdgeInsertAffordances(room.polygon, radiusM).map((edge) => {
+                const mid = toScreen(edge.mid.x, edge.mid.y);
+                const a = toScreen(edge.a.x, edge.a.y);
+                const b = toScreen(edge.b.x, edge.b.y);
+                const dx = b.x - a.x;
+                const dy = b.y - a.y;
+                const len = Math.hypot(dx, dy);
+                const inset = Math.min(hitR, len / 2);
+                const ux = len > 0 ? dx / len : 0;
+                const uy = len > 0 ? dy / len : 0;
+                const hx1 = a.x + ux * inset;
+                const hy1 = a.y + uy * inset;
+                const hx2 = b.x - ux * inset;
+                const hy2 = b.y - uy * inset;
+                const size = 3;
+                return (
+                  <g
+                    key={`${room.id}-edge-insert-${edge.edgeIndex}`}
+                    data-room-edge-insert={edge.edgeIndex}
+                    style={{ cursor: "pointer" }}
+                    onMouseDown={(e) => {
+                      if (drawing || scene.ui.tool === "calibrate") return;
+                      if (linePickActive || circlePickActive || polygonPickActive) return;
+                      e.stopPropagation();
+                      const pointer = toWorld(e.clientX, e.clientY);
+                      const edgeHit =
+                        hitRoomEdgeInsert(
+                          pointer,
+                          room.polygon,
+                          vertexRadiusMAt(e.clientX, e.clientY)
+                        ) ?? { edgeIndex: edge.edgeIndex, point: edge.mid };
+                      if (
+                        !shouldBeginEdgeInsert({
+                          tool: scene.ui.tool,
+                          drawing,
+                          calibrating: scene.ui.tool === "calibrate",
+                          linePickActive,
+                          circlePickActive,
+                          polygonPickActive,
+                          edgeIndex: edgeHit.edgeIndex,
+                          onSetRoomPolygon,
+                        })
+                      ) {
+                        return;
+                      }
+                      onSelectRoom?.(room.id);
+                      beginEdgeInsert(
+                        room.id,
+                        room.polygon,
+                        edgeHit.edgeIndex,
+                        pointer,
+                        e.clientX,
+                        e.clientY
+                      );
+                    }}
+                  >
+                    <line
+                      x1={hx1}
+                      y1={hy1}
+                      x2={hx2}
+                      y2={hy2}
+                      stroke="transparent"
+                      strokeWidth={Math.max(2, 2 * hitR)}
+                      strokeLinecap="butt"
+                    />
+                    <rect
+                      x={mid.x - size}
+                      y={mid.y - size}
+                      width={size * 2}
+                      height={size * 2}
+                      fill="#7eb8da"
+                      stroke="#1a1510"
+                      strokeWidth={1}
+                      transform={`rotate(45 ${mid.x} ${mid.y})`}
+                    />
+                  </g>
+                );
+              });
+            })}
 
         {scene.ui.tool === "select" &&
           !drawing &&
