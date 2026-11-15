@@ -44,7 +44,7 @@ describe("official Line click-to-pick wiring", () => {
     expect(top).toContain("linePickActive");
     expect(top).toContain("toWorld");
     expect(top).toContain("e.detail === 1");
-    expect(top).toContain("if (drawing || linePickActive) return;");
+    expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
     expect(top).toContain("wheelZoomFactor");
     expect(top).toContain("zoomPlanToward");
 
@@ -52,7 +52,7 @@ describe("official Line click-to-pick wiring", () => {
     expect(panel).toContain("lineStart");
     expect(panel).toContain("lineEnd");
     expect(panel).toContain("planFixtureArray");
-    expect(panel).toContain("disabled={mode === \"line\"}");
+    expect(panel).toContain('disabled={mode === "line" || mode === "circle"}');
     expect(panel).toContain("LINE_ARRAY_SPACING_Y_REASON");
     expect(panel).toContain('helpKey="tool.lineArray"');
     expect(panel).toContain("lineArrayDerivedSpacingM");

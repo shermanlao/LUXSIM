@@ -76,6 +76,7 @@ import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
 import type { ArrayParams } from "@/lib/arrange-array";
 import { EMPTY_LINE_PICK, type LinePickState } from "@/lib/line-array-pick";
+import { EMPTY_CIRCLE_PICK, type CirclePickState } from "@/lib/circle-array-pick";
 import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
@@ -242,6 +243,8 @@ export function BuildingEditor({
   const [arrayApplying, setArrayApplying] = useState(false);
   const [linePick, setLinePick] = useState<LinePickState>(EMPTY_LINE_PICK);
   const [linePickActive, setLinePickActive] = useState(false);
+  const [circlePick, setCirclePick] = useState<CirclePickState>(EMPTY_CIRCLE_PICK);
+  const [circlePickActive, setCirclePickActive] = useState(false);
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -1264,6 +1267,7 @@ export function BuildingEditor({
     if (!decision.placeable.length) {
       setArrayPreview(null);
       setLinePick(EMPTY_LINE_PICK);
+      setCirclePick(EMPTY_CIRCLE_PICK);
       setStatus(
         formatArrayApplyStatus({
           placed: 0,
@@ -1306,6 +1310,7 @@ export function BuildingEditor({
       setResults(out.results);
       setArrayPreview(null);
       setLinePick(EMPTY_LINE_PICK);
+      setCirclePick(EMPTY_CIRCLE_PICK);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
       const calcNote = postPlaceCalcStatusSuffix(
         {
@@ -1462,12 +1467,15 @@ export function BuildingEditor({
 
   useEffect(() => {
     setLinePick(EMPTY_LINE_PICK);
+    setCirclePick(EMPTY_CIRCLE_PICK);
   }, [activeRoom?.id]);
 
   useEffect(() => {
     if (workflow !== "light") {
       setLinePick(EMPTY_LINE_PICK);
+      setCirclePick(EMPTY_CIRCLE_PICK);
       setLinePickActive(false);
+      setCirclePickActive(false);
     }
   }, [workflow]);
 
@@ -1600,6 +1608,9 @@ export function BuildingEditor({
           linePick={linePick}
           linePickActive={linePickActive}
           onLinePickChange={setLinePick}
+          circlePick={circlePick}
+          circlePickActive={circlePickActive}
+          onCirclePickChange={setCirclePick}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -2502,10 +2513,14 @@ export function BuildingEditor({
               onCancel={() => {
                 setArrayPreview(null);
                 setLinePick(EMPTY_LINE_PICK);
+                setCirclePick(EMPTY_CIRCLE_PICK);
               }}
               linePick={linePick}
               onLinePickChange={setLinePick}
               onLinePickActiveChange={setLinePickActive}
+              circlePick={circlePick}
+              onCirclePickChange={setCirclePick}
+              onCirclePickActiveChange={setCirclePickActive}
             />
           )}
 

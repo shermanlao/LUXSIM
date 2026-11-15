@@ -1,6 +1,6 @@
 import { pointInPolygon, roomBounds, type RoomV2, type Vec2 } from "@luxsim/project-io";
 
-export type ArrayMode = "rect" | "line";
+export type ArrayMode = "rect" | "line" | "circle";
 
 export type ArrayParams = {
   mode: ArrayMode;
@@ -21,6 +21,17 @@ export type ArrayParams = {
    */
   lineStart?: Vec2 | null;
   lineEnd?: Vec2 | null;
+  /**
+   * Circle radius in metres. Used only in circle mode. The value shown in
+   * the official Arrange panel is the value used.
+   */
+  radius?: number;
+  /**
+   * Optional world-metre centre from official Circle click-to-pick.
+   * When missing, the room AABB centre is used (same centre as the Line
+   * numeric fallback).
+   */
+  circleCentre?: Vec2 | null;
 };
 
 export type ArrayPoint = { x: number; y: number; rotationDeg: number };
@@ -122,6 +133,49 @@ export function planLineArray(
   return points;
 }
 
+
+/** Default Circle radius: a quarter of the room AABB shorter side, at least 1 cm. */
+export function defaultCircleRadiusM(room: RoomV2): number {
+  const b = roomBounds(room);
+  const shorter = Math.min(Math.max(0, b.maxX - b.minX), Math.max(0, b.maxY - b.minY));
+  return Math.max(0.01, shorter / 4);
+}
+
+export function roomAabbCentre(room: RoomV2): Vec2 {
+  const b = roomBounds(room);
+  return { x: (b.minX + b.maxX) / 2, y: (b.minY + b.maxY) / 2 };
+}
+
+/**
+ * Place `count` fixtures equally spaced on a circle.
+ * Angle 0° is +X; `rotationDeg` is both the start angle of the first point
+ * (`cos`/`sin` of that angle) and the fixture orientation — fixtures are
+ * not aimed at the centre or along the tangent.
+ * Count = 1 places the single point at that start angle on the radius, not
+ * at the centre.
+ * Spacing X, Spacing Y, and wall offset are intentionally unused.
+ */
+export function planCircleArray(
+  room: RoomV2,
+  params: Pick<ArrayParams, "count" | "rotationDeg" | "circleCentre"> & { radius: number }
+): ArrayPoint[] {
+  const count = Math.max(1, Math.floor(params.count));
+  const radius = Math.max(0, params.radius);
+  const rotationDeg = params.rotationDeg;
+  const centre = params.circleCentre ?? roomAabbCentre(room);
+  const startRad = (rotationDeg * Math.PI) / 180;
+  const points: ArrayPoint[] = [];
+  for (let i = 0; i < count; i += 1) {
+    const angle = startRad + (i * 2 * Math.PI) / count;
+    points.push({
+      x: centre.x + radius * Math.cos(angle),
+      y: centre.y + radius * Math.sin(angle),
+      rotationDeg,
+    });
+  }
+  return points;
+}
+
 export function clipArrayPointsToRoom(room: RoomV2, proposed: ArrayPoint[]): ArrayPlanResult {
   const inside: ArrayPoint[] = [];
   for (const p of proposed) {
@@ -140,7 +194,9 @@ export function planFixtureArray(room: RoomV2, params: ArrayParams): ArrayPlanRe
   const proposed =
     params.mode === "line"
       ? planLineArray(room, params)
-      : planRectArray(room, params);
+      : params.mode === "circle"
+        ? planCircleArray(room, { ...params, radius: params.radius ?? 0 })
+        : planRectArray(room, params);
   return clipArrayPointsToRoom(room, proposed);
 }
 

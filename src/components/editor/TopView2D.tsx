@@ -24,6 +24,13 @@ import {
   type LinePickState,
 } from "@/lib/line-array-pick";
 import {
+  applyCircleCentrePick,
+  EMPTY_CIRCLE_PICK,
+  circlePickEscapeAction,
+  isCircleCentrePicked,
+  type CirclePickState,
+} from "@/lib/circle-array-pick";
+import {
   OFFICIAL_PLAN_VIEW_H,
   OFFICIAL_PLAN_VIEW_W,
   officialPlanFitTransform,
@@ -64,6 +71,10 @@ type Props = {
   linePick?: LinePickState;
   linePickActive?: boolean;
   onLinePickChange?: (next: LinePickState) => void;
+  /** Official Circle-array click-to-pick (world m). */
+  circlePick?: CirclePickState;
+  circlePickActive?: boolean;
+  onCirclePickChange?: (next: CirclePickState) => void;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -94,6 +105,9 @@ export function TopView2D({
   linePick,
   linePickActive = false,
   onLinePickChange,
+  circlePick,
+  circlePickActive = false,
+  onCirclePickChange,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
@@ -304,6 +318,20 @@ export function TopView2D({
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [linePickActive, linePick, drawing, onLinePickChange]);
 
+  useEffect(() => {
+    if (!circlePickActive || !circlePick || drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingField(e.target)) return;
+      if (e.key !== "Escape") return;
+      if (circlePickEscapeAction(circlePick) === "pass") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onCirclePickChange?.(EMPTY_CIRCLE_PICK);
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [circlePickActive, circlePick, drawing, onCirclePickChange]);
+
   function polyPoints(room: RoomV2) {
     return room.polygon
       .map((p) => {
@@ -398,7 +426,7 @@ export function TopView2D({
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDoubleClick={(e) => {
-        if (drawing || linePickActive) return;
+        if (drawing || linePickActive || circlePickActive) return;
         const target = e.target;
         if (!(target instanceof Element) || !target.closest("[data-plan-bg]")) return;
         e.preventDefault();
@@ -439,6 +467,10 @@ export function TopView2D({
           }
           if (linePickActive && onLinePickChange && e.detail === 1) {
             onLinePickChange(applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, w));
+            return;
+          }
+          if (circlePickActive && onCirclePickChange && e.detail === 1) {
+            onCirclePickChange(applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, w));
             return;
           }
           onSelect(null);
@@ -522,6 +554,15 @@ export function TopView2D({
                   }
                   return;
                 }
+                if (circlePickActive && onCirclePickChange) {
+                  e.stopPropagation();
+                  if (e.detail === 1) {
+                    onCirclePickChange(
+                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, toWorld(e.clientX, e.clientY))
+                    );
+                  }
+                  return;
+                }
                 e.stopPropagation();
                 onSelectRoom?.(room.id);
                 if (
@@ -530,6 +571,7 @@ export function TopView2D({
                     drawing,
                     calibrating: scene.ui.tool === "calibrate",
                     linePickActive,
+                    circlePickActive,
                     onMoveRoom,
                   })
                 ) {
@@ -651,6 +693,15 @@ export function TopView2D({
           );
         })()}
 
+        {circlePickActive && isCircleCentrePicked(circlePick ?? EMPTY_CIRCLE_PICK) && (() => {
+          const c = toScreen(circlePick!.centre!.x, circlePick!.centre!.y);
+          return (
+            <g pointerEvents="none">
+              <circle cx={c.x} cy={c.y} r={4} fill="#7ec8e3" stroke="#fff" strokeWidth={1} />
+            </g>
+          );
+        })()}
+
         {arrayPreview.map((ghost, idx) => {
           const s = toScreen(ghost.x, ghost.y);
           const rad = (ghost.rotationDeg * Math.PI) / 180;
@@ -698,6 +749,14 @@ export function TopView2D({
                   if (e.detail === 1) {
                     onLinePickChange(
                       applyLineEndpointPick(linePick ?? EMPTY_LINE_PICK, toWorld(e.clientX, e.clientY))
+                    );
+                  }
+                  return;
+                }
+                if (circlePickActive && onCirclePickChange) {
+                  if (e.detail === 1) {
+                    onCirclePickChange(
+                      applyCircleCentrePick(circlePick ?? EMPTY_CIRCLE_PICK, toWorld(e.clientX, e.clientY))
                     );
                   }
                   return;
@@ -790,6 +849,15 @@ export function TopView2D({
               : linePick?.end
                 ? " · click again to start a new line"
                 : ""}
+          </>
+        )}
+        {circlePickActive && (
+          <>
+            {" "}
+            · click to set the circle centre
+            {isCircleCentrePicked(circlePick ?? EMPTY_CIRCLE_PICK)
+              ? " · click again to move it · Esc clears the centre"
+              : ""}
           </>
         )}
         {drawing && (

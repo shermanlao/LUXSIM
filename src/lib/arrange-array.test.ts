@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rectPolygon } from "@luxsim/project-io";
 import type { RoomV2 } from "@luxsim/project-io";
-import { planFixtureArray, pointsRoughlyEqual } from "./arrange-array";
+import { defaultCircleRadiusM, planFixtureArray, pointsRoughlyEqual, roomAabbCentre } from "./arrange-array";
 
 function testRoom(): RoomV2 {
   return {
@@ -230,5 +230,131 @@ describe("planFixtureArray line with picked endpoints", () => {
     // The last point (7, 3.5) is outside the tapering top edge (x=6 at y=4).
     expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: 7, y: 3.5 }))).toBe(false);
     expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: 1, y: 0.5 }))).toBe(true);
+  });
+});
+
+describe("planFixtureArray circle", () => {
+  it("places count fixtures equally on the room-centre circle, with 0° as +X", () => {
+    const room = testRoom();
+    const plan = planFixtureArray(room, {
+      mode: "circle",
+      rows: 2,
+      cols: 2,
+      count: 4,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 0.5,
+      rotationDeg: 0,
+      radius: 1,
+    });
+    const centre = roomAabbCentre(room);
+    expect(centre.x).toBeCloseTo(2.5, 5);
+    expect(centre.y).toBeCloseTo(2, 5);
+    expect(plan.proposed).toHaveLength(4);
+    expect(plan.inside).toHaveLength(4);
+    expect(plan.skippedOutside).toBe(0);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 3.5, y: 2 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 2.5, y: 3 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[2]!, { x: 1.5, y: 2 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[3]!, { x: 2.5, y: 1 })).toBe(true);
+    expect(plan.inside.every((p) => p.rotationDeg === 0)).toBe(true);
+  });
+
+  it("places a single fixture at the start angle on the radius, not at the centre", () => {
+    const room = testRoom();
+    const plan = planFixtureArray(room, {
+      mode: "circle",
+      rows: 1,
+      cols: 1,
+      count: 1,
+      spacingX: 1.5,
+      spacingY: 1.5,
+      wallOffset: 0,
+      rotationDeg: 90,
+      radius: 1,
+    });
+    expect(plan.inside).toHaveLength(1);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 2.5, y: 3 })).toBe(true);
+    expect(plan.inside[0]!.rotationDeg).toBe(90);
+    expect(pointsRoughlyEqual(plan.inside[0]!, roomAabbCentre(room))).toBe(false);
+  });
+
+  it("uses rotationDeg as the start angle and as fixture orientation, not a tangent or inward aim", () => {
+    const plan = planFixtureArray(testRoom(), {
+      mode: "circle",
+      rows: 1,
+      cols: 1,
+      count: 4,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 0,
+      rotationDeg: 90,
+      radius: 1,
+    });
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 2.5, y: 3 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 1.5, y: 2 })).toBe(true);
+    // Every fixture keeps the same orientation; no per-point tangent or look-at.
+    expect(plan.inside.every((p) => p.rotationDeg === 90)).toBe(true);
+  });
+
+  it("ignores Spacing X, Spacing Y, and wall offset, and uses a picked centre when set", () => {
+    const plan = planFixtureArray(testRoom(), {
+      mode: "circle",
+      rows: 3,
+      cols: 3,
+      count: 2,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 2,
+      rotationDeg: 0,
+      radius: 1,
+      circleCentre: { x: 2, y: 2 },
+    });
+    expect(plan.inside).toHaveLength(2);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 3, y: 2 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 1, y: 2 })).toBe(true);
+  });
+
+  it("drops points that leave an L-shaped room and keeps in-polygon points", () => {
+    const plan = planFixtureArray(lShapedRoom(), {
+      mode: "circle",
+      rows: 1,
+      cols: 1,
+      count: 4,
+      spacingX: 1.5,
+      spacingY: 1.5,
+      wallOffset: 0,
+      rotationDeg: 0,
+      radius: 3,
+      // West-arm centre: one point in the missing north-east rectangle, two outside the AABB.
+      circleCentre: { x: 2, y: 6 },
+    });
+    expect(plan.proposed).toHaveLength(4);
+    expect(pointsRoughlyEqual(plan.proposed[0]!, { x: 5, y: 6 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.proposed[1]!, { x: 2, y: 9 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.proposed[2]!, { x: -1, y: 6 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.proposed[3]!, { x: 2, y: 3 })).toBe(true);
+    // (5,6) is in the missing north-east rectangle; (2,9) and (-1,6) are outside the AABB.
+    expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: 5, y: 6 }))).toBe(false);
+    expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: 2, y: 9 }))).toBe(false);
+    expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: -1, y: 6 }))).toBe(false);
+    expect(plan.inside.some((p) => pointsRoughlyEqual(p, { x: 2, y: 3 }))).toBe(true);
+    expect(plan.inside).toHaveLength(1);
+    expect(plan.skippedOutside).toBe(3);
+  });
+
+  it("prefills a default radius of about a quarter of the shorter side", () => {
+    // 5×4 m room → shorter side 4 m → 1 m.
+    expect(defaultCircleRadiusM(testRoom())).toBeCloseTo(1, 5);
+    const tall = {
+      ...testRoom(),
+      polygon: [
+        { x: 0, y: 0 },
+        { x: 8, y: 0 },
+        { x: 8, y: 2 },
+        { x: 0, y: 2 },
+      ],
+    };
+    expect(defaultCircleRadiusM(tall)).toBeCloseTo(0.5, 5);
   });
 });

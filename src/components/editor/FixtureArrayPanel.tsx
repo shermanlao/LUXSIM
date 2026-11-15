@@ -8,8 +8,7 @@ import {
   previewTargetEmArrange,
   type TargetEmArrangeEstimate,
 } from "@/lib/arrange-by-em";
-import type { ArrayMode, ArrayParams, ArrayPoint } from "@/lib/arrange-array";
-import { planFixtureArray } from "@/lib/arrange-array";
+import { defaultCircleRadiusM, planFixtureArray, type ArrayMode, type ArrayParams, type ArrayPoint } from "@/lib/arrange-array";
 import {
   filterPointsOccupiedInRoom,
   type OccupiedFixtureRef,
@@ -23,6 +22,14 @@ import {
   lineArrayDerivedSpacingM,
   type LinePickState,
 } from "@/lib/line-array-pick";
+import {
+  CIRCLE_ARRAY_PICK_HINT,
+  CIRCLE_ARRAY_ROTATION_REASON,
+  CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
+  EMPTY_CIRCLE_PICK,
+  isCircleCentrePicked,
+  type CirclePickState,
+} from "@/lib/circle-array-pick";
 import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
@@ -44,6 +51,9 @@ type Props = {
   linePick: LinePickState;
   onLinePickChange: (next: LinePickState) => void;
   onLinePickActiveChange: (active: boolean) => void;
+  circlePick: CirclePickState;
+  onCirclePickChange: (next: CirclePickState) => void;
+  onCirclePickActiveChange: (active: boolean) => void;
 };
 
 export function FixtureArrayPanel({
@@ -60,6 +70,9 @@ export function FixtureArrayPanel({
   linePick,
   onLinePickChange,
   onLinePickActiveChange,
+  circlePick,
+  onCirclePickChange,
+  onCirclePickActiveChange,
 }: Props) {
   const [mode, setMode] = useState<PanelMode>("rect");
   const [luminaireId, setLuminaireId] = useState(luminaires[0]?.id ?? "");
@@ -70,6 +83,8 @@ export function FixtureArrayPanel({
   const [spacingY, setSpacingY] = useState("1.5");
   const [wallOffset, setWallOffset] = useState("0.5");
   const [rotationDeg, setRotationDeg] = useState("0");
+  const [radius, setRadius] = useState("1");
+
   const [targetEm, setTargetEm] = useState("500");
   const [utilance, setUtilance] = useState(String(DEFAULT_UTILANCE));
   const [utilanceTouched, setUtilanceTouched] = useState(false);
@@ -92,10 +107,25 @@ export function FixtureArrayPanel({
   }, [mode, room, onLinePickActiveChange]);
 
   useEffect(() => {
+    onCirclePickActiveChange(mode === "circle" && Boolean(room));
+    return () => onCirclePickActiveChange(false);
+  }, [mode, room, onCirclePickActiveChange]);
+
+  useEffect(() => {
     if (mode !== "line" && (linePick.start || linePick.end)) {
       onLinePickChange(EMPTY_LINE_PICK);
     }
-  }, [mode, linePick.start, linePick.end, onLinePickChange]);
+    if (mode !== "circle" && circlePick.centre) {
+      onCirclePickChange(EMPTY_CIRCLE_PICK);
+    }
+  }, [mode, linePick.start, linePick.end, circlePick.centre, onLinePickChange, onCirclePickChange]);
+
+  useEffect(() => {
+    if (!room) return;
+    setRadius(defaultCircleRadiusM(room).toFixed(2));
+    // Prefill from the selected room only; do not reset when the same room object identity changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [room?.id]);
 
   const selectedFlux = luminaires.find((l) => l.id === luminaireId)?.fluxLm ?? null;
 
@@ -113,8 +143,11 @@ export function FixtureArrayPanel({
     const sy = Number(spacingY);
     const wo = Number(wallOffset);
     const rot = Number(rotationDeg);
-    if (![sx, sy, wo, rot].every((n) => Number.isFinite(n))) return null;
+    const rad = Number(radius);
+    if (![sx, sy, wo, rot, rad].every((n) => Number.isFinite(n))) return null;
+    if (mode === "circle" && rad < 0) return null;
     const lineComplete = mode === "line" && isLinePickComplete(linePick);
+    const circlePicked = mode === "circle" && isCircleCentrePicked(circlePick);
     return {
       mode: mode === "targetEm" ? "rect" : mode,
       rows: Math.max(1, Math.floor(Number(rows) || 1)),
@@ -127,6 +160,8 @@ export function FixtureArrayPanel({
       estimateByTargetEm: mode === "targetEm",
       lineStart: lineComplete ? linePick.start : null,
       lineEnd: lineComplete ? linePick.end : null,
+      radius: rad,
+      circleCentre: circlePicked ? circlePick.centre : null,
     };
   }
 
@@ -229,6 +264,18 @@ export function FixtureArrayPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, room, linePick.start, linePick.end, count, rotationDeg, existingInstances, luminaireId]);
 
+  useEffect(() => {
+    if (mode !== "circle" || !room) return;
+    if (isCircleCentrePicked(circlePick)) {
+      const params = buildParams();
+      if (!params) return;
+      const plan = planFixtureArray(room, params);
+      publishPreview(plan.inside);
+    }
+    // Numeric room-centre fallback is previewed only when the user presses Preview.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, room, circlePick.centre, count, radius, rotationDeg, existingInstances, luminaireId]);
+
   const lineComplete = mode === "line" && isLinePickComplete(linePick);
   const derivedLineSpacing =
     lineComplete
@@ -243,6 +290,7 @@ export function FixtureArrayPanel({
       <p className="cad-section-title !mt-0 flex items-center gap-1">
         Arrange · array / 排列
         {mode === "line" && <HelpTip helpKey="tool.lineArray" />}
+        {mode === "circle" && <HelpTip helpKey="tool.circleArray" />}
       </p>
       {!room && (
         <p className="text-xs text-[#8fa3ad]">Select a room in the building tree first. / 請先在左側選房間。</p>
@@ -253,19 +301,21 @@ export function FixtureArrayPanel({
           [
             ["rect", "Rectangular", "矩形"],
             ["line", "Line", "直線"],
+            ["circle", "Circle", "圓形"],
             ["targetEm", "By target Ēm", "目標照度"],
           ] as const
         ).map(([m, en, zh]) => (
           <button
             key={m}
             type="button"
-            className={`btn !text-[10px] flex-1 min-w-[30%] ${mode === m ? "btn-accent" : "btn-secondary"}`}
+            className={`btn !text-[10px] flex-1 min-w-[22%] ${mode === m ? "btn-accent" : "btn-secondary"}`}
             onClick={() => {
               setMode(m);
               setEmEstimate(null);
               setPreviewSkippedOccupied(0);
               onPreviewChange(null);
               if (m !== "line") onLinePickChange(EMPTY_LINE_PICK);
+              if (m !== "circle") onCirclePickChange(EMPTY_CIRCLE_PICK);
             }}
           >
             {en}
@@ -365,6 +415,43 @@ export function FixtureArrayPanel({
             <input className="input" value={cols} onChange={(e) => setCols(e.target.value)} />
           </div>
         </div>
+      ) : mode === "circle" ? (
+        <div className="space-y-2">
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label">Count</label>
+              <input className="input" value={count} onChange={(e) => setCount(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Radius (m) / 半徑</label>
+              <input className="input" value={radius} onChange={(e) => setRadius(e.target.value)} />
+            </div>
+          </div>
+          <p className="text-[10px] text-[#8fa3ad]">{CIRCLE_ARRAY_PICK_HINT}</p>
+          <p className="text-[10px] text-[#8fa3ad]">{CIRCLE_ARRAY_ROTATION_REASON}</p>
+          {!room ? null : !circlePick.centre ? (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Optional: click once on the Top plan to set the centre / 可在平面圖點一下設定圓心
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#c5d4dc]">
+              Centre at ({circlePick.centre.x.toFixed(2)}, {circlePick.centre.y.toFixed(2)}) m / 已設定圓心
+            </p>
+          )}
+          {circlePick.centre && (
+            <button
+              type="button"
+              className="btn btn-secondary !text-[10px]"
+              onClick={() => {
+                onCirclePickChange(EMPTY_CIRCLE_PICK);
+                setPreviewSkippedOccupied(0);
+                onPreviewChange(null);
+              }}
+            >
+              Clear centre / 清除圓心
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-2">
           <div>
@@ -419,7 +506,7 @@ export function FixtureArrayPanel({
                     : spacingX
                 }
                 onChange={(e) => setSpacingX(e.target.value)}
-                disabled={lineComplete}
+                disabled={lineComplete || mode === "circle"}
               />
             </div>
             <div>
@@ -428,7 +515,7 @@ export function FixtureArrayPanel({
                 className="input"
                 value={spacingY}
                 onChange={(e) => setSpacingY(e.target.value)}
-                disabled={mode === "line"}
+                disabled={mode === "line" || mode === "circle"}
               />
             </div>
           </div>
@@ -440,7 +527,7 @@ export function FixtureArrayPanel({
                 className="input"
                 value={wallOffset}
                 onChange={(e) => setWallOffset(e.target.value)}
-                disabled={mode === "line"}
+                disabled={mode === "line" || mode === "circle"}
               />
             </div>
             <div>
@@ -454,6 +541,9 @@ export function FixtureArrayPanel({
           </div>
           {mode === "line" && (
             <p className="text-[10px] text-[#8fa3ad]">{LINE_ARRAY_SPACING_Y_REASON}</p>
+          )}
+          {mode === "circle" && (
+            <p className="text-[10px] text-[#8fa3ad]">{CIRCLE_ARRAY_UNUSED_FIELDS_REASON}</p>
           )}
           {lineComplete && derivedLineSpacing == null && (
             <p className="text-[10px] text-[#8fa3ad]">

@@ -3,6 +3,11 @@ import { readFileSync } from "fs";
 import path from "path";
 import { parseUserGuideMarkdown } from "./user-guide-markdown";
 import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "./line-array-pick";
+import {
+  CIRCLE_ARRAY_PICK_HINT,
+  CIRCLE_ARRAY_ROTATION_REASON,
+  CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
+} from "./circle-array-pick";
 
 function read(rel: string) {
   return readFileSync(path.join(process.cwd(), rel), "utf8");
@@ -89,6 +94,7 @@ describe("user guide", () => {
     expect(headings).toContain("畫房 / Draw room");
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
     expect(headings).toContain("直線排列 / Line array");
+    expect(headings).toContain("圓形排列 / Circular array");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
@@ -128,5 +134,29 @@ describe("user guide", () => {
     expect(tips).toContain("LINE_ARRAY_SPACING_Y_REASON");
     expect(LINE_ARRAY_PICK_HINT).toMatch(/Click two points on the Top plan/);
     expect(LINE_ARRAY_SPACING_Y_REASON).toMatch(/Spacing Y stays disabled/);
+  });
+
+  it("keeps the Circular array tip and guide in sync with centre pick, radius, and rotation", () => {
+    const tips = read("src/lib/ui-tips.ts");
+    expect(guide).toMatch(/圓形排列 \/ Circular array/);
+    expect(guide).toMatch(/Click once on the \*\*Top\*\* or \*\*Bottom\*\* plan to set the circle centre/);
+    expect(guide).toMatch(/在 \*\*Top\*\* 或 \*\*Bottom\*\* 平面圖上點一下，設定圓心/);
+    expect(guide).toMatch(/later click replaces the centre/);
+    expect(guide).toMatch(/再點一下會改設圓心/);
+    expect(guide).toMatch(/\*\*Esc\*\* cancels an unwanted centre pick/);
+    expect(guide).toMatch(/按 \*\*Esc\*\* 會取消已選圓心/);
+    expect(guide).toMatch(/If you do not pick a centre/);
+    expect(guide).toMatch(/若未點選圓心/);
+    expect(guide).toMatch(/not aimed at the centre/);
+    expect(guide).toMatch(/不會自動指向圓心/);
+    expect(guide).toMatch(/Spacing X, Spacing Y and wall offset stay disabled/);
+    expect(guide).toMatch(/Spacing X、Spacing Y 與離牆在圓形模式維持停用/);
+    expect(tips).toContain('helpKey: "tool.circleArray"');
+    expect(tips).toContain("CIRCLE_ARRAY_PICK_HINT");
+    expect(tips).toContain("CIRCLE_ARRAY_UNUSED_FIELDS_REASON");
+    expect(tips).toContain("CIRCLE_ARRAY_ROTATION_REASON");
+    expect(CIRCLE_ARRAY_PICK_HINT).toMatch(/Click once on the Top plan/);
+    expect(CIRCLE_ARRAY_UNUSED_FIELDS_REASON).toMatch(/stay disabled/);
+    expect(CIRCLE_ARRAY_ROTATION_REASON).toMatch(/not aimed at the centre/);
   });
 });

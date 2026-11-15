@@ -25,6 +25,7 @@ describe("official room drag wiring", () => {
     expect(top).toContain("applyRoomDrag");
     expect(top).toContain("tool: scene.ui.tool");
     expect(top).toContain("linePickActive");
+    expect(top).toContain("circlePickActive");
     expect(top).toContain("calibrating:");
     expect(top).toContain("beginRoomDrag");
     expect(top).toContain("addEventListener(\"mousemove\", move)");
@@ -38,7 +39,7 @@ describe("official room drag wiring", () => {
     expect(fixtureDown).toContain("beginMove(inst.instanceId");
     expect(fixtureDown).not.toContain("shouldBeginRoomDrag");
     expect(fixtureDown).not.toContain("beginRoomDrag");
-    expect(top).toContain("if (drawing || linePickActive) return;");
+    expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
     expect(top).toContain("wheelZoomFactor");
     expect(top).not.toContain("click-drag pan");
     expect(top).not.toContain("startVertex");

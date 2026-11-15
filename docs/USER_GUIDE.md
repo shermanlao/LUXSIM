@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選和圓形排列，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, and how to pick Line array endpoints, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, and how to place a Circular array, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -104,6 +104,29 @@ In **Light** mode, select a room in the building tree, then choose **Line** in *
 5. With endpoints picked, fixtures are spaced evenly from start to end. The along-line spacing comes from the segment length and **Count**, and is shown in **Along line**. **Rotation** is still the fixture orientation, not the line direction.
 6. **Spacing Y stays disabled** in Line mode because a line array places fixtures along one line only. **Spacing Y** is used by Rectangular arrays.
 7. Points outside the room polygon are not placed. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept. **Clear line** removes the picked segment. While you are picking a line, double-click does not reset the view; wheel zoom still works toward the cursor.
+
+
+## 圓形排列 / Circular array
+
+在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Circle**（圓形）。
+
+1. 用 **Count**、**Radius**（公尺）和 **Rotation** 放置燈具。預設圓心是房間外接矩形的中心，與直線模式未點選端點時所用的中心相同。半徑以欄位上看到的數值為準；未改過時，會按房間較短邊的約四分之一預填。
+2. 可在 **Top** 或 **Bottom** 平面圖上點一下，設定圓心。之後再點一下會改設圓心。
+3. 按 **Esc** 會取消已選圓心，回到房間中心的預設圓。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有已選圓心時，**Esc** 仍可用來退出全畫面。點 **Clear centre** 同樣回到房間中心。
+4. 若未點選圓心，**Count**、**Radius** 與 **Rotation** 仍會以房間中心畫圓。
+5. 燈具在圓周上均勻分布。**Count** 為 1 時，單一點放在起始角度的半徑上，而不是圓心。角度 0° 是 +X 方向，**Rotation** 是第一點的起始角度，同時也是燈具朝向，與直線模式相同，不會自動指向圓心或沿切線。
+6. Spacing X、Spacing Y 與離牆在圓形模式維持停用。圓形排列只在一個圓周上放置，不會用這些欄位再排第二圈或徑向間距。矩形排列才使用這些欄位。目標照度估算仍只用矩形網格，沒有圓形目標照度路徑。
+7. 落在房間多邊形外的點不會放置；與同房已有燈具相距 1 mm 內的點會略過，既有燈具不會被刪除。點選圓心時，雙擊空白處不會重置視野，仍可用滾輪縮放。
+
+In **Light** mode, select a room in the building tree, then choose **Circle** in **Arrange**.
+
+1. Place fixtures with **Count**, **Radius** (metres) and **Rotation**. The default centre is the room’s bounding-box centre, the same centre used by the Line numeric fallback. The radius used is the value shown in the field; if you have not changed it, it is prefilled to about a quarter of the room’s shorter side.
+2. Click once on the **Top** or **Bottom** plan to set the circle centre. A later click replaces the centre.
+3. **Esc** cancels an unwanted centre pick and returns to the room-centre fallback. It does not exit the browser’s fullscreen view. When no centre is picked, **Esc** can still exit fullscreen. **Clear centre** also returns to the room centre.
+4. If you do not pick a centre, **Count**, **Radius** and **Rotation** still place the circle on the room centre.
+5. Fixtures are spaced equally around the circle. When **Count** is 1, the single point is placed at the start angle on the radius, not at the centre. Angle 0° is +X. **Rotation** is the start angle of the first point and is also the fixture orientation, as in Line mode; fixtures are not aimed at the centre or along the tangent.
+6. **Spacing X, Spacing Y and wall offset stay disabled** in Circle mode because a circular array places fixtures on one circle only. Those fields are used by Rectangular arrays. Target-Ēm estimate still uses a rectangular grid only.
+7. Points outside the room polygon are not placed. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept. While you are picking a centre, double-click does not reset the view; wheel zoom still works toward the cursor.
 
 ## 房間屬性 / Room properties
 

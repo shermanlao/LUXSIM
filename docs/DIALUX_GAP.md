@@ -57,7 +57,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 ### Fixtures
 
 - No manufacturer catalog
-- **Rectangular / line / target-Ēm arrays** in Light mode (Arrange · array panel; preview on Top view). Circular / polygonal arrays not yet.
+- **Rectangular / line / circular / target-Ēm arrays** in Light mode (Arrange · array panel; preview on Top view). Polygonal arrays, Boolean and alignment are not yet available. Target-Ēm estimate remains a rectangular grid only.
 - **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous on accepted OCR rows (F2.3); F2.4 commit writes instances
 - No automatic placement (intentionally out of v2 scope)
 - `rotationDeg` stored; **BuildingEditor** rotation control + Top view arrow; included in DIALux schedule.csv

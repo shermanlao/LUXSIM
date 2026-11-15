@@ -1,5 +1,10 @@
 import { STOREY_METRICS_EXPLANATION } from "@luxsim/project-io";
 import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "@/lib/line-array-pick";
+import {
+  CIRCLE_ARRAY_PICK_HINT,
+  CIRCLE_ARRAY_ROTATION_REASON,
+  CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
+} from "@/lib/circle-array-pick";
 
 export type UiTipSeed = {
   helpKey: string;
@@ -32,6 +37,11 @@ export const UI_TIPS: UiTipSeed[] = [
     helpKey: "tool.lineArray",
     title: "Line array",
     body: `${LINE_ARRAY_PICK_HINT} ${LINE_ARRAY_SPACING_Y_REASON}`,
+  },
+  {
+    helpKey: "tool.circleArray",
+    title: "Circular array",
+    body: `${CIRCLE_ARRAY_PICK_HINT} ${CIRCLE_ARRAY_ROTATION_REASON} ${CIRCLE_ARRAY_UNUSED_FIELDS_REASON}`,
   },
   {
     helpKey: "room.maintenanceFactor",

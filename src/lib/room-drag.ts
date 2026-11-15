@@ -8,12 +8,13 @@ export type RoomDragBeginInput = {
   drawing?: boolean;
   calibrating?: boolean;
   linePickActive?: boolean;
+  circlePickActive?: boolean;
   onMoveRoom?: MoveRoomHandler;
 };
 
 /**
  * Begin a room drag only with the official Select tool, a move handler, and
- * no active Draw room draft, calibrate click, or mid Line-array pick.
+ * no active Draw room draft, calibrate click, Line-array pick, or Circle-array pick.
  */
 export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
   return (
@@ -22,7 +23,8 @@ export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
     input.tool === "select" &&
     !input.drawing &&
     !input.calibrating &&
-    !input.linePickActive
+    !input.linePickActive &&
+    !input.circlePickActive
   );
 }
 
