@@ -35,7 +35,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 | Draw room | Click corners; type length; polar lock | Click corners; type mm; close on start. See [ROOM_DRAW.md](./ROOM_DRAW.md) |
 | Typed distance | Next point locked to radius circle | Bare number = mm; suffixes `m` / `cm` / `mm` |
 | Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. Official DXF underlays snap to endpoints, midpoints, and the nearest point on a segment (8 CSS px at the current zoom). No intersection, grid, or raster snap. Closed DXF polylines and simple closed loops of connected lines can be created as rooms on the current storey; T-junction / shared-wall networks are not auto-traced |
-| Edit outline | Move vertices, stretch walls | Select-tool drag translates a selected room, or every room on a storey when the storey is selected in Building. With a room selected, corner vertex handles stretch one existing vertex, mid-edge handles insert a new vertex that can be placed in the same drag, and Delete or Backspace removes a hovered or click-selected corner vertex (DXF object snap applies to stretch/insert; degenerate or self-crossing results are refused). Fillet and full DIALux-style vertex modelling are not available |
+| Edit outline | Move vertices, stretch walls | Select-tool drag translates a selected room, or every room on a storey when the storey is selected in Building. With a room selected, corner vertex handles stretch one existing vertex, mid-edge handles insert a new vertex that can be placed in the same drag, and Delete or Backspace removes a hovered or click-selected corner vertex (DXF object snap applies to stretch/insert; degenerate or self-crossing results are refused). **Union rooms** merges two overlapping or edge-adjacent rooms on the current storey into the first room. Fillet, subtract, intersect, alignment, and full DIALux-style vertex modelling are not available |
 | Room inspector | Height, workplane, materials | **BuildingEditor** properties panel (height, workplane, ρ, grid, MF, EN template) |
 | 3D volume | Extrude true polygon | Extruded floor polygon |
 | Openings | Windows / doors | None |
@@ -81,12 +81,12 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ## CAD room draw (implemented)
 
-See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are millimetres (`15000` = 15 m). L×W creates a rectangle at `(0, 0)`. Remaining geometry gaps: fillet and boolean (corner handles can already stretch an existing room, mid-edge handles can insert a new vertex, and Delete or Backspace can remove a corner vertex). T-junction / shared-wall LINE-network tracing into rooms is not yet implemented (closed DXF polylines and simple closed line loops can already be created as rooms).
+See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are millimetres (`15000` = 15 m). L×W creates a rectangle at `(0, 0)`. Remaining geometry gaps: fillet, subtract, intersect, and alignment (corner handles can already stretch an existing room, mid-edge handles can insert a new vertex, Delete or Backspace can remove a corner vertex, and Union rooms can merge two overlapping or edge-adjacent rooms on the current storey). T-junction / shared-wall LINE-network tracing into rooms is not yet implemented (closed DXF polylines and simple closed line loops can already be created as rooms).
 
 ## Suggested order
 
 1. **P0 done** — Point-to-point draw + typed polar lock + ortho + close; L×W; room translate; 3D polygon extrusion; workspace chrome; room inspector; DIALux verification pack.
-2. **P0 leftover** — fillet and fuller vertex modelling (corner-handle stretch, mid-edge insert, and delete-vertex are done).
+2. **P0 leftover** — fillet, subtract, intersect, alignment, and fuller vertex modelling (corner-handle stretch, mid-edge insert, delete-vertex, and union of two overlapping or edge-adjacent rooms are done).
 3. **P1** — Snap, fixture arrays + rotation, extra calc surfaces, richer standard libraries. (Official DXF object snap on endpoint / midpoint / nearest, wall calculation surfaces, rectangular/line/circular/polygon arrays, and official isolines / value labels: done. Intersection / grid snap and auto-tracing T-junction / shared-wall LINE networks into rooms are not yet implemented. Creating rooms from closed DXF polylines and simple closed line loops is done.)
 4. **P2+** — Daylight, emergency, furniture, catalog, raytrace, outdoor, IFC/Office export.
 

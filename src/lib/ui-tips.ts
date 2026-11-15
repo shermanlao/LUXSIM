@@ -35,6 +35,11 @@ export const UI_TIPS: UiTipSeed[] = [
     body: "With a DXF underlay on the current storey, this makes rooms from closed polylines and from simple closed loops of connected lines. It does not trace T-junctions or shared walls. New rooms use the official defaults (maintenance factor 0.80, no EN template) and the Building Room height. Scale follows the current Calibrate scale. Existing rooms are left unchanged.",
   },
   {
+    helpKey: "tool.unionRooms",
+    title: "Union rooms",
+    body: "With Select idle, click Union rooms, then choose two rooms on the current storey. If a room is already selected, it is the first (surviving) room and you only pick the second. The first room keeps its name, maintenance factor, EN template, height, and other properties; the second is removed after a successful union. Rooms may overlap in area or share an edge. The command is refused when the rooms are on different storeys, are missing, only touch at a point or not at all, or the union would contain a hole or would not be a single simple room. Esc cancels the pick. Subtract, intersect, and alignment are not included.",
+  },
+  {
     helpKey: "tool.roomHeight",
     title: "Room height",
     body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",

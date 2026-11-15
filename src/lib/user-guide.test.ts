@@ -249,6 +249,27 @@ describe("user guide", () => {
     expect(tips).toMatch(/does not trace T-junctions or shared walls/);
   });
 
+  it("documents Union rooms for overlapping or edge-adjacent rooms", () => {
+    expect(guide).toMatch(/use \*\*Union rooms\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Union rooms\*\*/);
+    expect(guide).toMatch(/first \(surviving\) room/);
+    expect(guide).toMatch(/作為保留的第一間/);
+    expect(guide).toMatch(/The first room keeps its id, name, maintenance factor, EN template, height/);
+    expect(guide).toMatch(/第一間房會保留其識別碼、名稱、維護係數、EN 範本、高度/);
+    expect(guide).toMatch(/only touch at a point or not at all/);
+    expect(guide).toMatch(/只在點上相觸或完全不相接/);
+    expect(guide).toMatch(/union would contain a hole/);
+    expect(guide).toMatch(/合併結果會形成洞/);
+    expect(guide).toMatch(/reassigned to the surviving room/);
+    expect(guide).toMatch(/改歸保留房間/);
+    expect(guide).toMatch(/Subtract, intersect, and alignment are not included/);
+    expect(guide).toMatch(/此增量不包括差集、交集或對齊/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.unionRooms"');
+    expect(tips).toMatch(/first \(surviving\) room/);
+    expect(tips).toMatch(/Subtract, intersect, and alignment are not included/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

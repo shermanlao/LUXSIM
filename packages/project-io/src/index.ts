@@ -273,6 +273,34 @@ export type {
 } from "./official-room-vertex";
 
 export {
+  UNION_ROOMS_CANCELLED_STATUS,
+  UNION_ROOMS_PICK_FIRST_STATUS,
+  UNION_ROOMS_PICK_SECOND_STATUS,
+  UNION_ROOMS_REFUSE_AREA_STATUS,
+  UNION_ROOMS_REFUSE_CROSS_STATUS,
+  UNION_ROOMS_REFUSE_DISJOINT_STATUS,
+  UNION_ROOMS_REFUSE_HOLE_STATUS,
+  UNION_ROOMS_REFUSE_INVALID_STATUS,
+  UNION_ROOMS_REFUSE_MISSING_STATUS,
+  UNION_ROOMS_REFUSE_SAME_STATUS,
+  UNION_ROOMS_REFUSE_STOREY_STATUS,
+  UNION_ROOMS_REFUSE_VERTICES_STATUS,
+  formatUnionRoomsSuccessStatus,
+  officialPointInPolygonInclusive,
+  officialPointOnSegment,
+  officialPointStrictlyInsidePolygon,
+  officialPolygonsOverlapOrShareEdge,
+  officialSharedBoundaryLengthM,
+  officialUnionRooms,
+  unionOfficialRoomPolygons,
+} from "./official-room-union";
+export type {
+  OfficialPolygonUnionResult,
+  OfficialUnionRoomsReason,
+  OfficialUnionRoomsResult,
+} from "./official-room-union";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

@@ -86,6 +86,14 @@ describe("shouldBeginVertexStretch vs whole-room drag", () => {
         polygonPickActive: true,
       })
     ).toBe(false);
+    expect(
+      shouldBeginVertexStretch({
+        ...ready,
+        onSetRoomPolygon,
+        handleIndex: 0,
+        unionPickActive: true,
+      })
+    ).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
   });
 
@@ -164,6 +172,14 @@ describe("mid-edge insert hit testing and priority", () => {
         polygonPickActive: true,
       })
     ).toBe(false);
+    expect(
+      shouldBeginEdgeInsert({
+        ...ready,
+        onSetRoomPolygon,
+        edgeIndex: 0,
+        unionPickActive: true,
+      })
+    ).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
     expect(shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: null })).toBe(
       false
@@ -236,6 +252,14 @@ describe("official vertex delete target and keys", () => {
         tool: "select",
         drawing: false,
         polygonPickActive: true,
+      })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({
+        key: "Delete",
+        tool: "select",
+        drawing: false,
+        unionPickActive: true,
       })
     ).toBe("pass");
     expect(

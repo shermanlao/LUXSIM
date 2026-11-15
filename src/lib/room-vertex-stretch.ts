@@ -134,7 +134,7 @@ export function roomEdgeInsertAffordances(
 
 /**
  * Begin a vertex stretch only with Select, a set-polygon handler, a handle
- * hit, and no active Draw room, calibrate, or array pick.
+ * hit, and no active Draw room, calibrate, array pick, or Union rooms pick.
  */
 export function shouldBeginVertexStretch(input: VertexStretchBeginInput = {}): boolean {
   return (
@@ -146,6 +146,7 @@ export function shouldBeginVertexStretch(input: VertexStretchBeginInput = {}): b
     !input.linePickActive &&
     !input.circlePickActive &&
     !input.polygonPickActive &&
+    !input.unionPickActive &&
     input.handleIndex != null &&
     Number.isInteger(input.handleIndex) &&
     input.handleIndex >= 0
@@ -154,7 +155,7 @@ export function shouldBeginVertexStretch(input: VertexStretchBeginInput = {}): b
 
 /**
  * Begin a mid-edge insert only with Select, a set-polygon handler, an edge
- * hit, and no active Draw room, calibrate, or array pick.
+ * hit, and no active Draw room, calibrate, array pick, or Union rooms pick.
  */
 export function shouldBeginEdgeInsert(input: EdgeInsertBeginInput = {}): boolean {
   return (
@@ -166,6 +167,7 @@ export function shouldBeginEdgeInsert(input: EdgeInsertBeginInput = {}): boolean
     !input.linePickActive &&
     !input.circlePickActive &&
     !input.polygonPickActive &&
+    !input.unionPickActive &&
     input.edgeIndex != null &&
     Number.isInteger(input.edgeIndex) &&
     input.edgeIndex >= 0
@@ -180,6 +182,7 @@ export type VertexDeleteKeyInput = {
   linePickActive?: boolean;
   circlePickActive?: boolean;
   polygonPickActive?: boolean;
+  unionPickActive?: boolean;
   stretching?: boolean;
 };
 
@@ -195,7 +198,7 @@ export function officialVertexDeleteKeyAction(
   if (input.key !== "Delete" && input.key !== "Backspace") return "pass";
   if (input.tool !== "select") return "pass";
   if (input.calibrating) return "pass";
-  if (input.linePickActive || input.circlePickActive || input.polygonPickActive) return "pass";
+  if (input.linePickActive || input.circlePickActive || input.polygonPickActive || input.unionPickActive) return "pass";
   if (input.stretching) return "pass";
   return "delete";
 }

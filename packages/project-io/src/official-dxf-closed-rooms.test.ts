@@ -463,10 +463,12 @@ describe("official editor Create rooms from DXF wiring", () => {
     expect(src).toContain("disabled={!officialCanCreateRoomsFromDxf(underlay)}");
     expect(src).toContain("resolveNewRoomHeightM()");
     const fnStart = src.indexOf("function createRoomsFromDxf");
+    const unionStart = src.indexOf("function startUnionRooms");
     const uploadStart = src.indexOf("async function onUploadPhotometry");
     expect(fnStart).toBeGreaterThan(src.indexOf("function createRectRoom"));
-    expect(uploadStart).toBeGreaterThan(fnStart);
-    const fn = src.slice(fnStart, uploadStart);
+    expect(unionStart).toBeGreaterThan(fnStart);
+    expect(uploadStart).toBeGreaterThan(unionStart);
+    const fn = src.slice(fnStart, unionStart);
     expect(fn).toContain("officialAppendRoomsFromDxfClosedPolylines");
     expect(fn).toContain("resolveNewRoomHeightM");
     expect(fn).not.toMatch(/activeRoom/);

@@ -21,6 +21,10 @@ import {
   officialTranslateRoom,
   officialTranslateStorey,
   officialSetRoomPolygon,
+  officialUnionRooms,
+  UNION_ROOMS_CANCELLED_STATUS,
+  UNION_ROOMS_PICK_FIRST_STATUS,
+  UNION_ROOMS_PICK_SECOND_STATUS,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -84,6 +88,12 @@ import type { ArrayParams } from "@/lib/arrange-array";
 import { EMPTY_LINE_PICK, type LinePickState } from "@/lib/line-array-pick";
 import { EMPTY_CIRCLE_PICK, type CirclePickState } from "@/lib/circle-array-pick";
 import { EMPTY_POLYGON_PATH_PICK, type PolygonPathPickState } from "@/lib/polygon-array-pick";
+import {
+  EMPTY_ROOM_UNION_PICK,
+  applyOfficialRoomUnionPick,
+  startOfficialRoomUnionPick,
+  type RoomUnionPickState,
+} from "@/lib/room-union-pick";
 import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
@@ -259,6 +269,8 @@ export function BuildingEditor({
   const [circlePickActive, setCirclePickActive] = useState(false);
   const [polygonPick, setPolygonPick] = useState<PolygonPathPickState>(EMPTY_POLYGON_PATH_PICK);
   const [polygonPickActive, setPolygonPickActive] = useState(false);
+  const [unionPick, setUnionPick] = useState<RoomUnionPickState>(EMPTY_ROOM_UNION_PICK);
+  const unionPickActive = unionPick.active;
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -688,6 +700,9 @@ export function BuildingEditor({
 
   function selectEditorTool(tool: ProjectSceneV2["ui"]["tool"]) {
     if (tool === "drawRoom" && refuseUncalibratedDrawRoom()) return;
+    if (unionPick.active && tool !== "select") {
+      setUnionPick(EMPTY_ROOM_UNION_PICK);
+    }
     patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }));
   }
 
@@ -724,6 +739,62 @@ export function BuildingEditor({
     if (result.created > 0) {
       patchScene(() => result.scene);
     }
+  }
+
+  function startUnionRooms() {
+    if (unionPick.active) {
+      setUnionPick(EMPTY_ROOM_UNION_PICK);
+      setStatus(UNION_ROOMS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    const storeyId = scene.ui.activeStoreyId;
+    const currentIds = scene.rooms.filter((room) => room.storeyId === storeyId).map((room) => room.id);
+    const next = startOfficialRoomUnionPick(scene.ui.activeRoomId, currentIds);
+    setUnionPick(next);
+    setStatus(
+      next.firstRoomId ? UNION_ROOMS_PICK_SECOND_STATUS : UNION_ROOMS_PICK_FIRST_STATUS
+    );
+  }
+
+  function cancelUnionRoomsPick() {
+    if (!unionPick.active) return;
+    setUnionPick(EMPTY_ROOM_UNION_PICK);
+    setStatus(UNION_ROOMS_CANCELLED_STATUS);
+  }
+
+  function onUnionRoomPick(roomId: string) {
+    const room = scene.rooms.find((r) => r.id === roomId);
+    if (!room) {
+      setStatus(UNION_ROOMS_PICK_FIRST_STATUS);
+      return;
+    }
+    const picked = applyOfficialRoomUnionPick(
+      unionPick,
+      room.id,
+      room.storeyId,
+      scene.ui.activeStoreyId
+    );
+    if (picked.selectRoomId) {
+      patchSceneUi((s) => ({
+        ...s,
+        ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+      }));
+    }
+    if (picked.kind !== "union") {
+      setUnionPick(picked.state);
+      setStatus(picked.status);
+      return;
+    }
+    endCoalesce();
+    const result = officialUnionRooms(scene, picked.keepId, picked.removeId);
+    setStatus(result.status);
+    if (result.ok) {
+      setUnionPick(EMPTY_ROOM_UNION_PICK);
+      patchScene(() => result.scene);
+      return;
+    }
+    setUnionPick(picked.state);
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -1544,6 +1615,9 @@ export function BuildingEditor({
       setCirclePickActive(false);
       setPolygonPickActive(false);
     }
+    if (workflow !== "construction") {
+      setUnionPick(EMPTY_ROOM_UNION_PICK);
+    }
   }, [workflow]);
 
   function setWorkflowMode(mode: EditorWorkflowMode) {
@@ -1722,6 +1796,9 @@ export function BuildingEditor({
           polygonPick={polygonPick}
           polygonPickActive={polygonPickActive}
           onPolygonPickChange={setPolygonPick}
+          unionPickActive={unionPickActive}
+          onUnionRoomPick={onUnionRoomPick}
+          onUnionPickCancel={cancelUnionRoomsPick}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -2102,6 +2179,23 @@ export function BuildingEditor({
               </div>
               <p className="text-[10px] text-[var(--muted)]">
                 Adds rooms from closed DXF polylines and from simple closed loops of connected lines on this storey, using the Building Room height and official new-room defaults. T-junction and shared-wall networks are not auto-traced. Scale follows the current Calibrate scale.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.unionRooms"
+                  className={`btn w-full !text-xs justify-start ${
+                    unionPickActive ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startUnionRooms}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Union rooms
+                </button>
+                <HelpTip helpKey="tool.unionRooms" />
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. Subtract, intersect, and alignment are not included. Esc cancels the pick.
               </p>
             </div>
           </div>
