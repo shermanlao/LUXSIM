@@ -104,7 +104,8 @@ export function TopView2D({
   const [movingId, setMovingId] = useState<string | null>(null);
   const [movingRoomId, setMovingRoomId] = useState<string | null>(null);
   const grabOffset = useRef({ x: 0, y: 0 });
-  const roomDragLast = useRef<Vec2 | null>(null);
+  const roomDragOrigin = useRef<Vec2 | null>(null);
+  const roomDragApplied = useRef<Vec2>({ x: 0, y: 0 });
   const calib = useRef<{ x: number; y: number } | null>(null);
   const [resolvedSource, setResolvedSource] = useState<{
     width: number;
@@ -318,6 +319,38 @@ export function TopView2D({
     setMovingId(instanceId);
   }
 
+  function endRoomDrag() {
+    setMovingRoomId(null);
+    roomDragOrigin.current = null;
+    roomDragApplied.current = { x: 0, y: 0 };
+  }
+
+  function beginRoomDrag(roomId: string, start: Vec2) {
+    roomDragOrigin.current = start;
+    roomDragApplied.current = { x: 0, y: 0 };
+    setMovingRoomId(roomId);
+    const move = (ev: MouseEvent) => {
+      const origin = roomDragOrigin.current;
+      if (!origin) return;
+      const w = toWorld(ev.clientX, ev.clientY);
+      roomDragApplied.current = applyRoomDrag(
+        onMoveRoom,
+        roomId,
+        origin,
+        roomDragApplied.current,
+        w,
+        ev.shiftKey
+      );
+    };
+    const up = () => {
+      endRoomDrag();
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   const underlayScreen =
     underlay && underlaySize
       ? {
@@ -421,17 +454,6 @@ export function TopView2D({
             setLineCursor(w);
             return;
           }
-          if (applyRoomDrag(onMoveRoom, movingRoomId, roomDragLast.current, w)) {
-            roomDragLast.current = w;
-          }
-        }}
-        onMouseUp={() => {
-          setMovingRoomId(null);
-          roomDragLast.current = null;
-        }}
-        onMouseLeave={() => {
-          setMovingRoomId(null);
-          roomDragLast.current = null;
         }}
       >
         <rect data-plan-bg="true" width={viewW} height={viewH} fill="#0f1c24" />
@@ -481,7 +503,14 @@ export function TopView2D({
               fill={active ? "rgba(31,111,139,0.25)" : "rgba(42,59,70,0.55)"}
               stroke={active ? "#c45c26" : "#8aa0ad"}
               strokeWidth={active ? 2 : 1}
-              style={{ cursor: scene.ui.tool === "select" ? "pointer" : "inherit" }}
+              style={{
+                cursor:
+                  movingRoomId === room.id
+                    ? "grabbing"
+                    : scene.ui.tool === "select"
+                      ? "grab"
+                      : "inherit",
+              }}
               onMouseDown={(e) => {
                 if (drawing || scene.ui.tool === "calibrate") return;
                 if (linePickActive && onLinePickChange) {
@@ -495,10 +524,18 @@ export function TopView2D({
                 }
                 e.stopPropagation();
                 onSelectRoom?.(room.id);
-                if (!shouldBeginRoomDrag(onMoveRoom)) return;
-                const w = toWorld(e.clientX, e.clientY);
-                roomDragLast.current = w;
-                setMovingRoomId(room.id);
+                if (
+                  !shouldBeginRoomDrag({
+                    tool: scene.ui.tool,
+                    drawing,
+                    calibrating: scene.ui.tool === "calibrate",
+                    linePickActive,
+                    onMoveRoom,
+                  })
+                ) {
+                  return;
+                }
+                beginRoomDrag(room.id, toWorld(e.clientX, e.clientY));
               }}
             />
           );

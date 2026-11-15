@@ -29,7 +29,7 @@ Examples:
 
 The PATCH response is `{ ok, updatedAt }` — it does not echo the full project (GET still returns the full document).
 
-Rooms cannot be dragged; only fixtures move with the pointer.
+Dragging a room with Select writes `{ scene }` only, like moving a fixture: the room polygon and that room's fixtures move together. Calculation results are left in place until the user recalculates.
 
 ## Code
 

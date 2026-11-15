@@ -193,6 +193,8 @@ export {
   resolveOfficialNewRoomHeightM,
 } from "./official-room-height";
 
+export { officialTranslateRoom, translatePlanPoint } from "./official-room-translate";
+
 export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,

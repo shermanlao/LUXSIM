@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房，以及直線排列的端點點選，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, and how to pick Line array endpoints, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, and how to pick Line array endpoints, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -16,7 +16,7 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 - 雙擊圖面空白處，會回到預設的置中適合視野。
 - 切換樓層時，視野也會回到這個預設。
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
-- 目前不能用拖曳來平移圖面。
+- 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
 
 On the **Top** or **Bottom** view:
@@ -25,7 +25,7 @@ On the **Top** or **Bottom** view:
 - Double-click an empty area of the plan to return to the default centred fit.
 - Switching storeys also resets the view to that default fit.
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
-- Click-and-drag panning is not available yet.
+- Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
@@ -45,11 +45,11 @@ When zoomed in, the plan shows the hint *double-click empty area to reset*.
 
 If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan.
 
-房間建立後不能拖移位置，請在預定位置畫出。燈具可用 **Select / move** 拖移。
+房間建立後，可在 **Select** 工具下於 **Top** 或 **Bottom** 平面圖拖移該房的填色範圍，把整個多邊形平移到新位置。矩形、L 形或不規則形狀都適用，形狀不變。該房內的燈具會一併移動，其他房間與樓層標高／層高不變。按住 **Shift** 可限制為水平或垂直移動。這次移動可用 **Ctrl+Z** 撤銷。單一燈具仍可用 **Select / move** 單獨拖移。
 
 在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room** 或 **Create rectangle** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
 
-矩形房間：在工具列輸入 **Length** 和 **Width**（毫米，或加 `m` / `cm` 後綴）後建立，房間會放在樓層原點 `(0, 0)`。高度取自 **Room height**。
+矩形房間：在工具列輸入 **Length** 和 **Width**（毫米，或加 `m` / `cm` 後綴）後建立，房間會放在樓層原點 `(0, 0)`。高度取自 **Room height**。建立後可用 **Select** 拖移到圖則位置。
 
 On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
 
@@ -60,11 +60,11 @@ On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
 5. If a length is typed and locked, one **Backspace** clears that whole length. The next **Backspace** removes the last corner.
 6. **Esc** cancels the draft while you are drawing. It does not exit the browser’s fullscreen view. When you are not drawing, **Esc** can still exit fullscreen.
 
-Rooms cannot be dragged after they are created, so draw them in the intended place. Use **Select / move** to drag fixtures.
+After a room is created, choose the **Select** tool and drag the room fill on the **Top** or **Bottom** plan to move the whole polygon (rectangle, L-shape, or irregular) without changing its shape. Fixtures that belong to that room move with it. Other rooms and the storey's elevation / height stay as they are. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the move. Use **Select / move** to drag a single fixture on its own.
 
 Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room** or **Create rectangle**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
 
-For a simple rectangle, enter **Length** and **Width** in millimetres (or with an `m` / `cm` suffix). The room is placed at the storey origin `(0, 0)`. Height comes from **Room height**.
+For a simple rectangle, enter **Length** and **Width** in millimetres (or with an `m` / `cm` suffix). The room is placed at the storey origin `(0, 0)`. Height comes from **Room height**. After creation, drag it with **Select** if you need to place it on the plan.
 
 ## 樓層標高與層高 / Storey elevation and height
 

@@ -72,6 +72,14 @@ describe("user guide", () => {
     expect(guide).toMatch(/不必開 Fullscreen/);
     expect(guide).toMatch(/2D and 3D canvas stays fully visible/);
     expect(guide).toMatch(/2D／3D 畫布會留在視窗內完整可見/);
+    expect(guide).toMatch(/drag the room fill/);
+    expect(guide).toMatch(/拖移該房的填色範圍/);
+    expect(guide).toMatch(/Fixtures that belong to that room move with it/);
+    expect(guide).toMatch(/該房內的燈具會一併移動/);
+    expect(guide).toMatch(/without changing its shape/);
+    expect(guide).toMatch(/形狀不變/);
+    expect(guide).not.toMatch(/cannot be dragged/i);
+    expect(guide).not.toMatch(/不能拖移/);
   });
 
   it("parses the main headings", () => {
@@ -103,6 +111,14 @@ describe("user guide", () => {
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toMatch(/Esc cancels/);
     expect(tips).toMatch(/Backspace clears the typed length in one press, then removes the last corner/);
+  });
+
+  it("keeps the rectangle tip in sync with room drag", () => {
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.drawRect"');
+    expect(tips).toMatch(/use Select to drag the room on the Top plan/);
+    expect(tips).toMatch(/fixtures in that room follow/);
+    expect(tips).not.toMatch(/cannot be dragged/i);
   });
 
   it("keeps the Line array tip in sync with click-to-pick and disabled Spacing Y", () => {

@@ -1,27 +1,66 @@
-/** Rooms can be selected, but they must never be translated with the pointer. */
-export const ROOM_DRAG_ENABLED = false;
+/** Official Select-tool room translation is enabled on the Top plan. */
+export const ROOM_DRAG_ENABLED = true;
 
 export type MoveRoomHandler = (roomId: string, dx: number, dy: number) => void;
 
+export type RoomDragBeginInput = {
+  tool?: string | null;
+  drawing?: boolean;
+  calibrating?: boolean;
+  linePickActive?: boolean;
+  onMoveRoom?: MoveRoomHandler;
+};
+
 /**
- * Apply a room-polygon drag. Always a no-op so a leftover onMoveRoom handler
- * cannot start moving rooms if it is wired up again by mistake.
+ * Begin a room drag only with the official Select tool, a move handler, and
+ * no active Draw room draft, calibrate click, or mid Line-array pick.
+ */
+export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
+  return (
+    ROOM_DRAG_ENABLED &&
+    typeof input.onMoveRoom === "function" &&
+    input.tool === "select" &&
+    !input.drawing &&
+    !input.calibrating &&
+    !input.linePickActive
+  );
+}
+
+/**
+ * World-XY translation from the drag origin to the current pointer.
+ * When Shift is held, snap to the dominant axis (same idea as Draw room ortho).
+ */
+export function roomDragDelta(
+  origin: { x: number; y: number },
+  current: { x: number; y: number },
+  shiftKey = false
+): { x: number; y: number } {
+  let dx = current.x - origin.x;
+  let dy = current.y - origin.y;
+  if (shiftKey) {
+    if (Math.abs(dx) >= Math.abs(dy)) dy = 0;
+    else dx = 0;
+  }
+  return { x: dx, y: dy };
+}
+
+/**
+ * Apply the incremental translation since the last applied total, so a live
+ * drag can stay snapped to the origin while Shift is held.
  */
 export function applyRoomDrag(
   onMoveRoom: MoveRoomHandler | undefined,
   movingRoomId: string | null,
-  last: { x: number; y: number } | null,
-  next: { x: number; y: number }
-): boolean {
-  if (!ROOM_DRAG_ENABLED) return false;
-  if (!onMoveRoom || !movingRoomId || !last) return false;
-  const dx = next.x - last.x;
-  const dy = next.y - last.y;
-  if (dx === 0 && dy === 0) return false;
+  origin: { x: number; y: number } | null,
+  applied: { x: number; y: number },
+  next: { x: number; y: number },
+  shiftKey = false
+): { x: number; y: number } {
+  if (!ROOM_DRAG_ENABLED || !onMoveRoom || !movingRoomId || !origin) return applied;
+  const total = roomDragDelta(origin, next, shiftKey);
+  const dx = total.x - applied.x;
+  const dy = total.y - applied.y;
+  if (dx === 0 && dy === 0) return applied;
   onMoveRoom(movingRoomId, dx, dy);
-  return true;
-}
-
-export function shouldBeginRoomDrag(onMoveRoom?: MoveRoomHandler): boolean {
-  return ROOM_DRAG_ENABLED && typeof onMoveRoom === "function";
+  return total;
 }
