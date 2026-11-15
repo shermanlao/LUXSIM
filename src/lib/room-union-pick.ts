@@ -1,13 +1,29 @@
 import {
+  SUBTRACT_ROOMS_PICK_FIRST_STATUS,
+  SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+  SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
+  SUBTRACT_ROOMS_REFUSE_STOREY_STATUS,
   UNION_ROOMS_PICK_FIRST_STATUS,
   UNION_ROOMS_PICK_SECOND_STATUS,
   UNION_ROOMS_REFUSE_SAME_STATUS,
   UNION_ROOMS_REFUSE_STOREY_STATUS,
 } from "@luxsim/project-io";
 
+export type OfficialTwoRoomPickKind = "union" | "subtract";
+
 export type RoomUnionPickState = {
   active: boolean;
   firstRoomId: string | null;
+};
+
+export type OfficialTwoRoomPickState = RoomUnionPickState & {
+  kind: OfficialTwoRoomPickKind;
+};
+
+export const EMPTY_OFFICIAL_TWO_ROOM_PICK: OfficialTwoRoomPickState = {
+  active: false,
+  firstRoomId: null,
+  kind: "union",
 };
 
 export const EMPTY_ROOM_UNION_PICK: RoomUnionPickState = {
@@ -104,3 +120,140 @@ export function applyOfficialRoomUnionPick(
     selectRoomId: state.firstRoomId,
   };
 }
+
+type TwoRoomPickCopy = {
+  pickFirst: string;
+  pickSecond: string;
+  refuseSame: string;
+  refuseStorey: string;
+};
+
+const SUBTRACT_PICK_COPY: TwoRoomPickCopy = {
+  pickFirst: SUBTRACT_ROOMS_PICK_FIRST_STATUS,
+  pickSecond: SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+  refuseSame: SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
+  refuseStorey: SUBTRACT_ROOMS_REFUSE_STOREY_STATUS,
+};
+
+export function startOfficialRoomSubtractPick(
+  selectedRoomId: string | null,
+  currentStoreyRoomIds: string[]
+): RoomUnionPickState {
+  return startOfficialRoomUnionPick(selectedRoomId, currentStoreyRoomIds);
+}
+
+export function subtractRoomsPickHint(state: RoomUnionPickState): string {
+  if (!state.active) return "";
+  return state.firstRoomId
+    ? SUBTRACT_ROOMS_PICK_SECOND_STATUS
+    : SUBTRACT_ROOMS_PICK_FIRST_STATUS;
+}
+
+export type OfficialRoomSubtractPickResult =
+  | {
+      kind: "status";
+      state: RoomUnionPickState;
+      status: string;
+      selectRoomId?: string;
+    }
+  | {
+      kind: "subtract";
+      state: RoomUnionPickState;
+      status: string;
+      keepId: string;
+      cutterId: string;
+      selectRoomId?: string;
+    };
+
+/**
+ * Same official two-step pick as Union rooms: the first room is kept and
+ * cut, the second is the cutter. Rooms on another storey are refused. Esc
+ * cancels via roomUnionPickEscapeAction.
+ */
+export function applyOfficialRoomSubtractPick(
+  state: RoomUnionPickState,
+  roomId: string,
+  roomStoreyId: string,
+  currentStoreyId: string
+): OfficialRoomSubtractPickResult {
+  const picked = applyOfficialTwoRoomPick(
+    state,
+    roomId,
+    roomStoreyId,
+    currentStoreyId,
+    SUBTRACT_PICK_COPY
+  );
+  if (picked.kind === "ready") {
+    return {
+      kind: "subtract",
+      state: picked.state,
+      status: picked.status,
+      keepId: picked.keepId,
+      cutterId: picked.removeId,
+      selectRoomId: picked.selectRoomId,
+    };
+  }
+  return picked;
+}
+
+function applyOfficialTwoRoomPick(
+  state: RoomUnionPickState,
+  roomId: string,
+  roomStoreyId: string,
+  currentStoreyId: string,
+  copy: TwoRoomPickCopy
+):
+  | {
+      kind: "status";
+      state: RoomUnionPickState;
+      status: string;
+      selectRoomId?: string;
+    }
+  | {
+      kind: "ready";
+      state: RoomUnionPickState;
+      status: string;
+      keepId: string;
+      removeId: string;
+      selectRoomId?: string;
+    } {
+  if (!state.active) {
+    return {
+      kind: "status",
+      state,
+      status: copy.pickFirst,
+    };
+  }
+  if (roomStoreyId !== currentStoreyId) {
+    return {
+      kind: "status",
+      state,
+      status: copy.refuseStorey,
+    };
+  }
+  if (!state.firstRoomId) {
+    return {
+      kind: "status",
+      state: { active: true, firstRoomId: roomId },
+      status: copy.pickSecond,
+      selectRoomId: roomId,
+    };
+  }
+  if (roomId === state.firstRoomId) {
+    return {
+      kind: "status",
+      state,
+      status: copy.refuseSame,
+    };
+  }
+  return {
+    kind: "ready",
+    state,
+    status: copy.pickSecond,
+    keepId: state.firstRoomId,
+    removeId: roomId,
+    selectRoomId: state.firstRoomId,
+  };
+}
+
+

@@ -312,7 +312,13 @@ function inUnionInclusive(p: Vec2, a: Vec2[], b: Vec2[]): boolean {
   return officialPointInPolygonInclusive(p, a) || officialPointInPolygonInclusive(p, b);
 }
 
-function unionBoundaryFragments(A: Vec2[], B: Vec2[]): Frag[] {
+export type OfficialBooleanInResultFn = (p: Vec2, a: Vec2[], b: Vec2[]) => boolean;
+
+function booleanBoundaryFragments(
+  A: Vec2[],
+  B: Vec2[],
+  inResult: OfficialBooleanInResultFn
+): Frag[] {
   const cutsA: Vec2[][] = A.map(() => []);
   const cutsB: Vec2[][] = B.map(() => []);
   const pool: Vec2[] = [...A, ...B].map(clonePt);
@@ -367,8 +373,8 @@ function unionBoundaryFragments(A: Vec2[], B: Vec2[]): Frag[] {
     if (!(off > 0)) continue;
     const left = { x: mid.x + n.x * off, y: mid.y + n.y * off };
     const right = { x: mid.x - n.x * off, y: mid.y - n.y * off };
-    const leftIn = inUnionInclusive(left, A, B);
-    const rightIn = inUnionInclusive(right, A, B);
+    const leftIn = inResult(left, A, B);
+    const rightIn = inResult(right, A, B);
     if (leftIn === rightIn) continue;
     const oriented = leftIn ? frag : { a: clonePt(frag.b), b: clonePt(frag.a) };
     const key = fragmentKey(oriented.a, oriented.b);
@@ -377,6 +383,34 @@ function unionBoundaryFragments(A: Vec2[], B: Vec2[]): Frag[] {
     kept.push(oriented);
   }
   return kept;
+}
+
+function unionBoundaryFragments(A: Vec2[], B: Vec2[]): Frag[] {
+  return booleanBoundaryFragments(A, B, inUnionInclusive);
+}
+
+/**
+ * Split and stitch boundary fragments of two official simple rings
+ * according to an interior predicate. Rings are returned raw (not
+ * collapsed). Shared by official union and subtract.
+ */
+export function officialBooleanStitchedRings(
+  a: Vec2[],
+  b: Vec2[],
+  inResult: OfficialBooleanInResultFn
+): { ok: true; rings: Vec2[][] } | { ok: false; reason: "degenerate-vertices" | "invalid" } {
+  const A = ensureCcw(ringOf(a));
+  const B = ensureCcw(ringOf(b));
+  if (A.length < 3 || B.length < 3) return { ok: false, reason: "degenerate-vertices" };
+  const frags = booleanBoundaryFragments(A, B, inResult);
+  if (frags.length < 3) return { ok: false, reason: "invalid" };
+  const stitched = stitchRings(frags);
+  if (!stitched) return { ok: false, reason: "invalid" };
+  return { ok: true, rings: stitched };
+}
+
+export function officialCollapseBooleanRing(ring: Vec2[]): Vec2[] {
+  return ensureCcw(collapseColinear(ring));
 }
 
 function fragmentKey(a: Vec2, b: Vec2): string {

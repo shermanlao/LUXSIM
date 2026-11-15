@@ -262,12 +262,36 @@ describe("user guide", () => {
     expect(guide).toMatch(/合併結果會形成洞/);
     expect(guide).toMatch(/reassigned to the surviving room/);
     expect(guide).toMatch(/改歸保留房間/);
-    expect(guide).toMatch(/Subtract, intersect, and alignment are not included/);
-    expect(guide).toMatch(/此增量不包括差集、交集或對齊/);
+    expect(guide).toMatch(/Intersect, XOR, and alignment are not included/);
+    expect(guide).toMatch(/交集、XOR 或對齊不包括在內/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "tool.unionRooms"');
     expect(tips).toMatch(/first \(surviving\) room/);
-    expect(tips).toMatch(/Subtract, intersect, and alignment are not included/);
+    expect(tips).toMatch(/Intersect, XOR, and alignment are not included/);
+  });
+
+  it("documents Subtract rooms for cutting one room by another on the same storey", () => {
+    expect(guide).toMatch(/use \*\*Subtract rooms\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Subtract rooms\*\*/);
+    expect(guide).toMatch(/first \(kept\) room/);
+    expect(guide).toMatch(/作為保留並被切割的第一間/);
+    expect(guide).toMatch(/The cutter room stays in place and is not deleted/);
+    expect(guide).toMatch(/切割器房間會留在原位，不會被刪除/);
+    expect(guide).toMatch(/do not overlap in area \(edge-touch or disjoint is not a cut\)/);
+    expect(guide).toMatch(/面積沒有重疊（只沿邊相觸或完全不相接不算切割）/);
+    expect(guide).toMatch(/would split into two or more disjoint pieces/);
+    expect(guide).toMatch(/裂成兩塊或以上互不相連的部分/);
+    expect(guide).toMatch(/would contain a hole/);
+    expect(guide).toMatch(/形成洞/);
+    expect(guide).toMatch(/no longer lie in the cut outline are unassigned/);
+    expect(guide).toMatch(/已不在切割後輪廓內的燈具會取消房間歸屬/);
+    expect(guide).toMatch(/Intersect, XOR, and alignment are not included/);
+    expect(guide).toMatch(/此增量不包括交集、XOR 或對齊/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.subtractRooms"');
+    expect(tips).toMatch(/cutter stays in place and is not deleted/);
+    expect(tips).toMatch(/would split into two or more pieces/);
+    expect(tips).toMatch(/would contain a hole/);
   });
 
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {

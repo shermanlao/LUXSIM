@@ -123,8 +123,9 @@ type Props = {
   polygonPick?: PolygonPathPickState;
   polygonPickActive?: boolean;
   onPolygonPickChange?: (next: PolygonPathPickState) => void;
-  /** Official Union rooms two-step pick (Select idle). */
+  /** Official Union / Subtract rooms two-step pick (Select idle). */
   unionPickActive?: boolean;
+  unionPickMode?: "union" | "subtract";
   onUnionRoomPick?: (roomId: string) => void;
   onUnionPickCancel?: () => void;
   /** Calculation results for the plan isolux / value-label overlay. */
@@ -171,6 +172,7 @@ export function TopView2D({
   polygonPickActive = false,
   onPolygonPickChange,
   unionPickActive = false,
+  unionPickMode = "union",
   onUnionRoomPick,
   onUnionPickCancel,
   results = null,
@@ -1594,7 +1596,9 @@ export function TopView2D({
         {unionPickActive && (
           <>
             {" "}
-            · click a room to union · Esc cancels
+            {unionPickMode === "subtract"
+              ? "· click a room to subtract · Esc cancels"
+              : "· click a room to union · Esc cancels"}
           </>
         )}
         {linePickActive && (

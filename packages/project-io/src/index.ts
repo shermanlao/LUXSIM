@@ -301,6 +301,32 @@ export type {
 } from "./official-room-union";
 
 export {
+  SUBTRACT_ROOMS_CANCELLED_STATUS,
+  SUBTRACT_ROOMS_PICK_FIRST_STATUS,
+  SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+  SUBTRACT_ROOMS_REFUSE_AREA_STATUS,
+  SUBTRACT_ROOMS_REFUSE_CROSS_STATUS,
+  SUBTRACT_ROOMS_REFUSE_DISJOINT_STATUS,
+  SUBTRACT_ROOMS_REFUSE_EMPTY_STATUS,
+  SUBTRACT_ROOMS_REFUSE_HOLE_STATUS,
+  SUBTRACT_ROOMS_REFUSE_INVALID_STATUS,
+  SUBTRACT_ROOMS_REFUSE_MISSING_STATUS,
+  SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
+  SUBTRACT_ROOMS_REFUSE_SPLIT_STATUS,
+  SUBTRACT_ROOMS_REFUSE_STOREY_STATUS,
+  SUBTRACT_ROOMS_REFUSE_VERTICES_STATUS,
+  formatSubtractRoomsSuccessStatus,
+  officialPointInSubtractInclusive,
+  officialSubtractRooms,
+  subtractOfficialRoomPolygons,
+} from "./official-room-subtract";
+export type {
+  OfficialPolygonSubtractResult,
+  OfficialSubtractRoomsReason,
+  OfficialSubtractRoomsResult,
+} from "./official-room-subtract";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

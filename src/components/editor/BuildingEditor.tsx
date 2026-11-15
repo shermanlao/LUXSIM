@@ -22,9 +22,13 @@ import {
   officialTranslateStorey,
   officialSetRoomPolygon,
   officialUnionRooms,
+  officialSubtractRooms,
   UNION_ROOMS_CANCELLED_STATUS,
   UNION_ROOMS_PICK_FIRST_STATUS,
   UNION_ROOMS_PICK_SECOND_STATUS,
+  SUBTRACT_ROOMS_CANCELLED_STATUS,
+  SUBTRACT_ROOMS_PICK_FIRST_STATUS,
+  SUBTRACT_ROOMS_PICK_SECOND_STATUS,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -89,10 +93,12 @@ import { EMPTY_LINE_PICK, type LinePickState } from "@/lib/line-array-pick";
 import { EMPTY_CIRCLE_PICK, type CirclePickState } from "@/lib/circle-array-pick";
 import { EMPTY_POLYGON_PATH_PICK, type PolygonPathPickState } from "@/lib/polygon-array-pick";
 import {
-  EMPTY_ROOM_UNION_PICK,
+  EMPTY_OFFICIAL_TWO_ROOM_PICK,
+  applyOfficialRoomSubtractPick,
   applyOfficialRoomUnionPick,
+  startOfficialRoomSubtractPick,
   startOfficialRoomUnionPick,
-  type RoomUnionPickState,
+  type OfficialTwoRoomPickState,
 } from "@/lib/room-union-pick";
 import {
   formatArrayApplyStatus,
@@ -269,8 +275,11 @@ export function BuildingEditor({
   const [circlePickActive, setCirclePickActive] = useState(false);
   const [polygonPick, setPolygonPick] = useState<PolygonPathPickState>(EMPTY_POLYGON_PATH_PICK);
   const [polygonPickActive, setPolygonPickActive] = useState(false);
-  const [unionPick, setUnionPick] = useState<RoomUnionPickState>(EMPTY_ROOM_UNION_PICK);
-  const unionPickActive = unionPick.active;
+  const [booleanPick, setBooleanPick] = useState<OfficialTwoRoomPickState>(
+    EMPTY_OFFICIAL_TWO_ROOM_PICK
+  );
+  const unionPickActive = booleanPick.active;
+  const unionPickMode = booleanPick.active ? booleanPick.kind : undefined;
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -700,8 +709,8 @@ export function BuildingEditor({
 
   function selectEditorTool(tool: ProjectSceneV2["ui"]["tool"]) {
     if (tool === "drawRoom" && refuseUncalibratedDrawRoom()) return;
-    if (unionPick.active && tool !== "select") {
-      setUnionPick(EMPTY_ROOM_UNION_PICK);
+    if (booleanPick.active && tool !== "select") {
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     }
     patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }));
   }
@@ -741,36 +750,90 @@ export function BuildingEditor({
     }
   }
 
+  function currentStoreyRoomIds(): string[] {
+    const storeyId = scene.ui.activeStoreyId;
+    return scene.rooms.filter((room) => room.storeyId === storeyId).map((room) => room.id);
+  }
+
   function startUnionRooms() {
-    if (unionPick.active) {
-      setUnionPick(EMPTY_ROOM_UNION_PICK);
+    if (booleanPick.active && booleanPick.kind === "union") {
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(UNION_ROOMS_CANCELLED_STATUS);
       return;
     }
     selectEditorTool("select");
-    const storeyId = scene.ui.activeStoreyId;
-    const currentIds = scene.rooms.filter((room) => room.storeyId === storeyId).map((room) => room.id);
-    const next = startOfficialRoomUnionPick(scene.ui.activeRoomId, currentIds);
-    setUnionPick(next);
+    const next = startOfficialRoomUnionPick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    setBooleanPick({ ...next, kind: "union" });
     setStatus(
       next.firstRoomId ? UNION_ROOMS_PICK_SECOND_STATUS : UNION_ROOMS_PICK_FIRST_STATUS
     );
   }
 
+  function startSubtractRooms() {
+    if (booleanPick.active && booleanPick.kind === "subtract") {
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+      setStatus(SUBTRACT_ROOMS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    const next = startOfficialRoomSubtractPick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    setBooleanPick({ ...next, kind: "subtract" });
+    setStatus(
+      next.firstRoomId ? SUBTRACT_ROOMS_PICK_SECOND_STATUS : SUBTRACT_ROOMS_PICK_FIRST_STATUS
+    );
+  }
+
   function cancelUnionRoomsPick() {
-    if (!unionPick.active) return;
-    setUnionPick(EMPTY_ROOM_UNION_PICK);
-    setStatus(UNION_ROOMS_CANCELLED_STATUS);
+    if (!booleanPick.active) return;
+    const cancelled =
+      booleanPick.kind === "subtract"
+        ? SUBTRACT_ROOMS_CANCELLED_STATUS
+        : UNION_ROOMS_CANCELLED_STATUS;
+    setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+    setStatus(cancelled);
   }
 
   function onUnionRoomPick(roomId: string) {
     const room = scene.rooms.find((r) => r.id === roomId);
     if (!room) {
-      setStatus(UNION_ROOMS_PICK_FIRST_STATUS);
+      setStatus(
+        booleanPick.kind === "subtract"
+          ? SUBTRACT_ROOMS_PICK_FIRST_STATUS
+          : UNION_ROOMS_PICK_FIRST_STATUS
+      );
+      return;
+    }
+    if (booleanPick.kind === "subtract") {
+      const picked = applyOfficialRoomSubtractPick(
+        booleanPick,
+        room.id,
+        room.storeyId,
+        scene.ui.activeStoreyId
+      );
+      if (picked.selectRoomId) {
+        patchSceneUi((s) => ({
+          ...s,
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+        }));
+      }
+      if (picked.kind !== "subtract") {
+        setBooleanPick({ ...picked.state, kind: "subtract" });
+        setStatus(picked.status);
+        return;
+      }
+      endCoalesce();
+      const result = officialSubtractRooms(scene, picked.keepId, picked.cutterId);
+      setStatus(result.status);
+      if (result.ok) {
+        setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+        patchScene(() => result.scene);
+        return;
+      }
+      setBooleanPick({ ...picked.state, kind: "subtract" });
       return;
     }
     const picked = applyOfficialRoomUnionPick(
-      unionPick,
+      booleanPick,
       room.id,
       room.storeyId,
       scene.ui.activeStoreyId
@@ -782,7 +845,7 @@ export function BuildingEditor({
       }));
     }
     if (picked.kind !== "union") {
-      setUnionPick(picked.state);
+      setBooleanPick({ ...picked.state, kind: "union" });
       setStatus(picked.status);
       return;
     }
@@ -790,11 +853,11 @@ export function BuildingEditor({
     const result = officialUnionRooms(scene, picked.keepId, picked.removeId);
     setStatus(result.status);
     if (result.ok) {
-      setUnionPick(EMPTY_ROOM_UNION_PICK);
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       patchScene(() => result.scene);
       return;
     }
-    setUnionPick(picked.state);
+    setBooleanPick({ ...picked.state, kind: "union" });
   }
 
   async function onUploadPhotometry(file: File | null) {
@@ -1616,7 +1679,7 @@ export function BuildingEditor({
       setPolygonPickActive(false);
     }
     if (workflow !== "construction") {
-      setUnionPick(EMPTY_ROOM_UNION_PICK);
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     }
   }, [workflow]);
 
@@ -1797,6 +1860,7 @@ export function BuildingEditor({
           polygonPickActive={polygonPickActive}
           onPolygonPickChange={setPolygonPick}
           unionPickActive={unionPickActive}
+          unionPickMode={unionPickMode}
           onUnionRoomPick={onUnionRoomPick}
           onUnionPickCancel={cancelUnionRoomsPick}
           rcpProposals={scene.rcpProposals ?? []}
@@ -2185,7 +2249,7 @@ export function BuildingEditor({
                   type="button"
                   data-help-key="tool.unionRooms"
                   className={`btn w-full !text-xs justify-start ${
-                    unionPickActive ? "btn-accent" : "btn-secondary"
+                    booleanPick.active && booleanPick.kind === "union" ? "btn-accent" : "btn-secondary"
                   }`}
                   onClick={startUnionRooms}
                 >
@@ -2195,7 +2259,24 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.unionRooms" />
               </div>
               <p className="text-[10px] text-[var(--muted)]">
-                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. Subtract, intersect, and alignment are not included. Esc cancels the pick.
+                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. Intersect, XOR, and alignment are not included. Esc cancels the pick.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.subtractRooms"
+                  className={`btn w-full !text-xs justify-start ${
+                    booleanPick.active && booleanPick.kind === "subtract" ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startSubtractRooms}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Subtract rooms
+                </button>
+                <HelpTip helpKey="tool.subtractRooms" />
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Cuts the first room on this storey by the second (the cutter). The first room keeps its name, maintenance factor, and other properties; the cutter stays in place. The result must be a single simple outline. Intersect, XOR, and alignment are not included. Esc cancels the pick.
               </p>
             </div>
           </div>

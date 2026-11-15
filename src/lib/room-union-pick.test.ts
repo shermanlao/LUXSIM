@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
+  SUBTRACT_ROOMS_PICK_FIRST_STATUS,
+  SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+  SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
+  SUBTRACT_ROOMS_REFUSE_STOREY_STATUS,
   UNION_ROOMS_PICK_FIRST_STATUS,
   UNION_ROOMS_PICK_SECOND_STATUS,
   UNION_ROOMS_REFUSE_SAME_STATUS,
@@ -7,9 +11,12 @@ import {
 } from "@luxsim/project-io";
 import {
   EMPTY_ROOM_UNION_PICK,
+  applyOfficialRoomSubtractPick,
   applyOfficialRoomUnionPick,
   roomUnionPickEscapeAction,
+  startOfficialRoomSubtractPick,
   startOfficialRoomUnionPick,
+  subtractRoomsPickHint,
   unionRoomsPickHint,
 } from "./room-union-pick";
 
@@ -82,3 +89,74 @@ describe("official Union rooms pick", () => {
     });
   });
 });
+
+describe("official Subtract rooms pick", () => {
+  it("uses a selected room on the current storey as the first (kept) room", () => {
+    const started = startOfficialRoomSubtractPick("keep", ["keep", "cutter"]);
+    expect(started).toEqual({ active: true, firstRoomId: "keep" });
+    expect(subtractRoomsPickHint(started)).toBe(SUBTRACT_ROOMS_PICK_SECOND_STATUS);
+  });
+
+  it("starts with no first room when nothing on this storey is selected", () => {
+    const started = startOfficialRoomSubtractPick("other", ["keep", "cutter"]);
+    expect(started).toEqual({ active: true, firstRoomId: null });
+    expect(subtractRoomsPickHint(started)).toBe(SUBTRACT_ROOMS_PICK_FIRST_STATUS);
+    expect(roomUnionPickEscapeAction(started)).toBe("cancel-in-progress");
+    expect(roomUnionPickEscapeAction(EMPTY_ROOM_UNION_PICK)).toBe("pass");
+  });
+
+  it("picks the first room, then asks for a cutter, and refuses another storey or the same room", () => {
+    const first = applyOfficialRoomSubtractPick(
+      { active: true, firstRoomId: null },
+      "keep",
+      "s1",
+      "s1"
+    );
+    expect(first).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+      selectRoomId: "keep",
+    });
+
+    const storey = applyOfficialRoomSubtractPick(
+      { active: true, firstRoomId: "keep" },
+      "cutter",
+      "s2",
+      "s1"
+    );
+    expect(storey).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: SUBTRACT_ROOMS_REFUSE_STOREY_STATUS,
+    });
+
+    const same = applyOfficialRoomSubtractPick(
+      { active: true, firstRoomId: "keep" },
+      "keep",
+      "s1",
+      "s1"
+    );
+    expect(same).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
+    });
+
+    const ready = applyOfficialRoomSubtractPick(
+      { active: true, firstRoomId: "keep" },
+      "cutter",
+      "s1",
+      "s1"
+    );
+    expect(ready).toEqual({
+      kind: "subtract",
+      state: { active: true, firstRoomId: "keep" },
+      status: SUBTRACT_ROOMS_PICK_SECOND_STATUS,
+      keepId: "keep",
+      cutterId: "cutter",
+      selectRoomId: "keep",
+    });
+  });
+});
+
