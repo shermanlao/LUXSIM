@@ -440,6 +440,7 @@ describe("false-colour exterior facing and scale", () => {
     expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
     expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeGreaterThanOrEqual(0.9);
     expect(wallShellOpacity("greyscale")).toBeLessThan(FALSE_COLOR_WALL_SHELL_OPACITY);
+    expect(wallShellOpacity("isolines")).toBe(wallShellOpacity("greyscale"));
   });
 });
 

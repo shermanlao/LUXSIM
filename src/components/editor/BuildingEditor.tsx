@@ -1604,6 +1604,16 @@ export function BuildingEditor({
                 ui: { ...s.ui, display3d: mode },
               }))
             }
+            showIsolines
+            isolinesEnabled={planIsoluxControls.enabled}
+            isolinesReason={planIsoluxControls.reason}
+            showValueLabels={planValueLabels}
+            onShowValueLabelsChange={(show) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, planValueLabels: show },
+              }))
+            }
           />
         </div>
       )}
@@ -1741,6 +1751,7 @@ export function BuildingEditor({
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
           falseColorScale={scale}
+          showValueLabels={planValueLabels}
         />
       )}
       </div>

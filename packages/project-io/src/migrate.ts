@@ -148,7 +148,7 @@ function normalizeViewMode(raw: unknown): ProjectSceneV2["ui"]["viewMode"] {
 }
 
 function normalizeDisplay3d(raw: unknown): ProjectSceneV2["ui"]["display3d"] {
-  if (raw === "greyscale" || raw === "falsecolor") return raw;
+  if (raw === "greyscale" || raw === "falsecolor" || raw === "isolines") return raw;
   return "greyscale";
 }
 

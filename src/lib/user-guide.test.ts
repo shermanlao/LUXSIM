@@ -206,12 +206,14 @@ describe("user guide", () => {
     expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
   });
 
-  it("documents isolines and value labels on the plan and in the official PDF", () => {
+  it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);
     expect(guide).toMatch(/切換 \*\*False colour\*\*（偽色）和 \*\*Isolines\*\*（等照度線）/);
     expect(guide).toMatch(/tick \*\*Value labels\*/);
     expect(guide).toMatch(/勾選 \*\*Value labels\*\*（數值圖）/);
+    expect(guide).toMatch(/On the \*\*3D\*\* view/);
+    expect(guide).toMatch(/在 \*\*3D\*\* 視圖/);
     expect(guide).toMatch(/do not invent numbers/);
     expect(guide).toMatch(/不會發明數字/);
     expect(guide).toMatch(/run \*\*Calculate\*\* first/);
@@ -219,6 +221,8 @@ describe("user guide", () => {
     expect(guide).toMatch(/Full PDF report/);
     expect(guide).toMatch(/if 3D views cannot be captured/);
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
+    expect(guide).toMatch(/does not add a separate 3D-isoline chapter/);
+    expect(guide).toMatch(/不會另增一章 3D 等照度線/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "view.planIsolux"');
     expect(tips).toContain("PLAN_ISOLUX_HINT");

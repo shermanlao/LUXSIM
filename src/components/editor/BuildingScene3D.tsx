@@ -20,6 +20,7 @@ import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
 import { PlanUnderlay3D } from "./PlanUnderlay3D";
 import { LuminaireBodyMesh } from "./LuminaireBody";
+import { Scene3dIsoluxOverlay } from "./Scene3dIsoluxOverlay";
 import {
   EDITOR_BG,
   createCeilingGeometry,
@@ -28,6 +29,7 @@ import {
   setMirroredFrontFace,
   wallShellOpacity,
 } from "@/lib/scene-3d-model";
+import { planToThree } from "@/lib/scene-3d-isolux";
 
 function MirroredFrontFace() {
   const gl = useThree((s) => s.gl);
@@ -39,10 +41,6 @@ function MirroredFrontFace() {
     };
   }, [gl]);
   return null;
-}
-
-function toThree(x: number, y: number, z: number): [number, number, number] {
-  return [x, z, y];
 }
 
 function RoomShell({
@@ -140,6 +138,7 @@ export function BuildingScene3D({
   initialView,
   photometry,
   falseColorScale,
+  showValueLabels = false,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -155,6 +154,7 @@ export function BuildingScene3D({
   initialView: Camera3dView | null;
   photometry?: Record<string, PhotometricData>;
   falseColorScale?: FalseColorScale;
+  showValueLabels?: boolean;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -270,12 +270,22 @@ export function BuildingScene3D({
             );
           })}
 
+        {display3d === "isolines" && results && (
+          <Scene3dIsoluxOverlay
+            scene={scene}
+            rooms={rooms}
+            results={results}
+            elevationM={elev}
+            showValueLabels={showValueLabels}
+          />
+        )}
+
         {instances.map((lum) => {
           const selected = lum.instanceId === selectedId;
           return (
             <group
               key={lum.instanceId}
-              position={toThree(
+              position={planToThree(
                 lum.position.x,
                 lum.position.y,
                 elev + lum.position.z

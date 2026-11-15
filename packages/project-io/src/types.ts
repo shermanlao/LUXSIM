@@ -29,8 +29,8 @@ export type ViewMode = "top" | "bottom" | "front" | "side" | "persp3d";
 
 export type { EditorWorkflowMode } from "./editor-workflow";
 
-/** In-app / report 3D presentation: clean architecture vs illuminance overlay. */
-export type Display3dMode = "greyscale" | "falsecolor";
+/** In-app / report 3D presentation: clean architecture, false-colour, or isolines. */
+export type Display3dMode = "greyscale" | "falsecolor" | "isolines";
 
 /** Three.js orbit camera pose (y-up) for persp3d restore */
 export interface Camera3dView {
@@ -186,7 +186,7 @@ export interface ProjectSceneV2 {
     workflowMode?: EditorWorkflowMode;
     /** Last 3D orbit pose; restored when opening / switching back to 3D */
     camera3d?: Camera3dView | null;
-    /** Greyscale architecture vs false-colour workplanes in the 3D view. */
+    /** Greyscale architecture, false-colour workplanes, or isolines in the 3D view. */
     display3d?: Display3dMode;
     /** False-colour vs isolines overlay on the Top/Bottom plan. */
     planIsoluxMode?: "falsecolor" | "isolines";

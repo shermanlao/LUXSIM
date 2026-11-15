@@ -20,7 +20,7 @@ Room area and LPD in the report use **true polygon area** (`roomAreaM2`), not th
 
 ## Browser export
 
-The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` and isolux / value-label figures via `collectOfficialIsoluxSnapshots` (from `buildIsoluxModel`) before calling `buildFullReportPdf`. Isolux figures are produced from the 2D model and are still passed when WebGL 3D capture is unavailable. Optional `planSnapshots` data URLs can be supplied when capture is wired up; official 3D stills use the capture helper described in the 3D-omission path.
+The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` and isolux / value-label figures via `collectOfficialIsoluxSnapshots` (from `buildIsoluxModel`) before calling `buildFullReportPdf`. Isolux figures are produced from the 2D model and are still passed when WebGL 3D capture is unavailable. Optional `planSnapshots` data URLs can be supplied when capture is wired up; official 3D stills use the capture helper described in the 3D-omission path, which still renders greyscale and false-colour pair chapters — not a separate 3D-isoline chapter. The in-app official 3D view can show isolines and value labels on the workplane from the same `buildIsoluxModel`.
 
 See also `fixtures/reference-dialux-report.pdf` and repo `CONTENT_SPEC` notes for field checklist vs official DIALux exports (no branding clone).
 

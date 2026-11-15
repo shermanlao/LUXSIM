@@ -340,6 +340,7 @@ describe("official editor and export path wiring", () => {
     expect(gap).not.toMatch(/isolines \/ value charts no/i);
     expect(gap).toMatch(/official Top\/Bottom plan/);
     expect(gap).toMatch(/official Full PDF isolux diagram/);
+    expect(gap).toMatch(/official 3D can also show isolines/);
     expect(tips).toContain('helpKey: "view.planIsolux"');
     expect(tips).toContain("PLAN_ISOLUX_HINT");
     expect(PLAN_ISOLUX_HINT).toMatch(/Full PDF report/);

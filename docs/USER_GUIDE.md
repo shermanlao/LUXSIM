@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，直線排列的端點點選、圓形排列和多邊形排列，以及計算後在平面上切換等照度線與數值圖，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，直線排列的端點點選、圓形排列和多邊形排列，以及計算後在平面與 3D 視圖切換等照度線與數值圖，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, how to place a Circular or Polygon array, and how to switch Isolines and value labels on the plan after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, how to place a Circular or Polygon array, and how to switch Isolines and value labels on the plan and in the 3D view after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -158,13 +158,13 @@ In **Light** mode, select a room in the building tree, then choose **Polygon** i
 
 ## 等照度線與數值圖 / Isolines and value labels
 
-在 **Top** 或 **Bottom** 視圖，若所選房間已有計算結果，可在圖面左上角切換 **False colour**（偽色）和 **Isolines**（等照度線），並可勾選 **Value labels**（數值圖）在工作面網格上顯示或隱藏照度數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。沒有結果的房間不會發明數字：切換會停用，並提示先執行 **Calculate**。
+在 **Top** 或 **Bottom** 視圖，若所選房間已有計算結果，可在圖面左上角切換 **False colour**（偽色）和 **Isolines**（等照度線），並可勾選 **Value labels**（數值圖）在工作面網格上顯示或隱藏照度數值。在 **3D** 視圖，可在既有的 **Greyscale**（灰階）和 **False colour** 之外切換 **Isolines**，把同一套等照度線畫在該房工作面高度上，並使用同一個 **Value labels** 開關顯示或隱藏網格數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。沒有結果的房間不會發明數字：等照度線與數值圖切換會停用，並提示先執行 **Calculate**。本產品沒有自訂等照度線預設。
 
-匯出 **Full PDF report** 時，每間已計算房間的摘要會附上工作面等照度線圖，並標上沿線數值與網格數值。即使 3D 視圖未能擷取，這些由平面模型產生的圖仍會匯出。既有的偽色工作面圖與 3D 章節維持不變。
+匯出 **Full PDF report** 時，每間已計算房間的摘要會附上工作面等照度線圖，並標上沿線數值與網格數值。即使 3D 視圖未能擷取，這些由平面模型產生的圖仍會匯出。既有的偽色工作面圖與 3D 灰階／偽色章節維持不變；報告不會另增一章 3D 等照度線，也不會拿掉既有的 2D 等照度線圖。
 
-On the **Top** or **Bottom** view, when the selected room has calculation results, use the controls at the top left of the plan to switch between **False colour** and **Isolines**, and tick **Value labels** to show or hide illuminance values on the workplane grid. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Rooms without results do not invent numbers: the controls are disabled and ask you to run **Calculate** first.
+On the **Top** or **Bottom** view, when the selected room has calculation results, use the controls at the top left of the plan to switch between **False colour** and **Isolines**, and tick **Value labels** to show or hide illuminance values on the workplane grid. On the **3D** view, **Isolines** is an additional display mode beside **Greyscale** and **False colour**. It draws the same isolines on the workplane at the room’s workplane height, and uses the same **Value labels** control to show or hide grid values. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Rooms without results do not invent numbers: the isoline and value-label controls are disabled and ask you to run **Calculate** first. There are no custom isoline presets.
 
-When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D chapters are unchanged.
+When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D greyscale / false-colour chapters are unchanged. The report does not add a separate 3D-isoline chapter, and it does not drop the existing 2D isolux snapshots.
 
 
 ## 房間屬性 / Room properties
