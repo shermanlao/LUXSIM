@@ -64,6 +64,22 @@ Set **Room height** in the **Building** panel (millimetres, default 2800) before
 
 For a simple rectangle, enter **Length** and **Width** in millimetres (or with an `m` / `cm` suffix). The room is placed at the storey origin `(0, 0)`. Height comes from **Room height**.
 
+## 樓層標高與層高 / Storey elevation and height
+
+左側 **Building** 在選取樓層後會顯示 **Elevation**（標高，單位公尺）和 **Storey height**（層高，單位公尺）。
+
+- **Elevation** 是該層樓面的高度。預設地面層（GF）為 0 m。
+- **Storey height** 是樓層與樓層之間的間距，預設 3.0 m。按 **Add storey** 時，下一層會放在「本層標高 + 層高」。因此在預設 GF 之上新增的 L1，標高為 3.0 m、層高為 3.0 m。
+- **Room height**（預設 2800 mm）是房間內部的天花板高度，與層高分開。3.0 m 與 2.8 m 之間的 0.2 m 差額留給樓板／結構，程式不會自動建出這段。
+- 改這些數值只影響目前樓層或所選房間，不會移動其他樓層或既有房間。
+
+After you select a storey, the **Building** panel shows **Elevation** (metres) and **Storey height** (metres).
+
+- **Elevation** is the floor level of that storey. The default ground floor (GF) is 0 m.
+- **Storey height** is the floor-to-floor spacing (default 3.0 m). **Add storey** places the next floor at this storey’s elevation + storey height, so L1 added above the default GF is at elevation 3.0 m with a storey height of 3.0 m.
+- **Room height** (default 2800 mm) is the ceiling inside a room, and is separate from storey height. The 0.2 m difference between 3.0 m and 2.8 m is left for the slab / structure; it is not modelled automatically.
+- Changing these values does not move other storeys or existing rooms.
+
 ## 房間屬性 / Room properties
 
 選取房間後，右側 **Properties** 會顯示：

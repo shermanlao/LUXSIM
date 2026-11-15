@@ -1,3 +1,5 @@
+import { STOREY_METRICS_EXPLANATION } from "@luxsim/project-io";
+
 export type UiTipSeed = {
   helpKey: string;
   title: string;
@@ -19,6 +21,11 @@ export const UI_TIPS: UiTipSeed[] = [
     helpKey: "tool.roomHeight",
     title: "Room height",
     body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",
+  },
+  {
+    helpKey: "tool.storeyHeight",
+    title: "Storey elevation and height",
+    body: STOREY_METRICS_EXPLANATION,
   },
   {
     helpKey: "room.maintenanceFactor",

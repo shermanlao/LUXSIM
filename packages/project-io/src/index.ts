@@ -194,6 +194,16 @@ export {
 } from "./official-room-height";
 
 export {
+  DEFAULT_STOREY_HEIGHT_M,
+  MIN_STOREY_HEIGHT_M,
+  STOREY_METRICS_EXPLANATION,
+  applyOfficialStoreyMetrics,
+  officialAppendStorey,
+  officialNewStorey,
+  officialNextStoreyElevationM,
+} from "./official-storey-metrics";
+
+export {
   buildWallChains,
   calculateRoomWalls,
   inwardNormal,

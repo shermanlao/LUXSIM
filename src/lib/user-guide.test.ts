@@ -43,6 +43,13 @@ describe("user guide", () => {
     expect(guide).toMatch(/The field stays visible when no room is selected/);
     expect(guide).toMatch(/未選房間時此欄仍可見/);
     expect(guide).toMatch(/預設 2800/);
+    expect(guide).toMatch(/Storey elevation/);
+    expect(guide).toMatch(/floor-to-floor spacing \(default 3\.0 m\)/);
+    expect(guide).toMatch(/elevation \+ storey height/);
+    expect(guide).toMatch(/0\.2 m difference/);
+    expect(guide).toMatch(/樓層標高/);
+    expect(guide).toMatch(/層高/);
+    expect(guide).toMatch(/不會移動其他樓層或既有房間/);
   });
 
   it("parses the main headings", () => {
@@ -50,6 +57,7 @@ describe("user guide", () => {
     expect(headings[0]).toMatch(/使用手冊 \/ User guide/);
     expect(headings).toContain("平面圖視野 / Plan view");
     expect(headings).toContain("畫房 / Draw room");
+    expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);

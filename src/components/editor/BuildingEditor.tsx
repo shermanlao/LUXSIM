@@ -19,6 +19,9 @@ import {
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
   DEFAULT_NEW_ROOM_HEIGHT_MM,
+  STOREY_METRICS_EXPLANATION,
+  officialAppendStorey,
+  applyOfficialStoreyMetrics,
   UNCALIBRATED_DRAW_ROOM_STATUS,
   legacyScaleToMetersPerPixel,
   mToMm,
@@ -631,20 +634,13 @@ export function BuildingEditor({
 
   function addStorey() {
     const id = nid("storey");
-    const last = scene.storeys[scene.storeys.length - 1];
-    patchScene((s) => ({
-      ...s,
-      storeys: [
-        ...s.storeys,
-        {
-          id,
-          name: `L${s.storeys.length}`,
-          elevationM: (last?.elevationM ?? 0) + (last?.heightM ?? 3),
-          heightM: 3,
-        },
-      ],
-      ui: { ...s.ui, activeStoreyId: id, activeRoomId: null },
-    }));
+    patchScene((s) => officialAppendStorey(s, { id }));
+  }
+
+  function applyStoreyMetrics(patch: { elevationM?: number; heightM?: number }) {
+    const storeyId = activeStorey?.id;
+    if (!storeyId) return;
+    patchScene((s) => applyOfficialStoreyMetrics(s, storeyId, patch));
   }
 
   function applyRoomHeightMm(raw: string) {
@@ -1785,6 +1781,49 @@ export function BuildingEditor({
               </li>
             ))}
           </ul>
+
+          {activeStorey && (
+            <div className="border-t border-[#3d5563] pt-2 space-y-2">
+              <p className="text-xs font-semibold text-white/95">{activeStorey.name}</p>
+              <label className="label" htmlFor="storeyElevationM">
+                Elevation (m)
+              </label>
+              <input
+                id="storeyElevationM"
+                className="input"
+                type="number"
+                step={0.1}
+                value={activeStorey.elevationM}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (!Number.isFinite(next)) return;
+                  applyStoreyMetrics({ elevationM: next });
+                }}
+              />
+              <div className="flex items-center justify-between">
+                <label className="label mb-0" htmlFor="storeyHeightM">
+                  Storey height (m)
+                </label>
+                <HelpTip helpKey="tool.storeyHeight" />
+              </div>
+              <input
+                id="storeyHeightM"
+                className="input"
+                type="number"
+                min={0.5}
+                step={0.1}
+                value={activeStorey.heightM}
+                onChange={(e) => {
+                  const next = Number(e.target.value);
+                  if (!(next >= 0.5)) return;
+                  applyStoreyMetrics({ heightM: next });
+                }}
+              />
+              <p className="text-[10px] text-[var(--muted)] leading-snug">
+                {STOREY_METRICS_EXPLANATION}
+              </p>
+            </div>
+          )}
 
           <div className="border-t border-[#3d5563] pt-2 space-y-2">
             <div className="flex items-center justify-between">
