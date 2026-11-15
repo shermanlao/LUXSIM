@@ -857,7 +857,16 @@ export function BuildingEditor({
     patchScene((s) => officialTranslateRoom(s, roomId, dx, dy));
   }
 
-  function setRoomPolygon(roomId: string, polygon: { x: number; y: number }[]) {
+  function setRoomPolygon(
+    roomId: string,
+    polygon: { x: number; y: number }[],
+    opts?: { discrete?: boolean }
+  ) {
+    if (opts?.discrete) {
+      endCoalesce();
+      patchScene((s) => officialSetRoomPolygon(s, roomId, polygon));
+      return;
+    }
     if (coalesceRef.current !== "drag") {
       beginCoalesce("drag");
       const end = () => {
@@ -1692,7 +1701,7 @@ export function BuildingEditor({
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
           onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}
-          onSetRoomPolygon={(roomId, polygon) => setRoomPolygon(roomId, polygon)}
+          onSetRoomPolygon={(roomId, polygon, opts) => setRoomPolygon(roomId, polygon, opts)}
           onVertexStretchStatus={setStatus}
           onMoveStorey={(storeyId, dx, dy) => moveStorey(storeyId, dx, dy)}
           onSelectRoom={(roomId) =>

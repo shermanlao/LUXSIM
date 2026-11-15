@@ -11,7 +11,11 @@ import type { Vec2 } from "@luxsim/project-io";
 /** Official vertex-handle aperture: the same 8 CSS pixels as DXF object snap. */
 export const VERTEX_HANDLE_CSS_PX = DXF_OBJECT_SNAP_CSS_PX;
 
-export type SetRoomPolygonHandler = (roomId: string, polygon: Vec2[]) => void;
+export type SetRoomPolygonHandler = (
+  roomId: string,
+  polygon: Vec2[],
+  opts?: { discrete?: boolean }
+) => void;
 
 export type VertexStretchBeginInput = RoomDragBeginInput & {
   handleIndex?: number | null;
@@ -166,4 +170,59 @@ export function shouldBeginEdgeInsert(input: EdgeInsertBeginInput = {}): boolean
     Number.isInteger(input.edgeIndex) &&
     input.edgeIndex >= 0
   );
+}
+
+export type VertexDeleteKeyInput = {
+  key?: string;
+  tool?: string | null;
+  drawing?: boolean;
+  calibrating?: boolean;
+  linePickActive?: boolean;
+  circlePickActive?: boolean;
+  polygonPickActive?: boolean;
+  stretching?: boolean;
+};
+
+/**
+ * Official delete keys: Delete, and Backspace when no draw-room draft is
+ * active. Draw-room Backspace must win whenever a draft is in progress, so
+ * this returns "pass" whenever `drawing` is true.
+ */
+export function officialVertexDeleteKeyAction(
+  input: VertexDeleteKeyInput = {}
+): "delete" | "pass" {
+  if (input.drawing) return "pass";
+  if (input.key !== "Delete" && input.key !== "Backspace") return "pass";
+  if (input.tool !== "select") return "pass";
+  if (input.calibrating) return "pass";
+  if (input.linePickActive || input.circlePickActive || input.polygonPickActive) return "pass";
+  if (input.stretching) return "pass";
+  return "delete";
+}
+
+export type ResolveVertexDeleteTargetInput = {
+  pointer?: Vec2 | null;
+  polygon: Vec2[];
+  radiusM: number;
+  activeVertexIndex?: number | null;
+};
+
+/**
+ * Hovered corner handle (8 CSS px) wins; otherwise a previously click-selected
+ * active vertex. A mid-edge affordance is never a delete target.
+ */
+export function resolveVertexDeleteTarget(
+  input: ResolveVertexDeleteTargetInput
+): number | null {
+  const pointer = input.pointer;
+  const hover =
+    pointer && Number.isFinite(pointer.x) && Number.isFinite(pointer.y)
+      ? hitRoomVertexHandle(pointer, input.polygon, input.radiusM)
+      : null;
+  if (hover != null) return hover;
+  const active = input.activeVertexIndex;
+  if (active == null || !Number.isInteger(active) || active < 0) return null;
+  const ring = officialRoomRingVertices(input.polygon);
+  if (active >= ring.length) return null;
+  return active;
 }

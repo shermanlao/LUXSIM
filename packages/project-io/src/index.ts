@@ -242,12 +242,18 @@ export {
 export { officialTranslateRoom, officialTranslateStorey, translatePlanPoint } from "./official-room-translate";
 
 export {
+  VERTEX_DELETE_NO_TARGET_STATUS,
+  VERTEX_DELETE_REFUSE_STATUS,
   VERTEX_STRETCH_REVERT_STATUS,
+  canDeleteRoomVertex,
   canInsertRoomVertex,
+  commitDeletedRoomPolygon,
   commitStretchedRoomPolygon,
+  deleteRoomVertex,
   insertRoomVertex,
   moveRoomVertex,
   officialClosestPointOnSegment,
+  officialDeleteRoomVertex,
   officialInsertRoomVertex,
   officialRoomEdges,
   officialRoomPolygonSelfIntersects,

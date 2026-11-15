@@ -16,7 +16,10 @@ import {
   officialDxfPolylineStrokePoints,
   officialRoomRingVertices,
   underlayWorldSize,
+  VERTEX_DELETE_NO_TARGET_STATUS,
+  commitDeletedRoomPolygon,
   commitStretchedRoomPolygon,
+  deleteRoomVertex,
   moveRoomVertex,
   resolveOfficialEdgeInsert,
 } from "@luxsim/project-io";
@@ -25,6 +28,8 @@ import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
 import {
   hitRoomEdgeInsert,
   hitRoomVertexHandle,
+  officialVertexDeleteKeyAction,
+  resolveVertexDeleteTarget,
   roomEdgeInsertAffordances,
   shouldBeginEdgeInsert,
   shouldBeginVertexStretch,
@@ -176,6 +181,8 @@ export function TopView2D({
   const [stretchingVertex, setStretchingVertex] = useState<{ roomId: string; index: number } | null>(
     null
   );
+  const [activeVertex, setActiveVertex] = useState<{ roomId: string; index: number } | null>(null);
+  const lastPointerRef = useRef<{ clientX: number; clientY: number; world: Vec2 } | null>(null);
   const grabOffset = useRef({ x: 0, y: 0 });
   const roomDragOrigin = useRef<Vec2 | null>(null);
   const roomDragApplied = useRef<Vec2>({ x: 0, y: 0 });
@@ -386,6 +393,79 @@ export function TopView2D({
   }, [drawing, lengthBuf, last, preview, draft]);
 
   useEffect(() => {
+    setActiveVertex((current) => {
+      if (!current) return current;
+      if (current.roomId !== scene.ui.activeRoomId) return null;
+      const room = scene.rooms.find((r) => r.id === current.roomId);
+      if (!room) return null;
+      if (current.index >= officialRoomRingVertices(room.polygon).length) return null;
+      return current;
+    });
+  }, [scene.ui.activeRoomId, scene.rooms]);
+
+  useEffect(() => {
+    if (drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingField(e.target)) return;
+      if (
+        officialVertexDeleteKeyAction({
+          key: e.key,
+          tool: scene.ui.tool,
+          drawing,
+          calibrating: scene.ui.tool === "calibrate",
+          linePickActive,
+          circlePickActive,
+          polygonPickActive,
+          stretching: stretchingVertex != null,
+        }) !== "delete"
+      ) {
+        return;
+      }
+      e.preventDefault();
+      const room = rooms.find((r) => r.id === scene.ui.activeRoomId);
+      if (!room || !onSetRoomPolygon) {
+        onVertexStretchStatus?.(VERTEX_DELETE_NO_TARGET_STATUS);
+        return;
+      }
+      const pointer = lastPointerRef.current;
+      const radiusM = pointer
+        ? vertexRadiusMAt(pointer.clientX, pointer.clientY)
+        : vertexHandleRadiusM(0);
+      const target = resolveVertexDeleteTarget({
+        pointer: pointer?.world ?? null,
+        polygon: room.polygon,
+        radiusM,
+        activeVertexIndex: activeVertex?.roomId === room.id ? activeVertex.index : null,
+      });
+      if (target == null) {
+        onVertexStretchStatus?.(VERTEX_DELETE_NO_TARGET_STATUS);
+        return;
+      }
+      const result = commitDeletedRoomPolygon(room.polygon, deleteRoomVertex(room.polygon, target));
+      if (result.reverted) {
+        if (result.status) onVertexStretchStatus?.(result.status);
+        return;
+      }
+      onSetRoomPolygon(room.id, result.polygon, { discrete: true });
+      setActiveVertex(null);
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [
+    drawing,
+    rooms,
+    scene.ui.tool,
+    scene.ui.activeRoomId,
+    linePickActive,
+    circlePickActive,
+    polygonPickActive,
+    stretchingVertex,
+    activeVertex,
+    onSetRoomPolygon,
+    onVertexStretchStatus,
+  ]);
+
+  useEffect(() => {
     if (!linePickActive || !linePick || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
@@ -494,6 +574,7 @@ export function TopView2D({
   }
 
   function beginStoreyDrag(hitRoomId: string, start: Vec2, client: { x: number; y: number }) {
+    setActiveVertex(null);
     const targetStoreyId = storeyId;
     storeyDragOrigin.current = start;
     storeyDragApplied.current = { x: 0, y: 0 };
@@ -534,6 +615,7 @@ export function TopView2D({
   }
 
   function beginRoomDrag(roomId: string, start: Vec2) {
+    setActiveVertex(null);
     roomDragOrigin.current = start;
     roomDragApplied.current = { x: 0, y: 0 };
     setMovingRoomId(roomId);
@@ -575,11 +657,15 @@ export function TopView2D({
     roomId: string,
     index: number,
     sourcePolygon: Vec2[],
-    commitOriginal: Vec2[] = sourcePolygon
+    commitOriginal: Vec2[] = sourcePolygon,
+    opts?: { selectOnClick?: boolean; startClient?: { x: number; y: number } }
   ) {
     const source = sourcePolygon.map((p) => ({ x: p.x, y: p.y }));
     const original = commitOriginal.map((p) => ({ x: p.x, y: p.y }));
-    setStretchingVertex({ roomId, index });
+    const selectOnClick = Boolean(opts?.selectOnClick && opts.startClient);
+    const startClient = opts?.startClient;
+    let dragged = !selectOnClick;
+    if (!selectOnClick) setStretchingVertex({ roomId, index });
     const applyAt = (clientX: number, clientY: number, commit: boolean) => {
       const snapped = snappedWorldAt(clientX, clientY);
       setSnapHit(snapped.hit);
@@ -593,9 +679,23 @@ export function TopView2D({
       onSetRoomPolygon?.(roomId, next);
     };
     const move = (ev: MouseEvent) => {
+      if (!dragged) {
+        if (startClient && isStoreyDragClick(startClient, { x: ev.clientX, y: ev.clientY })) {
+          return;
+        }
+        dragged = true;
+        setStretchingVertex({ roomId, index });
+      }
       applyAt(ev.clientX, ev.clientY, false);
     };
     const up = (ev: MouseEvent) => {
+      if (!dragged) {
+        setActiveVertex({ roomId, index });
+        setStretchingVertex(null);
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+        return;
+      }
       applyAt(ev.clientX, ev.clientY, true);
       setStretchingVertex(null);
       window.removeEventListener("mousemove", move);
@@ -622,6 +722,7 @@ export function TopView2D({
       snapped.hit ? { x: snapped.x, y: snapped.y } : null
     );
     if (!resolved) return;
+    setActiveVertex(null);
     onSetRoomPolygon?.(roomId, resolved.polygon);
     beginVertexStretch(roomId, resolved.vertexIndex, resolved.polygon, original);
   }
@@ -672,7 +773,10 @@ export function TopView2D({
     <div
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
-      onMouseLeave={() => setSnapHit(null)}
+      onMouseLeave={() => {
+        setSnapHit(null);
+        lastPointerRef.current = null;
+      }}
       onDoubleClick={(e) => {
         if (drawing || linePickActive || circlePickActive) return;
         if (polygonPickActive && polygonPathEnterAction(polygonPickRef.current) === "finish-open") {
@@ -735,10 +839,13 @@ export function TopView2D({
             commitPolygonPathClick(e.clientX, e.clientY);
             return;
           }
+          setActiveVertex(null);
           onSelect(null);
         }}
         onMouseMove={(e) => {
           setOrtho(e.shiftKey);
+          const raw = toWorld(e.clientX, e.clientY);
+          lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY, world: raw };
           const snapped = snappedWorldAt(e.clientX, e.clientY);
           const w = { x: snapped.x, y: snapped.y };
           setSnapHit(snapped.hit);
@@ -859,7 +966,10 @@ export function TopView2D({
                       onSetRoomPolygon,
                     })
                   ) {
-                    beginVertexStretch(room.id, handleIndex!, room.polygon);
+                    beginVertexStretch(room.id, handleIndex!, room.polygon, room.polygon, {
+                      selectOnClick: true,
+                      startClient: { x: e.clientX, y: e.clientY },
+                    });
                     return;
                   }
                   const edgeHit = hitRoomEdgeInsert(
@@ -1035,10 +1145,13 @@ export function TopView2D({
                 const s = toScreen(p.x, p.y);
                 const stretching =
                   stretchingVertex?.roomId === room.id && stretchingVertex.index === index;
+                const selectedVertex =
+                  activeVertex?.roomId === room.id && activeVertex.index === index;
                 return (
                   <g
                     key={`${room.id}-vertex-${index}`}
                     data-room-vertex-handle={index}
+                    data-room-vertex-active={selectedVertex ? "true" : undefined}
                     style={{ cursor: stretching ? "grabbing" : "pointer" }}
                     onMouseDown={(e) => {
                       if (drawing || scene.ui.tool === "calibrate") return;
@@ -1059,7 +1172,10 @@ export function TopView2D({
                         return;
                       }
                       onSelectRoom?.(room.id);
-                      beginVertexStretch(room.id, index, room.polygon);
+                      beginVertexStretch(room.id, index, room.polygon, room.polygon, {
+                        selectOnClick: true,
+                        startClient: { x: e.clientX, y: e.clientY },
+                      });
                     }}
                   >
                     <circle cx={s.x} cy={s.y} r={hitR} fill="transparent" />
@@ -1067,9 +1183,9 @@ export function TopView2D({
                       cx={s.x}
                       cy={s.y}
                       r={5}
-                      fill={stretching ? "#e8c27a" : "#f4d35e"}
+                      fill={stretching || selectedVertex ? "#e8c27a" : "#f4d35e"}
                       stroke="#1a1510"
-                      strokeWidth={1}
+                      strokeWidth={selectedVertex && !stretching ? 2 : 1}
                     />
                   </g>
                 );

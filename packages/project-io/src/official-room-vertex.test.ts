@@ -4,11 +4,16 @@ import { rectPolygon, roomAreaM2 } from "./geometry";
 import { officialNewRoom } from "./new-room-defaults";
 import { DXF_CLOSED_ROOM_MIN_AREA_M2 } from "./official-dxf-closed-rooms";
 import {
+  VERTEX_DELETE_REFUSE_STATUS,
   VERTEX_STRETCH_REVERT_STATUS,
+  canDeleteRoomVertex,
   canInsertRoomVertex,
+  commitDeletedRoomPolygon,
   commitStretchedRoomPolygon,
+  deleteRoomVertex,
   insertRoomVertex,
   moveRoomVertex,
+  officialDeleteRoomVertex,
   officialInsertRoomVertex,
   officialRoomEdges,
   officialRoomPolygonSelfIntersects,
@@ -299,5 +304,126 @@ describe("insertRoomVertex", () => {
     expect(moved.rooms[0]!.polygon[1]).toEqual({ x: 4, y: 0 });
     expect(moved.rooms.find((r) => r.id === "room-other")).toEqual(beforeOther);
     expect(officialInsertRoomVertex(scene, "missing", 0, { x: 1, y: 0 })).toBe(scene);
+  });
+});
+
+describe("deleteRoomVertex", () => {
+  it("deletes one corner of a rectangle and leaves a triangle", () => {
+    const rect = rectPolygon(0, 0, 5, 4);
+    const next = deleteRoomVertex(rect, 2);
+    expect(next).toEqual([
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 0, y: 4 },
+    ]);
+    expect(rect).toHaveLength(4);
+    expect(canDeleteRoomVertex(rect, 2)).toBe(true);
+    expect(canDeleteRoomVertex(rect, 4)).toBe(false);
+    expect(deleteRoomVertex(rect, 4)).toEqual(rect);
+  });
+
+  it("deletes one vertex of an L-shaped room and keeps the official ring order", () => {
+    const next = deleteRoomVertex(L_POLYGON, 3);
+    expect(next).toEqual([
+      { x: 0, y: 0 },
+      { x: 8, y: 0 },
+      { x: 8, y: 4 },
+      { x: 4, y: 8 },
+      { x: 0, y: 8 },
+    ]);
+    expect(L_POLYGON).toHaveLength(6);
+    expect(L_POLYGON[3]).toEqual({ x: 4, y: 4 });
+  });
+
+  it("drops a duplicated closing vertex first, then restores it after the delete", () => {
+    const closed = [...rectPolygon(0, 0, 5, 4), { x: 0, y: 0 }];
+    const fromFirst = deleteRoomVertex(closed, 0);
+    expect(fromFirst).toEqual([
+      { x: 5, y: 0 },
+      { x: 5, y: 4 },
+      { x: 0, y: 4 },
+      { x: 5, y: 0 },
+    ]);
+    const fromLastRing = deleteRoomVertex(closed, 3);
+    expect(fromLastRing[0]).toEqual({ x: 0, y: 0 });
+    expect(fromLastRing[fromLastRing.length - 1]).toEqual({ x: 0, y: 0 });
+    expect(fromLastRing).toEqual([
+      { x: 0, y: 0 },
+      { x: 5, y: 0 },
+      { x: 5, y: 4 },
+      { x: 0, y: 0 },
+    ]);
+    expect(canDeleteRoomVertex(closed, 4)).toBe(false);
+  });
+
+  it("refuses a delete that would leave fewer than 3 unique vertices", () => {
+    const triangle: Vec2[] = [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 1, y: 2 },
+    ];
+    const next = deleteRoomVertex(triangle, 1);
+    expect(next).toEqual([
+      { x: 0, y: 0 },
+      { x: 1, y: 2 },
+    ]);
+    expect(validateStretchedRoomPolygon(next)).toEqual({
+      ok: false,
+      reason: "degenerate-vertices",
+    });
+    const committed = commitDeletedRoomPolygon(triangle, next);
+    expect(committed.reverted).toBe(true);
+    expect(committed.polygon).toEqual(triangle);
+    expect(committed.status).toBe(VERTEX_DELETE_REFUSE_STATUS["degenerate-vertices"]);
+  });
+
+  it("refuses a delete that would self-cross, and a delete that would go below 0.01 m²", () => {
+    const simplePentagon: Vec2[] = [
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 3, y: 3 },
+      { x: 0, y: 2 },
+      { x: 2, y: 2 },
+    ];
+    expect(officialRoomPolygonSelfIntersects(simplePentagon)).toBe(false);
+    const bow = deleteRoomVertex(simplePentagon, 2);
+    expect(bow).toEqual([
+      { x: 0, y: 0 },
+      { x: 2, y: 0 },
+      { x: 0, y: 2 },
+      { x: 2, y: 2 },
+    ]);
+    expect(officialRoomPolygonSelfIntersects(bow)).toBe(true);
+    const crossed = commitDeletedRoomPolygon(simplePentagon, bow);
+    expect(crossed.reverted).toBe(true);
+    expect(crossed.polygon).toEqual(simplePentagon);
+    expect(crossed.status).toBe(VERTEX_DELETE_REFUSE_STATUS["self-crossing"]);
+
+    const slim = rectPolygon(0, 0, 1, 0.015);
+    expect(roomAreaM2({ polygon: slim } as never)).toBeGreaterThanOrEqual(DXF_CLOSED_ROOM_MIN_AREA_M2);
+    const tiny = deleteRoomVertex(slim, 2);
+    expect(roomAreaM2({ polygon: tiny } as never)).toBeLessThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+    const thinCommit = commitDeletedRoomPolygon(slim, tiny);
+    expect(thinCommit.reverted).toBe(true);
+    expect(thinCommit.polygon).toEqual(slim);
+    expect(thinCommit.polygon).toHaveLength(4);
+    expect(thinCommit.status).toBe(VERTEX_DELETE_REFUSE_STATUS.area);
+  });
+
+  it("updates only that room when deleting a vertex through the scene helper", () => {
+    const scene = defaultSceneV2();
+    addRoom(scene, "room-l", L_POLYGON);
+    addRoom(scene, "room-other", rectPolygon(20, 0, 4, 3));
+    const beforeOther = structuredClone(scene.rooms[1]!);
+    const moved = officialDeleteRoomVertex(scene, "room-l", 3);
+    expect(moved.rooms[0]!.polygon).toEqual([
+      { x: 0, y: 0 },
+      { x: 8, y: 0 },
+      { x: 8, y: 4 },
+      { x: 4, y: 8 },
+      { x: 0, y: 8 },
+    ]);
+    expect(moved.rooms.find((r) => r.id === "room-other")).toEqual(beforeOther);
+    expect(officialDeleteRoomVertex(scene, "missing", 0)).toBe(scene);
   });
 });

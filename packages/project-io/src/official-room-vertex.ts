@@ -314,3 +314,64 @@ export function officialInsertRoomVertex(
   if (!room) return scene;
   return officialSetRoomPolygon(scene, roomId, insertRoomVertex(room.polygon, edgeIndex, point));
 }
+
+export const VERTEX_DELETE_REFUSE_STATUS: Record<VertexStretchRejectReason, string> = {
+  "degenerate-vertices":
+    "Vertex delete refused: the room would have fewer than 3 unique corners.",
+  "self-crossing": "Vertex delete refused: the room outline would cross itself.",
+  area: "Vertex delete refused: the room area would be below 0.01 m².",
+};
+
+export const VERTEX_DELETE_NO_TARGET_STATUS =
+  "Hover or click a corner handle, then press Delete or Backspace to remove that vertex.";
+
+export function canDeleteRoomVertex(polygon: Vec2[], index: number): boolean {
+  if (!Number.isInteger(index) || index < 0) return false;
+  const ring = officialRoomRingVertices(polygon);
+  return index < ring.length;
+}
+
+/**
+ * Remove one ring vertex. A duplicated closing vertex, if present, is dropped
+ * first, then the target is removed, then the same official ring representation
+ * used by insert/stretch is restored (a closing duplicate is rewritten only
+ * when the input had one).
+ */
+export function deleteRoomVertex(polygon: Vec2[], index: number): Vec2[] {
+  const copy = polygon.map((p) => ({ x: p.x, y: p.y }));
+  if (!canDeleteRoomVertex(polygon, index)) return copy;
+  const closed =
+    polygon.length >= 2 &&
+    officialDxfPointsCoincide(polygon[0]!, polygon[polygon.length - 1]!);
+  const ring = officialRoomRingVertices(polygon).map((p) => ({ x: p.x, y: p.y }));
+  ring.splice(index, 1);
+  if (closed && ring[0]) {
+    ring.push({ x: ring[0].x, y: ring[0].y });
+  }
+  return ring;
+}
+
+export function commitDeletedRoomPolygon(
+  original: Vec2[],
+  next: Vec2[]
+): CommitStretchedRoomPolygonResult {
+  const check = validateStretchedRoomPolygon(next);
+  if (!check.ok) {
+    return {
+      polygon: original.map((p) => ({ x: p.x, y: p.y })),
+      reverted: true,
+      status: VERTEX_DELETE_REFUSE_STATUS[check.reason],
+    };
+  }
+  return { polygon: next.map((p) => ({ x: p.x, y: p.y })), reverted: false };
+}
+
+export function officialDeleteRoomVertex(
+  scene: ProjectSceneV2,
+  roomId: string,
+  vertexIndex: number
+): ProjectSceneV2 {
+  const room = scene.rooms.find((r) => r.id === roomId);
+  if (!room) return scene;
+  return officialSetRoomPolygon(scene, roomId, deleteRoomVertex(room.polygon, vertexIndex));
+}

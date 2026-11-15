@@ -10,6 +10,8 @@ import {
   hitRoomEdgeInsert,
   hitRoomOutlineEdit,
   hitRoomVertexHandle,
+  officialVertexDeleteKeyAction,
+  resolveVertexDeleteTarget,
   roomEdgeInsertAffordances,
   shouldBeginEdgeInsert,
   shouldBeginVertexStretch,
@@ -166,5 +168,82 @@ describe("mid-edge insert hit testing and priority", () => {
     expect(shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: null })).toBe(
       false
     );
+  });
+});
+
+describe("official vertex delete target and keys", () => {
+  const radiusM = vertexHandleRadiusM(0.01);
+
+  it("prefers a hovered corner handle, then a click-selected active vertex, and never a mid-edge hit", () => {
+    expect(
+      resolveVertexDeleteTarget({ pointer: { x: 0.05, y: -0.02 }, polygon: RECT, radiusM })
+    ).toBe(0);
+    expect(
+      resolveVertexDeleteTarget({
+        pointer: { x: 2.5, y: 2 },
+        polygon: RECT,
+        radiusM,
+        activeVertexIndex: 2,
+      })
+    ).toBe(2);
+    expect(
+      resolveVertexDeleteTarget({
+        pointer: { x: 2.5, y: 0 },
+        polygon: RECT,
+        radiusM,
+        activeVertexIndex: 1,
+      })
+    ).toBe(1);
+    expect(hitRoomEdgeInsert({ x: 2.5, y: 0 }, RECT, radiusM)?.edgeIndex).toBe(0);
+    expect(
+      resolveVertexDeleteTarget({ pointer: { x: 2.5, y: 2 }, polygon: RECT, radiusM })
+    ).toBeNull();
+    expect(
+      resolveVertexDeleteTarget({
+        pointer: { x: 2.5, y: 2 },
+        polygon: RECT,
+        radiusM,
+        activeVertexIndex: 9,
+      })
+    ).toBeNull();
+    expect(
+      resolveVertexDeleteTarget({ pointer: null, polygon: RECT, radiusM, activeVertexIndex: 3 })
+    ).toBe(3);
+  });
+
+  it("uses Delete, or Backspace only when Select is idle and no draw-room draft is active", () => {
+    expect(
+      officialVertexDeleteKeyAction({ key: "Delete", tool: "select", drawing: false })
+    ).toBe("delete");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Backspace", tool: "select", drawing: false })
+    ).toBe("delete");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Backspace", tool: "select", drawing: true })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Delete", tool: "select", drawing: true })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Backspace", tool: "drawRoom", drawing: true })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Delete", tool: "select", drawing: false, calibrating: true })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({
+        key: "Delete",
+        tool: "select",
+        drawing: false,
+        polygonPickActive: true,
+      })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Delete", tool: "select", drawing: false, stretching: true })
+    ).toBe("pass");
+    expect(
+      officialVertexDeleteKeyAction({ key: "Enter", tool: "select", drawing: false })
+    ).toBe("pass");
+    expect(officialVertexDeleteKeyAction({ key: "Delete", drawing: false })).toBe("pass");
   });
 });
