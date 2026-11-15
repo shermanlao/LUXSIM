@@ -8,6 +8,11 @@ import {
   CIRCLE_ARRAY_ROTATION_REASON,
   CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
 } from "./circle-array-pick";
+import {
+  POLYGON_ARRAY_HINT,
+  POLYGON_ARRAY_ROTATION_REASON,
+  POLYGON_ARRAY_UNUSED_FIELDS_REASON,
+} from "./polygon-array";
 
 function read(rel: string) {
   return readFileSync(path.join(process.cwd(), rel), "utf8");
@@ -95,6 +100,7 @@ describe("user guide", () => {
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
     expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("圓形排列 / Circular array");
+    expect(headings).toContain("多邊形排列 / Polygon array");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
@@ -158,5 +164,37 @@ describe("user guide", () => {
     expect(CIRCLE_ARRAY_PICK_HINT).toMatch(/Click once on the Top plan/);
     expect(CIRCLE_ARRAY_UNUSED_FIELDS_REASON).toMatch(/stay disabled/);
     expect(CIRCLE_ARRAY_ROTATION_REASON).toMatch(/not aimed at the centre/);
+  });
+
+  it("keeps the Polygon array tip and guide in sync with room-outline placement and rotation", () => {
+    const tips = read("src/lib/ui-tips.ts");
+    expect(guide).toMatch(/多邊形排列 \/ Polygon array/);
+    expect(guide).toMatch(/choose \*\*Polygon\*\* in \*\*Arrange\*/);
+    expect(guide).toMatch(/再開右側 \*\*Arrange\*\* 的 \*\*Polygon\*\*（多邊形）/);
+    expect(guide).toMatch(/official closed outline/);
+    expect(guide).toMatch(/官方封閉輪廓/);
+    expect(guide).toMatch(/first corner \(Origin\)/);
+    expect(guide).toMatch(/第一個角點（Origin）/);
+    expect(guide).toMatch(/perimeter divided by \*\*Count\*/);
+    expect(guide).toMatch(/周長除以 \*\*Count\*/);
+    expect(guide).toMatch(/do not coincide on the closing vertex/);
+    expect(guide).toMatch(/不會重疊在閉合頂點上/);
+    expect(guide).toMatch(/sits at the first corner/);
+    expect(guide).toMatch(/放在第一個角點/);
+    expect(guide).toMatch(/fixture orientation/);
+    expect(guide).toMatch(/燈具朝向/);
+    expect(guide).toMatch(/not aimed along the tangent or inward/);
+    expect(guide).toMatch(/不會自動沿切線或指向室內/);
+    expect(guide).toMatch(/Spacing X, Spacing Y and wall offset stay disabled/);
+    expect(guide).toMatch(/Spacing X、Spacing Y 與離牆在多邊形模式維持停用/);
+    expect(guide).toMatch(/does not add a separate path-drawing tool/);
+    expect(guide).toMatch(/沒有另設繪製路徑的工具/);
+    expect(tips).toContain('helpKey: "tool.polygonArray"');
+    expect(tips).toContain("POLYGON_ARRAY_HINT");
+    expect(tips).toContain("POLYGON_ARRAY_UNUSED_FIELDS_REASON");
+    expect(tips).toContain("POLYGON_ARRAY_ROTATION_REASON");
+    expect(POLYGON_ARRAY_HINT).toMatch(/closed outline/);
+    expect(POLYGON_ARRAY_UNUSED_FIELDS_REASON).toMatch(/stay disabled/);
+    expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
   });
 });

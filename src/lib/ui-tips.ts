@@ -5,6 +5,11 @@ import {
   CIRCLE_ARRAY_ROTATION_REASON,
   CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
 } from "@/lib/circle-array-pick";
+import {
+  POLYGON_ARRAY_HINT,
+  POLYGON_ARRAY_ROTATION_REASON,
+  POLYGON_ARRAY_UNUSED_FIELDS_REASON,
+} from "@/lib/polygon-array";
 
 export type UiTipSeed = {
   helpKey: string;
@@ -42,6 +47,11 @@ export const UI_TIPS: UiTipSeed[] = [
     helpKey: "tool.circleArray",
     title: "Circular array",
     body: `${CIRCLE_ARRAY_PICK_HINT} ${CIRCLE_ARRAY_ROTATION_REASON} ${CIRCLE_ARRAY_UNUSED_FIELDS_REASON}`,
+  },
+  {
+    helpKey: "tool.polygonArray",
+    title: "Polygon array",
+    body: `${POLYGON_ARRAY_HINT} ${POLYGON_ARRAY_ROTATION_REASON} ${POLYGON_ARRAY_UNUSED_FIELDS_REASON}`,
   },
   {
     helpKey: "room.maintenanceFactor",

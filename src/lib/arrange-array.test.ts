@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { rectPolygon } from "@luxsim/project-io";
 import type { RoomV2 } from "@luxsim/project-io";
-import { defaultCircleRadiusM, planFixtureArray, pointsRoughlyEqual, roomAabbCentre } from "./arrange-array";
+import { closedPolygonPerimeterM, defaultCircleRadiusM, planFixtureArray, pointsRoughlyEqual, roomAabbCentre } from "./arrange-array";
 
 function testRoom(): RoomV2 {
   return {
@@ -50,16 +50,20 @@ describe("planFixtureArray rect", () => {
   it("skips points outside polygon", () => {
     const plan = planFixtureArray(testRoom(), {
       mode: "rect",
-      rows: 5,
-      cols: 5,
+      rows: 6,
+      cols: 6,
       count: 1,
       spacingX: 1.0,
       spacingY: 1.0,
       wallOffset: 0,
       rotationDeg: 0,
     });
+    expect(plan.proposed).toHaveLength(36);
+    // y = 5 is beyond the 4 m depth; x = 5 stays on the right edge and is kept.
     expect(plan.inside.length).toBeLessThan(plan.proposed.length);
-    expect(plan.skippedOutside).toBeGreaterThan(0);
+    expect(plan.skippedOutside).toBe(6);
+    expect(plan.inside.some((pt) => Math.abs(pt.x - 5) < 1e-9 && Math.abs(pt.y - 2) < 1e-9)).toBe(true);
+    expect(plan.inside.some((pt) => Math.abs(pt.y - 5) < 1e-9)).toBe(false);
   });
 });
 
@@ -356,5 +360,122 @@ describe("planFixtureArray circle", () => {
       ],
     };
     expect(defaultCircleRadiusM(tall)).toBeCloseTo(0.5, 5);
+  });
+});
+
+describe("planFixtureArray polygon", () => {
+  it("places count fixtures equally along the room outline, starting at the first corner", () => {
+    const room = testRoom();
+    const plan = planFixtureArray(room, {
+      mode: "polygon",
+      rows: 2,
+      cols: 2,
+      count: 4,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 0.5,
+      rotationDeg: 15,
+    });
+    // 5×4 m rectangle, perimeter 18 m, spacing 4.5 m.
+    expect(closedPolygonPerimeterM(room.polygon)).toBeCloseTo(18, 5);
+    expect(plan.proposed).toHaveLength(4);
+    expect(plan.inside).toHaveLength(4);
+    expect(plan.skippedOutside).toBe(0);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0, y: 0 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 4.5, y: 0 })).toBe(true);
+    // The third point lands on the top-right corner, which ray-casting treats as outside.
+    expect(pointsRoughlyEqual(plan.inside[2]!, { x: 5, y: 4 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[3]!, { x: 0.5, y: 4 })).toBe(true);
+    expect(plan.inside.every((pt) => pt.rotationDeg === 15)).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[0]!, plan.inside[3]!)).toBe(false);
+  });
+
+  it("places a single fixture at the first corner", () => {
+    const plan = planFixtureArray(testRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 1,
+      spacingX: 1.5,
+      spacingY: 1.5,
+      wallOffset: 0,
+      rotationDeg: 90,
+    });
+    expect(plan.inside).toHaveLength(1);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0, y: 0 })).toBe(true);
+    expect(plan.inside[0]!.rotationDeg).toBe(90);
+  });
+
+  it("uses rotationDeg as fixture orientation, not a tangent or inward aim", () => {
+    const plan = planFixtureArray(lShapedRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 8,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 0,
+      rotationDeg: 30,
+    });
+    // L-shape perimeter 32 m, spacing 4 m, starting at (0,0).
+    expect(plan.proposed).toHaveLength(8);
+    expect(plan.inside).toHaveLength(8);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0, y: 0 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[1]!, { x: 4, y: 0 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[2]!, { x: 8, y: 0 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[3]!, { x: 8, y: 4 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[4]!, { x: 4, y: 4 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[5]!, { x: 4, y: 8 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[6]!, { x: 0, y: 8 })).toBe(true);
+    expect(pointsRoughlyEqual(plan.inside[7]!, { x: 0, y: 4 })).toBe(true);
+    expect(plan.inside.every((pt) => pt.rotationDeg === 30)).toBe(true);
+  });
+
+  it("ignores Spacing X, Spacing Y, and wall offset", () => {
+    const a = planFixtureArray(testRoom(), {
+      mode: "polygon",
+      rows: 3,
+      cols: 3,
+      count: 2,
+      spacingX: 9,
+      spacingY: 9,
+      wallOffset: 2,
+      rotationDeg: 0,
+    });
+    const b = planFixtureArray(testRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 2,
+      spacingX: 0.01,
+      spacingY: 0.01,
+      wallOffset: 0,
+      rotationDeg: 0,
+    });
+    expect(a.inside).toHaveLength(2);
+    expect(pointsRoughlyEqual(a.inside[0]!, { x: 0, y: 0 })).toBe(true);
+    // Perimeter 18 m → second point at 9 m, the midpoint of the right edge (5, 4).
+    // 5 m along the bottom then 4 m up the right edge → (5, 4).
+    expect(pointsRoughlyEqual(a.inside[1]!, { x: 5, y: 4 })).toBe(true);
+    expect(b.inside.map((pt) => [pt.x, pt.y])).toEqual(a.inside.map((pt) => [pt.x, pt.y]));
+  });
+
+  it("keeps official outline points on a trapezoid and does not drop them as outside", () => {
+    const plan = planFixtureArray(trapezoidRoom(), {
+      mode: "polygon",
+      rows: 1,
+      cols: 1,
+      count: 4,
+      spacingX: 1.5,
+      spacingY: 1.5,
+      wallOffset: 0,
+      rotationDeg: 0,
+    });
+    expect(plan.proposed).toHaveLength(4);
+    expect(plan.inside).toHaveLength(4);
+    expect(plan.skippedOutside).toBe(0);
+    expect(pointsRoughlyEqual(plan.inside[0]!, { x: 0, y: 0 })).toBe(true);
+    // First and last must not coincide on the closing vertex.
+    expect(pointsRoughlyEqual(plan.inside[0]!, plan.inside[3]!)).toBe(false);
   });
 });

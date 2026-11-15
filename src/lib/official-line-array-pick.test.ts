@@ -52,7 +52,7 @@ describe("official Line click-to-pick wiring", () => {
     expect(panel).toContain("lineStart");
     expect(panel).toContain("lineEnd");
     expect(panel).toContain("planFixtureArray");
-    expect(panel).toContain('disabled={mode === "line" || mode === "circle"}');
+    expect(panel).toContain('disabled={mode === "line" || mode === "circle" || mode === "polygon"}');
     expect(panel).toContain("LINE_ARRAY_SPACING_Y_REASON");
     expect(panel).toContain('helpKey="tool.lineArray"');
     expect(panel).toContain("lineArrayDerivedSpacingM");

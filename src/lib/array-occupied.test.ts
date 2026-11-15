@@ -234,8 +234,8 @@ describe("prepareFixtureArrayApply (Apply-equivalent)", () => {
     const room = testRoom();
     const plan = planFixtureArray(room, {
       mode: "rect",
-      rows: 5,
-      cols: 5,
+      rows: 6,
+      cols: 6,
       count: 1,
       spacingX: 1.0,
       spacingY: 1.0,
@@ -272,8 +272,8 @@ describe("prepareFixtureArrayApply (Apply-equivalent)", () => {
     const room = testRoom();
     const plan = planFixtureArray(room, {
       mode: "rect",
-      rows: 5,
-      cols: 5,
+      rows: 6,
+      cols: 6,
       count: 1,
       spacingX: 1.0,
       spacingY: 1.0,

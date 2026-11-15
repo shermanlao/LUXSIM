@@ -30,6 +30,11 @@ import {
   isCircleCentrePicked,
   type CirclePickState,
 } from "@/lib/circle-array-pick";
+import {
+  POLYGON_ARRAY_HINT,
+  POLYGON_ARRAY_ROTATION_REASON,
+  POLYGON_ARRAY_UNUSED_FIELDS_REASON,
+} from "@/lib/polygon-array";
 import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
@@ -291,6 +296,7 @@ export function FixtureArrayPanel({
         Arrange · array / 排列
         {mode === "line" && <HelpTip helpKey="tool.lineArray" />}
         {mode === "circle" && <HelpTip helpKey="tool.circleArray" />}
+        {mode === "polygon" && <HelpTip helpKey="tool.polygonArray" />}
       </p>
       {!room && (
         <p className="text-xs text-[#8fa3ad]">Select a room in the building tree first. / 請先在左側選房間。</p>
@@ -302,13 +308,14 @@ export function FixtureArrayPanel({
             ["rect", "Rectangular", "矩形"],
             ["line", "Line", "直線"],
             ["circle", "Circle", "圓形"],
+            ["polygon", "Polygon", "多邊形"],
             ["targetEm", "By target Ēm", "目標照度"],
           ] as const
         ).map(([m, en, zh]) => (
           <button
             key={m}
             type="button"
-            className={`btn !text-[10px] flex-1 min-w-[22%] ${mode === m ? "btn-accent" : "btn-secondary"}`}
+            className={`btn !text-[10px] flex-1 min-w-[18%] ${mode === m ? "btn-accent" : "btn-secondary"}`}
             onClick={() => {
               setMode(m);
               setEmEstimate(null);
@@ -452,6 +459,15 @@ export function FixtureArrayPanel({
             </button>
           )}
         </div>
+      ) : mode === "polygon" ? (
+        <div className="space-y-2">
+          <div>
+            <label className="label">Count</label>
+            <input className="input" value={count} onChange={(e) => setCount(e.target.value)} />
+          </div>
+          <p className="text-[10px] text-[#8fa3ad]">{POLYGON_ARRAY_HINT}</p>
+          <p className="text-[10px] text-[#8fa3ad]">{POLYGON_ARRAY_ROTATION_REASON}</p>
+        </div>
       ) : (
         <div className="space-y-2">
           <div>
@@ -506,7 +522,7 @@ export function FixtureArrayPanel({
                     : spacingX
                 }
                 onChange={(e) => setSpacingX(e.target.value)}
-                disabled={lineComplete || mode === "circle"}
+                disabled={lineComplete || mode === "circle" || mode === "polygon"}
               />
             </div>
             <div>
@@ -515,7 +531,7 @@ export function FixtureArrayPanel({
                 className="input"
                 value={spacingY}
                 onChange={(e) => setSpacingY(e.target.value)}
-                disabled={mode === "line" || mode === "circle"}
+                disabled={mode === "line" || mode === "circle" || mode === "polygon"}
               />
             </div>
           </div>
@@ -527,7 +543,7 @@ export function FixtureArrayPanel({
                 className="input"
                 value={wallOffset}
                 onChange={(e) => setWallOffset(e.target.value)}
-                disabled={mode === "line" || mode === "circle"}
+                disabled={mode === "line" || mode === "circle" || mode === "polygon"}
               />
             </div>
             <div>
@@ -544,6 +560,9 @@ export function FixtureArrayPanel({
           )}
           {mode === "circle" && (
             <p className="text-[10px] text-[#8fa3ad]">{CIRCLE_ARRAY_UNUSED_FIELDS_REASON}</p>
+          )}
+          {mode === "polygon" && (
+            <p className="text-[10px] text-[#8fa3ad]">{POLYGON_ARRAY_UNUSED_FIELDS_REASON}</p>
           )}
           {lineComplete && derivedLineSpacing == null && (
             <p className="text-[10px] text-[#8fa3ad]">

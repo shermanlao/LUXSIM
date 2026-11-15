@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選和圓形排列，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選、圓形排列和多邊形排列，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, and how to place a Circular array, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, and how to place a Circular or Polygon array, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -127,6 +127,26 @@ In **Light** mode, select a room in the building tree, then choose **Circle** in
 5. Fixtures are spaced equally around the circle. When **Count** is 1, the single point is placed at the start angle on the radius, not at the centre. Angle 0° is +X. **Rotation** is the start angle of the first point and is also the fixture orientation, as in Line mode; fixtures are not aimed at the centre or along the tangent.
 6. **Spacing X, Spacing Y and wall offset stay disabled** in Circle mode because a circular array places fixtures on one circle only. Those fields are used by Rectangular arrays. Target-Ēm estimate still uses a rectangular grid only.
 7. Points outside the room polygon are not placed. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept. While you are picking a centre, double-click does not reset the view; wheel zoom still works toward the cursor.
+
+
+
+## 多邊形排列 / Polygon array
+
+在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Polygon**（多邊形）。
+
+1. 用 **Count** 和 **Rotation** 放置燈具。路徑是所選房間的官方封閉輪廓，由第一個角點（Origin）開始，沿周長均勻分布。
+2. 沿路徑的間距是周長除以 **Count**，因此第一點與最後一點不會重疊在閉合頂點上。**Count** 為 1 時，單一燈具放在第一個角點。
+3. **Rotation** 是燈具朝向，與直線和圓形模式相同，不會自動沿切線或指向室內。
+4. Spacing X、Spacing Y 與離牆在多邊形模式維持停用。多邊形排列只沿房間輪廓放置，不會用這些欄位做內縮或再排第二圈。矩形排列才使用這些欄位。目標照度估算仍只用矩形網格，沒有多邊形目標照度路徑。本模式沒有另設繪製路徑的工具。
+5. 落在房間多邊形外的點不會放置；剛好在房間邊上的點視為有效。與同房已有燈具相距 1 mm 內的點會略過，既有燈具不會被刪除。
+
+In **Light** mode, select a room in the building tree, then choose **Polygon** in **Arrange**.
+
+1. Place fixtures with **Count** and **Rotation**. The path is the selected room’s official closed outline, starting at the first corner (Origin), with fixtures spaced equally along the perimeter.
+2. Spacing along the path is the perimeter divided by **Count**, so the first and last points do not coincide on the closing vertex. When **Count** is 1, the single fixture sits at the first corner.
+3. **Rotation** is the fixture orientation, as in Line and Circle modes; fixtures are not aimed along the tangent or inward.
+4. **Spacing X, Spacing Y and wall offset stay disabled** in Polygon mode because a polygon array places fixtures on the room outline only. Those fields are used by Rectangular arrays. There is no inset or second ring. Target-Ēm estimate still uses a rectangular grid only. This mode does not add a separate path-drawing tool.
+5. Points outside the room polygon are not placed. Points that lie exactly on the room edge are treated as valid. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept.
 
 ## 房間屬性 / Room properties
 

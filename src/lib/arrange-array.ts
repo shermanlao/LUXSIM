@@ -1,6 +1,6 @@
 import { pointInPolygon, roomBounds, type RoomV2, type Vec2 } from "@luxsim/project-io";
 
-export type ArrayMode = "rect" | "line" | "circle";
+export type ArrayMode = "rect" | "line" | "circle" | "polygon";
 
 export type ArrayParams = {
   mode: ArrayMode;
@@ -176,10 +176,134 @@ export function planCircleArray(
   return points;
 }
 
+/** Distance tolerance for “on the official outline” and path walking (1 µm). */
+const OUTLINE_EPS_M = 1e-6;
+
+function verticesAlmostEqual(a: Vec2, b: Vec2, epsM = OUTLINE_EPS_M): boolean {
+  return Math.hypot(a.x - b.x, a.y - b.y) <= epsM;
+}
+
+/**
+ * Closed ring of the official room polygon. If the last vertex already
+ * coincides with the first, it is not repeated.
+ */
+export function closedPolygonRing(polygon: Vec2[]): Vec2[] {
+  if (polygon.length === 0) return [];
+  const first = polygon[0]!;
+  const last = polygon[polygon.length - 1]!;
+  if (verticesAlmostEqual(first, last)) return polygon.slice();
+  return [...polygon, first];
+}
+
+export function closedPolygonPerimeterM(polygon: Vec2[]): number {
+  const ring = closedPolygonRing(polygon);
+  if (ring.length < 2) return 0;
+  let sum = 0;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const a = ring[i]!;
+    const b = ring[i + 1]!;
+    sum += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return sum;
+}
+
+export function pointOnSegment(point: Vec2, a: Vec2, b: Vec2, epsM = OUTLINE_EPS_M): boolean {
+  const abx = b.x - a.x;
+  const aby = b.y - a.y;
+  const apx = point.x - a.x;
+  const apy = point.y - a.y;
+  const len2 = abx * abx + aby * aby;
+  if (len2 <= epsM * epsM) {
+    return Math.hypot(apx, apy) <= epsM;
+  }
+  const t = (apx * abx + apy * aby) / len2;
+  const tClamped = Math.max(0, Math.min(1, t));
+  const dx = point.x - (a.x + tClamped * abx);
+  const dy = point.y - (a.y + tClamped * aby);
+  return Math.hypot(dx, dy) <= epsM;
+}
+
+/** True when the point sits on an edge of the closed official polygon. */
+export function pointOnClosedPolygonOutline(
+  point: Vec2,
+  polygon: Vec2[],
+  epsM = OUTLINE_EPS_M
+): boolean {
+  const ring = closedPolygonRing(polygon);
+  if (ring.length < 2) return false;
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    if (pointOnSegment(point, ring[i]!, ring[i + 1]!, epsM)) return true;
+  }
+  return false;
+}
+
+/**
+ * Walk a distance along the closed official outline, starting at the first
+ * corner. Distances are taken modulo the perimeter and stay in [0, P).
+ */
+export function pointAlongClosedPolygon(polygon: Vec2[], distanceM: number): Vec2 | null {
+  if (polygon.length === 0) return null;
+  const first = polygon[0]!;
+  const perimeter = closedPolygonPerimeterM(polygon);
+  if (perimeter < DEGENERATE_SEGMENT_M) return { x: first.x, y: first.y };
+  let remaining = distanceM % perimeter;
+  if (remaining < 0) remaining += perimeter;
+  if (remaining <= OUTLINE_EPS_M || perimeter - remaining <= OUTLINE_EPS_M) {
+    return { x: first.x, y: first.y };
+  }
+  const ring = closedPolygonRing(polygon);
+  for (let i = 0; i < ring.length - 1; i += 1) {
+    const a = ring[i]!;
+    const b = ring[i + 1]!;
+    const length = Math.hypot(b.x - a.x, b.y - a.y);
+    if (remaining <= length + OUTLINE_EPS_M) {
+      const t = length < OUTLINE_EPS_M ? 0 : Math.min(1, remaining / length);
+      return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+    }
+    remaining -= length;
+  }
+  return { x: first.x, y: first.y };
+}
+
+/**
+ * Place `count` fixtures equally spaced along the official room outline.
+ * Starts at the first corner (Origin). Spacing is perimeter / Count, so the
+ * first and last points do not coincide on the closing vertex.
+ * Count = 1 sits at the first corner.
+ * `rotationDeg` is fixture orientation only — fixtures are not aimed along the tangent or inward.
+ * Spacing X, Spacing Y, and wall offset are intentionally unused.
+ */
+export function planPolygonArray(
+  room: RoomV2,
+  params: Pick<ArrayParams, "count" | "rotationDeg">
+): ArrayPoint[] {
+  const n = Math.max(1, Math.floor(params.count));
+  const rotationDeg = params.rotationDeg;
+  const polygon = room.polygon;
+  if (polygon.length === 0) return [];
+  const first = polygon[0]!;
+  if (n === 1) {
+    return [{ x: first.x, y: first.y, rotationDeg }];
+  }
+  const perimeter = closedPolygonPerimeterM(polygon);
+  if (perimeter < DEGENERATE_SEGMENT_M) {
+    return [{ x: first.x, y: first.y, rotationDeg }];
+  }
+  const spacing = perimeter / n;
+  const points: ArrayPoint[] = [];
+  for (let i = 0; i < n; i += 1) {
+    const at = pointAlongClosedPolygon(polygon, i * spacing) ?? first;
+    points.push({ x: at.x, y: at.y, rotationDeg });
+  }
+  return points;
+}
+
 export function clipArrayPointsToRoom(room: RoomV2, proposed: ArrayPoint[]): ArrayPlanResult {
   const inside: ArrayPoint[] = [];
   for (const p of proposed) {
-    if (pointInPolygon({ x: p.x, y: p.y }, room.polygon)) {
+    const at = { x: p.x, y: p.y };
+    // Ray-casting treats some edges as outside; official outline points stay valid.
+    if (pointInPolygon(at, room.polygon) || pointOnClosedPolygonOutline(at, room.polygon)) {
       inside.push(p);
     }
   }
@@ -196,7 +320,9 @@ export function planFixtureArray(room: RoomV2, params: ArrayParams): ArrayPlanRe
       ? planLineArray(room, params)
       : params.mode === "circle"
         ? planCircleArray(room, { ...params, radius: params.radius ?? 0 })
-        : planRectArray(room, params);
+        : params.mode === "polygon"
+          ? planPolygonArray(room, params)
+          : planRectArray(room, params);
   return clipArrayPointsToRoom(room, proposed);
 }
 

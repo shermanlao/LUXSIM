@@ -38,7 +38,7 @@ describe("official Circle array wiring", () => {
     const editor = readSrc("src/components/editor/BuildingEditor.tsx");
     const arrange = readSrc("src/lib/arrange-array.ts");
 
-    expect(arrange).toContain('export type ArrayMode = "rect" | "line" | "circle"');
+    expect(arrange).toContain('export type ArrayMode = "rect" | "line" | "circle" | "polygon"');
     expect(arrange).toContain("planCircleArray");
     expect(arrange).toMatch(/Spacing X, Spacing Y, and wall offset are intentionally unused/);
     expect(arrange).toMatch(/not aimed at the centre or along the tangent/);
@@ -62,7 +62,7 @@ describe("official Circle array wiring", () => {
     expect(panel).toContain("CIRCLE_ARRAY_UNUSED_FIELDS_REASON");
     expect(panel).toContain("CIRCLE_ARRAY_ROTATION_REASON");
     expect(panel).toContain("CIRCLE_ARRAY_PICK_HINT");
-    expect(panel).toContain('disabled={mode === "line" || mode === "circle"}');
+    expect(panel).toContain('disabled={mode === "line" || mode === "circle" || mode === "polygon"}');
     expect(panel).toMatch(/Radius \(m\)/);
     expect(panel).not.toMatch(/targetEm.*circle/);
     expect(panel).not.toMatch(/previewTargetEmArrange.*circle/);
