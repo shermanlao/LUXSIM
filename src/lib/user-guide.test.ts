@@ -90,6 +90,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/形狀不變/);
     expect(guide).not.toMatch(/cannot be dragged/i);
     expect(guide).not.toMatch(/不能拖移/);
+    expect(guide).toMatch(/every room on that storey/);
+    expect(guide).toMatch(/該層所有房間/);
+    expect(guide).toMatch(/A click without movement on a room still selects that room/);
+    expect(guide).toMatch(/點一下房間而未拖移，仍會改為選取該房間/);
   });
 
   it("parses the main headings", () => {
@@ -131,6 +135,7 @@ describe("user guide", () => {
     expect(tips).toContain('helpKey: "tool.drawRect"');
     expect(tips).toMatch(/use Select to drag the room on the Top plan/);
     expect(tips).toMatch(/fixtures in that room follow/);
+    expect(tips).toMatch(/storey is selected in Building/);
     expect(tips).not.toMatch(/cannot be dragged/i);
   });
 

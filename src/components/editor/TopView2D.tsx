@@ -16,6 +16,7 @@ import {
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import { applyStoreyDrag, isStoreyDragClick, shouldBeginStoreyDrag } from "@/lib/storey-drag";
 import { applyDrawRoomBackspace, drawRoomEscapeAction } from "@/lib/draw-room-keys";
 import {
   applyLineEndpointPick,
@@ -58,6 +59,7 @@ type Props = {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onDrawRoomPolygon: (points: Vec2[]) => void;
   onMoveRoom?: (roomId: string, dx: number, dy: number) => void;
+  onMoveStorey?: (storeyId: string, dx: number, dy: number) => void;
   onSelectRoom?: (roomId: string) => void;
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
   /** Persist native pixel size (and migrate legacy scale) for older underlays. */
@@ -99,6 +101,7 @@ export function TopView2D({
   onMoveInstance,
   onDrawRoomPolygon,
   onMoveRoom,
+  onMoveStorey,
   onSelectRoom,
   onCalibratePoints,
   onUnderlaySourceSize,
@@ -125,9 +128,14 @@ export function TopView2D({
   const [ortho, setOrtho] = useState(false);
   const [movingId, setMovingId] = useState<string | null>(null);
   const [movingRoomId, setMovingRoomId] = useState<string | null>(null);
+  const [movingStoreyId, setMovingStoreyId] = useState<string | null>(null);
   const grabOffset = useRef({ x: 0, y: 0 });
   const roomDragOrigin = useRef<Vec2 | null>(null);
   const roomDragApplied = useRef<Vec2>({ x: 0, y: 0 });
+  const storeyDragOrigin = useRef<Vec2 | null>(null);
+  const storeyDragApplied = useRef<Vec2>({ x: 0, y: 0 });
+  const storeyDragClientOrigin = useRef<{ x: number; y: number } | null>(null);
+  const storeyDragMoved = useRef(false);
   const calib = useRef<{ x: number; y: number } | null>(null);
   const [resolvedSource, setResolvedSource] = useState<{
     width: number;
@@ -361,6 +369,54 @@ export function TopView2D({
     roomDragApplied.current = { x: 0, y: 0 };
   }
 
+  function endStoreyDrag() {
+    setMovingStoreyId(null);
+    storeyDragOrigin.current = null;
+    storeyDragApplied.current = { x: 0, y: 0 };
+    storeyDragClientOrigin.current = null;
+    storeyDragMoved.current = false;
+  }
+
+  function beginStoreyDrag(hitRoomId: string, start: Vec2, client: { x: number; y: number }) {
+    const targetStoreyId = storeyId;
+    storeyDragOrigin.current = start;
+    storeyDragApplied.current = { x: 0, y: 0 };
+    storeyDragClientOrigin.current = client;
+    storeyDragMoved.current = false;
+    setMovingStoreyId(targetStoreyId);
+    const move = (ev: MouseEvent) => {
+      const origin = storeyDragOrigin.current;
+      const clientOrigin = storeyDragClientOrigin.current;
+      if (!origin || !clientOrigin) return;
+      if (!storeyDragMoved.current) {
+        if (isStoreyDragClick(clientOrigin, { x: ev.clientX, y: ev.clientY })) return;
+        storeyDragMoved.current = true;
+      }
+      const w = toWorld(ev.clientX, ev.clientY);
+      storeyDragApplied.current = applyStoreyDrag(
+        onMoveStorey,
+        targetStoreyId,
+        origin,
+        storeyDragApplied.current,
+        w,
+        ev.shiftKey
+      );
+    };
+    const up = (ev: MouseEvent) => {
+      const clientOrigin = storeyDragClientOrigin.current;
+      const wasClick =
+        !storeyDragMoved.current &&
+        !!clientOrigin &&
+        isStoreyDragClick(clientOrigin, { x: ev.clientX, y: ev.clientY });
+      endStoreyDrag();
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+      if (wasClick) onSelectRoom?.(hitRoomId);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   function beginRoomDrag(roomId: string, start: Vec2) {
     roomDragOrigin.current = start;
     roomDragApplied.current = { x: 0, y: 0 };
@@ -545,7 +601,7 @@ export function TopView2D({
               strokeWidth={active ? 2 : 1}
               style={{
                 cursor:
-                  movingRoomId === room.id
+                  movingRoomId === room.id || movingStoreyId === room.storeyId
                     ? "grabbing"
                     : scene.ui.tool === "select"
                       ? "grab"
@@ -572,6 +628,26 @@ export function TopView2D({
                   return;
                 }
                 e.stopPropagation();
+                if (
+                  shouldBeginStoreyDrag({
+                    tool: scene.ui.tool,
+                    drawing,
+                    calibrating: scene.ui.tool === "calibrate",
+                    linePickActive,
+                    circlePickActive,
+                    activeRoomId: scene.ui.activeRoomId,
+                    activeStoreyId: scene.ui.activeStoreyId,
+                    hitRoomStoreyId: room.storeyId,
+                    onMoveStorey,
+                  })
+                ) {
+                  beginStoreyDrag(
+                    room.id,
+                    toWorld(e.clientX, e.clientY),
+                    { x: e.clientX, y: e.clientY }
+                  );
+                  return;
+                }
                 onSelectRoom?.(room.id);
                 if (
                   !shouldBeginRoomDrag({

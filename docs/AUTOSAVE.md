@@ -29,7 +29,7 @@ Examples:
 
 The PATCH response is `{ ok, updatedAt }` — it does not echo the full project (GET still returns the full document).
 
-Dragging a room with Select writes `{ scene }` only, like moving a fixture: the room polygon and that room's fixtures move together. Calculation results are left in place until the user recalculates.
+Dragging a room with Select writes `{ scene }` only, like moving a fixture: the room polygon and that room's fixtures move together. Dragging a whole storey (storey selected in Building, then a room fill dragged) likewise writes `{ scene }` only: every room on that storey and the fixtures that belong to those rooms move together. Calculation results are left in place until the user recalculates.
 
 ## Code
 

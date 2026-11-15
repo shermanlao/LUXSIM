@@ -17,6 +17,7 @@ import {
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
   officialTranslateRoom,
+  officialTranslateStorey,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -838,6 +839,19 @@ export function BuildingEditor({
     patchScene((s) => officialTranslateRoom(s, roomId, dx, dy));
   }
 
+  function moveStorey(storeyId: string, dx: number, dy: number) {
+    if (dx === 0 && dy === 0) return;
+    if (coalesceRef.current !== "drag") {
+      beginCoalesce("drag");
+      const end = () => {
+        if (coalesceRef.current === "drag") coalesceRef.current = null;
+        window.removeEventListener("mouseup", end);
+      };
+      window.addEventListener("mouseup", end);
+    }
+    patchScene((s) => officialTranslateStorey(s, storeyId, dx, dy));
+  }
+
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
     if (coalesceRef.current !== "drag") {
       beginCoalesce("drag");
@@ -1633,6 +1647,7 @@ export function BuildingEditor({
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
           onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}
+          onMoveStorey={(storeyId, dx, dy) => moveStorey(storeyId, dx, dy)}
           onSelectRoom={(roomId) =>
             patchSceneUi((s) => ({
               ...s,
@@ -2010,7 +2025,7 @@ export function BuildingEditor({
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using the Building Room height. After creation, drag the room with Select to move it.
+                Places a rectangle at 0, 0 using the Building Room height. After creation, drag the room with Select to move it. If the storey is selected in Building, dragging a room fill moves every room on that storey.
               </p>
             </div>
           </div>

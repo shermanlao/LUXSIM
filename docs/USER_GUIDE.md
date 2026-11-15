@@ -16,7 +16,7 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 - 雙擊圖面空白處，會回到預設的置中適合視野。
 - 切換樓層時，視野也會回到這個預設。
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
-- 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。
+- 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。若要一次移動整層，先在 **Building** 選取該樓層，再於該層任一房間填色範圍上拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
 
 On the **Top** or **Bottom** view:
@@ -25,7 +25,7 @@ On the **Top** or **Bottom** view:
 - Double-click an empty area of the plan to return to the default centred fit.
 - Switching storeys also resets the view to that default fit.
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
-- Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill.
+- Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill. To move a whole storey, select the storey in **Building** first, then drag a room fill.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
@@ -47,6 +47,8 @@ If the plan underlay is an image or PDF that has not been calibrated, drawing a 
 
 房間建立後，可在 **Select** 工具下於 **Top** 或 **Bottom** 平面圖拖移該房的填色範圍，把整個多邊形平移到新位置。矩形、L 形或不規則形狀都適用，形狀不變。該房內的燈具會一併移動，其他房間與樓層標高／層高不變。按住 **Shift** 可限制為水平或垂直移動。這次移動可用 **Ctrl+Z** 撤銷。單一燈具仍可用 **Select / move** 單獨拖移。
 
+若在左側 **Building** 樹選取的是樓層（該層平面被選取，而不是單一房間），用 **Select** 在該層任一房間的填色範圍上按下並拖曳，會把該層所有房間一次沿同一世界 XY 位移平移。各房形狀不變，屬於這些房間的燈具會一併移動（高度與旋轉不變）。其他樓層不會移動。允許房間重疊。計算結果會留在原位，直到再按 Calculate。若只是點一下房間而未拖移，仍會改為選取該房間；選取房間之後，拖移則只移動該房，行為與原本單一房間拖移相同。按住 **Shift** 同樣限制為水平或垂直。一次整層拖移可用 **Ctrl+Z** 撤銷。這不是平移圖面：空白處拖曳仍不會移動視野。
+
 在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room** 或 **Create rectangle** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
 
 矩形房間：在工具列輸入 **Length** 和 **Width**（毫米，或加 `m` / `cm` 後綴）後建立，房間會放在樓層原點 `(0, 0)`。高度取自 **Room height**。建立後可用 **Select** 拖移到圖則位置。
@@ -61,6 +63,8 @@ On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
 6. **Esc** cancels the draft while you are drawing. It does not exit the browser’s fullscreen view. When you are not drawing, **Esc** can still exit fullscreen.
 
 After a room is created, choose the **Select** tool and drag the room fill on the **Top** or **Bottom** plan to move the whole polygon (rectangle, L-shape, or irregular) without changing its shape. Fixtures that belong to that room move with it. Other rooms and the storey's elevation / height stay as they are. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the move. Use **Select / move** to drag a single fixture on its own.
+
+If the **Building** tree selection is a storey (the plan / storey is selected, not a single room), use the **Select** tool and press-and-drag the fill of any room on that storey to translate every room on that storey by the same world XY delta. Room shapes stay the same. Fixtures whose room belongs to those rooms move with them (Z and rotation unchanged). Rooms on other storeys do not move. Overlap is allowed. Calculation results stay in place until you recalculate. A click without movement on a room still selects that room. Once a room is selected, drag still moves only that room, as before. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the whole-storey move as one step. This is not plan panning: dragging an empty area still does not move the view.
 
 Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room** or **Create rectangle**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
 

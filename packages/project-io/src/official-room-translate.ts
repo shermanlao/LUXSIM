@@ -58,3 +58,28 @@ function translateOwnedFixture(
     },
   };
 }
+
+
+/**
+ * Official Select-tool storey move: translate every room on one storey by the
+ * same world XY delta, without reshaping any room, and move fixtures whose
+ * roomId belongs to those rooms by the same delta. Other storeys, unassigned
+ * fixtures, storey elevation / height, and room height are left unchanged.
+ * Overlap is allowed. Does not clear calculation results (same policy as
+ * officialTranslateRoom).
+ */
+export function officialTranslateStorey(
+  scene: ProjectSceneV2,
+  storeyId: string,
+  dx: number,
+  dy: number
+): ProjectSceneV2 {
+  if (!isFiniteDelta(dx, dy)) return scene;
+  if (!scene.storeys.some((storey) => storey.id === storeyId)) return scene;
+  const roomIds = scene.rooms.filter((room) => room.storeyId === storeyId).map((room) => room.id);
+  if (roomIds.length === 0) return scene;
+  return roomIds.reduce(
+    (next, roomId) => officialTranslateRoom(next, roomId, dx, dy),
+    scene
+  );
+}

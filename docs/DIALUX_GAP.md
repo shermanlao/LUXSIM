@@ -19,6 +19,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - Client solver: direct illuminance, simplified interreflection, simplified UGR, LPD
 - False-color overlay + PDF / `.luxsim` / **DIALux verification zip** (multi-room geometry + DXF + results CSV)
 - CAD point-to-point room draw (typed mm polar lock) + L×W rectangle at origin; 3D extrudes the floor polygon
+- **Select-tool room / storey translation** on the Top / Bottom plan (fixtures in the moved rooms follow; shape unchanged; Shift constrains to X or Y)
 - **EN 12464-1 assist** — task / surrounding / background targets; **CIE 97 MF breakdown**; pass-fail hints (not certification)
 - **CIE 171 skeleton** — analytical direct self-tests in `packages/solver/src/cie171/`
 - **AB golden room** — [`docs/ab-golden-room/`](./ab-golden-room/) for Dialux evo manual compare
@@ -34,7 +35,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 | Draw room | Click corners; type length; polar lock | Click corners; type mm; close on start. See [ROOM_DRAW.md](./ROOM_DRAW.md) |
 | Typed distance | Next point locked to radius circle | Bare number = mm; suffixes `m` / `cm` / `mm` |
 | Ortho / snap | Ortho, polar tracking, object snap | Shift = 90° ortho. No DXF object snap |
-| Edit outline | Move vertices, stretch walls | Rooms are selectable, not draggable. No vertex handles |
+| Edit outline | Move vertices, stretch walls | Select-tool drag translates a selected room, or every room on a storey when the storey is selected in Building. No vertex handles |
 | Room inspector | Height, workplane, materials | **BuildingEditor** properties panel (height, workplane, ρ, grid, MF, EN template) |
 | 3D volume | Extrude true polygon | Extruded floor polygon |
 | Openings | Windows / doors | None |
