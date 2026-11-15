@@ -71,6 +71,8 @@ export function defaultSceneV2(): ProjectSceneV2 {
       workflowMode: "construction",
       camera3d: null,
       display3d: "greyscale",
+      planIsoluxMode: "falsecolor",
+      planValueLabels: false,
     },
   };
 }
@@ -130,6 +132,8 @@ export function migrateSceneV1toV2(scene: SceneJson): ProjectSceneV2 {
       workflowMode: "construction",
       camera3d: null,
       display3d: "greyscale",
+      planIsoluxMode: "falsecolor",
+      planValueLabels: false,
     },
   };
 }
@@ -146,6 +150,15 @@ function normalizeViewMode(raw: unknown): ProjectSceneV2["ui"]["viewMode"] {
 function normalizeDisplay3d(raw: unknown): ProjectSceneV2["ui"]["display3d"] {
   if (raw === "greyscale" || raw === "falsecolor") return raw;
   return "greyscale";
+}
+
+function normalizePlanIsoluxMode(raw: unknown): ProjectSceneV2["ui"]["planIsoluxMode"] {
+  if (raw === "falsecolor" || raw === "isolines") return raw;
+  return "falsecolor";
+}
+
+function normalizePlanValueLabels(raw: unknown): boolean {
+  return raw === true;
 }
 
 function normalizeCamera3d(
@@ -216,6 +229,8 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         workflowMode: normalizeWorkflowMode(scene.ui?.workflowMode),
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
         display3d: normalizeDisplay3d(scene.ui?.display3d),
+        planIsoluxMode: normalizePlanIsoluxMode(scene.ui?.planIsoluxMode),
+        planValueLabels: normalizePlanValueLabels(scene.ui?.planValueLabels),
       },
     };
   }

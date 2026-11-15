@@ -154,6 +154,7 @@ export interface IsoluxModel {
   fixtures: IsoluxPoint[];
   legendStops: { lux: number; color: string }[];
   fontPx: number;
+  world: IsoluxWorldFrame;
 }
 
 function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
@@ -395,10 +396,26 @@ function stitch(segments: { a: IsoluxPoint; b: IsoluxPoint }[]): IsoluxPoint[][]
   return lines;
 }
 
-function formatPointLux(v: number): string {
+export function formatPointLux(v: number): string {
   if (v >= 100) return String(Math.round(v));
   if (v >= 10) return v.toFixed(0);
   return v.toFixed(1);
+}
+
+export interface IsoluxWorldFrame {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  /** Pixels per metre in the model bitmap / contour space. */
+  scale: number;
+}
+
+export function isoluxPxToWorld(frame: IsoluxWorldFrame, p: IsoluxPoint): IsoluxPoint {
+  return {
+    x: frame.minX + p.x / frame.scale,
+    y: frame.maxY - p.y / frame.scale,
+  };
 }
 
 export function buildIsoluxModel(
@@ -521,5 +538,6 @@ export function buildIsoluxModel(
     fixtures,
     legendStops: legendStopsForRange(results.summary.emin, results.summary.emax),
     fontPx: Math.max(12, Math.min(22, width / 70)),
+    world: { minX, minY, maxX, maxY, scale },
   };
 }

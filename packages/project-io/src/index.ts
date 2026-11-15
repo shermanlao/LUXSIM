@@ -106,8 +106,20 @@ export {
   DIALUX_LUX_STOPS,
   normalizeFalseColorScale,
   isFalseColorScale,
+  formatPointLux,
+  isoluxPxToWorld,
 } from "./isolux-map";
-export type { IsoluxMode, IsoluxModel, FalseColorScale } from "./isolux-map";
+export type { IsoluxMode, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";
+export {
+  hasCalcGrid,
+  officialIsoluxModelForRoom,
+  officialIsoluxModelsByRoom,
+  renderIsoluxModelPngDataUrl,
+  isoluxFieldPngDataUrl,
+  collectOfficialIsoluxSnapshots,
+  OFFICIAL_PDF_ISOLUX_RENDER,
+} from "./isolux-snapshot";
+export type { OfficialIsoluxRenderOpts } from "./isolux-snapshot";
 export {
   GRID_SPACING_MIN_M,
   GRID_SPACING_MAX_M,

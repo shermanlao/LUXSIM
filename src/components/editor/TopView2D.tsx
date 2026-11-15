@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { DxfEntity, ProjectSceneV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
+import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
 import {
   findRoomAt,
   isCloseToStart,
@@ -75,6 +76,10 @@ type Props = {
   circlePick?: CirclePickState;
   circlePickActive?: boolean;
   onCirclePickChange?: (next: CirclePickState) => void;
+  /** Calculation results for the plan isolux / value-label overlay. */
+  results?: ResultsV2 | null;
+  planIsoluxMode?: IsoluxMode;
+  showValueLabels?: boolean;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -108,6 +113,9 @@ export function TopView2D({
   circlePick,
   circlePickActive = false,
   onCirclePickChange,
+  results = null,
+  planIsoluxMode = "falsecolor",
+  showValueLabels = false,
 }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
@@ -582,6 +590,18 @@ export function TopView2D({
             />
           );
         })}
+
+        {results && (
+          <PlanIsoluxOverlay
+            scene={scene}
+            rooms={rooms}
+            results={results}
+            mode={planIsoluxMode}
+            showValueLabels={showValueLabels}
+            toScreen={toScreen}
+          />
+        )}
+
 
         {draft.length > 0 && (
           <polyline

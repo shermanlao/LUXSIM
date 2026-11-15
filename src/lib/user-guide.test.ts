@@ -101,6 +101,7 @@ describe("user guide", () => {
     expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("圓形排列 / Circular array");
     expect(headings).toContain("多邊形排列 / Polygon array");
+    expect(headings).toContain("等照度線與數值圖 / Isolines and value labels");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
@@ -196,5 +197,23 @@ describe("user guide", () => {
     expect(POLYGON_ARRAY_HINT).toMatch(/closed outline/);
     expect(POLYGON_ARRAY_UNUSED_FIELDS_REASON).toMatch(/stay disabled/);
     expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
+  });
+
+  it("documents isolines and value labels on the plan and in the official PDF", () => {
+    expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
+    expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);
+    expect(guide).toMatch(/切換 \*\*False colour\*\*（偽色）和 \*\*Isolines\*\*（等照度線）/);
+    expect(guide).toMatch(/tick \*\*Value labels\*/);
+    expect(guide).toMatch(/勾選 \*\*Value labels\*\*（數值圖）/);
+    expect(guide).toMatch(/do not invent numbers/);
+    expect(guide).toMatch(/不會發明數字/);
+    expect(guide).toMatch(/run \*\*Calculate\*\* first/);
+    expect(guide).toMatch(/先執行 \*\*Calculate\*/);
+    expect(guide).toMatch(/Full PDF report/);
+    expect(guide).toMatch(/if 3D views cannot be captured/);
+    expect(guide).toMatch(/即使 3D 視圖未能擷取/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "view.planIsolux"');
+    expect(tips).toContain("PLAN_ISOLUX_HINT");
   });
 });

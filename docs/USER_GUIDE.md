@@ -4,9 +4,9 @@ LUXSIM 是照明設計輔助工具，不是標書認證計算。編輯器按鈕�
 
 LUXSIM is a lighting design assist tool, not a tender-certified calculation. The names below match the English labels in the editor.
 
-在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，以及直線排列的端點點選、圓形排列和多邊形排列，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
+在 [Projects](/projects) 開啟專案後即可使用編輯器。本頁說明平面圖視野、畫房、拖移房間，直線排列的端點點選、圓形排列和多邊形排列，以及計算後在平面上切換等照度線與數值圖，包括近日補上、用家需要記住的快捷鍵。工具旁的「？」按鈕也有簡短提示。
 
-Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, and how to place a Circular or Polygon array, including the latest shortcuts. The **?** buttons next to tools also show short tips.
+Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to drag a room, how to pick Line array endpoints, how to place a Circular or Polygon array, and how to switch Isolines and value labels on the plan after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
 ## 平面圖視野 / Plan view
 
@@ -147,6 +147,17 @@ In **Light** mode, select a room in the building tree, then choose **Polygon** i
 3. **Rotation** is the fixture orientation, as in Line and Circle modes; fixtures are not aimed along the tangent or inward.
 4. **Spacing X, Spacing Y and wall offset stay disabled** in Polygon mode because a polygon array places fixtures on the room outline only. Those fields are used by Rectangular arrays. There is no inset or second ring. Target-Ēm estimate still uses a rectangular grid only. This mode does not add a separate path-drawing tool.
 5. Points outside the room polygon are not placed. Points that lie exactly on the room edge are treated as valid. Points within 1 mm of an existing fixture in the same room are skipped; existing fixtures are kept.
+
+## 等照度線與數值圖 / Isolines and value labels
+
+在 **Top** 或 **Bottom** 視圖，若所選房間已有計算結果，可在圖面左上角切換 **False colour**（偽色）和 **Isolines**（等照度線），並可勾選 **Value labels**（數值圖）在工作面網格上顯示或隱藏照度數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。沒有結果的房間不會發明數字：切換會停用，並提示先執行 **Calculate**。
+
+匯出 **Full PDF report** 時，每間已計算房間的摘要會附上工作面等照度線圖，並標上沿線數值與網格數值。即使 3D 視圖未能擷取，這些由平面模型產生的圖仍會匯出。既有的偽色工作面圖與 3D 章節維持不變。
+
+On the **Top** or **Bottom** view, when the selected room has calculation results, use the controls at the top left of the plan to switch between **False colour** and **Isolines**, and tick **Value labels** to show or hide illuminance values on the workplane grid. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Rooms without results do not invent numbers: the controls are disabled and ask you to run **Calculate** first.
+
+When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D chapters are unchanged.
+
 
 ## 房間屬性 / Room properties
 

@@ -73,7 +73,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Visualization & docs
 
-- False color yes; isolines / value charts no
+- False colour, isolines, and value labels on the official Top/Bottom plan (after Calculate) and in the official Full PDF isolux diagram; 3D greyscale / false-colour unchanged. Not a raytraced visualisation.
 - No raytrace
 - PDF is a fixed template; no DOCX / PPT / CD layouts
 - No proprietary native DIALux project write
@@ -86,7 +86,7 @@ See [ROOM_DRAW.md](./ROOM_DRAW.md). Scene units stay metres; typed lengths are m
 
 1. **P0 done** — Point-to-point draw + typed polar lock + ortho + close; L×W; room translate; 3D polygon extrusion; workspace chrome; room inspector; DIALux verification pack.
 2. **P0 leftover** — vertex edit.
-3. **P1** — Snap, fixture arrays + rotation, isolines, extra calc surfaces, richer standard libraries. (Wall calculation surfaces: done.)
+3. **P1** — Snap, fixture arrays + rotation, extra calc surfaces, richer standard libraries. (Wall calculation surfaces, rectangular/line/circular/polygon arrays, and official isolines / value labels: done.)
 4. **P2+** — Daylight, emergency, furniture, catalog, raytrace, outdoor, IFC/Office export.
 
 ## Non-claims (unchanged)

@@ -10,6 +10,7 @@ import {
   POLYGON_ARRAY_ROTATION_REASON,
   POLYGON_ARRAY_UNUSED_FIELDS_REASON,
 } from "@/lib/polygon-array";
+import { PLAN_ISOLUX_HINT } from "@/lib/plan-isolux-display";
 
 export type UiTipSeed = {
   helpKey: string;
@@ -52,6 +53,11 @@ export const UI_TIPS: UiTipSeed[] = [
     helpKey: "tool.polygonArray",
     title: "Polygon array",
     body: `${POLYGON_ARRAY_HINT} ${POLYGON_ARRAY_ROTATION_REASON} ${POLYGON_ARRAY_UNUSED_FIELDS_REASON}`,
+  },
+  {
+    helpKey: "view.planIsolux",
+    title: "Isolines and value labels",
+    body: PLAN_ISOLUX_HINT,
   },
   {
     helpKey: "room.maintenanceFactor",

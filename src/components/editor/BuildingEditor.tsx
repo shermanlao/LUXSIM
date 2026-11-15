@@ -6,6 +6,7 @@ import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdf,
   gridToFalseColorPngDataUrl,
+  collectOfficialIsoluxSnapshots,
   defaultDisplay3d,
   findRoomAt,
   fitOverviewCamera,
@@ -35,6 +36,7 @@ import {
   underlayWorldSize,
   type Camera3dView,
   type Display3dMode,
+  type IsoluxMode,
   type DxfEntity,
   type FalseColorScale,
   type ProjectSceneV2,
@@ -122,6 +124,11 @@ import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { Display3dToggle } from "./Display3dToggle";
+import { PlanIsoluxToggle } from "./PlanIsoluxToggle";
+import {
+  normalizePlanIsoluxMode,
+  planIsoluxControlState,
+} from "@/lib/plan-isolux-display";
 import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
@@ -1355,6 +1362,7 @@ export function BuildingEditor({
       const snap = gridToFalseColorPngDataUrl(room, res);
       if (snap) falseColorSnapshots[room.id] = snap;
     }
+    const isoluxSnapshots = collectOfficialIsoluxSnapshots(scene, results);
     const captured3d = captureOfficialReport3dViews({
       captureAvailable: webglCaptureAvailable,
       render: () =>
@@ -1390,6 +1398,7 @@ export function BuildingEditor({
       photometry,
       wattsById,
       falseColorSnapshots,
+      isoluxSnapshots,
       projectPerspectiveGreyscale,
       projectPerspectiveFalseColor,
       persp3dGreyscale,
@@ -1541,6 +1550,9 @@ export function BuildingEditor({
 
 
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const planIsoluxMode: IsoluxMode = normalizePlanIsoluxMode(scene.ui.planIsoluxMode);
+  const planValueLabels = scene.ui.planValueLabels === true;
+  const planIsoluxControls = planIsoluxControlState(results, scene.ui.activeRoomId);
   const luxRange = projectLuxRange(results);
   const autoScale = useMemo(
     () => normalizeFalseColorScale(luxRange.emin, luxRange.emax),
@@ -1573,6 +1585,28 @@ export function BuildingEditor({
           />
         </div>
       )}
+      {(viewMode === "top" || viewMode === "bottom") && (
+        <div className="absolute top-3 left-3 z-10">
+          <PlanIsoluxToggle
+            mode={planIsoluxMode}
+            onModeChange={(mode) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, planIsoluxMode: mode },
+              }))
+            }
+            showValueLabels={planValueLabels}
+            onShowValueLabelsChange={(show) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, planValueLabels: show },
+              }))
+            }
+            enabled={planIsoluxControls.enabled}
+            reason={planIsoluxControls.reason}
+          />
+        </div>
+      )}
       <div className="absolute top-3 right-3 z-10 flex gap-2">
         <button
           type="button"
@@ -1587,6 +1621,9 @@ export function BuildingEditor({
         <TopView2D
           scene={scene}
           variant={viewMode === "bottom" ? "bottom" : "top"}
+          results={results}
+          planIsoluxMode={planIsoluxMode}
+          showValueLabels={planValueLabels}
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           selectedId={selectedId}

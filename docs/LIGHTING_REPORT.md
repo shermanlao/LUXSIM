@@ -10,7 +10,7 @@ LUXSIM’s full PDF export (`buildFullReportPdf` in `@luxsim/project-io`) is str
 4. **Luminaire list** — project totals (Φ, P, efficacy) and per-product table (pcs, manufacturer, article, Φ, P, lm/W).
 5. **Room list** — per room: Ptotal, true polygon ARoom, LPD (W/m² and W/m²/100 lx), Ēperpendicular, luminaire sub-table.
 6. **Calculation objects** — all workplanes: type, height, wall zone, Ē, Emin, Emax, Uo, g2.
-7. **Per room** — Summary (properties + optional plan/3D/false-color images), Summary results, Working plane (false-color + coordinate schedule).
+7. **Per room** — Summary (properties + optional plan/3D images and isolux diagram with isolines and value labels), Summary results, Working plane (false-color + coordinate schedule).
 8. **Product sheets** — polar curve when available; flux shown honestly for absolute IES (-1 lm) files.
 9. **Luminaire schedule appendix** — global coordinates.
 
@@ -20,7 +20,7 @@ Room area and LPD in the report use **true polygon area** (`roomAreaM2`), not th
 
 ## Browser export
 
-The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` before calling `buildFullReportPdf`. Optional `planSnapshots` / `persp3dSnapshots` data URLs can be supplied when capture is wired up.
+The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` and isolux / value-label figures via `collectOfficialIsoluxSnapshots` (from `buildIsoluxModel`) before calling `buildFullReportPdf`. Isolux figures are produced from the 2D model and are still passed when WebGL 3D capture is unavailable. Optional `planSnapshots` data URLs can be supplied when capture is wired up; official 3D stills use the capture helper described in the 3D-omission path.
 
 See also `fixtures/reference-dialux-report.pdf` and repo `CONTENT_SPEC` notes for field checklist vs official DIALux exports (no branding clone).
 

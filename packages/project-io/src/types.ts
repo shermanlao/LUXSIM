@@ -188,6 +188,10 @@ export interface ProjectSceneV2 {
     camera3d?: Camera3dView | null;
     /** Greyscale architecture vs false-colour workplanes in the 3D view. */
     display3d?: Display3dMode;
+    /** False-colour vs isolines overlay on the Top/Bottom plan. */
+    planIsoluxMode?: "falsecolor" | "isolines";
+    /** Show workplane value labels on the Top/Bottom plan. */
+    planValueLabels?: boolean;
   };
 }
 
