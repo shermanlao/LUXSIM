@@ -242,6 +242,23 @@ export {
 export { officialTranslateRoom, officialTranslateStorey, translatePlanPoint } from "./official-room-translate";
 
 export {
+  VERTEX_STRETCH_REVERT_STATUS,
+  commitStretchedRoomPolygon,
+  moveRoomVertex,
+  officialRoomPolygonSelfIntersects,
+  officialRoomRingVertices,
+  officialSegmentsIntersect,
+  officialSetRoomPolygon,
+  officialStretchRoomVertex,
+  validateStretchedRoomPolygon,
+} from "./official-room-vertex";
+export type {
+  CommitStretchedRoomPolygonResult,
+  VertexStretchRejectReason,
+  VertexStretchValidation,
+} from "./official-room-vertex";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

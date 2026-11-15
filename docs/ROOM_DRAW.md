@@ -22,6 +22,8 @@ Help tip key: `tool.drawRoom`.
 
 In the tools panel, enter **Length** and **Width** (mm, or `m` / `cm` suffix) and **Create rectangle**. The room is placed at the storey origin `(0, 0)` using the current Room height. After creation, use the **Select** tool and drag the room fill on the Top or Bottom plan to translate the whole polygon (rectangle, L-shape, or irregular) without changing its shape. Fixtures that belong to that room move with it. If the storey is selected in Building, dragging a room fill moves every room on that storey by the same XY delta; a click without movement still selects that room. Hold **Shift** to constrain the move to horizontal or vertical. Use **Select / move** to drag a single fixture on its own.
 
+With a room selected, drag a corner handle on the Top or Bottom plan to stretch that vertex. Official DXF object snap applies. Dragging the room fill still translates the whole polygon. Invalid stretches (fewer than 3 unique corners, a self-crossing outline, or area below 0.01 m²) are reverted. This increment does not insert vertices on edges.
+
 Help tip key: `tool.drawRect`.
 
 ## Create rooms from DXF — closed polylines and simple line loops

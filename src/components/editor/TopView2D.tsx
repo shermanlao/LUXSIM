@@ -14,10 +14,18 @@ import {
   officialDrawRoomAllowed,
   officialDxfEntitiesToWorld,
   officialDxfPolylineStrokePoints,
+  officialRoomRingVertices,
   underlayWorldSize,
+  commitStretchedRoomPolygon,
+  moveRoomVertex,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import {
+  hitRoomVertexHandle,
+  shouldBeginVertexStretch,
+  vertexHandleRadiusM,
+} from "@/lib/room-vertex-stretch";
 import { applyStoreyDrag, isStoreyDragClick, shouldBeginStoreyDrag } from "@/lib/storey-drag";
 import { applyDrawRoomBackspace, drawRoomEscapeAction } from "@/lib/draw-room-keys";
 import {
@@ -80,6 +88,8 @@ type Props = {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onDrawRoomPolygon: (points: Vec2[]) => void;
   onMoveRoom?: (roomId: string, dx: number, dy: number) => void;
+  onSetRoomPolygon?: (roomId: string, polygon: Vec2[]) => void;
+  onVertexStretchStatus?: (status: string) => void;
   onMoveStorey?: (storeyId: string, dx: number, dy: number) => void;
   onSelectRoom?: (roomId: string) => void;
   onCalibratePoints?: (a: { x: number; y: number }, b: { x: number; y: number }) => void;
@@ -126,6 +136,8 @@ export function TopView2D({
   onMoveInstance,
   onDrawRoomPolygon,
   onMoveRoom,
+  onSetRoomPolygon,
+  onVertexStretchStatus,
   onMoveStorey,
   onSelectRoom,
   onCalibratePoints,
@@ -157,6 +169,9 @@ export function TopView2D({
   const [movingId, setMovingId] = useState<string | null>(null);
   const [movingRoomId, setMovingRoomId] = useState<string | null>(null);
   const [movingStoreyId, setMovingStoreyId] = useState<string | null>(null);
+  const [stretchingVertex, setStretchingVertex] = useState<{ roomId: string; index: number } | null>(
+    null
+  );
   const grabOffset = useRef({ x: 0, y: 0 });
   const roomDragOrigin = useRef<Vec2 | null>(null);
   const roomDragApplied = useRef<Vec2>({ x: 0, y: 0 });
@@ -540,6 +555,46 @@ export function TopView2D({
     window.addEventListener("mouseup", up);
   }
 
+  function vertexRadiusMAt(clientX: number, clientY: number): number {
+    return vertexHandleRadiusM(worldMetresPerCssPixel(toWorld, clientX, clientY));
+  }
+
+  function handleRadiusSvg(): number {
+    const svg = svgRef.current;
+    if (!svg) return 8;
+    const rect = svg.getBoundingClientRect();
+    const radiusM = vertexRadiusMAt(rect.left + rect.width / 2, rect.top + rect.height / 2);
+    return Math.max(5, radiusM * scale);
+  }
+
+  function beginVertexStretch(roomId: string, index: number, original: Vec2[]) {
+    const source = original.map((p) => ({ x: p.x, y: p.y }));
+    setStretchingVertex({ roomId, index });
+    const applyAt = (clientX: number, clientY: number, commit: boolean) => {
+      const snapped = snappedWorldAt(clientX, clientY);
+      setSnapHit(snapped.hit);
+      const next = moveRoomVertex(source, index, { x: snapped.x, y: snapped.y });
+      if (commit) {
+        const result = commitStretchedRoomPolygon(source, next);
+        onSetRoomPolygon?.(roomId, result.polygon);
+        if (result.reverted && result.status) onVertexStretchStatus?.(result.status);
+        return;
+      }
+      onSetRoomPolygon?.(roomId, next);
+    };
+    const move = (ev: MouseEvent) => {
+      applyAt(ev.clientX, ev.clientY, false);
+    };
+    const up = (ev: MouseEvent) => {
+      applyAt(ev.clientX, ev.clientY, true);
+      setStretchingVertex(null);
+      window.removeEventListener("mousemove", move);
+      window.removeEventListener("mouseup", up);
+    };
+    window.addEventListener("mousemove", move);
+    window.addEventListener("mouseup", up);
+  }
+
   const underlayScreen =
     underlay && underlaySize
       ? {
@@ -755,6 +810,28 @@ export function TopView2D({
                   return;
                 }
                 e.stopPropagation();
+                if (room.id === scene.ui.activeRoomId) {
+                  const handleIndex = hitRoomVertexHandle(
+                    toWorld(e.clientX, e.clientY),
+                    room.polygon,
+                    vertexRadiusMAt(e.clientX, e.clientY)
+                  );
+                  if (
+                    shouldBeginVertexStretch({
+                      tool: scene.ui.tool,
+                      drawing,
+                      calibrating: scene.ui.tool === "calibrate",
+                      linePickActive,
+                      circlePickActive,
+                      polygonPickActive,
+                      handleIndex,
+                      onSetRoomPolygon,
+                    })
+                  ) {
+                    beginVertexStretch(room.id, handleIndex!, room.polygon);
+                    return;
+                  }
+                }
                 if (
                   shouldBeginStoreyDrag({
                     tool: scene.ui.tool,
@@ -795,6 +872,61 @@ export function TopView2D({
             />
           );
         })}
+
+        {scene.ui.tool === "select" &&
+          !drawing &&
+          !linePickActive &&
+          !circlePickActive &&
+          !polygonPickActive &&
+          rooms
+            .filter((room) => room.id === scene.ui.activeRoomId)
+            .map((room) => {
+              const ring = officialRoomRingVertices(room.polygon);
+              const hitR = handleRadiusSvg();
+              return ring.map((p, index) => {
+                const s = toScreen(p.x, p.y);
+                const stretching =
+                  stretchingVertex?.roomId === room.id && stretchingVertex.index === index;
+                return (
+                  <g
+                    key={`${room.id}-vertex-${index}`}
+                    data-room-vertex-handle={index}
+                    style={{ cursor: stretching ? "grabbing" : "pointer" }}
+                    onMouseDown={(e) => {
+                      if (drawing || scene.ui.tool === "calibrate") return;
+                      if (linePickActive || circlePickActive || polygonPickActive) return;
+                      e.stopPropagation();
+                      if (
+                        !shouldBeginVertexStretch({
+                          tool: scene.ui.tool,
+                          drawing,
+                          calibrating: scene.ui.tool === "calibrate",
+                          linePickActive,
+                          circlePickActive,
+                          polygonPickActive,
+                          handleIndex: index,
+                          onSetRoomPolygon,
+                        })
+                      ) {
+                        return;
+                      }
+                      onSelectRoom?.(room.id);
+                      beginVertexStretch(room.id, index, room.polygon);
+                    }}
+                  >
+                    <circle cx={s.x} cy={s.y} r={hitR} fill="transparent" />
+                    <circle
+                      cx={s.x}
+                      cy={s.y}
+                      r={5}
+                      fill={stretching ? "#e8c27a" : "#f4d35e"}
+                      stroke="#1a1510"
+                      strokeWidth={1}
+                    />
+                  </g>
+                );
+              });
+            })}
 
         {results && (
           <PlanIsoluxOverlay

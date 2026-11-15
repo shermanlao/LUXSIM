@@ -20,6 +20,7 @@ import {
   officialCanCreateRoomsFromDxf,
   officialTranslateRoom,
   officialTranslateStorey,
+  officialSetRoomPolygon,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -856,6 +857,18 @@ export function BuildingEditor({
     patchScene((s) => officialTranslateRoom(s, roomId, dx, dy));
   }
 
+  function setRoomPolygon(roomId: string, polygon: { x: number; y: number }[]) {
+    if (coalesceRef.current !== "drag") {
+      beginCoalesce("drag");
+      const end = () => {
+        if (coalesceRef.current === "drag") coalesceRef.current = null;
+        window.removeEventListener("mouseup", end);
+      };
+      window.addEventListener("mouseup", end);
+    }
+    patchScene((s) => officialSetRoomPolygon(s, roomId, polygon));
+  }
+
   function moveStorey(storeyId: string, dx: number, dy: number) {
     if (dx === 0 && dy === 0) return;
     if (coalesceRef.current !== "drag") {
@@ -1679,6 +1692,8 @@ export function BuildingEditor({
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onDrawRoomPolygon={drawRoomPolygon}
           onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}
+          onSetRoomPolygon={(roomId, polygon) => setRoomPolygon(roomId, polygon)}
+          onVertexStretchStatus={setStatus}
           onMoveStorey={(storeyId, dx, dy) => moveStorey(storeyId, dx, dy)}
           onSelectRoom={(roomId) =>
             patchSceneUi((s) => ({
