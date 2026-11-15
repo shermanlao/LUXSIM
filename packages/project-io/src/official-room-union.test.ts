@@ -317,7 +317,7 @@ describe("official editor Union rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.unionRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("UNION_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("XOR and alignment are not included");
+    expect(src).toContain("Alignment is not included");
     const dxfBtn = src.indexOf("Create rooms from DXF");
     const unionBtn = src.indexOf("Union rooms");
     expect(dxfBtn).toBeGreaterThan(0);
@@ -328,6 +328,5 @@ describe("official editor Union rooms wiring", () => {
     expect(top).toContain("roomUnionPickEscapeAction");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(src).not.toContain("alignRooms");
-    expect(src).not.toContain("xorRooms");
   });
 });

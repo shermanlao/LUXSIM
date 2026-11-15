@@ -265,7 +265,7 @@ describe("official editor Subtract rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.subtractRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("SUBTRACT_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("XOR and alignment are not included");
+    expect(src).toContain("Alignment is not included");
     const unionBtn = src.indexOf("Union rooms");
     const subtractBtn = src.indexOf("Subtract rooms");
     expect(unionBtn).toBeGreaterThan(0);
@@ -276,7 +276,6 @@ describe("official editor Subtract rooms wiring", () => {
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain("unionPickMode");
     expect(src).not.toContain("alignRooms");
-    expect(src).not.toContain("xorRooms");
     expect(top).not.toContain("alignRooms");
   });
 });

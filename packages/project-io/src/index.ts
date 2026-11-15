@@ -353,6 +353,32 @@ export type {
 } from "./official-room-intersect";
 
 export {
+  XOR_ROOMS_CANCELLED_STATUS,
+  XOR_ROOMS_PICK_FIRST_STATUS,
+  XOR_ROOMS_PICK_SECOND_STATUS,
+  XOR_ROOMS_REFUSE_AREA_STATUS,
+  XOR_ROOMS_REFUSE_CROSS_STATUS,
+  XOR_ROOMS_REFUSE_DISJOINT_STATUS,
+  XOR_ROOMS_REFUSE_EMPTY_STATUS,
+  XOR_ROOMS_REFUSE_HOLE_STATUS,
+  XOR_ROOMS_REFUSE_INVALID_STATUS,
+  XOR_ROOMS_REFUSE_MISSING_STATUS,
+  XOR_ROOMS_REFUSE_SAME_STATUS,
+  XOR_ROOMS_REFUSE_SPLIT_STATUS,
+  XOR_ROOMS_REFUSE_STOREY_STATUS,
+  XOR_ROOMS_REFUSE_VERTICES_STATUS,
+  formatXorRoomsSuccessStatus,
+  officialPointInXorInclusive,
+  officialXorRooms,
+  xorOfficialRoomPolygons,
+} from "./official-room-xor";
+export type {
+  OfficialPolygonXorResult,
+  OfficialXorRoomsReason,
+  OfficialXorRoomsResult,
+} from "./official-room-xor";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

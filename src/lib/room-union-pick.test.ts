@@ -4,6 +4,10 @@ import {
   INTERSECT_ROOMS_PICK_SECOND_STATUS,
   INTERSECT_ROOMS_REFUSE_SAME_STATUS,
   INTERSECT_ROOMS_REFUSE_STOREY_STATUS,
+  XOR_ROOMS_PICK_FIRST_STATUS,
+  XOR_ROOMS_PICK_SECOND_STATUS,
+  XOR_ROOMS_REFUSE_SAME_STATUS,
+  XOR_ROOMS_REFUSE_STOREY_STATUS,
   SUBTRACT_ROOMS_PICK_FIRST_STATUS,
   SUBTRACT_ROOMS_PICK_SECOND_STATUS,
   SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
@@ -18,13 +22,16 @@ import {
   applyOfficialRoomIntersectPick,
   applyOfficialRoomSubtractPick,
   applyOfficialRoomUnionPick,
+  applyOfficialRoomXorPick,
   intersectRoomsPickHint,
   roomUnionPickEscapeAction,
   startOfficialRoomIntersectPick,
   startOfficialRoomSubtractPick,
   startOfficialRoomUnionPick,
+  startOfficialRoomXorPick,
   subtractRoomsPickHint,
   unionRoomsPickHint,
+  xorRoomsPickHint,
 } from "./room-union-pick";
 
 describe("official Union rooms pick", () => {
@@ -230,6 +237,76 @@ describe("official Intersect rooms pick", () => {
       kind: "intersect",
       state: { active: true, firstRoomId: "keep" },
       status: INTERSECT_ROOMS_PICK_SECOND_STATUS,
+      keepId: "keep",
+      removeId: "drop",
+      selectRoomId: "keep",
+    });
+  });
+});
+
+describe("official XOR rooms pick", () => {
+  it("uses a selected room on the current storey as the first (kept) room", () => {
+    const started = startOfficialRoomXorPick("keep", ["keep", "drop"]);
+    expect(started).toEqual({ active: true, firstRoomId: "keep" });
+    expect(xorRoomsPickHint(started)).toBe(XOR_ROOMS_PICK_SECOND_STATUS);
+  });
+
+  it("starts with no first room when nothing on this storey is selected", () => {
+    const started = startOfficialRoomXorPick("other", ["keep", "drop"]);
+    expect(started).toEqual({ active: true, firstRoomId: null });
+    expect(xorRoomsPickHint(started)).toBe(XOR_ROOMS_PICK_FIRST_STATUS);
+    expect(roomUnionPickEscapeAction(started)).toBe("cancel-in-progress");
+    expect(roomUnionPickEscapeAction(EMPTY_ROOM_UNION_PICK)).toBe("pass");
+  });
+
+  it("picks the first room, then asks for a second, and refuses another storey or the same room", () => {
+    const first = applyOfficialRoomXorPick(
+      { active: true, firstRoomId: null },
+      "keep",
+      "s1",
+      "s1"
+    );
+    expect(first).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: XOR_ROOMS_PICK_SECOND_STATUS,
+      selectRoomId: "keep",
+    });
+
+    const storey = applyOfficialRoomXorPick(
+      { active: true, firstRoomId: "keep" },
+      "drop",
+      "s2",
+      "s1"
+    );
+    expect(storey).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: XOR_ROOMS_REFUSE_STOREY_STATUS,
+    });
+
+    const same = applyOfficialRoomXorPick(
+      { active: true, firstRoomId: "keep" },
+      "keep",
+      "s1",
+      "s1"
+    );
+    expect(same).toEqual({
+      kind: "status",
+      state: { active: true, firstRoomId: "keep" },
+      status: XOR_ROOMS_REFUSE_SAME_STATUS,
+    });
+
+    const ready = applyOfficialRoomXorPick(
+      { active: true, firstRoomId: "keep" },
+      "drop",
+      "s1",
+      "s1"
+    );
+    expect(ready).toEqual({
+      kind: "xor",
+      state: { active: true, firstRoomId: "keep" },
+      status: XOR_ROOMS_PICK_SECOND_STATUS,
       keepId: "keep",
       removeId: "drop",
       selectRoomId: "keep",

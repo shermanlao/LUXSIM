@@ -266,7 +266,7 @@ describe("official editor Intersect rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.intersectRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("INTERSECT_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("XOR and alignment are not included");
+    expect(src).toContain("Alignment is not included");
     const subtractBtn = src.indexOf("Subtract rooms");
     const intersectBtn = src.indexOf("Intersect rooms");
     expect(subtractBtn).toBeGreaterThan(0);
@@ -277,8 +277,6 @@ describe("official editor Intersect rooms wiring", () => {
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain('unionPickMode === "intersect"');
     expect(src).not.toContain("alignRooms");
-    expect(src).not.toContain("xorRooms");
     expect(top).not.toContain("alignRooms");
-    expect(top).not.toContain("xorRooms");
   });
 });

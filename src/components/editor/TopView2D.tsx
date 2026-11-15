@@ -125,7 +125,7 @@ type Props = {
   onPolygonPickChange?: (next: PolygonPathPickState) => void;
   /** Official Union / Subtract rooms two-step pick (Select idle). */
   unionPickActive?: boolean;
-  unionPickMode?: "union" | "subtract" | "intersect";
+  unionPickMode?: "union" | "subtract" | "intersect" | "xor";
   onUnionRoomPick?: (roomId: string) => void;
   onUnionPickCancel?: () => void;
   /** Calculation results for the plan isolux / value-label overlay. */
@@ -1600,7 +1600,9 @@ export function TopView2D({
               ? "· click a room to subtract · Esc cancels"
               : unionPickMode === "intersect"
                 ? "· click a room to intersect · Esc cancels"
-                : "· click a room to union · Esc cancels"}
+                : unionPickMode === "xor"
+                  ? "· click a room to XOR · Esc cancels"
+                  : "· click a room to union · Esc cancels"}
           </>
         )}
         {linePickActive && (

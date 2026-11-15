@@ -3,6 +3,10 @@ import {
   INTERSECT_ROOMS_PICK_SECOND_STATUS,
   INTERSECT_ROOMS_REFUSE_SAME_STATUS,
   INTERSECT_ROOMS_REFUSE_STOREY_STATUS,
+  XOR_ROOMS_PICK_FIRST_STATUS,
+  XOR_ROOMS_PICK_SECOND_STATUS,
+  XOR_ROOMS_REFUSE_SAME_STATUS,
+  XOR_ROOMS_REFUSE_STOREY_STATUS,
   SUBTRACT_ROOMS_PICK_FIRST_STATUS,
   SUBTRACT_ROOMS_PICK_SECOND_STATUS,
   SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
@@ -13,7 +17,7 @@ import {
   UNION_ROOMS_REFUSE_STOREY_STATUS,
 } from "@luxsim/project-io";
 
-export type OfficialTwoRoomPickKind = "union" | "subtract" | "intersect";
+export type OfficialTwoRoomPickKind = "union" | "subtract" | "intersect" | "xor";
 
 export type RoomUnionPickState = {
   active: boolean;
@@ -318,6 +322,74 @@ export function applyOfficialRoomIntersectPick(
   if (picked.kind === "ready") {
     return {
       kind: "intersect",
+      state: picked.state,
+      status: picked.status,
+      keepId: picked.keepId,
+      removeId: picked.removeId,
+      selectRoomId: picked.selectRoomId,
+    };
+  }
+  return picked;
+}
+
+const XOR_PICK_COPY: TwoRoomPickCopy = {
+  pickFirst: XOR_ROOMS_PICK_FIRST_STATUS,
+  pickSecond: XOR_ROOMS_PICK_SECOND_STATUS,
+  refuseSame: XOR_ROOMS_REFUSE_SAME_STATUS,
+  refuseStorey: XOR_ROOMS_REFUSE_STOREY_STATUS,
+};
+
+export function startOfficialRoomXorPick(
+  selectedRoomId: string | null,
+  currentStoreyRoomIds: string[]
+): RoomUnionPickState {
+  return startOfficialRoomUnionPick(selectedRoomId, currentStoreyRoomIds);
+}
+
+export function xorRoomsPickHint(state: RoomUnionPickState): string {
+  if (!state.active) return "";
+  return state.firstRoomId
+    ? XOR_ROOMS_PICK_SECOND_STATUS
+    : XOR_ROOMS_PICK_FIRST_STATUS;
+}
+
+export type OfficialRoomXorPickResult =
+  | {
+      kind: "status";
+      state: RoomUnionPickState;
+      status: string;
+      selectRoomId?: string;
+    }
+  | {
+      kind: "xor";
+      state: RoomUnionPickState;
+      status: string;
+      keepId: string;
+      removeId: string;
+      selectRoomId?: string;
+    };
+
+/**
+ * Same official two-step pick as Union rooms: the first room is kept as the
+ * XOR result, the second is removed after a successful XOR. Rooms on
+ * another storey are refused. Esc cancels via roomUnionPickEscapeAction.
+ */
+export function applyOfficialRoomXorPick(
+  state: RoomUnionPickState,
+  roomId: string,
+  roomStoreyId: string,
+  currentStoreyId: string
+): OfficialRoomXorPickResult {
+  const picked = applyOfficialTwoRoomPick(
+    state,
+    roomId,
+    roomStoreyId,
+    currentStoreyId,
+    XOR_PICK_COPY
+  );
+  if (picked.kind === "ready") {
+    return {
+      kind: "xor",
       state: picked.state,
       status: picked.status,
       keepId: picked.keepId,
