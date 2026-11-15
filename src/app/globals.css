@@ -207,6 +207,7 @@ a {
   border-bottom: 1px solid var(--line);
   background: color-mix(in srgb, var(--ink) 92%, var(--accent-2));
   color: #eef3f6;
+  flex-shrink: 0;
 }
 
 .editor-viewbar .view-tab {
@@ -320,6 +321,7 @@ a {
   color: #c5d4dc;
   padding: 0.45rem 0.75rem;
   font-size: 0.82rem;
+  flex-shrink: 0;
 }
 
 /* ——— Dark CAD editor shell (project routes only) ——— */
@@ -330,6 +332,8 @@ a {
 html:has(.cad-editor-root),
 body:has(.cad-editor-root) {
   background: #141e26;
+  height: 100dvh;
+  overflow: hidden;
 }
 
 main:has(.cad-editor-root) {
@@ -339,6 +343,16 @@ main:has(.cad-editor-root) {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
+}
+
+/* Pin the official editor workspace to the viewport so a tall
+   properties rail scrolls inside its column instead of growing the
+   page and hiding the 2D/3D canvas. Non-editor routes stay scrollable. */
+body:has(.cad-editor-root) .app-shell {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
 }
 
 body:has(.cad-editor-root) footer {
@@ -349,6 +363,7 @@ body:has(.cad-editor-root) header {
   background: #121c24;
   border-bottom-color: #2a3842;
   color: #e8eef2;
+  flex-shrink: 0;
 }
 
 body:has(.cad-editor-root) header a.display {
@@ -415,8 +430,9 @@ body:has(.projects-list-shell) footer {
   flex: 1;
   display: flex;
   flex-direction: column;
-  min-height: calc(100dvh - 3.25rem);
+  min-height: 0;
   width: 100%;
+  overflow: hidden;
 }
 
 .cad-editor {
@@ -424,6 +440,7 @@ body:has(.projects-list-shell) footer {
   display: flex;
   flex-direction: column;
   min-height: 0;
+  overflow: hidden;
   background: #141e26;
   color: #e8eef2;
 }
@@ -436,6 +453,7 @@ body:has(.projects-list-shell) footer {
   padding: 0.45rem 0.65rem;
   background: #0f171d;
   border-bottom: 1px solid #2a3842;
+  flex-shrink: 0;
 }
 
 .cad-file-bar .cad-project-input {
@@ -463,6 +481,7 @@ body:has(.projects-list-shell) footer {
   gap: 0;
   background: #1c2a34;
   border-bottom: 2px solid #2a3842;
+  flex-shrink: 0;
 }
 
 .cad-ribbon__mode {
@@ -513,6 +532,7 @@ body:has(.projects-list-shell) footer {
   flex: 1;
   display: grid;
   grid-template-columns: 248px minmax(0, 1fr) 288px;
+  grid-template-rows: minmax(0, 1fr);
   min-height: 0;
   overflow: hidden;
 }
@@ -520,6 +540,9 @@ body:has(.projects-list-shell) footer {
 @media (max-width: 1100px) {
   .cad-body {
     grid-template-columns: 1fr;
+    /* Keep the centre canvas visible when the three columns stack.
+       Left/right rails cap their row and keep scrolling internally. */
+    grid-template-rows: minmax(0, 11rem) minmax(16rem, 1fr) minmax(0, 14rem);
   }
 }
 
@@ -529,6 +552,7 @@ body:has(.projects-list-shell) footer {
   border-color: #2a3842;
   overflow-y: auto;
   min-height: 0;
+  overscroll-behavior: contain;
 }
 
 .cad-left {
@@ -638,6 +662,7 @@ body:has(.projects-list-shell) footer {
   background: #0f171d;
   border-top: 2px solid #c45c26;
   min-height: 4.25rem;
+  flex-shrink: 0;
 }
 
 .cad-results-strip__room {
@@ -704,6 +729,7 @@ body:has(.projects-list-shell) footer {
   color: #8fa3ad;
   background: #0a1014;
   border-top: 1px solid #243540;
+  flex-shrink: 0;
 }
 
 .cad-editor .btn-secondary {
@@ -732,6 +758,7 @@ body:has(.projects-list-shell) footer {
   display: flex;
   flex-direction: column;
   padding: 0.35rem;
+  overflow: hidden;
 }
 
 .cad-viewport-wrap .panel {

@@ -134,6 +134,6 @@ describe("TopView2D wheel-zoom wiring", () => {
     expect(src).toContain('closest("[data-plan-bg]")');
     expect(src).toContain("double-click empty area to reset");
     expect(src).toContain("setPlanView(DEFAULT_PLAN_ZOOM)");
-    expect(src).toMatch(/if \(drawing\) return/);
+    expect(src).toMatch(/if \(drawing \|\| linePickActive\) return/);
   });
 });

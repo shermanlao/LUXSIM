@@ -66,6 +66,12 @@ describe("user guide", () => {
     expect(guide).toMatch(/Spacing Y 在直線模式維持停用/);
     expect(guide).toMatch(/one line only/);
     expect(guide).toMatch(/只沿一條線/);
+    expect(guide).toMatch(/scrolls inside the rail/);
+    expect(guide).toMatch(/會在欄內捲動/);
+    expect(guide).toMatch(/You do not need \*\*Fullscreen\*\* just to see the plan/);
+    expect(guide).toMatch(/不必開 Fullscreen/);
+    expect(guide).toMatch(/2D and 3D canvas stays fully visible/);
+    expect(guide).toMatch(/2D／3D 畫布會留在視窗內完整可見/);
   });
 
   it("parses the main headings", () => {

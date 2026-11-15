@@ -17,6 +17,7 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 - 切換樓層時，視野也會回到這個預設。
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
 - 目前不能用拖曳來平移圖面。
+- 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
 
 On the **Top** or **Bottom** view:
 
@@ -25,6 +26,7 @@ On the **Top** or **Bottom** view:
 - Switching storeys also resets the view to that default fit.
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
 - Click-and-drag panning is not available yet.
+- In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
 

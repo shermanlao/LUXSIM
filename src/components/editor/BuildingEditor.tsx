@@ -2047,7 +2047,7 @@ export function BuildingEditor({
           </div>
 
           <div
-            className={`px-2 pb-2 max-h-40 overflow-auto ${
+            className={`shrink-0 px-2 pb-2 max-h-40 overflow-auto ${
               workflow !== "light" && workflow !== "calculation" ? "cad-panel-hidden" : ""
             }`}
           >
