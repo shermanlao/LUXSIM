@@ -2,7 +2,9 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
+import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { ProjectLoadingDialog } from "@/components/ProjectLoadingDialog";
+import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
 
 type WorkspaceOption = { id: string; name: string };
 
@@ -68,6 +70,8 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
 
   return (
     <div className="flex flex-col items-end gap-2">
+      {creating && !opening && <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.creatingProject} />}
+      {importing && !opening && <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.openingProjectFile} />}
       {opening && <ProjectLoadingDialog />}
       <div className="flex flex-wrap items-center gap-2">
         {workspaces.length > 1 && (

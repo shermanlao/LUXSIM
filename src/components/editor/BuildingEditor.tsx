@@ -206,6 +206,9 @@ import { FixtureLightConePreview } from "./FixtureLightConePreview";
 import { PolarPreview } from "@/components/PolarPreview";
 import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
+import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
+import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
+import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
 import {
@@ -226,11 +229,7 @@ const BuildingScene3D = dynamic(
   () => import("./BuildingScene3D").then((m) => m.BuildingScene3D),
   {
     ssr: false,
-    loading: () => (
-      <div className="h-full min-h-[240px] bg-[#0f1c24] text-white/70 grid place-items-center">
-        Loading 3D…
-      </div>
-    ),
+    loading: () => <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.loading3d} />,
   }
 );
 
@@ -309,6 +308,7 @@ export function BuildingEditor({
   sourceCacheRef.current = sourceCache;
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const officialWait = useOfficialWaitDialog();
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [pendingDiscardRoomIds, setPendingDiscardRoomIds] = useState<string[] | null>(null);
@@ -671,16 +671,21 @@ export function BuildingEditor({
     saveInFlight.current = true;
     setSaving(true);
     setScene(toSave);
-    const { ok } = await patchProjectMinimal(projectId, body);
-    saveInFlight.current = false;
-    setSaving(false);
-    if (ok) {
-      lastSavedRef.current = current;
-      reminderEpochRef.current = null;
-      setSaveReminderOpen(false);
-      setStatus("Saved");
-    } else {
-      setStatus("Save failed");
+    try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.saving, async () => {
+        const { ok } = await patchProjectMinimal(projectId, body);
+        if (ok) {
+          lastSavedRef.current = current;
+          reminderEpochRef.current = null;
+          setSaveReminderOpen(false);
+          setStatus("Saved");
+        } else {
+          setStatus("Save failed");
+        }
+      });
+    } finally {
+      saveInFlight.current = false;
+      setSaving(false);
     }
     if (saveQueued.current) {
       saveQueued.current = false;
@@ -830,16 +835,18 @@ export function BuildingEditor({
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
   }
 
-  function createRoomsFromDxf() {
+  async function createRoomsFromDxf() {
     const heightM = resolveNewRoomHeightM();
-    const result = officialAppendRoomsFromDxfClosedPolylines(scene, {
-      heightM,
-      nextId: () => nid("room"),
+    await officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf, () => {
+      const result = officialAppendRoomsFromDxfClosedPolylines(scene, {
+        heightM,
+        nextId: () => nid("room"),
+      });
+      setStatus(result.status);
+      if (result.created > 0) {
+        patchScene(() => result.scene);
+      }
     });
-    setStatus(result.status);
-    if (result.created > 0) {
-      patchScene(() => result.scene);
-    }
   }
 
   function currentStoreyRoomIds(): string[] {
@@ -1164,6 +1171,7 @@ export function BuildingEditor({
     setUploading(true);
     setStatus(null);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.importingPhotometry, async () => {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch("/api/luminaires", { method: "POST", body: form });
@@ -1182,6 +1190,7 @@ export function BuildingEditor({
           : [...s.fixtureLibraryIds, lum.id],
       }));
       setStatus(`Imported “${lum.name}” to project fixture list (not placed)`);
+      });
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = "";
@@ -1419,6 +1428,7 @@ export function BuildingEditor({
     if (!file) return;
     setUploading(true);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.importingPlan, async () => {
       const form = new FormData();
       form.append("file", file);
       const res = await fetch(`/api/projects/${projectId}/assets`, {
@@ -1509,6 +1519,7 @@ export function BuildingEditor({
       } else {
         setStatus(`Plan imported (${asset.kind}). Use calibrate tool to set scale.`);
       }
+      });
     } finally {
       setUploading(false);
       if (planRef.current) planRef.current.value = "";
@@ -1538,6 +1549,7 @@ export function BuildingEditor({
     setUploading(true);
     setStatus(null);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.rasterizingPdf, async () => {
       const res = await fetch(
         `/api/projects/${projectId}/assets/${underlay.assetId}/pdf-raster`,
         {
@@ -1582,6 +1594,7 @@ export function BuildingEditor({
           ? `PDF page ${raster.pageIndex + 1} rasterized — ${extra}`
           : `PDF page ${raster.pageIndex + 1} rasterized for display`
       );
+      });
     } finally {
       setUploading(false);
     }
@@ -1636,6 +1649,7 @@ export function BuildingEditor({
     setCalculating(true);
     setStatus("Calculating on client…");
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.calculating, async () => {
       const calc = await runOfficialClientCalc(
         scene,
         results,
@@ -1650,6 +1664,7 @@ export function BuildingEditor({
       recordUndoFromLatest();
       setResults(calc.results);
       setStatus(calc.status);
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
@@ -1671,6 +1686,7 @@ export function BuildingEditor({
     setRcpWarnings([]);
     setStatus("Detecting fixture codes (local OCR)…");
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.detectingCodes, async () => {
       const res = await fetch(`/api/projects/${projectId}/rcp-detect`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1686,6 +1702,7 @@ export function BuildingEditor({
       setShowRcpOverlay(true);
       const n = (data.proposals as unknown[])?.length ?? 0;
       setStatus(n ? `Detected ${n} code proposal(s) (local OCR)` : "No codes detected — see warnings");
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Detect failed");
     } finally {
@@ -1725,6 +1742,7 @@ export function BuildingEditor({
   }) {
     setRcpCommitting(true);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.committingRcp, async () => {
       const latest = latestRef.current;
       const out = await commitAcceptedRcpProposals(
         {
@@ -1765,6 +1783,7 @@ export function BuildingEditor({
       }
       setStatus(msg);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Commit failed");
     } finally {
@@ -1791,6 +1810,7 @@ export function BuildingEditor({
   async function runScheduleCommitNow(options: { calcAfterCommit: boolean }) {
     setScheduleCommitting(true);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.importingSchedule, async () => {
       const latest = latestRef.current;
       const out = await commitScheduleImport(
         {
@@ -1830,6 +1850,7 @@ export function BuildingEditor({
       }
       setStatus(msg);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Schedule commit failed");
     } finally {
@@ -1899,6 +1920,7 @@ export function BuildingEditor({
 
     setArrayApplying(true);
     try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.placingFixtures, async () => {
       const latest = latestRef.current;
       const out = await writeFixtureInstances(
         {
@@ -1940,6 +1962,7 @@ export function BuildingEditor({
           suffix: `${calcNote}${estimateNote}`,
         })
       );
+      });
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Array apply failed");
     } finally {
@@ -1948,6 +1971,7 @@ export function BuildingEditor({
   }
 
   async function exportFullPdf() {
+    await officialWait.run(OFFICIAL_WAIT_COPY.exportingPdf, async () => {
     const photometry: Record<string, PhotometricData> = {};
     for (const id of scene.fixtureLibraryIds) {
       const p = await ensurePhotometry(id);
@@ -2007,6 +2031,7 @@ export function BuildingEditor({
       website,
     });
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
+    });
   }
 
   const projectFixtures = useMemo(
@@ -2051,24 +2076,26 @@ export function BuildingEditor({
     }
     const names: Record<string, string> = {};
     for (const l of library) names[l.id] = l.name;
-    const collected = await collectSourcesForOfficialExport(officialExportLuminaireIds(toExport));
-    await exportDialuxPack({
-      projectName: name,
-      scene: toExport,
-      results,
-      sourceFiles: collected.sourceFiles,
-      luminaireNames: names,
+    await officialWait.run(OFFICIAL_WAIT_COPY.exportingVerification, async () => {
+      const collected = await collectSourcesForOfficialExport(officialExportLuminaireIds(toExport));
+      await exportDialuxPack({
+        projectName: name,
+        scene: toExport,
+        results,
+        sourceFiles: collected.sourceFiles,
+        luminaireNames: names,
+      });
+      if (collected.missingSourceIds.length) {
+        setStatus(missingExportSourceStatus("dialux", collected.missingSourceIds, names));
+        return;
+      }
+      const soft = warnings.filter((w) => w.code !== "dialux_general").map((w) => w.message);
+      setStatus(
+        soft.length
+          ? `Verification zip downloaded. Note: ${soft[0]}`
+          : "Verification pack downloaded — see README.txt in the zip."
+      );
     });
-    if (collected.missingSourceIds.length) {
-      setStatus(missingExportSourceStatus("dialux", collected.missingSourceIds, names));
-      return;
-    }
-    const soft = warnings.filter((w) => w.code !== "dialux_general").map((w) => w.message);
-    setStatus(
-      soft.length
-        ? `Verification zip downloaded. Note: ${soft[0]}`
-        : "Verification pack downloaded — see README.txt in the zip."
-    );
   }
 
   const workflow: EditorWorkflowMode = scene.ui.workflowMode ?? "construction";
@@ -2438,6 +2465,7 @@ export function BuildingEditor({
 
   return (
     <div className="cad-editor">
+      {officialWait.dialog}
       <div className="cad-chrome">
       <header className="cad-file-bar">
         <span className="text-[10px] uppercase tracking-widest text-[#8fa3ad] shrink-0">Project</span>
@@ -2728,7 +2756,7 @@ export function BuildingEditor({
                   data-help-key="tool.createRoomsFromDxf"
                   className="btn btn-secondary w-full !text-xs justify-start"
                   disabled={!officialCanCreateRoomsFromDxf(underlay)}
-                  onClick={createRoomsFromDxf}
+                  onClick={() => void createRoomsFromDxf()}
                 >
                   <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
                   Create rooms from DXF

@@ -16,6 +16,8 @@ import {
 } from "@/lib/generate-ldt-download";
 import { GENERATE_LDT_FORM_DISCLAIMER } from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
+import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
+import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
 
 export type GeneratedLuminaireRow = {
   id: string;
@@ -152,6 +154,8 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
     : `Library cone · ${family === "linear" ? "Linear " : ""}${beamDegrees}°`;
 
   return (
+    <>
+    {saving && <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.generatingLdt} />}
     <form onSubmit={onSubmit} className={compact ? "space-y-2" : "space-y-3"}>
       <div>
         <h2 className="font-semibold">Generate LDT</h2>
@@ -347,5 +351,6 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
         </div>
       )}
     </form>
+    </>
   );
 }

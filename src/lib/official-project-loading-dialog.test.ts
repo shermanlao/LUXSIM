@@ -10,6 +10,8 @@ function read(rel: string) {
 
 describe("official project loading dialog", () => {
   const dialog = read("src/components/ProjectLoadingDialog.tsx");
+  const wait = read("src/components/OfficialWaitDialog.tsx");
+  const copy = read("src/lib/official-wait-dialog.ts");
   const card = read("src/components/ProjectListCard.tsx");
   const create = read("src/components/CreateProjectButton.tsx");
   const gate = read("src/components/ProjectEditorLoadGate.tsx");
@@ -20,19 +22,23 @@ describe("official project loading dialog", () => {
   const guide = read("docs/USER_GUIDE.md");
 
   it("exists as a labelled, bilingual, non-dismissible modal", () => {
-    expect(dialog).toContain('role="dialog"');
-    expect(dialog).toContain('aria-modal="true"');
-    expect(dialog).toContain('aria-labelledby="project-loading-title"');
-    expect(dialog).toContain("Loading project…");
-    expect(dialog).toContain("正在載入專案…");
-    expect(dialog).toContain("project-loading-backdrop");
-    expect(dialog).toContain("project-loading-dialog");
-    expect(dialog).not.toMatch(/onClick/);
-    expect(dialog).not.toMatch(/onClose|setOpen\(false\)|dismiss/i);
-    expect(dialog).not.toMatch(/<button/i);
-    expect(css).toContain(".project-loading-backdrop");
-    expect(css).toContain(".project-loading-dialog");
-    expect(css).toMatch(/\.project-loading-backdrop\s*\{[^}]*z-index:\s*200;/);
+    expect(wait).toContain('role="dialog"');
+    expect(wait).toContain('aria-modal="true"');
+    expect(wait).toContain("aria-busy");
+    expect(wait).toContain("official-wait-backdrop");
+    expect(wait).toContain("official-wait-dialog");
+    expect(wait).not.toMatch(/onClick/);
+    expect(wait).not.toMatch(/onClose|setOpen\(false\)|dismiss/i);
+    expect(wait).not.toMatch(/<button/i);
+    expect(dialog).toContain("OfficialWaitDialog");
+    expect(dialog).toContain('titleId="project-loading-title"');
+    expect(dialog).toContain('messageId="project-loading-message"');
+    expect(dialog).toContain("OFFICIAL_WAIT_COPY.projectLoading");
+    expect(copy).toContain('export const PROJECT_LOADING_TITLE_EN = "Loading project…"');
+    expect(copy).toContain('export const PROJECT_LOADING_TITLE_ZH = "正在載入專案…"');
+    expect(css).toContain(".official-wait-backdrop");
+    expect(css).toContain(".official-wait-dialog");
+    expect(css).toMatch(/\.official-wait-backdrop\s*\{[^}]*z-index:\s*200;/);
     expect(css).toContain("#0a1218");
   });
 
@@ -76,5 +82,14 @@ describe("official project loading dialog", () => {
     expect(guide).toMatch(/opening a project URL directly/);
     expect(guide).toMatch(/編輯器可以使用後，對話框會自行關閉/);
     expect(guide).toMatch(/stays until the editor is ready to use/);
+    expect(guide).toMatch(/Creating project…/);
+    expect(guide).toMatch(/正在建立專案…/);
+    expect(guide).toMatch(/Opening project file…/);
+    expect(guide).toMatch(/正在開啟專案檔…/);
+    expect(guide).toMatch(/The same loading dialog also appears while other work that can take time is running/);
+    expect(guide).toMatch(/其他需要較長時間的工作同樣使用這個載入對話框/);
+    expect(guide).toMatch(/\*\*Calc room\*\* \/ \*\*Calc all\*\*/);
+    expect(guide).toMatch(/does not appear for pan, zoom, selection, orbiting the 3D view/);
+    expect(guide).toMatch(/平移、縮放、選取、環繞旋轉 3D 視圖/);
   });
 });

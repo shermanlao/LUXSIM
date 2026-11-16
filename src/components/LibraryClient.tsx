@@ -11,6 +11,8 @@ import {
 } from "@/lib/library-cone-disclaimer";
 import { libraryConeLabel } from "@/lib/luminaire-origin";
 import { photometricColorQualityFields } from "@/lib/photometric-preview-fields";
+import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
+import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
 
 type LumRow = {
   id: string;
@@ -90,6 +92,7 @@ export function LibraryClient() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
+      {uploading && <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.importingPhotometry} />}
       <h1 className="display text-4xl mb-2">Luminaire library</h1>
       <p className="text-[var(--muted)] mb-8">
         {LIBRARY_INTRO_DISCLAIMER}
