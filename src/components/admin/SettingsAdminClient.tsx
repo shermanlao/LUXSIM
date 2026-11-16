@@ -83,7 +83,7 @@ export function SettingsAdminClient() {
     <div>
       <h1 className="display text-4xl mb-2">Site settings</h1>
       <p className="text-[var(--muted)] mb-6">
-        Public registration, the default autosave for new accounts, the website shown on lighting
+        Public registration, the default save reminder for new accounts, the website shown on lighting
         report PDFs, and in-app help tips.
       </p>
       {error && <p className="text-sm text-red-700 mb-4">{error}</p>}
@@ -102,11 +102,11 @@ export function SettingsAdminClient() {
           When closed, new accounts can still be created from the Users page. Existing sign-in is unchanged.
         </p>
         <div className="max-w-xs">
-          <label className="label" htmlFor="default-autosave">
-            Default autosave for new users
+          <label className="label" htmlFor="default-save-reminder">
+            Default save reminder for new users
           </label>
           <select
-            id="default-autosave"
+            id="default-save-reminder"
             className="select"
             value={settings.defaultAutosaveMs}
             onChange={(e) => void saveSettings({ defaultAutosaveMs: Number(e.target.value) })}

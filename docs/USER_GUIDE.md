@@ -14,6 +14,13 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 
 When you open a project from [Projects](/projects), after **New project** or **Open .luxsim**, or by opening a project URL directly, a loading dialog shows *Loading project…* / *正在載入專案…*. It stays until the editor is ready to use, and cannot be dismissed by clicking the backdrop or a close button while the project is loading.
 
+
+## 儲存提醒 / Save reminder
+
+編輯器不會在背景自動儲存。若專案有未儲存的變更，會依帳戶設定的間隔（預設 15 分鐘；可在標題列 **Account settings** 設為關閉、1、5 或 15 分鐘）出現提醒對話框，說明請儲存檔案。按 **Save** 會以與工具列相同的方式儲存並關閉對話框，計時重新開始。按 **Later**、Esc 或點背景則先不儲存；若之後仍有未儲存變更，會再等一個完整間隔才再次提醒。關閉提醒後，仍可隨時按工具列的 **Save**。把提醒設為 Off 後不會再跳出對話框，但仍可按 **Save**。
+
+The editor does not silently autosave. When there are unsaved changes, a reminder dialog appears after the interval set in header **Account settings** (default 15 minutes; Off / 1 / 5 / 15 minutes). It asks you to save the file. **Save** runs the same official save as the toolbar, then closes the dialog and resets the timer. **Later**, Esc, or clicking the backdrop dismisses it without saving; if the project is still dirty, you are reminded again after another full interval. You can still click **Save** in the toolbar at any time. Off means no reminder; you can still click **Save**.
+
 ## 平面圖視野 / Plan view
 
 ![平面視野控制 / Plan view controls](/docs/guide/plan-view-controls.svg)

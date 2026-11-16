@@ -1,4 +1,5 @@
-export const DEFAULT_AUTOSAVE_MS = 300_000;
+/** Official default save-reminder interval (15 minutes). Stored as User.autosaveMs. */
+export const DEFAULT_AUTOSAVE_MS = 900_000;
 
 export const AUTOSAVE_INTERVALS = [
   { label: "Off", ms: 0 },
@@ -34,7 +35,7 @@ export function accountPatchForSessionUser(
       : null;
   const parsed = parseAutosaveMs(raw?.autosaveMs);
   if (parsed == null) {
-    return { ok: false, status: 400, error: "Invalid autosave interval" };
+    return { ok: false, status: 400, error: "Invalid save reminder interval" };
   }
   return {
     ok: true,

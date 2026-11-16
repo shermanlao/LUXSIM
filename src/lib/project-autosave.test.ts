@@ -68,10 +68,11 @@ describe("projectPatchDiff", () => {
   });
 });
 
-describe("autosave default", () => {
-  it("is 5 minutes, not 800 ms", () => {
-    expect(DEFAULT_AUTOSAVE_MS).toBe(300_000);
+describe("save reminder default", () => {
+  it("is 15 minutes, not 5 minutes or 800 ms", () => {
+    expect(DEFAULT_AUTOSAVE_MS).toBe(900_000);
     expect(DEFAULT_AUTOSAVE_MS).not.toBe(800);
     expect(DEFAULT_AUTOSAVE_MS).not.toBe(60_000);
+    expect(DEFAULT_AUTOSAVE_MS).not.toBe(300_000);
   });
 });

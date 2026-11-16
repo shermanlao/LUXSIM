@@ -169,6 +169,7 @@ import {
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { saveReminderDue, startSaveReminderEpoch } from "@/lib/save-reminder";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
   calcStatusTone,
@@ -200,6 +201,7 @@ import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scen
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
+import { SaveReminderDialog } from "./SaveReminderDialog";
 import { PolarPreview } from "@/components/PolarPreview";
 import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
@@ -310,6 +312,9 @@ export function BuildingEditor({
   const [saving, setSaving] = useState(false);
   const [pendingDiscardRoomIds, setPendingDiscardRoomIds] = useState<string[] | null>(null);
   const pendingFixtureApplyRef = useRef<(() => void) | null>(null);
+  const [saveReminderOpen, setSaveReminderOpen] = useState(false);
+  const reminderEpochRef = useRef<number | null>(null);
+  const [reminderGeneration, setReminderGeneration] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [calcAfterPlace, setCalcAfterPlace] = useState(false);
@@ -670,6 +675,8 @@ export function BuildingEditor({
     setSaving(false);
     if (ok) {
       lastSavedRef.current = current;
+      reminderEpochRef.current = null;
+      setSaveReminderOpen(false);
       setStatus("Saved");
     } else {
       setStatus("Save failed");
@@ -682,34 +689,41 @@ export function BuildingEditor({
   }
 
   useEffect(() => {
-    if (!accountLoaded || !autosaveMs) return;
-    const current = snapshotProject(name, scene, results);
+    if (!accountLoaded) return;
     const toSave = sceneWithView(scene);
-    if (!projectPatchDiff(current, lastSavedRef.current, toSave, results)) return;
-    const timer = window.setTimeout(() => {
-      const latest = latestRef.current;
-      void save(latest.scene, latest.results, latest.name);
-    }, autosaveMs);
+    const current = snapshotProject(name, toSave, results);
+    const dirty = Boolean(projectPatchDiff(current, lastSavedRef.current, toSave, results));
+    const epoch = startSaveReminderEpoch(dirty, reminderEpochRef.current, Date.now());
+    reminderEpochRef.current = epoch;
+    const due = saveReminderDue({
+      dirty,
+      intervalMs: autosaveMs,
+      epochMs: epoch,
+      nowMs: Date.now(),
+    });
+    if (!dirty || autosaveMs === 0) {
+      setSaveReminderOpen(false);
+      return;
+    }
+    if (due.due) {
+      setSaveReminderOpen(true);
+      return;
+    }
+    const timer = window.setTimeout(() => setSaveReminderOpen(true), due.remainingMs);
     return () => window.clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- idle timer on persistable data
-  }, [name, scene, results, autosaveMs, accountLoaded]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- reminder interval on persistable data
+  }, [name, scene, results, autosaveMs, accountLoaded, reminderGeneration]);
 
-  useEffect(() => {
-    const flush = () => {
-      const latest = latestRef.current;
-      void save(latest.scene, latest.results, latest.name);
-    };
-    const onVis = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
-    window.addEventListener("beforeunload", flush);
-    document.addEventListener("visibilitychange", onVis);
-    return () => {
-      window.removeEventListener("beforeunload", flush);
-      document.removeEventListener("visibilitychange", onVis);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId]);
+  function deferSaveReminder() {
+    setSaveReminderOpen(false);
+    reminderEpochRef.current = Date.now();
+    setReminderGeneration((n) => n + 1);
+  }
+
+  function saveFromReminder() {
+    const latest = latestRef.current;
+    void save(latest.scene, latest.results, latest.name);
+  }
 
   useEffect(() => {
     if (!activeRoom) return;
@@ -1234,7 +1248,6 @@ export function BuildingEditor({
           calcAfterPlace
         );
         setStatus(`Placed in ${room.name}${calcNote}`);
-        await save(nextScene, out.results, latest.name);
       } catch (e) {
         setStatus(e instanceof Error ? e.message : "Placement failed");
       }
@@ -1636,8 +1649,6 @@ export function BuildingEditor({
       recordUndoFromLatest();
       setResults(calc.results);
       setStatus(calc.status);
-      await save(scene, calc.results, name);
-      setStatus(calc.status);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Calculation failed");
     } finally {
@@ -1753,7 +1764,6 @@ export function BuildingEditor({
       }
       setStatus(msg);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
-      await save(out.scene, out.results, latest.name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Commit failed");
     } finally {
@@ -1819,7 +1829,6 @@ export function BuildingEditor({
       }
       setStatus(msg);
       setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
-      await save(out.scene, out.results, latest.name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Schedule commit failed");
     } finally {
@@ -1930,7 +1939,6 @@ export function BuildingEditor({
           suffix: `${calcNote}${estimateNote}`,
         })
       );
-      await save(nextScene, out.results, latest.name);
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Array apply failed");
     } finally {
@@ -3548,7 +3556,7 @@ export function BuildingEditor({
       />
 
       <div className="cad-status-bar">
-        {status || "Autosave after idle · Ctrl+Z undo · Top view: drop fixtures into rooms"}
+        {status || "Click Save to keep your work · Ctrl+Z undo · Top view: drop fixtures into rooms"}
         {assets.length > 0 && (
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}
@@ -3557,6 +3565,12 @@ export function BuildingEditor({
         open={pendingDiscardRoomIds != null}
         onConfirm={confirmDiscardResults}
         onCancel={cancelDiscardResults}
+      />
+      <SaveReminderDialog
+        open={saveReminderOpen}
+        saving={saving}
+        onSave={saveFromReminder}
+        onLater={deferSaveReminder}
       />
     </div>
   );

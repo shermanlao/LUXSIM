@@ -93,11 +93,11 @@ export function NavAuth() {
           <div className="account-popover" role="dialog" aria-label="Account settings">
             <p className="account-popover__title">Account settings</p>
             <p className="account-popover__email">{email}</p>
-            <label className="account-popover__label" htmlFor="autosave-interval">
-              Autosave duration
+            <label className="account-popover__label" htmlFor="save-reminder-interval">
+              Save reminder
             </label>
             <select
-              id="autosave-interval"
+              id="save-reminder-interval"
               className="account-popover__select"
               value={autosaveMs}
               onChange={(e) => {
@@ -112,8 +112,8 @@ export function NavAuth() {
             </select>
             <p className="account-popover__hint">
               {autosaveMs === 0
-                ? "Saves when you click Save, hide the tab, or finish a calculation."
-                : `Saves ${minutes} min after your last edit, and when you Save, hide the tab, or finish a calculation.`}
+                ? "No reminder. You can still click Save in the editor."
+                : `Reminds you to save every ${minutes} min when there are unsaved changes.`}
             </p>
             <button
               type="button"

@@ -1208,3 +1208,45 @@ body:has(.projects-list-shell) footer {
   gap: 0.5rem;
   margin-top: 1rem;
 }
+
+
+/* Save-reminder dialog (cancellable; unsaved persistable edits) */
+.save-reminder-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 28, 36, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.save-reminder-dialog {
+  width: min(26rem, 100%);
+  background: #0a1218;
+  border: 1px solid #2a3842;
+  border-radius: 2px;
+  color: #e8eef2;
+  padding: 1.25rem 1.4rem 1.15rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.save-reminder-dialog h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.45rem;
+  color: #f0f4f6;
+}
+.save-reminder-dialog p {
+  margin: 0 0 0.65rem;
+  color: #d5dee3;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.save-reminder-zh {
+  color: #b8c8d0 !important;
+}
+.save-reminder-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

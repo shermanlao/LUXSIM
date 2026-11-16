@@ -7,8 +7,8 @@ import {
 } from "./account-settings";
 
 describe("autosave intervals", () => {
-  it("defaults to 5 minutes", () => {
-    expect(DEFAULT_AUTOSAVE_MS).toBe(5 * 60_000);
+  it("defaults to 15 minutes", () => {
+    expect(DEFAULT_AUTOSAVE_MS).toBe(15 * 60_000);
     expect(AUTOSAVE_INTERVALS.some((o) => o.ms === DEFAULT_AUTOSAVE_MS)).toBe(true);
   });
 
@@ -54,7 +54,7 @@ describe("accountPatchForSessionUser", () => {
     expect(accountPatchForSessionUser("user_session", { autosaveMs: 800 })).toEqual({
       ok: false,
       status: 400,
-      error: "Invalid autosave interval",
+      error: "Invalid save reminder interval",
     });
   });
 });

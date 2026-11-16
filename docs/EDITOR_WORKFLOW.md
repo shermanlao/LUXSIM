@@ -6,7 +6,7 @@ On project routes, the editor uses a **dark CAD shell** (`cad-editor`): full-ble
 
 `BuildingEditor` and app chrome use the **full browser width** — no `max-w-7xl` cap — so the 3D viewport and side panels expand with the window.
 
-**Autosave** writes name / scene / results **5 minutes** after the last persistable edit (configurable per account: Off / 1 / 5 / 15 minutes — click your email in the header). It also flushes on tab hide, after a successful calc, and when you click **Save**. Selecting a room or switching view / tool does not start a save. Only fields that actually changed are PATCHed. See [AUTOSAVE.md](./AUTOSAVE.md). View tab and last 3D orbit (`ui.camera3d`) are included when a real save runs. **Undo** is Ctrl+Z (Ctrl+X also undoes in the plan/3D view; Cut still works in text fields); redo is Ctrl+Y or Ctrl+Shift+Z.
+The editor does not silently autosave. A **save reminder** appears after **15 minutes** of unsaved persistable edits by default (configurable per account: Off / 1 / 5 / 15 minutes — click your email in the header). **Save** on the dialog or the toolbar writes name / scene / results. The editor does not flush on tab hide or after a successful calc. Selecting a room or switching view / tool does not start a save. Only fields that actually changed are PATCHed. See [AUTOSAVE.md](./AUTOSAVE.md). View tab and last 3D orbit (`ui.camera3d`) are included when a real save runs. **Undo** is Ctrl+Z (Ctrl+X also undoes in the plan/3D view; Cut still works in text fields); redo is Ctrl+Y or Ctrl+Shift+Z.
 
 2D drag/drop uses `getScreenCTM()` (`svg-coords.ts`) so fixture picks stay under the cursor when the viewport is wider than the SVG viewBox (letterboxing).
 

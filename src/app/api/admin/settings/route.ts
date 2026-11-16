@@ -40,7 +40,7 @@ export async function PATCH(req: Request) {
     if (body.defaultAutosaveMs !== undefined) {
       const parsed = parseAutosaveMs(body.defaultAutosaveMs);
       if (parsed == null) {
-        return NextResponse.json({ error: "Invalid autosave interval" }, { status: 400 });
+        return NextResponse.json({ error: "Invalid save reminder interval" }, { status: 400 });
       }
       patch.defaultAutosaveMs = parsed;
     }
