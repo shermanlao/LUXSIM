@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import { legendStopsForScale, normalizeFalseColorScale } from "@/lib/false-color";
@@ -39,7 +39,18 @@ export function FalseColorLegend({
     eminProp ?? results?.summary.emin ?? 56,
     emaxProp ?? results?.summary.emax ?? 500
   );
-  const current = scale ? normalizeFalseColorScale(scale.minLux, scale.maxLux) : fallback;
+  const committed = scale ? normalizeFalseColorScale(scale.minLux, scale.maxLux) : fallback;
+  const [draft, setDraft] = useState(committed);
+  const draftRef = useRef(draft);
+  draftRef.current = draft;
+  const interactingRef = useRef(false);
+
+  useEffect(() => {
+    if (interactingRef.current) return;
+    setDraft(committed);
+  }, [committed.minLux, committed.maxLux]);
+
+  const current = draft;
   const stops = legendStopsForScale(current, palette);
   const hasResults = Boolean(results) || eminProp != null || emaxProp != null || scale != null;
   const gradient = `linear-gradient(90deg, ${stops
@@ -56,20 +67,33 @@ export function FalseColorLegend({
   const dark = tone === "dark" || layout === "bar";
   const isBar = layout === "bar";
 
-  function commit(minLux: number, maxLux: number) {
-    onChange?.(normalizeFalseColorScale(minLux, maxLux));
+  function preview(minLux: number, maxLux: number) {
+    const next = normalizeFalseColorScale(minLux, maxLux);
+    draftRef.current = next;
+    setDraft(next);
+  }
+
+  function beginInteract() {
+    interactingRef.current = true;
+  }
+
+  function commitDraft() {
+    interactingRef.current = false;
+    onChange?.(draftRef.current);
   }
 
   function onMinInput(value: string) {
     const n = Number(value);
     if (!Number.isFinite(n)) return;
-    commit(n, current.maxLux);
+    beginInteract();
+    preview(n, current.maxLux);
   }
 
   function onMaxInput(value: string) {
     const n = Number(value);
     if (!Number.isFinite(n)) return;
-    commit(current.minLux, n);
+    beginInteract();
+    preview(current.minLux, n);
   }
 
   const shell = isBar
@@ -115,6 +139,14 @@ export function FalseColorLegend({
             step={1}
             value={Math.round(current.minLux)}
             onChange={(e) => onMinInput(e.target.value)}
+            onBlur={commitDraft}
+            onPointerUp={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                commitDraft();
+                e.currentTarget.blur();
+              }
+            }}
             className={`w-14 shrink-0 rounded-sm border px-1 py-0.5 text-[11px] tabular-nums ${
               dark ? "bg-[#12202a] border-[#3a5160] text-[#e8eef2]" : "bg-white border-[var(--line)]"
             }`}
@@ -135,7 +167,11 @@ export function FalseColorLegend({
                 max={domainMax}
                 step={1}
                 value={Math.min(current.minLux, current.maxLux - 1)}
-                onChange={(e) => commit(Number(e.target.value), current.maxLux)}
+                onPointerDown={beginInteract}
+                onChange={(e) => preview(Number(e.target.value), current.maxLux)}
+                onPointerUp={commitDraft}
+                onPointerCancel={commitDraft}
+                onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--min"
                 aria-label="Minimum lux"
               />
@@ -145,7 +181,11 @@ export function FalseColorLegend({
                 max={domainMax}
                 step={1}
                 value={Math.max(current.maxLux, current.minLux + 1)}
-                onChange={(e) => commit(current.minLux, Number(e.target.value))}
+                onPointerDown={beginInteract}
+                onChange={(e) => preview(current.minLux, Number(e.target.value))}
+                onPointerUp={commitDraft}
+                onPointerCancel={commitDraft}
+                onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--max"
                 aria-label="Maximum lux"
               />
@@ -169,6 +209,14 @@ export function FalseColorLegend({
             step={1}
             value={Math.round(current.maxLux)}
             onChange={(e) => onMaxInput(e.target.value)}
+            onBlur={commitDraft}
+            onPointerUp={commitDraft}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                commitDraft();
+                e.currentTarget.blur();
+              }
+            }}
             className={`w-14 shrink-0 rounded-sm border px-1 py-0.5 text-[11px] tabular-nums ${
               dark ? "bg-[#12202a] border-[#3a5160] text-[#e8eef2]" : "bg-white border-[var(--line)]"
             }`}

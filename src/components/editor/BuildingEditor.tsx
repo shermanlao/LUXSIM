@@ -209,6 +209,7 @@ import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
+import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
 import {
@@ -2198,9 +2199,18 @@ export function BuildingEditor({
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
+  const viewScaleRef = useRef(scale);
+  viewScaleRef.current = scale;
   useEffect(() => {
     if (!scalePinned) setScale(autoScale);
   }, [autoScale, scalePinned]);
+
+  function commitViewFalseColorScale(next: FalseColorScale, pinned: boolean) {
+    setScalePinned(pinned);
+    if (!shouldApplyViewFalseColorScale(viewScaleRef.current, next)) return;
+    setScale(next);
+    void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {});
+  }
 
   const viewport = (
     <div
@@ -2447,14 +2457,8 @@ export function BuildingEditor({
           emax={autoScale.maxLux}
           results={activeResults}
           scale={scale}
-          onChange={(next) => {
-            setScalePinned(true);
-            setScale(next);
-          }}
-          onReset={() => {
-            setScalePinned(false);
-            setScale(autoScale);
-          }}
+          onChange={(next) => commitViewFalseColorScale(next, true)}
+          onReset={() => commitViewFalseColorScale(autoScale, false)}
           layout="bar"
           tone="dark"
           palette={viewMode === "persp3d" && display3d === "greyscale" ? "greyscale" : "falsecolor"}
