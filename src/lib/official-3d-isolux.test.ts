@@ -268,6 +268,12 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     const scene3d = readSrc("src/components/editor/BuildingScene3D.tsx");
     expect(scene3d).toContain('display3d === "falsecolor"');
     expect(scene3d).toContain("FalseColorPlane");
+    const plane = readSrc("src/components/editor/FalseColorPlane.tsx");
+    const model = readSrc("src/lib/scene-3d-model.ts");
+    expect(plane).toContain("createOfficialFalseColorWorkplane");
+    expect(model).toContain("officialIsoluxModelForRoom");
+    expect(model).toContain("THREE.SRGBColorSpace");
+    expect(model).toContain("luxToRgbLinear");
     expect(scene3d).toContain('display3d === "isolines"');
     expect(scene3d).toContain("Scene3dIsoluxOverlay");
     expect(scene3d).toContain("scale={[-1, 1, 1]}");

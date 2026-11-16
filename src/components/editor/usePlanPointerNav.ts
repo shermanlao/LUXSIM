@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
+import { useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import { clientToSvgPoint } from "./svg-coords";
 import {
   PLAN_PAN_BUTTON,
+  livePlanNavTransformAttr,
   panPlanBy,
+  planViewTransform,
   pointerDeltaToView,
   type PlanZoom,
   wheelZoomFactor,
@@ -20,11 +22,24 @@ type PlanPointerNavOpts = {
   setPlanView: Dispatch<SetStateAction<PlanZoom>>;
   /** Set true while a middle-button pan is in progress so left-click tools stay idle. */
   panningRef?: RefObject<boolean>;
+  /** World-space (or already-projected) plan content that should follow live pan/zoom. */
+  navGroupRef?: RefObject<SVGGElement | null>;
+  /** Latest view, including an in-progress pan or zoom. Event handlers should read this. */
+  liveViewRef?: RefObject<PlanZoom>;
+  /** View last committed to React state (the coordinates currently drawn). */
+  committedViewRef?: RefObject<PlanZoom>;
+  /** React-committed view; used to clear the live SVG transform after a redraw. */
+  planView: PlanZoom;
 };
+
+/** Wait this long after the last wheel event before rebuilding plan coordinates. */
+export const PLAN_NAV_WHEEL_COMMIT_MS = 80;
 
 /**
  * Official view navigation: wheel zooms toward the cursor, and holding the
  * middle (scroll-wheel) button pans. Left-click is not used to pan.
+ * Pan and zoom update an SVG transform immediately and only commit React
+ * state when the gesture finishes, so a dense plan does not redraw every move.
  */
 export function usePlanPointerNav(
   svgRef: RefObject<SVGSVGElement | null>,
@@ -33,9 +48,67 @@ export function usePlanPointerNav(
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
+  const gestureCommittedRef = useRef<PlanZoom | null>(null);
+  const gestureLiveRef = useRef<PlanZoom | null>(null);
+  const wheelTimerRef = useRef<number | null>(null);
+
+  useLayoutEffect(() => {
+    const view = opts.planView;
+    if (opts.liveViewRef) opts.liveViewRef.current = view;
+    if (opts.committedViewRef) opts.committedViewRef.current = view;
+    gestureCommittedRef.current = view;
+    gestureLiveRef.current = view;
+    opts.navGroupRef?.current?.removeAttribute("transform");
+  }, [opts.planView, opts.liveViewRef, opts.committedViewRef, opts.navGroupRef]);
+
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
+
+    const screenOf = (view: PlanZoom) => {
+      const o = optsRef.current;
+      return planViewTransform(o.fitOx, o.fitOy, o.fitScale, o.viewW, o.viewH, view);
+    };
+
+    const readCommitted = (): PlanZoom | null =>
+      gestureCommittedRef.current ?? optsRef.current.committedViewRef?.current ?? null;
+
+    const readLive = (): PlanZoom | null =>
+      gestureLiveRef.current ?? optsRef.current.liveViewRef?.current ?? readCommitted();
+
+    const applyLive = (view: PlanZoom) => {
+      gestureLiveRef.current = view;
+      if (optsRef.current.liveViewRef) optsRef.current.liveViewRef.current = view;
+      const g = optsRef.current.navGroupRef?.current;
+      const committed = readCommitted();
+      if (!g || !committed) return;
+      g.setAttribute("transform", livePlanNavTransformAttr(screenOf(committed), screenOf(view)));
+    };
+
+    const clearWheelTimer = () => {
+      if (wheelTimerRef.current != null) {
+        window.clearTimeout(wheelTimerRef.current);
+        wheelTimerRef.current = null;
+      }
+    };
+
+    const commitLive = () => {
+      clearWheelTimer();
+      const view = gestureLiveRef.current ?? readLive();
+      if (!view) return;
+      gestureCommittedRef.current = view;
+      gestureLiveRef.current = view;
+      if (optsRef.current.liveViewRef) optsRef.current.liveViewRef.current = view;
+      if (optsRef.current.committedViewRef) optsRef.current.committedViewRef.current = view;
+      optsRef.current.setPlanView(view);
+    };
+
+    const beginGesture = () => {
+      if (!gestureCommittedRef.current) {
+        const current = readLive();
+        if (current) gestureCommittedRef.current = current;
+      }
+    };
 
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
@@ -43,8 +116,11 @@ export function usePlanPointerNav(
       const { x, y } = clientToSvgPoint(el, e.clientX, e.clientY);
       const o = optsRef.current;
       const factor = wheelZoomFactor(e.deltaY);
-      o.setPlanView((view) =>
-        zoomPlanToward(view, {
+      beginGesture();
+      const base = readLive();
+      if (!base) return;
+      applyLive(
+        zoomPlanToward(base, {
           factor,
           cursorX: x,
           cursorY: y,
@@ -55,6 +131,8 @@ export function usePlanPointerNav(
           fitScale: o.fitScale,
         })
       );
+      clearWheelTimer();
+      wheelTimerRef.current = window.setTimeout(commitLive, PLAN_NAV_WHEEL_COMMIT_MS);
     };
 
     let panning = false;
@@ -71,6 +149,7 @@ export function usePlanPointerNav(
       if (e.button !== PLAN_PAN_BUTTON) return;
       e.preventDefault();
       e.stopPropagation();
+      beginGesture();
       setPanning(true);
       lastX = e.clientX;
       lastY = e.clientY;
@@ -94,7 +173,9 @@ export function usePlanPointerNav(
       );
       lastX = e.clientX;
       lastY = e.clientY;
-      o.setPlanView((view) => panPlanBy(view, delta.dx, delta.dy));
+      const base = readLive();
+      if (!base) return;
+      applyLive(panPlanBy(base, delta.dx, delta.dy));
     };
 
     const endPan = (e: PointerEvent) => {
@@ -107,6 +188,7 @@ export function usePlanPointerNav(
         /* already released */
       }
       el.style.cursor = "";
+      commitLive();
     };
 
     const onAuxClick = (e: MouseEvent) => {
@@ -116,9 +198,11 @@ export function usePlanPointerNav(
     };
 
     const onLostCapture = () => {
+      if (!panning) return;
       setPanning(false);
       pointerId = -1;
       el.style.cursor = "";
+      commitLive();
     };
 
     el.addEventListener("wheel", onWheel, { passive: false });
@@ -129,6 +213,7 @@ export function usePlanPointerNav(
     el.addEventListener("lostpointercapture", onLostCapture);
     el.addEventListener("auxclick", onAuxClick);
     return () => {
+      clearWheelTimer();
       el.removeEventListener("wheel", onWheel);
       el.removeEventListener("pointerdown", onPointerDown);
       el.removeEventListener("pointermove", onPointerMove);

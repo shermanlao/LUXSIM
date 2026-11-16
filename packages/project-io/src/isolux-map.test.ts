@@ -6,8 +6,10 @@ import {
   isoluxPxToWorld,
   legendStopsForScale,
   luxToRgb,
+  luxToRgbLinear,
   normalizeFalseColorScale,
   rgbCss,
+  srgbToLinearChannel,
 } from "./isolux-map";
 
 function rgb(lux: number, scale?: { minLux: number; maxLux: number }) {
@@ -68,6 +70,19 @@ describe("false-colour scale mapping", () => {
     for (const lux of [0, 56, 72, 240, 500, 1170, 2500]) {
       expect(luxToRgb(lux, OFFICIAL_FALSE_COLOR_SCALE)).toEqual(luxToRgb(lux));
     }
+  });
+
+  it("converts official sRGB colours to linear-light so a managed 3D renderer keeps the same look", () => {
+    expect(srgbToLinearChannel(0)).toBe(0);
+    expect(srgbToLinearChannel(1)).toBeCloseTo(1);
+    const [r, g, b] = luxToRgb(72);
+    const linear = luxToRgbLinear(72);
+    expect(linear[0]).toBeCloseTo(srgbToLinearChannel(r));
+    expect(linear[1]).toBeCloseTo(srgbToLinearChannel(g));
+    expect(linear[2]).toBeCloseTo(srgbToLinearChannel(b));
+    // Treating sRGB as linear (the previous 3D path) makes mid greens much brighter.
+    expect(r).toBeGreaterThan(linear[0]);
+    expect(g).toBeGreaterThan(linear[1]);
   });
 });
 

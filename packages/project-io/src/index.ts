@@ -126,6 +126,8 @@ export type { ReportInput } from "./report";
 export { gridToFalseColorPngDataUrl, workplaneFalseColorRgb } from "./false-color-snapshot";
 export {
   luxToRgb,
+  luxToRgbLinear,
+  srgbToLinearChannel,
   rgbCss,
   legendStopsForRange,
   legendStopsForScale,

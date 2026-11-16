@@ -188,6 +188,9 @@ export function TopView2D({
   const svgRef = useRef<SVGSVGElement>(null);
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
+  const navGroupRef = useRef<SVGGElement | null>(null);
+  const liveViewRef = useRef(planView);
+  const committedViewRef = useRef(planView);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
   const [lengthBuf, setLengthBuf] = useState("");
@@ -321,9 +324,10 @@ export function TopView2D({
     const svg = svgRef.current;
     if (!svg) return { x: 0, y: 0 };
     const { x: svgX, y: svgY } = clientToSvgPoint(svg, clientX, clientY);
+    const live = planViewTransform(fitOx, fitOy, fitScale, viewW, viewH, liveViewRef.current);
     return {
-      x: world.minX + (svgX - ox) / scale,
-      y: world.minY + world.depth - (svgY - oy) / scale,
+      x: world.minX + (svgX - live.ox) / live.scale,
+      y: world.minY + world.depth - (svgY - live.oy) / live.scale,
     };
   };
 
@@ -794,6 +798,10 @@ export function TopView2D({
     fitScale,
     setPlanView,
     panningRef,
+    navGroupRef,
+    liveViewRef,
+    committedViewRef,
+    planView,
   });
 
   return (
@@ -872,6 +880,7 @@ export function TopView2D({
           onSelect(null);
         }}
         onMouseMove={(e) => {
+          if (panningRef.current) return;
           setOrtho(e.shiftKey);
           const raw = toWorld(e.clientX, e.clientY);
           lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY, world: raw };
@@ -893,6 +902,7 @@ export function TopView2D({
         }}
       >
         <rect data-plan-bg="true" width={viewW} height={viewH} fill="#0f1c24" />
+        <g ref={navGroupRef} data-plan-nav-layer="">
 
         {underlayUrl && underlay && underlayScreen && (() => {
           const fx = underlayScreen.flipImageX ? -1 : 1;
@@ -1597,6 +1607,7 @@ export function TopView2D({
               </g>
             );
           })()}
+        </g>
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
         {variant === "bottom" ? "Bottom" : "Top"} view · scroll to zoom

@@ -4,7 +4,10 @@ import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { CalcResults } from "@luxsim/solver";
 import type { FalseColorScale, RoomV2 } from "@luxsim/project-io";
-import { createClippedWorkplaneGeometry } from "@/lib/scene-3d-model";
+import {
+  createClippedWorkplaneGeometry,
+  createOfficialFalseColorWorkplane,
+} from "@/lib/scene-3d-model";
 
 export function FalseColorPlane({
   room,
@@ -17,20 +20,30 @@ export function FalseColorPlane({
   elevationM?: number;
   scale?: FalseColorScale;
 }) {
-  const geometry = useMemo(
-    () => createClippedWorkplaneGeometry(room, results, elevationM, scale),
+  const official = useMemo(
+    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale),
     [room, results, elevationM, scale]
+  );
+  const fallback = useMemo(
+    () => (official ? null : createClippedWorkplaneGeometry(room, results, elevationM, scale)),
+    [official, room, results, elevationM, scale]
   );
 
   useLayoutEffect(() => {
     return () => {
-      geometry?.dispose();
+      official?.geometry.dispose();
+      official?.material.dispose();
+      official?.texture.dispose();
+      fallback?.dispose();
     };
-  }, [geometry]);
+  }, [official, fallback]);
 
-  if (!geometry) return null;
+  if (official) {
+    return <mesh geometry={official.geometry} material={official.material} />;
+  }
+  if (!fallback) return null;
   return (
-    <mesh geometry={geometry}>
+    <mesh geometry={fallback}>
       <meshBasicMaterial
         vertexColors
         side={THREE.DoubleSide}

@@ -123,3 +123,28 @@ export function pointerDeltaToView(
   if (!Number.isFinite(dx) || !Number.isFinite(dy)) return { dx: 0, dy: 0 };
   return { dx: (dx * viewW) / clientWidth, dy: (dy * viewH) / clientHeight };
 }
+
+export type PlanScreenTransform = { scale: number; ox: number; oy: number };
+
+/**
+ * SVG transform that shows a live pan/zoom on content already drawn with
+ * the committed screen transform, so the view can move without a React redraw.
+ */
+export function livePlanNavTransform(
+  committed: PlanScreenTransform,
+  live: PlanScreenTransform
+): { tx: number; ty: number; k: number } {
+  const base = committed.scale;
+  const k = base !== 0 && Number.isFinite(base) ? live.scale / base : 1;
+  return { tx: live.ox - committed.ox * k, ty: live.oy - committed.oy * k, k };
+}
+
+export function livePlanNavTransformAttr(
+  committed: PlanScreenTransform,
+  live: PlanScreenTransform
+): string {
+  const { tx, ty, k } = livePlanNavTransform(committed, live);
+  if (Math.abs(k - 1) < 1e-12 && Math.abs(tx) < 1e-9 && Math.abs(ty) < 1e-9) return "";
+  return `translate(${tx} ${ty}) scale(${k})`;
+}
+

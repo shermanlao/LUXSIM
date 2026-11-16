@@ -14,6 +14,8 @@ import {
   centeredFitOrigin,
   clampPlanZoom,
   panPlanBy,
+  livePlanNavTransform,
+  livePlanNavTransformAttr,
   planViewTransform,
   pointerDeltaToView,
   wheelZoomFactor,
@@ -128,6 +130,31 @@ describe("plan pan", () => {
   });
 });
 
+describe("live plan navigation transform", () => {
+  it("is a pure translation when only the origin moves", () => {
+    const committed = { scale: 40, ox: 10, oy: 20 };
+    const live = { scale: 40, ox: 18, oy: 11 };
+    expect(livePlanNavTransform(committed, live)).toEqual({ tx: 8, ty: -9, k: 1 });
+    expect(livePlanNavTransformAttr(committed, live)).toBe("translate(8 -9) scale(1)");
+  });
+
+  it("is identity when the live view matches the committed view", () => {
+    const view = { scale: 25, ox: 4, oy: 7 };
+    expect(livePlanNavTransform(view, view)).toEqual({ tx: 0, ty: 0, k: 1 });
+    expect(livePlanNavTransformAttr(view, view)).toBe("");
+  });
+
+  it("scales about the committed origin so a doubled zoom stays aligned", () => {
+    const committed = { scale: 20, ox: 100, oy: 50 };
+    const live = { scale: 40, ox: 80, oy: 20 };
+    const t = livePlanNavTransform(committed, live);
+    expect(t.k).toBe(2);
+    // A screen point drawn at committed (ox, oy) must land at live (ox, oy).
+    expect(t.tx + committed.ox * t.k).toBeCloseTo(live.ox);
+    expect(t.ty + committed.oy * t.k).toBeCloseTo(live.oy);
+  });
+});
+
 describe("TopView2D wheel-zoom wiring", () => {
   it("applies cursor-stable wheel zoom on the official fit and does not put draft in the auto-fit deps", () => {
     const src = topViewSrc();
@@ -156,6 +183,11 @@ describe("TopView2D wheel-zoom wiring", () => {
     expect(navSrc).toContain("zoomPlanToward");
     expect(navSrc).toContain("panPlanBy");
     expect(navSrc).toContain("pointerDeltaToView");
+    expect(navSrc).toContain("livePlanNavTransformAttr");
+    expect(navSrc).toContain("navGroupRef");
+    expect(navSrc).not.toMatch(/onPointerMove[\s\S]*setPlanView/);
+    expect(src).toContain("data-plan-nav-layer");
+    expect(src).toContain("if (panningRef.current) return");
     expect(navSrc).toContain("PLAN_PAN_BUTTON");
     expect(navSrc).toContain("e.preventDefault()");
     expect(navSrc).toContain("e.stopPropagation()");

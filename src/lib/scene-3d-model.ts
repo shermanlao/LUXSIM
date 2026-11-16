@@ -9,7 +9,9 @@ import type { PhotometricData } from "@luxsim/photometry";
 import { luminaireBody } from "@luxsim/photometry";
 import type { CalcResults } from "@luxsim/solver";
 import {
-  luxToRgb,
+  isoluxPxToWorld,
+  luxToRgbLinear,
+  officialIsoluxModelForRoom,
   OFFICIAL_FALSE_COLOR_SCALE,
   pointInPolygon,
   roomBounds,
@@ -264,7 +266,7 @@ export function createClippedWorkplaneGeometry(
     const i = positions.length / 3;
     positions.push(p.x, height, p.y);
     const lux = sampleGridLux(room, results.grid, p.x, p.y);
-    const [r, g, bl] = luxToRgb(lux, scale);
+    const [r, g, bl] = luxToRgbLinear(lux, scale);
     colors.push(r, g, bl);
     vertIndex.set(key, i);
     return i;
@@ -326,6 +328,74 @@ export function createClippedWorkplaneGeometry(
   return geo;
 }
 
+export function officialFalseColorWorkplaneHeight(
+  room: RoomV2,
+  results: CalcResults,
+  elevationM: number
+): number {
+  return elevationM + (results.grid.z ?? room.workplaneHeightM) + 0.02;
+}
+
+/**
+ * Official 3D workplane that uses the same isolux field bitmap as the Top plan,
+ * with an sRGB canvas texture so colour-managed WebGL matches the 2D canvas.
+ */
+export function createOfficialFalseColorWorkplane(
+  room: RoomV2,
+  results: CalcResults,
+  elevationM: number,
+  scale?: FalseColorScale
+): { geometry: THREE.BufferGeometry; material: THREE.MeshBasicMaterial; texture: THREE.CanvasTexture } | null {
+  if (typeof document === "undefined") return null;
+  const model = officialIsoluxModelForRoom(room, results, {
+    mode: "falsecolor",
+    targetLongSide: 800,
+    colorScale: scale,
+    includeContours: false,
+    includeValueLabels: false,
+  });
+  if (!model) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = model.width;
+  canvas.height = model.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const image = new ImageData(model.width, model.height);
+  image.data.set(model.field);
+  ctx.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.magFilter = THREE.LinearFilter;
+  texture.minFilter = THREE.LinearFilter;
+  texture.needsUpdate = true;
+  const height = officialFalseColorWorkplaneHeight(room, results, elevationM);
+  const tl = isoluxPxToWorld(model.world, { x: 0, y: 0 });
+  const tr = isoluxPxToWorld(model.world, { x: model.width, y: 0 });
+  const bl = isoluxPxToWorld(model.world, { x: 0, y: model.height });
+  const br = isoluxPxToWorld(model.world, { x: model.width, y: model.height });
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute(
+    "position",
+    new THREE.Float32BufferAttribute(
+      [tl.x, height, tl.y, tr.x, height, tr.y, bl.x, height, bl.y, br.x, height, br.y],
+      3
+    )
+  );
+  // CanvasTexture flipY defaults to true: uv (0,0) is the bottom of the image (min Y).
+  geometry.setAttribute("uv", new THREE.Float32BufferAttribute([0, 1, 1, 1, 0, 0, 1, 0], 2));
+  geometry.setIndex([0, 2, 1, 1, 2, 3]);
+  geometry.computeVertexNormals();
+  const material = new THREE.MeshBasicMaterial({
+    map: texture,
+    transparent: true,
+    alphaTest: 0.05,
+    side: THREE.DoubleSide,
+    depthWrite: true,
+    toneMapped: false,
+  });
+  return { geometry, material, texture };
+}
+
 
 /** False-colour mesh for a vertical wall surface, following the wall polyline (not a bounding box). */
 export function createWallFalseColorGeometry(
@@ -359,7 +429,7 @@ export function createWallFalseColorGeometry(
         elevationM + v,
         loc.y + loc.normal.y * inwardOffset
       );
-      const [cr, cg, cb] = luxToRgb(sampleWallLux(surface, u, v), scale);
+      const [cr, cg, cb] = luxToRgbLinear(sampleWallLux(surface, u, v), scale);
       colors.push(cr, cg, cb);
     }
   }
@@ -908,10 +978,18 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       const scale = opts.falseColorScale ?? OFFICIAL_FALSE_COLOR_SCALE;
       const res = opts.results?.byRoomId[room.id];
       if (res) {
-        const wp = createClippedWorkplaneGeometry(room, res, elev, scale);
-        if (wp) {
-          track(wp);
-          content.add(new THREE.Mesh(wp, workMat));
+        const official = createOfficialFalseColorWorkplane(room, res, elev, scale);
+        if (official) {
+          track(official.geometry);
+          track(official.material);
+          track(official.texture);
+          content.add(new THREE.Mesh(official.geometry, official.material));
+        } else {
+          const wp = createClippedWorkplaneGeometry(room, res, elev, scale);
+          if (wp) {
+            track(wp);
+            content.add(new THREE.Mesh(wp, workMat));
+          }
         }
       }
       const wallSurfaces = opts.results?.wallsByRoomId?.[room.id] ?? [];

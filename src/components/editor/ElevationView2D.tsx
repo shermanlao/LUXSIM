@@ -43,6 +43,9 @@ export function ElevationView2D({
   const svgRef = useRef<SVGSVGElement>(null);
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
+  const navGroupRef = useRef<SVGGElement | null>(null);
+  const liveViewRef = useRef(planView);
+  const committedViewRef = useRef(planView);
   const grabOffset = useRef({ a: 0, z: 0 });
 
   const storey = scene.storeys.find((s) => s.id === scene.ui.activeStoreyId);
@@ -89,6 +92,10 @@ export function ElevationView2D({
     fitScale,
     setPlanView,
     panningRef,
+    navGroupRef,
+    liveViewRef,
+    committedViewRef,
+    planView,
   });
 
   const toScreen = (a: number, z: number) => ({
@@ -100,8 +107,9 @@ export function ElevationView2D({
     const svg = svgRef.current;
     if (!svg) return { a: 0, z: 0 };
     const { x: sx, y: sy } = clientToSvgPoint(svg, clientX, clientY);
-    const a = minA - 1 + (sx - ox) / scale;
-    const z = elev + height - ((sy - oy) / scale - padM);
+    const live = planViewTransform(fitOx, fitOy, fitScale, viewW, viewH, liveViewRef.current);
+    const a = minA - 1 + (sx - live.ox) / live.scale;
+    const z = elev + height - ((sy - live.oy) / live.scale - padM);
     return { a, z };
   }
 
@@ -120,6 +128,7 @@ export function ElevationView2D({
     >
       <svg ref={svgRef} viewBox={`0 0 ${viewW} ${viewH}`} className="w-full h-full">
         <rect width={viewW} height={viewH} fill="#0f1c24" />
+        <g ref={navGroupRef} data-plan-nav-layer="">
         {rooms.map((room) => {
           const b = roomBounds(room);
           const a0 = mode === "front" ? b.minX : b.minY;
@@ -186,6 +195,7 @@ export function ElevationView2D({
             </g>
           );
         })}
+        </g>
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
         {(mode === "front" ? "Front (X-Z)" : "Side (Y-Z)") +

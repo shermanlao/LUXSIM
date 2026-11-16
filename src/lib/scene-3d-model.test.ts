@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { luxToRgb, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
+import { luxToRgbLinear, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
 import * as THREE from "three";
 import { editorOverviewCamera, type ProjectSceneV2 } from "@luxsim/project-io";
 import {
@@ -181,7 +181,7 @@ describe("clipped false-colour workplane", () => {
       const wx = pos.getX(i);
       const wy = pos.getZ(i);
       const sampled = sampleGridLux(room, results.grid, wx, wy);
-      const encoded = luxToRgb(sampled, scale);
+      const encoded = luxToRgbLinear(sampled, scale);
       expect(color.getX(i)).toBeCloseTo(encoded[0], 5);
       expect(color.getY(i)).toBeCloseTo(encoded[1], 5);
       expect(color.getZ(i)).toBeCloseTo(encoded[2], 5);
@@ -428,7 +428,7 @@ describe("false-colour exterior facing and scale", () => {
     const cWide = wide!.getAttribute("color");
     const cTight = tight!.getAttribute("color");
     expect(cWide.getX(0)).not.toBeCloseTo(cTight.getX(0), 3);
-    const expected = luxToRgb(200, { minLux: 100, maxLux: 250 });
+    const expected = luxToRgbLinear(200, { minLux: 100, maxLux: 250 });
     expect(cTight.getX(0)).toBeCloseTo(expected[0], 5);
     expect(cTight.getY(0)).toBeCloseTo(expected[1], 5);
     expect(cTight.getZ(0)).toBeCloseTo(expected[2], 5);

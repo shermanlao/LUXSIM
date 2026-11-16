@@ -90,6 +90,18 @@ export function luxToRgb(lux: number, scale?: FalseColorScale | number): [number
   return absoluteLuxToRgb(lux);
 }
 
+/** Convert an sRGB channel in 0–1 to linear-light, for Three.js vertex colours. */
+export function srgbToLinearChannel(c: number): number {
+  if (c <= 0.04045) return c / 12.92;
+  return ((c + 0.055) / 1.055) ** 2.4;
+}
+
+/** luxToRgb values converted to linear-light so a colour-managed renderer shows the official ramp. */
+export function luxToRgbLinear(lux: number, scale?: FalseColorScale | number): [number, number, number] {
+  const [r, g, b] = luxToRgb(lux, scale);
+  return [srgbToLinearChannel(r), srgbToLinearChannel(g), srgbToLinearChannel(b)];
+}
+
 export function rgbCss([r, g, b]: [number, number, number]): string {
   return `rgb(${Math.round(r * 255)}, ${Math.round(g * 255)}, ${Math.round(b * 255)})`;
 }
