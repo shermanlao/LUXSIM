@@ -60,6 +60,11 @@ export const UI_TIPS: UiTipSeed[] = [
     body: "With Select idle, click Align rooms, then choose two rooms on the current storey. First pick an alignment: Left, Right, Top, Bottom, H centre, or V centre (Left is the default). If a room is already selected, it is the reference and stays put; you only pick the room to move. The second room is translated so the matching edge or centre of its bounding box lines up with the reference; its shape does not change. Both rooms are kept. Fixtures assigned to the moved room follow the same translation. Luminaires are not deleted. The command is refused when the rooms are on different storeys, are missing, are the same room, the room is already aligned, or the move would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Esc cancels the pick. Even spacing / distribute is not included.",
   },
   {
+    helpKey: "tool.distributeRooms",
+    title: "Distribute rooms",
+    body: "With Select idle, click Distribute rooms, then click at least three rooms on the current storey and press Enter. First pick an axis: Horizontal or Vertical (Horizontal is the default). If a room is already selected, it is the first room in the set. Rooms are ordered by the leading edge of the bounding box (min X or min Y). The first and last rooms in that order stay put; interior rooms translate so the gaps between consecutive bounding boxes are equal. Shapes do not change. Fixtures assigned to a moved room follow the same translation. Luminaires are not deleted. The command is refused when the rooms are on different storeys, a room is missing, fewer than three rooms are selected, the rooms are already evenly spaced, or a move would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Esc cancels the pick. Clicking the button again cancels.",
+  },
+  {
     helpKey: "tool.roomHeight",
     title: "Room height",
     body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",

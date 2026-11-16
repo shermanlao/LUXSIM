@@ -124,11 +124,12 @@ type Props = {
   polygonPick?: PolygonPathPickState;
   polygonPickActive?: boolean;
   onPolygonPickChange?: (next: PolygonPathPickState) => void;
-  /** Official Union / Subtract / Intersect / XOR / Align rooms two-step pick (Select idle). */
+  /** Official Union / Subtract / Intersect / XOR / Align / Distribute rooms pick (Select idle). */
   unionPickActive?: boolean;
-  unionPickMode?: "union" | "subtract" | "intersect" | "xor" | "align";
+  unionPickMode?: "union" | "subtract" | "intersect" | "xor" | "align" | "distribute";
   onUnionRoomPick?: (roomId: string) => void;
   onUnionPickCancel?: () => void;
+  onDistributeApply?: () => void;
   /** Calculation results for the plan isolux / value-label overlay. */
   results?: ResultsV2 | null;
   planIsoluxMode?: IsoluxMode;
@@ -176,6 +177,7 @@ export function TopView2D({
   unionPickMode = "union",
   onUnionRoomPick,
   onUnionPickCancel,
+  onDistributeApply,
   results = null,
   planIsoluxMode = "falsecolor",
   showValueLabels = false,
@@ -502,6 +504,12 @@ export function TopView2D({
     if (!unionPickActive || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
+      if (e.key === "Enter" && unionPickMode === "distribute") {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        onDistributeApply?.();
+        return;
+      }
       if (e.key !== "Escape") return;
       if (roomUnionPickEscapeAction({ active: true, firstRoomId: null }) === "pass") return;
       e.preventDefault();
@@ -510,7 +518,7 @@ export function TopView2D({
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [unionPickActive, drawing, onUnionPickCancel]);
+  }, [unionPickActive, unionPickMode, drawing, onUnionPickCancel, onDistributeApply]);
 
   useEffect(() => {
     if (!circlePickActive || !circlePick || drawing) return;
@@ -1601,7 +1609,9 @@ export function TopView2D({
                   ? "· click a room to XOR · Esc cancels"
                   : unionPickMode === "align"
                     ? "· click a room to align · Esc cancels"
-                    : "· click a room to union · Esc cancels"}
+                    : unionPickMode === "distribute"
+                      ? "· click rooms to distribute · Enter applies when three or more are selected · Esc cancels"
+                      : "· click a room to union · Esc cancels"}
           </>
         )}
         {linePickActive && (

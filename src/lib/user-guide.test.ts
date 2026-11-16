@@ -374,6 +374,27 @@ describe("user guide", () => {
     expect(tips).toMatch(/Even spacing \/ distribute is not included/);
   });
 
+  it("documents Distribute rooms for even gaps between bounding boxes", () => {
+    expect(guide).toMatch(/use \*\*Distribute rooms\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Distribute rooms\*\*/);
+    expect(guide).toMatch(/click at least three rooms on the plan, then press \*\*Enter\*\*/);
+    expect(guide).toMatch(/點選至少三間房，然後按 \*\*Enter\*\* 套用/);
+    expect(guide).toMatch(/ordered by the leading edge of the bounding box/);
+    expect(guide).toMatch(/房間按包圍盒的前緣/);
+    expect(guide).toMatch(/The first and last rooms in that order stay put/);
+    expect(guide).toMatch(/該順序的第一間與最後一間留在原位/);
+    expect(guide).toMatch(/gaps between consecutive bounding boxes are equal/);
+    expect(guide).toMatch(/相鄰包圍盒之間的間隙相等/);
+    expect(guide).toMatch(/fewer than three rooms are selected/);
+    expect(guide).toMatch(/選取少於三間/);
+    expect(guide).toMatch(/already evenly spaced/);
+    expect(guide).toMatch(/已經均勻分布/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.distributeRooms"');
+    expect(tips).toMatch(/first and last rooms in that order stay put/);
+    expect(tips).toMatch(/gaps between consecutive bounding boxes are equal/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

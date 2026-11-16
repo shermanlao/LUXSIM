@@ -293,7 +293,5 @@ describe("official editor Align rooms wiring", () => {
     expect(top).toContain("onUnionRoomPick");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain('unionPickMode === "align"');
-    expect(src).not.toContain("distributeRooms");
-    expect(top).not.toContain("distributeRooms");
   });
 });

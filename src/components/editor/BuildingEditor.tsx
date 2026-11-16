@@ -45,6 +45,12 @@ import {
   OFFICIAL_ROOM_ALIGN_AXES,
   officialRoomAlignAxisLabel,
   type OfficialRoomAlignAxis,
+  officialDistributeRooms,
+  DISTRIBUTE_ROOMS_CANCELLED_STATUS,
+  DEFAULT_OFFICIAL_ROOM_DISTRIBUTE_AXIS,
+  OFFICIAL_ROOM_DISTRIBUTE_AXES,
+  officialRoomDistributeAxisLabel,
+  type OfficialRoomDistributeAxis,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -123,6 +129,14 @@ import {
   type OfficialTwoRoomPickKind,
   type OfficialTwoRoomPickState,
 } from "@/lib/room-union-pick";
+import {
+  EMPTY_ROOM_DISTRIBUTE_PICK,
+  applyOfficialRoomDistributeCommit,
+  applyOfficialRoomDistributePick,
+  distributeRoomsPickHint,
+  startOfficialRoomDistributePick,
+  type RoomDistributePickState,
+} from "@/lib/room-distribute-pick";
 import {
   formatArrayApplyStatus,
   prepareFixtureArrayApply,
@@ -301,10 +315,20 @@ export function BuildingEditor({
   const [booleanPick, setBooleanPick] = useState<OfficialTwoRoomPickState>(
     EMPTY_OFFICIAL_TWO_ROOM_PICK
   );
-  const unionPickActive = booleanPick.active;
-  const unionPickMode = booleanPick.active ? booleanPick.kind : undefined;
+  const [distributePick, setDistributePick] = useState<RoomDistributePickState>(
+    EMPTY_ROOM_DISTRIBUTE_PICK
+  );
+  const unionPickActive = booleanPick.active || distributePick.active;
+  const unionPickMode = distributePick.active
+    ? "distribute"
+    : booleanPick.active
+      ? booleanPick.kind
+      : undefined;
   const [alignAxis, setAlignAxis] = useState<OfficialRoomAlignAxis>(
     DEFAULT_OFFICIAL_ROOM_ALIGN_AXIS
+  );
+  const [distributeAxis, setDistributeAxis] = useState<OfficialRoomDistributeAxis>(
+    DEFAULT_OFFICIAL_ROOM_DISTRIBUTE_AXIS
   );
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
@@ -738,6 +762,9 @@ export function BuildingEditor({
     if (booleanPick.active && tool !== "select") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     }
+    if (distributePick.active && tool !== "select") {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }));
   }
 
@@ -782,6 +809,9 @@ export function BuildingEditor({
   }
 
   function startUnionRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "union") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(UNION_ROOMS_CANCELLED_STATUS);
@@ -796,6 +826,9 @@ export function BuildingEditor({
   }
 
   function startSubtractRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "subtract") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(SUBTRACT_ROOMS_CANCELLED_STATUS);
@@ -810,6 +843,9 @@ export function BuildingEditor({
   }
 
   function startIntersectRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "intersect") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(INTERSECT_ROOMS_CANCELLED_STATUS);
@@ -824,6 +860,9 @@ export function BuildingEditor({
   }
 
   function startXorRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "xor") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(XOR_ROOMS_CANCELLED_STATUS);
@@ -838,6 +877,9 @@ export function BuildingEditor({
   }
 
   function startAlignRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "align") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(ALIGN_ROOMS_CANCELLED_STATUS);
@@ -849,6 +891,19 @@ export function BuildingEditor({
     setStatus(
       next.firstRoomId ? ALIGN_ROOMS_PICK_SECOND_STATUS : ALIGN_ROOMS_PICK_FIRST_STATUS
     );
+  }
+
+  function startDistributeRooms() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+      setStatus(DISTRIBUTE_ROOMS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+    const next = startOfficialRoomDistributePick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    setDistributePick(next);
+    setStatus(distributeRoomsPickHint(next));
   }
 
   function booleanPickCancelledStatus(kind: OfficialTwoRoomPickKind): string {
@@ -868,16 +923,57 @@ export function BuildingEditor({
   }
 
   function cancelUnionRoomsPick() {
+    if (distributePick.active) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+      setStatus(DISTRIBUTE_ROOMS_CANCELLED_STATUS);
+      return;
+    }
     if (!booleanPick.active) return;
     const cancelled = booleanPickCancelledStatus(booleanPick.kind);
     setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     setStatus(cancelled);
   }
 
+  function onDistributeApply() {
+    const picked = applyOfficialRoomDistributeCommit(distributePick);
+    if (picked.kind !== "distribute") {
+      setStatus(picked.status);
+      return;
+    }
+    endCoalesce();
+    const result = officialDistributeRooms(scene, picked.roomIds, distributeAxis);
+    setStatus(result.status);
+    if (result.ok) {
+      setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+      patchScene(() => result.scene);
+    }
+  }
+
   function onUnionRoomPick(roomId: string) {
     const room = scene.rooms.find((r) => r.id === roomId);
     if (!room) {
+      if (distributePick.active) {
+        setStatus(distributeRoomsPickHint(distributePick));
+        return;
+      }
       setStatus(booleanPickFirstStatus(booleanPick.kind));
+      return;
+    }
+    if (distributePick.active) {
+      const picked = applyOfficialRoomDistributePick(
+        distributePick,
+        room.id,
+        room.storeyId,
+        scene.ui.activeStoreyId
+      );
+      if (picked.selectRoomId) {
+        patchSceneUi((s) => ({
+          ...s,
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+        }));
+      }
+      setDistributePick(picked.state);
+      setStatus(picked.status);
       return;
     }
     if (booleanPick.kind === "align") {
@@ -2045,6 +2141,7 @@ export function BuildingEditor({
           unionPickMode={unionPickMode}
           onUnionRoomPick={onUnionRoomPick}
           onUnionPickCancel={cancelUnionRoomsPick}
+          onDistributeApply={onDistributeApply}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -2527,6 +2624,38 @@ export function BuildingEditor({
               </div>
               <p className="text-[10px] text-[var(--muted)]">
                 Aligns a room on this storey to a reference along the selected edge or centre (Left is the default). The first room is the reference and stays put; the second room moves without changing shape. Both rooms are kept. Even spacing is not included. Esc cancels the pick.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.distributeRooms"
+                  className={`btn w-full !text-xs justify-start ${
+                    distributePick.active ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startDistributeRooms}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Distribute rooms
+                </button>
+                <HelpTip helpKey="tool.distributeRooms" />
+              </div>
+              <div className="grid grid-cols-2 gap-1">
+                {OFFICIAL_ROOM_DISTRIBUTE_AXES.map((axis) => (
+                  <button
+                    key={axis}
+                    type="button"
+                    className={`btn !text-[10px] !px-1 !py-1 ${
+                      distributeAxis === axis ? "btn-accent" : "btn-secondary"
+                    }`}
+                    aria-pressed={distributeAxis === axis}
+                    onClick={() => setDistributeAxis(axis)}
+                  >
+                    {officialRoomDistributeAxisLabel(axis)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Spaces three or more rooms on this storey with equal gaps between bounding boxes along the selected axis (Horizontal is the default). The first and last rooms along that axis stay put; interiors move without changing shape. Press Enter to apply. Esc cancels the pick.
               </p>
             </div>
           </div>
