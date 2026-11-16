@@ -15,20 +15,25 @@ export function FalseColorPlane({
   elevationM = 0,
   scale,
   palette = "falsecolor",
+  showWorkplane = true,
 }: {
   room: RoomV2;
   results: CalcResults;
   elevationM?: number;
   scale?: FalseColorScale;
   palette?: IsoluxPalette;
+  showWorkplane?: boolean;
 }) {
   const official = useMemo(
-    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale, palette),
-    [room, results, elevationM, scale, palette]
+    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale, palette, showWorkplane),
+    [room, results, elevationM, scale, palette, showWorkplane]
   );
   const fallback = useMemo(
-    () => (official ? null : createClippedWorkplaneGeometry(room, results, elevationM, scale, palette)),
-    [official, room, results, elevationM, scale, palette]
+    () =>
+      official
+        ? null
+        : createClippedWorkplaneGeometry(room, results, elevationM, scale, palette, showWorkplane),
+    [official, room, results, elevationM, scale, palette, showWorkplane]
   );
 
   useLayoutEffect(() => {

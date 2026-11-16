@@ -430,6 +430,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/灰階模式，刻度條改為灰色漸層/);
     expect(guide).toMatch(/Workplane \(m\)/);
     expect(guide).toMatch(/工作面（計算平面）的高度跟隨/);
+    expect(guide).toMatch(/When the workplane is hidden, Greyscale, False colour, Isolines, and Value labels stay visible, drawn on the floor/);
+    expect(guide).toMatch(/工作面隱藏時，這些照度顯示改畫在地板上/);
+    expect(guide).toMatch(/without hiding the room floor, walls, or fixtures/);
+    expect(guide).toMatch(/不會隱藏房間地板、牆身或燈具/);
     expect(guide).toMatch(/does not isolate a room/);
     expect(guide).toMatch(/不會因此把房間單獨隔離/);
     expect(guide).toMatch(/There is no Bottom view button/);

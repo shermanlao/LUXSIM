@@ -291,13 +291,14 @@ export function BuildingScene3D({
             const palette = display3d === "greyscale" ? "greyscale" : "falsecolor";
             return (
               <group key={`fc-${room.id}`}>
-                {showWorkplane && res && (
+                {res && (
                   <FalseColorPlane
                     room={room}
                     results={res}
                     elevationM={elev}
                     scale={falseColorScale}
                     palette={palette}
+                    showWorkplane={showWorkplane}
                   />
                 )}
                 <FalseColorWalls
@@ -317,6 +318,7 @@ export function BuildingScene3D({
             results={results}
             elevationM={elev}
             showValueLabels={showValueLabels}
+            showWorkplane={showWorkplane}
           />
         )}
 

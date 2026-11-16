@@ -224,6 +224,53 @@ describe("official 3D isolux model wiring", () => {
     expect(isoluxLabelSpriteScale(0.2)[0]).toBe(ISOLUX_LABEL_MIRROR_SCALE_X * 0.2 * 2.6);
   });
 
+  it("moves isolines and value labels to the floor when the workplane is hidden", () => {
+    const room = lShapedRoom();
+    const calc = lShapeGradientResults();
+    const elev = 3.2;
+    const floorH = elev + ISOLUX_WORKPLANE_LIFT_M;
+    expect(isoluxWorkplaneHeightM(room, calc, elev, false)).toBe(floorH);
+    expect(floorH).toBe(3.2 + 0.02);
+    expect(isoluxWorkplaneHeightM({ ...room, workplaneHeightM: 1.1 }, calc, elev, false)).toBe(floorH);
+
+    const overlay = official3dIsoluxOverlayForRoom(room, calc, elev, { showWorkplane: false });
+    expect(overlay).not.toBeNull();
+    expect(overlay!.heightM).toBe(floorH);
+    let points = 0;
+    for (const contour of overlay!.contours) {
+      for (const line of contour.polylines) {
+        for (const p of line) {
+          expect(p[1]).toBeCloseTo(floorH, 8);
+          expect(p).toEqual(planToThree(p[0], p[2], floorH));
+          points += 1;
+        }
+      }
+    }
+    expect(points).toBeGreaterThan(8);
+    for (const label of [...overlay!.contourLabels, ...overlay!.valueLabels]) {
+      expect(label.position[1]).toBeCloseTo(floorH, 8);
+    }
+
+    const hidden = official3dIsoluxOverlaysForRooms(
+      [room],
+      { version: 2, byRoomId: { [room.id]: calc } },
+      elev,
+      [],
+      { showWorkplane: false }
+    );
+    expect(hidden).toHaveLength(1);
+    expect(hidden[0]!.heightM).toBe(floorH);
+
+    const shown = official3dIsoluxOverlaysForRooms(
+      [room],
+      { version: 2, byRoomId: { [room.id]: calc } },
+      elev,
+      [],
+      { showWorkplane: true }
+    );
+    expect(shown[0]!.heightM).toBe(elev + room.workplaneHeightM + ISOLUX_WORKPLANE_LIFT_M);
+  });
+
   it("keeps L-shape isolines out of the cut-out, even if the AABB grid has invented notch values", () => {
     const room = lShapedRoom();
     const calc = lShapeGradientResults();
@@ -358,5 +405,9 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     expect(tips).toContain("PLAN_ISOLUX_HINT");
     expect(PLAN_ISOLUX_HINT).toMatch(/3D view/);
     expect(PLAN_ISOLUX_HINT).toMatch(/Full PDF report/);
+    expect(PLAN_ISOLUX_HINT).toMatch(/or on the floor when the workplane is hidden/);
+    expect(PLAN_ISOLUX_HINT).toMatch(/without hiding Greyscale, False colour, Isolines, or Value labels/);
+    expect(guide).toMatch(/When the workplane is hidden, Greyscale, False colour, Isolines, and Value labels stay visible, drawn on the floor/);
+    expect(guide).toMatch(/工作面隱藏時，這些照度顯示改畫在地板上/);
   });
 });

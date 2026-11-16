@@ -118,16 +118,21 @@ export function Scene3dIsoluxOverlay({
   results,
   elevationM,
   showValueLabels,
+  showWorkplane = true,
 }: {
   scene: ProjectSceneV2;
   rooms: RoomV2[];
   results: ResultsV2;
   elevationM: number;
   showValueLabels: boolean;
+  showWorkplane?: boolean;
 }) {
   const overlays = useMemo(
-    () => official3dIsoluxOverlaysForRooms(rooms, results, elevationM, scene.instances),
-    [rooms, results, elevationM, scene.instances]
+    () =>
+      official3dIsoluxOverlaysForRooms(rooms, results, elevationM, scene.instances, {
+        showWorkplane,
+      }),
+    [rooms, results, elevationM, scene.instances, showWorkplane]
   );
   if (overlays.length === 0) return null;
   return (

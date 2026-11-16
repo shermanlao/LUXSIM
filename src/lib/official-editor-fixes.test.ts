@@ -16,7 +16,12 @@ import {
   next3dFixtureSelection,
   shouldClear3dFixtureSelection,
 } from "./scene-3d-selection";
-import { showWorkplaneFromUi } from "./workplane-display";
+import {
+  OFFICIAL_ILLUMINANCE_DISPLAY_LIFT_M,
+  officialIlluminanceFieldHeightM,
+  officialIlluminanceFloorHeightM,
+  showWorkplaneFromUi,
+} from "./workplane-display";
 import { officialPlanIsoluxModelKey, officialPlanIsoluxModels } from "./plan-falsecolor-layer";
 import { ROOM_TRANSLATE_ENABLED } from "./room-drag";
 
@@ -91,6 +96,38 @@ describe("official 3D workplane display", () => {
     const editor = read("src/components/editor/BuildingEditor.tsx");
     expect(editor).toContain("data-show-workplane");
     expect(editor).toContain("onShowWorkplaneChange");
+  });
+
+  it("keeps the 3D illuminance field, isolines, and labels visible on the floor when the workplane is hidden", () => {
+    const r = room({ workplaneHeightM: 0.75 });
+    const results = { grid: { z: 1.4 } } as Parameters<typeof officialFalseColorWorkplaneHeight>[1];
+    const elev = 3;
+    expect(OFFICIAL_ILLUMINANCE_DISPLAY_LIFT_M).toBe(0.02);
+    expect(officialIlluminanceFloorHeightM(elev)).toBe(elev + 0.02);
+    expect(officialIlluminanceFieldHeightM(r, elev, true)).toBe(elev + 0.75 + 0.02);
+    expect(officialIlluminanceFieldHeightM(r, elev, false)).toBe(elev + 0.02);
+    expect(officialFalseColorWorkplaneHeight(r, results, elev, true)).toBe(elev + 0.75 + 0.02);
+    expect(officialFalseColorWorkplaneHeight(r, results, elev, false)).toBe(elev + 0.02);
+    expect(isoluxWorkplaneHeightM({ ...r, workplaneHeightM: 1.2 }, { grid: { z: 0.4 } } as never, elev, true)).toBe(
+      elev + 1.2 + 0.02
+    );
+    expect(isoluxWorkplaneHeightM({ ...r, workplaneHeightM: 1.2 }, { grid: { z: 0.4 } } as never, elev, false)).toBe(
+      elev + 0.02
+    );
+    // Floor mesh is at elevationM + 0.002; the field lift must stay above it.
+    expect(officialIlluminanceFloorHeightM(elev)).toBeGreaterThan(elev + 0.002);
+
+    const scene = read("src/components/editor/BuildingScene3D.tsx");
+    expect(scene).not.toMatch(/showWorkplane && res && \(/);
+    expect(scene).toMatch(/showWorkplane=\{showWorkplane\}/);
+    expect(scene).toContain("createWorkplanePlateGeometry");
+    expect(scene).toMatch(/showWorkplane && !\(results && results\.byRoomId\[room\.id\]\)/);
+    const plane = read("src/components/editor/FalseColorPlane.tsx");
+    expect(plane).toContain("showWorkplane");
+    expect(plane).toContain("createOfficialFalseColorWorkplane(room, results, elevationM, scale, palette, showWorkplane)");
+    const overlay = read("src/components/editor/Scene3dIsoluxOverlay.tsx");
+    expect(overlay).toContain("showWorkplane");
+    expect(overlay).toContain("official3dIsoluxOverlaysForRooms(rooms, results, elevationM, scene.instances, {");
   });
 });
 

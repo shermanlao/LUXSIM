@@ -1,5 +1,9 @@
 import type { CalcResults, FixtureInstance, IsoluxModel, ResultsV2, RoomV2 } from "@luxsim/project-io";
 import { isoluxPxToWorld, officialIsoluxModelForRoom } from "@luxsim/project-io";
+import {
+  OFFICIAL_ILLUMINANCE_DISPLAY_LIFT_M,
+  officialIlluminanceFieldHeightM,
+} from "./workplane-display";
 
 /**
  * Official plan→Three convention used by BuildingScene3D:
@@ -11,7 +15,7 @@ export function planToThree(x: number, y: number, z: number): [number, number, n
 }
 
 /** Same lift as the official false-colour workplane so contours do not z-fight the floor. */
-export const ISOLUX_WORKPLANE_LIFT_M = 0.02;
+export const ISOLUX_WORKPLANE_LIFT_M = OFFICIAL_ILLUMINANCE_DISPLAY_LIFT_M;
 
 /** Counter-scale X so billboard labels stay legible under the official mirrored root. */
 export const ISOLUX_LABEL_MIRROR_SCALE_X = -1;
@@ -19,11 +23,13 @@ export const ISOLUX_LABEL_MIRROR_SCALE_X = -1;
 export function isoluxWorkplaneHeightM(
   room: Pick<RoomV2, "workplaneHeightM">,
   results?: Pick<CalcResults, "grid"> | null,
-  elevationM = 0
+  elevationM = 0,
+  showWorkplane = true
 ): number {
   // Display follows the live room property, not the last calculated grid z.
+  // When the workplane is hidden, isolines and labels sit on the floor with the field.
   void results;
-  return elevationM + room.workplaneHeightM + ISOLUX_WORKPLANE_LIFT_M;
+  return officialIlluminanceFieldHeightM(room, elevationM, showWorkplane);
 }
 
 export type Official3dIsoluxPolyline = [number, number, number][];
@@ -68,6 +74,7 @@ export function official3dIsoluxOverlayForRoom(
   opts?: {
     fixtures?: FixtureInstance[];
     targetLongSide?: number;
+    showWorkplane?: boolean;
   }
 ): Official3dIsoluxOverlay | null {
   const model = officialIsoluxModelForRoom(room, results, {
@@ -76,7 +83,7 @@ export function official3dIsoluxOverlayForRoom(
     targetLongSide: opts?.targetLongSide ?? 800,
   });
   if (!model || !results) return null;
-  const heightM = isoluxWorkplaneHeightM(room, results, elevationM);
+  const heightM = isoluxWorkplaneHeightM(room, results, elevationM, opts?.showWorkplane ?? true);
   const mapLine = (line: { x: number; y: number }[]): Official3dIsoluxPolyline =>
     line.map((px) => toWorkplanePoint(model, px, heightM));
   return {
@@ -102,13 +109,15 @@ export function official3dIsoluxOverlaysForRooms(
   rooms: RoomV2[],
   results: ResultsV2 | null | undefined,
   elevationM = 0,
-  fixtures: FixtureInstance[] = []
+  fixtures: FixtureInstance[] = [],
+  opts?: { showWorkplane?: boolean }
 ): Official3dIsoluxOverlay[] {
   if (!results) return [];
   const out: Official3dIsoluxOverlay[] = [];
   for (const room of rooms) {
     const overlay = official3dIsoluxOverlayForRoom(room, results.byRoomId[room.id], elevationM, {
       fixtures: fixtures.filter((i) => i.roomId === room.id),
+      showWorkplane: opts?.showWorkplane,
     });
     if (overlay) out.push(overlay);
   }

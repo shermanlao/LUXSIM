@@ -25,6 +25,7 @@ import {
   type RoomV2,
   type WallSurfaceResult,
 } from "@luxsim/project-io";
+import { officialIlluminanceFieldHeightM } from "./workplane-display";
 
 export const EDITOR_BG = "#0f1c24";
 export const REPORT_BG = "#f3f3f0";
@@ -235,7 +236,8 @@ export function createClippedWorkplaneGeometry(
   results: CalcResults,
   elevationM: number,
   scale?: FalseColorScale,
-  palette: IsoluxPalette = "falsecolor"
+  palette: IsoluxPalette = "falsecolor",
+  showWorkplane = true
 ): THREE.BufferGeometry | null {
   if (room.polygon.length < 3) return null;
   const triangles = triangulateRoomPlan(room.polygon);
@@ -262,7 +264,7 @@ export function createClippedWorkplaneGeometry(
   const positions: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
-  const height = officialFalseColorWorkplaneHeight(room, results, elevationM);
+  const height = officialFalseColorWorkplaneHeight(room, results, elevationM, showWorkplane);
   const vertIndex = new Map<string, number>();
 
   const vertexAt = (p: PlanPt): number => {
@@ -336,17 +338,18 @@ export function createClippedWorkplaneGeometry(
 
 /** Display height of the 3D workplane / calculation plane. Follows room.workplaneHeightM immediately. */
 export function workplaneDisplayHeightM(room: Pick<RoomV2, "workplaneHeightM">, elevationM = 0): number {
-  return elevationM + room.workplaneHeightM + 0.02;
+  return officialIlluminanceFieldHeightM(room, elevationM, true);
 }
 
 export function officialFalseColorWorkplaneHeight(
   room: RoomV2,
   results: CalcResults,
-  elevationM: number
+  elevationM: number,
+  showWorkplane = true
 ): number {
   // Display follows the live Workplane (m) field, not the last calculated grid z.
   void results;
-  return workplaneDisplayHeightM(room, elevationM);
+  return officialIlluminanceFieldHeightM(room, elevationM, showWorkplane);
 }
 
 /** Uncoloured calculation-plane plate, at the same height as the false-colour workplane. */
@@ -372,7 +375,8 @@ export function createOfficialFalseColorWorkplane(
   results: CalcResults,
   elevationM: number,
   scale?: FalseColorScale,
-  palette: IsoluxPalette = "falsecolor"
+  palette: IsoluxPalette = "falsecolor",
+  showWorkplane = true
 ): { geometry: THREE.BufferGeometry; material: THREE.MeshBasicMaterial; texture: THREE.CanvasTexture } | null {
   if (typeof document === "undefined") return null;
   const model = officialIsoluxModelForRoom(room, results, {
@@ -397,7 +401,7 @@ export function createOfficialFalseColorWorkplane(
   texture.magFilter = THREE.LinearFilter;
   texture.minFilter = THREE.LinearFilter;
   texture.needsUpdate = true;
-  const height = officialFalseColorWorkplaneHeight(room, results, elevationM);
+  const height = officialFalseColorWorkplaneHeight(room, results, elevationM, showWorkplane);
   const tl = isoluxPxToWorld(model.world, { x: 0, y: 0 });
   const tr = isoluxPxToWorld(model.world, { x: model.width, y: 0 });
   const bl = isoluxPxToWorld(model.world, { x: 0, y: model.height });
