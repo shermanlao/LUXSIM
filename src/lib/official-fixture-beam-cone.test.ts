@@ -170,4 +170,20 @@ describe("official 3D emission gizmo wiring", () => {
     expect(guide).toMatch(/不會擋住點選/);
     expect(guide).not.toMatch(/DIALux/);
   });
+
+  it("shows a Light cone / 光束錐 preview on the selected-fixture Properties card", () => {
+    const editor = read("src/components/editor/BuildingEditor.tsx");
+    const preview = read("src/components/editor/FixtureLightConePreview.tsx");
+    expect(editor).toContain("FixtureLightConePreview");
+    expect(editor).toContain("data-fixture-properties");
+    expect(editor).toContain("Arrow on Top view shows photometric rotation (IES C0 = +X at 0°).");
+    expect(preview).toContain("Light cone / 光束錐");
+    expect(preview).toContain("officialLightConeGeom");
+    expect(preview).not.toMatch(/DIALux/i);
+    expect(guide).toMatch(/Light cone \/ 光束錐/);
+    expect(guide).toMatch(/側視光錐預覽/);
+    expect(guide).toMatch(/side-elevation preview of the same emission axis and beam cone/);
+    expect(guide).toMatch(/workplane illuminance peak stays under the fixture/);
+    expect(guide).toMatch(/工作面照度峰值會落在該燈的平面位置正下方/);
+  });
 });

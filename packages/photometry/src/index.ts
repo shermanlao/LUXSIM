@@ -1,7 +1,15 @@
 export type { PhotometricData, ParseResult, SourceFormat, LuminaireBody } from "./types";
 export { parseIes } from "./parse-ies";
 export { parseLdt, expandIntensityPlanes } from "./parse-ldt";
-export { sampleIntensityCd, polarPreview, polarPlane, polarToXY } from "./interpolate";
+export {
+  sampleIntensityCd,
+  sampleIntensityTable,
+  isTypeBPhotometryTable,
+  typeCToTypeBAngles,
+  polarPreview,
+  polarPlane,
+  polarToXY,
+} from "./interpolate";
 export type { PolarPoint } from "./interpolate";
 export {
   estimateFlux,

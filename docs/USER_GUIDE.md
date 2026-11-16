@@ -246,6 +246,10 @@ If a room has calculation results, moving, rotating, editing the position, remov
 
 When a fixture is selected in the **3D** view, an emission-direction arrow is drawn from the luminous aperture along the photometric optical axis (local −Y, straight down). A translucent light cone opens at the fixture’s 50% (half-peak / FWHM) beam angle from the photometry table, long enough to reach that fixture’s room workplane, or the storey floor if the fixture has no room. For a clearly elongated opening, the cone uses the C0 / C90 pair rather than a single circular angle. Unselected fixtures have no arrow or cone. The arrow and cone do not catch pointer hits. The Top-view C0 rotation arrow is unchanged. Fixtures have no tilt or aim field; no tilt is invented. If the beam angle cannot be measured from photometry, a conservative 30° half-angle (60° full beam) is used so the cone is still shown.
 
+選取燈具時，右側 **Properties** 的 **Light cone / 光束錐** 也會顯示同一光束角的側視光錐預覽（發射軸與光束錐），不會取代 3D 光錐，也不會改動 X／Y／Z／Rotation 或平面 C0 旋轉提示。軸對稱、只向下發光的光度資料，工作面照度峰值會落在該燈的平面位置正下方；在平面旋轉燈具不會把峰值沿 C0 箭頭方向平移。
+
+When a fixture is selected, **Properties** also shows a **Light cone / 光束錐** side-elevation preview of the same emission axis and beam cone. It does not replace the 3D cone, and it keeps the X / Y / Z / Rotation fields and the Top-view C0 hint. For axially symmetric downward photometry, the workplane illuminance peak stays under the fixture’s plan position; rotating the fixture in plan does not slide that peak along the C0 arrow.
+
 ## 房間屬性 / Room properties
 
 選取房間後，右側 **Properties** 會顯示：

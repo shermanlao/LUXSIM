@@ -202,6 +202,7 @@ import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { SaveReminderDialog } from "./SaveReminderDialog";
+import { FixtureLightConePreview } from "./FixtureLightConePreview";
 import { PolarPreview } from "@/components/PolarPreview";
 import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
@@ -3321,6 +3322,11 @@ export function BuildingEditor({
                   Arrow on Top view shows photometric rotation (IES C0 = +X at 0°).
                 </p>
               </div>
+              <FixtureLightConePreview
+                photo={photoCache[selected.luminaireId]}
+                fixtureZ={selected.position.z}
+                room={scene.rooms.find((r) => r.id === selected.roomId) ?? null}
+              />
             </div>
           )}
 

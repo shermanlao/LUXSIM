@@ -142,6 +142,7 @@ export {
   isFalseColorScale,
   formatPointLux,
   isoluxPxToWorld,
+  sampleLuxAtWorld,
   isoluxFieldScreenRect,
 } from "./isolux-map";
 export type { IsoluxMode, IsoluxPalette, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";

@@ -128,7 +128,11 @@ export function parseIes(text: string): ParseResult {
     intensities.push(row);
   }
 
-  if (photometryType !== 1) {
+  if (photometryType === 2) {
+    warnings.push(
+      `Photometry type 2 — Type B angles are converted when sampling`
+    );
+  } else if (photometryType !== 1) {
     warnings.push(`Photometry type ${photometryType} — treating as Type C`);
   }
 

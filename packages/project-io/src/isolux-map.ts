@@ -289,6 +289,16 @@ function gridValue(grid: CalcResults["grid"], i: number, j: number): number | nu
   return grid.lux[j * grid.nx + i] ?? null;
 }
 
+/** Sample the official isolux / false-colour field in world metres. */
+export function sampleLuxAtWorld(
+  grid: CalcResults["grid"],
+  b: { minX: number; minY: number },
+  x: number,
+  y: number
+): number {
+  return sampleLux(grid, b, x, y);
+}
+
 function sampleLux(
   grid: CalcResults["grid"],
   b: { minX: number; minY: number },
