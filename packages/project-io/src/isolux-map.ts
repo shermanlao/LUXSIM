@@ -25,6 +25,12 @@ export interface FalseColorScale {
   maxLux: number;
 }
 
+/** Official absolute illuminance ramp: first to last DIALUX_LUX_STOPS (0–2500 lx). */
+export const OFFICIAL_FALSE_COLOR_SCALE: FalseColorScale = {
+  minLux: DIALUX_LUX_STOPS[0]!.lux,
+  maxLux: DIALUX_LUX_STOPS[DIALUX_LUX_STOPS.length - 1]!.lux,
+};
+
 export function normalizeFalseColorScale(minLux: number, maxLux: number): FalseColorScale {
   const a = Number.isFinite(minLux) ? minLux : 0;
   const b = Number.isFinite(maxLux) ? maxLux : a + 1;
@@ -418,6 +424,25 @@ export function isoluxPxToWorld(frame: IsoluxWorldFrame, p: IsoluxPoint): Isolux
   };
 }
 
+/** Screen rectangle for an isolux field bitmap, using the same corners as the plan overlay. */
+export function isoluxFieldScreenRect(
+  frame: IsoluxWorldFrame,
+  width: number,
+  height: number,
+  toScreen: (x: number, y: number) => { x: number; y: number }
+): { x: number; y: number; width: number; height: number } | null {
+  const topLeftWorld = isoluxPxToWorld(frame, { x: 0, y: 0 });
+  const topRightWorld = isoluxPxToWorld(frame, { x: width, y: 0 });
+  const bottomLeftWorld = isoluxPxToWorld(frame, { x: 0, y: height });
+  const topLeft = toScreen(topLeftWorld.x, topLeftWorld.y);
+  const topRight = toScreen(topRightWorld.x, topRightWorld.y);
+  const bottomLeft = toScreen(bottomLeftWorld.x, bottomLeftWorld.y);
+  const w = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y);
+  const h = Math.hypot(bottomLeft.x - topLeft.x, bottomLeft.y - topLeft.y);
+  if (!(w > 0 && h > 0) || !Number.isFinite(w) || !Number.isFinite(h)) return null;
+  return { x: topLeft.x, y: topLeft.y, width: w, height: h };
+}
+
 export function buildIsoluxModel(
   room: RoomV2,
   results: CalcResults,
@@ -426,6 +451,9 @@ export function buildIsoluxModel(
     wallZoneM?: number;
     fixtures?: FixtureInstance[];
     targetLongSide?: number;
+    colorScale?: FalseColorScale;
+    includeContours?: boolean;
+    includeValueLabels?: boolean;
   }
 ): IsoluxModel | null {
   const { grid } = results;
@@ -459,7 +487,7 @@ export function buildIsoluxModel(
       const lux = sampleLux(grid, b, x, y);
       const i = (py * width + px) * 4;
       if (mode === "falsecolor") {
-        const [r, g, bc] = luxToRgb(lux);
+        const [r, g, bc] = luxToRgb(lux, opts?.colorScale);
         field[i] = Math.round(r * 255);
         field[i + 1] = Math.round(g * 255);
         field[i + 2] = Math.round(bc * 255);
@@ -468,57 +496,64 @@ export function buildIsoluxModel(
     }
   }
 
-  const stepM = Math.max(0.04, grid.spacing / 8);
-  const sx = Math.max(8, Math.ceil(worldW / stepM) + 1);
-  const sy = Math.max(8, Math.ceil(worldH / stepM) + 1);
-  const fieldVals = new Float64Array(sx * sy);
-  fieldVals.fill(Number.NaN);
-  for (let j = 0; j < sy; j += 1) {
-    const y = minY + j * stepM;
-    for (let i = 0; i < sx; i += 1) {
-      const x = minX + i * stepM;
-      if (!inWorkplane({ x, y }, room.polygon, wallZone)) continue;
-      fieldVals[j * sx + i] = sampleLux(grid, b, x, y);
-    }
-  }
-
-  const levels = isoluxLevels(results.summary.emin, results.summary.emax);
-  const contours = levels.map((level) => ({
-    level,
-    polylines: marchingSquares(fieldVals, sx, sy, minX, minY, stepM, stepM, level).map((line) =>
-      line.map(toPx)
-    ),
-  }));
-
+  const includeContours = opts?.includeContours !== false;
+  const includeValueLabels = opts?.includeValueLabels !== false;
+  let contours: IsoluxModel["contours"] = [];
   const contourLabels: IsoluxModel["contourLabels"] = [];
-  const fontGuess = Math.max(12, Math.min(22, width / 70));
-  const minDist = fontGuess * 3.2;
-  for (const c of contours) {
-    let best: IsoluxPoint[] = [];
-    for (const line of c.polylines) {
-      if (line.length > best.length) best = line;
+  if (includeContours) {
+    const stepM = Math.max(0.04, grid.spacing / 8);
+    const sx = Math.max(8, Math.ceil(worldW / stepM) + 1);
+    const sy = Math.max(8, Math.ceil(worldH / stepM) + 1);
+    const fieldVals = new Float64Array(sx * sy);
+    fieldVals.fill(Number.NaN);
+    for (let j = 0; j < sy; j += 1) {
+      const y = minY + j * stepM;
+      for (let i = 0; i < sx; i += 1) {
+        const x = minX + i * stepM;
+        if (!inWorkplane({ x, y }, room.polygon, wallZone)) continue;
+        fieldVals[j * sx + i] = sampleLux(grid, b, x, y);
+      }
     }
-    if (best.length < 4) continue;
-    const candidates = [0.45, 0.3, 0.6, 0.2, 0.75].map((f) => best[Math.min(best.length - 1, Math.floor(best.length * f))]!);
-    const mid = candidates.find((pt) =>
-      contourLabels.every((l) => Math.hypot(l.x - pt.x, l.y - pt.y) >= minDist)
-    );
-    if (!mid) continue;
-    contourLabels.push({ x: mid.x, y: mid.y, text: formatPointLux(c.level) });
+
+    const levels = isoluxLevels(results.summary.emin, results.summary.emax);
+    contours = levels.map((level) => ({
+      level,
+      polylines: marchingSquares(fieldVals, sx, sy, minX, minY, stepM, stepM, level).map((line) =>
+        line.map(toPx)
+      ),
+    }));
+
+    const fontGuess = Math.max(12, Math.min(22, width / 70));
+    const minDist = fontGuess * 3.2;
+    for (const c of contours) {
+      let best: IsoluxPoint[] = [];
+      for (const line of c.polylines) {
+        if (line.length > best.length) best = line;
+      }
+      if (best.length < 4) continue;
+      const candidates = [0.45, 0.3, 0.6, 0.2, 0.75].map((f) => best[Math.min(best.length - 1, Math.floor(best.length * f))]!);
+      const mid = candidates.find((pt) =>
+        contourLabels.every((l) => Math.hypot(l.x - pt.x, l.y - pt.y) >= minDist)
+      );
+      if (!mid) continue;
+      contourLabels.push({ x: mid.x, y: mid.y, text: formatPointLux(c.level) });
+    }
   }
 
   const valueLabels: IsoluxModel["valueLabels"] = [];
-  const nPts = grid.nx * grid.ny;
-  const stride = nPts > 90 ? Math.ceil(Math.sqrt(nPts / 70)) : 1;
-  for (let j = 0; j < grid.ny; j += stride) {
-    for (let i = 0; i < grid.nx; i += stride) {
-      const lux = grid.lux[j * grid.nx + i] ?? 0;
-      if (lux <= 0) continue;
-      const x = b.minX + grid.originX + i * grid.spacing;
-      const y = b.minY + grid.originY + j * grid.spacing;
-      if (!inWorkplane({ x, y }, room.polygon, wallZone)) continue;
-      const p = toPx({ x, y });
-      valueLabels.push({ x: p.x, y: p.y, text: formatPointLux(lux) });
+  if (includeValueLabels) {
+    const nPts = grid.nx * grid.ny;
+    const stride = nPts > 90 ? Math.ceil(Math.sqrt(nPts / 70)) : 1;
+    for (let j = 0; j < grid.ny; j += stride) {
+      for (let i = 0; i < grid.nx; i += stride) {
+        const lux = grid.lux[j * grid.nx + i] ?? 0;
+        if (lux <= 0) continue;
+        const x = b.minX + grid.originX + i * grid.spacing;
+        const y = b.minY + grid.originY + j * grid.spacing;
+        if (!inWorkplane({ x, y }, room.polygon, wallZone)) continue;
+        const p = toPx({ x, y });
+        valueLabels.push({ x: p.x, y: p.y, text: formatPointLux(lux) });
+      }
     }
   }
 

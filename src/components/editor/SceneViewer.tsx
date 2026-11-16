@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
 import type { Display3dMode, FalseColorScale, SceneJson } from "@luxsim/project-io";
-import { normalizeFalseColorScale } from "@luxsim/project-io";
+import { OFFICIAL_FALSE_COLOR_SCALE } from "@luxsim/project-io";
 import { RoomScene, type CameraViewState } from "./RoomScene";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { Display3dToggle } from "./Display3dToggle";
@@ -25,11 +25,7 @@ export function SceneViewer({
   const [display3d, setDisplay3d] = useState<Display3dMode>(results ? "falsecolor" : "greyscale");
   const viewRef = useRef<CameraViewState | null>(null);
   const [seedView, setSeedView] = useState<CameraViewState | null>(null);
-  const autoScale = useMemo<FalseColorScale>(
-    () =>
-      normalizeFalseColorScale(results?.summary.emin ?? 56, results?.summary.emax ?? 500),
-    [results?.summary.emin, results?.summary.emax]
-  );
+  const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
   useEffect(() => {

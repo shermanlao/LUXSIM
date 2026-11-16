@@ -10,9 +10,8 @@ import { luminaireBody } from "@luxsim/photometry";
 import type { CalcResults } from "@luxsim/solver";
 import {
   luxToRgb,
-  normalizeFalseColorScale,
+  OFFICIAL_FALSE_COLOR_SCALE,
   pointInPolygon,
-  projectLuxRange,
   roomBounds,
   locateOnPolyline,
   sampleWallLux,
@@ -866,10 +865,9 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   const workMat = track(
     new THREE.MeshBasicMaterial({
       vertexColors: true,
-      transparent: true,
-      opacity: 0.92,
       side: THREE.DoubleSide,
-      depthWrite: false,
+      depthWrite: true,
+      toneMapped: false,
     })
   );
   // FrontSide faces into the room (inward normals). The outside of the wall
@@ -877,10 +875,9 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   const wallFalseColorMat = track(
     new THREE.MeshBasicMaterial({
       vertexColors: true,
-      transparent: true,
-      opacity: 0.92,
       side: THREE.FrontSide,
-      depthWrite: false,
+      depthWrite: true,
+      toneMapped: false,
     })
   );
 
@@ -908,11 +905,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     }
 
     if (opts.mode === "falsecolor") {
-      let scale = opts.falseColorScale;
-      if (!scale && opts.results) {
-        const { emin, emax } = projectLuxRange(opts.results);
-        scale = normalizeFalseColorScale(emin, emax);
-      }
+      const scale = opts.falseColorScale ?? OFFICIAL_FALSE_COLOR_SCALE;
       const res = opts.results?.byRoomId[room.id];
       if (res) {
         const wp = createClippedWorkplaneGeometry(room, res, elev, scale);

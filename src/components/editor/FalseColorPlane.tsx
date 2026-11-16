@@ -33,10 +33,9 @@ export function FalseColorPlane({
     <mesh geometry={geometry}>
       <meshBasicMaterial
         vertexColors
-        transparent
-        opacity={0.92}
         side={THREE.DoubleSide}
-        depthWrite={false}
+        depthWrite
+        toneMapped={false}
       />
     </mesh>
   );

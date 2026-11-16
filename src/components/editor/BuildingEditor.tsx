@@ -63,8 +63,7 @@ import {
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
-  normalizeFalseColorScale,
-  projectLuxRange,
+  OFFICIAL_FALSE_COLOR_SCALE,
   rectPolygon,
   roomAreaM2,
   roomBounds,
@@ -2022,11 +2021,7 @@ export function BuildingEditor({
   const planIsoluxMode: IsoluxMode = normalizePlanIsoluxMode(scene.ui.planIsoluxMode);
   const planValueLabels = scene.ui.planValueLabels === true;
   const planIsoluxControls = planIsoluxControlState(results, scene.ui.activeRoomId);
-  const luxRange = projectLuxRange(results);
-  const autoScale = useMemo(
-    () => normalizeFalseColorScale(luxRange.emin, luxRange.emax),
-    [luxRange.emin, luxRange.emax]
-  );
+  const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
   useEffect(() => {
@@ -2121,6 +2116,7 @@ export function BuildingEditor({
           results={results}
           planIsoluxMode={planIsoluxMode}
           showValueLabels={planValueLabels}
+          falseColorScale={scale}
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           selectedId={selectedId}
@@ -2227,7 +2223,8 @@ export function BuildingEditor({
         />
       )}
       </div>
-      {viewMode === "persp3d" && display3d === "falsecolor" && (
+      {((viewMode === "persp3d" && display3d === "falsecolor") ||
+        ((viewMode === "top" || viewMode === "bottom") && planIsoluxMode === "falsecolor" && results)) && (
         <FalseColorLegend
           emin={autoScale.minLux}
           emax={autoScale.maxLux}

@@ -10,6 +10,7 @@ import type { FixtureInstance, ProjectSceneV2, ResultsV2, RoomV2 } from "./types
 import { wallZoneM } from "./report-model";
 import {
   buildIsoluxModel,
+  type FalseColorScale,
   type IsoluxMode,
   type IsoluxModel,
 } from "./isolux-map";
@@ -45,6 +46,9 @@ export function officialIsoluxModelForRoom(
     mode?: IsoluxMode;
     fixtures?: FixtureInstance[];
     targetLongSide?: number;
+    colorScale?: FalseColorScale;
+    includeContours?: boolean;
+    includeValueLabels?: boolean;
   }
 ): IsoluxModel | null {
   if (!hasCalcGrid(results)) return null;
@@ -53,6 +57,9 @@ export function officialIsoluxModelForRoom(
     wallZoneM: wallZoneM(room),
     fixtures: opts?.fixtures,
     targetLongSide: opts?.targetLongSide,
+    colorScale: opts?.colorScale,
+    includeContours: opts?.includeContours,
+    includeValueLabels: opts?.includeValueLabels,
   });
 }
 

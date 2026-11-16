@@ -132,10 +132,12 @@ export {
   isoluxLevels,
   buildIsoluxModel,
   DIALUX_LUX_STOPS,
+  OFFICIAL_FALSE_COLOR_SCALE,
   normalizeFalseColorScale,
   isFalseColorScale,
   formatPointLux,
   isoluxPxToWorld,
+  isoluxFieldScreenRect,
 } from "./isolux-map";
 export type { IsoluxMode, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";
 export {

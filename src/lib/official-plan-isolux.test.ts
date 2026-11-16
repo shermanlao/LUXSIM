@@ -9,6 +9,7 @@ import {
   hasCalcGrid,
   officialIsoluxModelForRoom,
   officialIsoluxModelsByRoom,
+  OFFICIAL_FALSE_COLOR_SCALE,
   OFFICIAL_PDF_ISOLUX_RENDER,
   rectPolygon,
   renderIsoluxModelPngDataUrl,
@@ -175,6 +176,30 @@ describe("isolux model-to-view wiring", () => {
     expect(model!.valueLabels.some((l) => l.text === "9999")).toBe(false);
   });
 
+  it("keeps official false-colour pixels on the absolute ramp and can skip contours", () => {
+    const { room, results } = officeScene({ withResults: true });
+    const calc = results.byRoomId.r1!;
+    const absolute = officialIsoluxModelForRoom(room, calc, {
+      mode: "falsecolor",
+      targetLongSide: 80,
+      includeContours: false,
+      includeValueLabels: false,
+    });
+    const official = officialIsoluxModelForRoom(room, calc, {
+      mode: "falsecolor",
+      colorScale: OFFICIAL_FALSE_COLOR_SCALE,
+      targetLongSide: 80,
+      includeContours: false,
+      includeValueLabels: false,
+    });
+    expect(absolute).not.toBeNull();
+    expect(official).not.toBeNull();
+    expect(absolute!.contours).toEqual([]);
+    expect(absolute!.valueLabels).toEqual([]);
+    expect(official!.field).toEqual(absolute!.field);
+    expect(absolute!.field.some((v) => v > 0)).toBe(true);
+  });
+
   it("uses formatPointLux text for grid labels and omits non-positive cells", () => {
     expect(formatPointLux(150)).toBe("150");
     expect(formatPointLux(25)).toBe("25");
@@ -317,6 +342,12 @@ describe("official editor and export path wiring", () => {
     expect(overlay).toContain("isoluxPxToWorld");
     expect(overlay).toContain("valueLabels");
     expect(overlay).toContain("contours");
+    expect(overlay).toContain("data-plan-falsecolor-canvas");
+    expect(overlay).toContain("isoluxFieldScreenRect");
+    expect(overlay).not.toContain("isoluxFieldPngDataUrl");
+    expect(top).toContain("falseColorScale");
+    expect(editor).toContain("OFFICIAL_FALSE_COLOR_SCALE");
+    expect(editor).toContain("falseColorScale={scale}");
     expect(toggle).toContain("Isolines");
     expect(toggle).toContain("Value labels");
     expect(toggle).toContain("False colour");

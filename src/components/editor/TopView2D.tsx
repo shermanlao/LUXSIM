@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useViewElementSize } from "@/lib/use-view-element-size";
 import { usePlanPointerNav } from "./usePlanPointerNav";
-import type { DxfEntity, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, FalseColorScale, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
 import {
   findRoomAt,
@@ -134,6 +134,7 @@ type Props = {
   results?: ResultsV2 | null;
   planIsoluxMode?: IsoluxMode;
   showValueLabels?: boolean;
+  falseColorScale?: FalseColorScale;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -181,6 +182,7 @@ export function TopView2D({
   results = null,
   planIsoluxMode = "falsecolor",
   showValueLabels = false,
+  falseColorScale,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -1245,6 +1247,9 @@ export function TopView2D({
             mode={planIsoluxMode}
             showValueLabels={showValueLabels}
             toScreen={toScreen}
+            viewW={viewW}
+            viewH={viewH}
+            colorScale={falseColorScale}
           />
         )}
 

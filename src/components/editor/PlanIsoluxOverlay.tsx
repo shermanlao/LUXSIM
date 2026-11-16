@@ -1,13 +1,38 @@
 "use client";
 
-import { useMemo } from "react";
-import type { IsoluxMode, IsoluxModel, ProjectSceneV2, ResultsV2, RoomV2 } from "@luxsim/project-io";
-import { isoluxFieldPngDataUrl, isoluxPxToWorld, officialIsoluxModelForRoom } from "@luxsim/project-io";
+import { useLayoutEffect, useMemo, useRef } from "react";
+import type {
+  FalseColorScale,
+  IsoluxMode,
+  IsoluxModel,
+  ProjectSceneV2,
+  ResultsV2,
+  RoomV2,
+} from "@luxsim/project-io";
+import {
+  isoluxFieldScreenRect,
+  isoluxPxToWorld,
+  officialIsoluxModelForRoom,
+} from "@luxsim/project-io";
 
 type ScreenPt = { x: number; y: number };
 
 function pointsAttr(pts: ScreenPt[]): string {
   return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
+}
+
+function fieldCanvasFor(model: IsoluxModel): HTMLCanvasElement | null {
+  if (typeof document === "undefined") return null;
+  if (model.field.length < model.width * model.height * 4) return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = model.width;
+  canvas.height = model.height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  const image = new ImageData(model.width, model.height);
+  image.data.set(model.field);
+  ctx.putImageData(image, 0, 0);
+  return canvas;
 }
 
 export function PlanIsoluxOverlay({
@@ -17,6 +42,9 @@ export function PlanIsoluxOverlay({
   mode,
   showValueLabels,
   toScreen,
+  viewW,
+  viewH,
+  colorScale,
 }: {
   scene: ProjectSceneV2;
   rooms: RoomV2[];
@@ -24,6 +52,9 @@ export function PlanIsoluxOverlay({
   mode: IsoluxMode;
   showValueLabels: boolean;
   toScreen: (x: number, y: number) => ScreenPt;
+  viewW: number;
+  viewH: number;
+  colorScale?: FalseColorScale;
 }) {
   const models = useMemo(() => {
     const out: { room: RoomV2; model: IsoluxModel }[] = [];
@@ -32,37 +63,73 @@ export function PlanIsoluxOverlay({
         mode,
         fixtures: scene.instances.filter((i) => i.roomId === room.id),
         targetLongSide: 800,
+        colorScale,
+        includeContours: mode === "isolines",
+        includeValueLabels: showValueLabels,
       });
       if (model) out.push({ room, model });
     }
     return out;
-  }, [rooms, results, mode, scene.instances]);
+  }, [rooms, results, mode, scene.instances, colorScale, showValueLabels]);
 
-  const fieldUrls = useMemo(() => {
-    if (mode !== "falsecolor") return {} as Record<string, string>;
-    const urls: Record<string, string> = {};
-    for (const { room, model } of models) {
-      const url = isoluxFieldPngDataUrl(model);
-      if (url) urls[room.id] = url;
+  const fieldCanvases = useMemo(() => {
+    if (mode !== "falsecolor") return [] as { model: IsoluxModel; canvas: HTMLCanvasElement }[];
+    const out: { model: IsoluxModel; canvas: HTMLCanvasElement }[] = [];
+    for (const { model } of models) {
+      const canvas = fieldCanvasFor(model);
+      if (canvas) out.push({ model, canvas });
     }
-    return urls;
+    return out;
   }, [models, mode]);
 
-  if (models.length === 0) return null;
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  useLayoutEffect(() => {
+    const cvs = canvasRef.current;
+    if (!cvs || mode !== "falsecolor") return;
+    if (cvs.width !== viewW) cvs.width = viewW;
+    if (cvs.height !== viewH) cvs.height = viewH;
+    const ctx = cvs.getContext("2d");
+    if (!ctx) return;
+    ctx.clearRect(0, 0, viewW, viewH);
+    ctx.imageSmoothingEnabled = true;
+    ctx.globalAlpha = 0.92;
+    for (const { model, canvas } of fieldCanvases) {
+      const rect = isoluxFieldScreenRect(model.world, model.width, model.height, toScreen);
+      if (!rect) continue;
+      ctx.drawImage(canvas, rect.x, rect.y, rect.width, rect.height);
+    }
+  });
+
+  if (models.length === 0 && fieldCanvases.length === 0) return null;
 
   return (
     <g data-plan-isolux-overlay="" pointerEvents="none">
+      {mode === "falsecolor" && viewW > 0 && viewH > 0 && (
+        <foreignObject
+          x={0}
+          y={0}
+          width={viewW}
+          height={viewH}
+          pointerEvents="none"
+          data-plan-falsecolor-layer=""
+        >
+          <canvas
+            ref={canvasRef}
+            width={viewW}
+            height={viewH}
+            data-plan-falsecolor-canvas=""
+            style={{ display: "block", width: "100%", height: "100%" }}
+          />
+        </foreignObject>
+      )}
       {models.map(({ room, model }) => {
         const toS = (px: { x: number; y: number }) => {
           const w = isoluxPxToWorld(model.world, px);
           return toScreen(w.x, w.y);
         };
-        const fieldUrl = fieldUrls[room.id];
         const topLeft = toS({ x: 0, y: 0 });
         const topRight = toS({ x: model.width, y: 0 });
-        const bottomLeft = toS({ x: 0, y: model.height });
         const imgW = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y);
-        const imgH = Math.hypot(bottomLeft.x - topLeft.x, bottomLeft.y - topLeft.y);
         const contourColor = mode === "falsecolor" ? "#3a2a12" : "#e8eef2";
         const labelFill = mode === "falsecolor" ? "#1a1a1a" : "#f5f7f8";
         const valueFill = mode === "falsecolor" ? "#1a3370" : "#dce8ff";
@@ -70,17 +137,6 @@ export function PlanIsoluxOverlay({
 
         return (
           <g key={room.id} data-plan-isolux-room={room.id}>
-            {mode === "falsecolor" && fieldUrl && imgW > 0 && imgH > 0 && (
-              <image
-                href={fieldUrl}
-                x={topLeft.x}
-                y={topLeft.y}
-                width={imgW}
-                height={imgH}
-                opacity={0.92}
-                preserveAspectRatio="none"
-              />
-            )}
             {mode === "isolines" &&
               model.contours.flatMap((c, ci) =>
                 c.polylines
