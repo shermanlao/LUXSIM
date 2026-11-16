@@ -239,6 +239,13 @@ When you export the **Full PDF report**, each calculated room’s Summary includ
 
 If a room has calculation results, moving, rotating, editing the position, removing, or placing a fixture, or applying an array, RCP, or schedule commit, first shows a confirmation dialog: changing lighting fixtures will discard the current calculation results for the affected room(s), including false colour, isolines, value labels, and the results strip. **Confirm** applies the change and discards those results. **Cancel**, Esc, or clicking the backdrop leaves the fixture and the results unchanged. If there are no results, the change is applied immediately and the dialog is not shown. When dragging a fixture, you are asked once at the start of the drag; after you confirm, the results are already cleared, so later moves in that gesture do not re-prompt.
 
+
+## 3D 發射方向與光束錐 / Emission direction and light cone in 3D
+
+在 **3D** 視圖選取一盞燈具時，會從發光開口沿光學軸（本地向下，即 −Y）顯示發射方向箭頭，以及按光度檔 50%（半峰值／FWHM）光束角張開的半透明光束錐。錐長延伸到該燈所屬房間的工作面；若尚未歸屬房間，則延伸到該樓層地面。細長或明顯不對稱的開口，會依 C0／C90 光束角畫成橢圓錐，而不是錯誤的圓錐。未選取的燈具不顯示箭頭或光錐。箭頭與光錐不會擋住點選。平面 **Top** 上選取時的 C0 旋轉箭頭維持不變。燈具沒有俯仰／瞄準欄位，不會發明傾角。若無法從光度資料量得光束角，會使用保守的預設半角 30°（全角 60°），仍會顯示光錐。
+
+When a fixture is selected in the **3D** view, an emission-direction arrow is drawn from the luminous aperture along the photometric optical axis (local −Y, straight down). A translucent light cone opens at the fixture’s 50% (half-peak / FWHM) beam angle from the photometry table, long enough to reach that fixture’s room workplane, or the storey floor if the fixture has no room. For a clearly elongated opening, the cone uses the C0 / C90 pair rather than a single circular angle. Unselected fixtures have no arrow or cone. The arrow and cone do not catch pointer hits. The Top-view C0 rotation arrow is unchanged. Fixtures have no tilt or aim field; no tilt is invented. If the beam angle cannot be measured from photometry, a conservative 30° half-angle (60° full beam) is used so the cone is still shown.
+
 ## 房間屬性 / Room properties
 
 選取房間後，右側 **Properties** 會顯示：

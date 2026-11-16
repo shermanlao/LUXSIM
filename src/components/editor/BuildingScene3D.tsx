@@ -20,6 +20,7 @@ import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
 import { PlanUnderlay3D } from "./PlanUnderlay3D";
 import { LuminaireBodyMesh } from "./LuminaireBody";
+import { FixtureEmissionGizmo } from "./FixtureEmissionGizmo";
 import { Scene3dIsoluxOverlay } from "./Scene3dIsoluxOverlay";
 import {
   EDITOR_BG,
@@ -339,6 +340,13 @@ export function BuildingScene3D({
                 photo={photometry?.[lum.luminaireId]}
                 selected={selected}
               />
+              {selected && (
+                <FixtureEmissionGizmo
+                  photo={photometry?.[lum.luminaireId]}
+                  fixtureZ={lum.position.z}
+                  room={scene.rooms.find((r) => r.id === lum.roomId) ?? null}
+                />
+              )}
             </group>
           );
         })}
