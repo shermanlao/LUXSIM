@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useViewElementSize } from "@/lib/use-view-element-size";
 import { usePlanPointerNav } from "./usePlanPointerNav";
-import type { DxfEntity, FalseColorScale, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
+import type { DxfEntity, FalseColorScale, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
 import { DxfSnapMarkerLayer, type DxfSnapMarkerApi } from "./DxfSnapMarkerLayer";
 import {
@@ -27,7 +27,7 @@ import {
   resolveOfficialEdgeInsert,
 } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
-import { applyRoomDrag, shouldBeginRoomDrag } from "@/lib/room-drag";
+import { applyRoomDrag, ROOM_TRANSLATE_ENABLED, shouldBeginRoomDrag } from "@/lib/room-drag";
 import {
   hitRoomEdgeInsert,
   hitRoomVertexHandle,
@@ -133,7 +133,8 @@ type Props = {
   onDistributeApply?: () => void;
   /** Calculation results for the plan isolux / value-label overlay. */
   results?: ResultsV2 | null;
-  planIsoluxMode?: IsoluxMode;
+  showFalseColor?: boolean;
+  showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
 };
@@ -181,7 +182,8 @@ export function TopView2D({
   onUnionPickCancel,
   onDistributeApply,
   results = null,
-  planIsoluxMode = "falsecolor",
+  showFalseColor = true,
+  showIsolines = false,
   showValueLabels = false,
   falseColorScale,
 }: Props) {
@@ -885,6 +887,19 @@ export function TopView2D({
           setOrtho(e.shiftKey);
           const raw = toWorld(e.clientX, e.clientY);
           lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY, world: raw };
+          const snapNeeded =
+            drawing ||
+            scene.ui.tool === "calibrate" ||
+            linePickActive ||
+            circlePickActive ||
+            polygonPickActive ||
+            Boolean(movingRoomId) ||
+            Boolean(movingStoreyId) ||
+            Boolean(stretchingVertex);
+          if (!snapNeeded) {
+            snapMarkerRef.current?.setHit(null);
+            return;
+          }
           const snapped = snappedWorldAt(e.clientX, e.clientY);
           const w = { x: snapped.x, y: snapped.y };
           snapMarkerRef.current?.setHit(snapped.hit);
@@ -956,7 +971,7 @@ export function TopView2D({
                 cursor:
                   movingRoomId === room.id || movingStoreyId === room.storeyId
                     ? "grabbing"
-                    : scene.ui.tool === "select"
+                    : ROOM_TRANSLATE_ENABLED && scene.ui.tool === "select"
                       ? "grab"
                       : "inherit",
               }}
@@ -1255,7 +1270,8 @@ export function TopView2D({
             scene={scene}
             rooms={rooms}
             results={results}
-            mode={planIsoluxMode}
+            showFalseColor={showFalseColor}
+            showIsolines={showIsolines}
             showValueLabels={showValueLabels}
             toScreen={toScreen}
             viewW={viewW}
@@ -1266,6 +1282,21 @@ export function TopView2D({
             colorScale={falseColorScale}
           />
         )}
+
+        {rooms.map((room) => {
+          const active = room.id === scene.ui.activeRoomId;
+          return (
+            <polygon
+              key={`outline-${room.id}`}
+              points={polyPoints(room)}
+              fill="none"
+              stroke={active ? "#c45c26" : "#8aa0ad"}
+              strokeWidth={active ? 2 : 1}
+              pointerEvents="none"
+              data-room-outline=""
+            />
+          );
+        })}
 
 
         {draft.length > 0 && (

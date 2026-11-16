@@ -436,10 +436,10 @@ describe("false-colour exterior facing and scale", () => {
     tight!.dispose();
   });
 
-  it("keeps false-colour wall shells nearly opaque so the exterior stays uncoloured", () => {
+  it("keeps illuminance wall shells translucent so wall false colour shows from both sides", () => {
     expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
-    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeGreaterThanOrEqual(0.9);
-    expect(wallShellOpacity("greyscale")).toBeLessThan(FALSE_COLOR_WALL_SHELL_OPACITY);
+    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeLessThan(0.6);
+    expect(wallShellOpacity("greyscale")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
     expect(wallShellOpacity("isolines")).toBe(wallShellOpacity("greyscale"));
   });
 });
@@ -558,8 +558,9 @@ describe("wall shell slab geometry", () => {
     rightGeo!.dispose();
   });
 
-  it("places default false-colour wall geometry inward of the shell slab", () => {
-    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+  it("places default false-colour wall geometry in the middle of the visual wall thickness", () => {
+    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
+    expect(WALL_FALSE_COLOR_INSET_M).toBeLessThan(WALL_SHELL_INNER_INSET_M);
     const wall = fakeWall(
       "south",
       "r1",
@@ -576,7 +577,8 @@ describe("wall shell slab geometry", () => {
     const pos = geo!.getAttribute("position");
     for (let i = 0; i < pos.count; i += 1) {
       expect(pos.getZ(i)).toBeCloseTo(WALL_FALSE_COLOR_INSET_M, 4);
-      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
+      expect(pos.getZ(i)).toBeLessThan(WALL_SHELL_INNER_INSET_M);
     }
     geo!.dispose();
   });

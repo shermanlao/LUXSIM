@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   ROOM_DRAG_ENABLED,
+  ROOM_TRANSLATE_ENABLED,
   applyRoomDrag,
   roomDragDelta,
   shouldBeginRoomDrag,
@@ -16,10 +17,11 @@ const ready = {
 };
 
 describe("room drag pointer helpers", () => {
-  it("is enabled and begins only with the official Select tool and a handler", () => {
+  it("keeps vertex stretch available but does not begin whole-room translation", () => {
     const onMoveRoom = vi.fn();
     expect(ROOM_DRAG_ENABLED).toBe(true);
-    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+    expect(ROOM_TRANSLATE_ENABLED).toBe(false);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(false);
     expect(shouldBeginRoomDrag({ onMoveRoom })).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready })).toBe(false);
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, tool: "drawRoom" })).toBe(false);
@@ -32,7 +34,7 @@ describe("room drag pointer helpers", () => {
     expect(shouldBeginRoomDrag({ ...ready, onMoveRoom, unionPickActive: true })).toBe(false);
   });
 
-  it("applies the pointer delta and snaps to X or Y when Shift is held", () => {
+  it("still computes pointer deltas, but does not apply a translation while it is off", () => {
     expect(roomDragDelta({ x: 0, y: 0 }, { x: 2, y: 1 })).toEqual({ x: 2, y: 1 });
     expect(roomDragDelta({ x: 0, y: 0 }, { x: 2, y: 1 }, true)).toEqual({ x: 2, y: 0 });
     expect(roomDragDelta({ x: 1, y: 1 }, { x: 1.2, y: 4 }, true)).toEqual({ x: 0, y: 3 });
@@ -45,19 +47,8 @@ describe("room drag pointer helpers", () => {
       { x: 0, y: 0 },
       { x: 2, y: 1 }
     );
-    expect(first).toEqual({ x: 2, y: 1 });
-    expect(onMoveRoom).toHaveBeenCalledWith("room-1", 2, 1);
-
-    const second = applyRoomDrag(
-      onMoveRoom,
-      "room-1",
-      { x: 0, y: 0 },
-      first,
-      { x: 3, y: 0.5 },
-      true
-    );
-    expect(second).toEqual({ x: 3, y: 0 });
-    expect(onMoveRoom).toHaveBeenCalledWith("room-1", 1, -1);
+    expect(first).toEqual({ x: 0, y: 0 });
+    expect(onMoveRoom).not.toHaveBeenCalled();
   });
 
   it("does not start or apply a move without a handler or an active room", () => {

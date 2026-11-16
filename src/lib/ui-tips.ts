@@ -27,7 +27,7 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.drawRect",
     title: "Rectangle L×W",
-    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. After creation, use Select to drag the room on the Top plan; fixtures in that room follow and the shape stays the same. With a room selected, drag a corner handle to stretch that vertex. If the storey is selected in Building, dragging a room fill moves every room on that storey. Use Select / move to drag fixtures on their own. For irregular rooms, use Draw room instead.",
+    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. After creation, select the room and drag a corner handle to stretch that vertex, or a mid-edge handle to insert a corner. Rooms and storeys are not translated by dragging the fill. Use Select / move to drag fixtures on their own. For irregular rooms, use Draw room instead.",
   },
   {
     helpKey: "tool.createRoomsFromDxf",

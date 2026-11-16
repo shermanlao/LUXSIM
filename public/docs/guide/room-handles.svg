@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 260" role="img" aria-labelledby="t d">
+  <title id="t">Room corner and edge handles</title>
+  <desc id="d">A selected room shows corner stretch handles and mid-edge insert handles. Rooms cannot be dragged as a whole.</desc>
+  <rect width="840" height="260" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="800" height="180" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <polygon points="70,170 250,170 250,50 70,50" fill="rgba(31,111,139,0.25)" stroke="#c45c26" stroke-width="2"/>
+    <polygon points="258,170 500,170 500,80 258,80" fill="rgba(42,59,70,0.55)" stroke="#8aa0ad"/>
+    <!-- corner handles -->
+    <g fill="#f4d35e" stroke="#1a1510">
+      <circle cx="70" cy="50" r="6"/>
+      <circle cx="250" cy="50" r="6"/>
+      <circle cx="250" cy="170" r="6"/>
+      <circle cx="70" cy="170" r="6"/>
+    </g>
+    <!-- mid-edge insert handles -->
+    <g fill="#e8c27a" stroke="#1a1510">
+      <circle cx="160" cy="50" r="4"/>
+      <circle cx="250" cy="110" r="4"/>
+      <circle cx="160" cy="170" r="4"/>
+      <circle cx="70" cy="110" r="4"/>
+    </g>
+    <text x="160" y="36" text-anchor="middle" fill="#e8eef2" font-size="12">Corner handle</text>
+    <text x="310" y="110" fill="#c5d0d6" font-size="12">Insert vertex</text>
+    <text x="20" y="220" fill="#e8eef2" font-size="13">Select a room to stretch a corner or insert a vertex on an edge. Rooms cannot be dragged as a whole.</text>
+    <text x="20" y="240" fill="#8aa0ad" font-size="12">選取房間後可拉伸角點或在邊上插入角點。房間不能整間拖移；平移圖面請按住滑鼠中鍵。</text>
+  </g>
+</svg>

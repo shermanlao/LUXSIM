@@ -1,5 +1,7 @@
-/** Official Select-tool room translation is enabled on the Top plan. */
+/** Vertex stretch / insert stay available on the Top plan. */
 export const ROOM_DRAG_ENABLED = true;
+/** Whole-room and storey translation on the plan is off. */
+export const ROOM_TRANSLATE_ENABLED = false;
 
 export type MoveRoomHandler = (roomId: string, dx: number, dy: number) => void;
 
@@ -21,7 +23,7 @@ export type RoomDragBeginInput = {
  */
 export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
   return (
-    ROOM_DRAG_ENABLED &&
+    ROOM_TRANSLATE_ENABLED &&
     typeof input.onMoveRoom === "function" &&
     input.tool === "select" &&
     !input.drawing &&
@@ -63,7 +65,7 @@ export function applyRoomDrag(
   next: { x: number; y: number },
   shiftKey = false
 ): { x: number; y: number } {
-  if (!ROOM_DRAG_ENABLED || !onMoveRoom || !movingRoomId || !origin) return applied;
+  if (!ROOM_TRANSLATE_ENABLED || !onMoveRoom || !movingRoomId || !origin) return applied;
   const total = roomDragDelta(origin, next, shiftKey);
   const dx = total.x - applied.x;
   const dy = total.y - applied.y;

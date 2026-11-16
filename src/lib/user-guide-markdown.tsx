@@ -1,4 +1,9 @@
-import type { ReactNode } from "react";
+"use client";
+
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+
+export type GuideLang = "zh" | "en";
+export const GUIDE_LANG_STORAGE_KEY = "luxsim-guide-lang";
 
 type InlineNode = string | { type: "strong" | "em" | "code" | "link"; text: string; href?: string };
 
@@ -44,7 +49,10 @@ function parseInline(text: string): ReactNode[] {
 
 type Block =
   | { type: "h1" | "h2" | "p"; text: string }
-  | { type: "ul" | "ol"; items: string[] };
+  | { type: "ul" | "ol"; items: string[] }
+  | { type: "img"; alt: string; src: string };
+
+const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)]+)\)\s*$/;
 
 export function parseUserGuideMarkdown(markdown: string): Block[] {
   const lines = markdown.replace(/\r\n/g, "\n").trim().split("\n");
@@ -53,6 +61,12 @@ export function parseUserGuideMarkdown(markdown: string): Block[] {
   while (i < lines.length) {
     const line = lines[i] ?? "";
     if (!line.trim()) {
+      i += 1;
+      continue;
+    }
+    const image = line.trim().match(IMAGE_LINE);
+    if (image) {
+      blocks.push({ type: "img", alt: image[1] ?? "", src: image[2] ?? "" });
       i += 1;
       continue;
     }
@@ -87,7 +101,9 @@ export function parseUserGuideMarkdown(markdown: string): Block[] {
     const para: string[] = [];
     while (i < lines.length) {
       const cur = lines[i] ?? "";
-      if (!cur.trim() || cur.startsWith("#") || /^[-*] /.test(cur) || /^\d+\. /.test(cur)) break;
+      if (!cur.trim() || cur.startsWith("#") || /^[-*] /.test(cur) || /^\d+\. /.test(cur) || IMAGE_LINE.test(cur.trim())) {
+        break;
+      }
       para.push(cur);
       i += 1;
     }
@@ -96,10 +112,103 @@ export function parseUserGuideMarkdown(markdown: string): Block[] {
   return blocks;
 }
 
+export function detectGuideBlockLang(text: string): GuideLang | "both" {
+  const trimmed = text.trim();
+  if (!trimmed || IMAGE_LINE.test(trimmed)) return "both";
+  const cjk = (trimmed.match(/[\u3400-\u9FFF]/g) ?? []).length;
+  return cjk >= 2 ? "zh" : "en";
+}
+
+export function localizeGuideHeading(text: string, lang: GuideLang): string {
+  const parts = text.split(" / ");
+  if (parts.length >= 2) {
+    return (lang === "zh" ? parts[0] : parts.slice(1).join(" / ")).trim();
+  }
+  return text;
+}
+
+export function filterGuideBlocks(blocks: Block[], lang: GuideLang): Block[] {
+  const out: Block[] = [];
+  for (const block of blocks) {
+    if (block.type === "h1" || block.type === "h2") {
+      out.push({ ...block, text: localizeGuideHeading(block.text, lang) });
+      continue;
+    }
+    if (block.type === "img") {
+      out.push(block);
+      continue;
+    }
+    if (block.type === "ul" || block.type === "ol") {
+      const items = block.items.filter((item) => {
+        const itemLang = detectGuideBlockLang(item);
+        return itemLang === "both" || itemLang === lang;
+      });
+      if (items.length > 0) out.push({ ...block, items });
+      continue;
+    }
+    if (block.type === "p") {
+      const blockLang = detectGuideBlockLang(block.text);
+      if (blockLang === "both" || blockLang === lang) out.push(block);
+    }
+  }
+  return out;
+}
+
+function setGuideLang(lang: GuideLang, setter: (lang: GuideLang) => void) {
+  setter(lang);
+  try {
+    window.localStorage.setItem(GUIDE_LANG_STORAGE_KEY, lang);
+  } catch {
+    /* ignore */
+  }
+}
+
 export function UserGuideArticle({ markdown }: { markdown: string }) {
-  const blocks = parseUserGuideMarkdown(markdown);
+  const [lang, setLang] = useState<GuideLang>("zh");
+  const allBlocks = useMemo(() => parseUserGuideMarkdown(markdown), [markdown]);
+  const blocks = useMemo(() => filterGuideBlocks(allBlocks, lang), [allBlocks, lang]);
+
+  useEffect(() => {
+    try {
+      const stored = window.localStorage.getItem(GUIDE_LANG_STORAGE_KEY);
+      if (stored === "zh" || stored === "en") {
+        setLang(stored);
+        return;
+      }
+    } catch {
+      /* ignore */
+    }
+    if (typeof navigator !== "undefined" && !navigator.language.toLowerCase().startsWith("zh")) {
+      setLang("en");
+    }
+  }, []);
+
+  const btn = (value: GuideLang, label: string) => (
+    <button
+      type="button"
+      className={`rounded-md border px-3 py-1.5 text-sm ${
+        lang === value
+          ? "border-[var(--accent-2)] bg-[var(--accent-2)] text-white"
+          : "border-[var(--line)] bg-white text-[var(--ink)] hover:bg-[color-mix(in_srgb,var(--line)_25%,white)]"
+      }`}
+      aria-pressed={lang === value}
+      onClick={() => setGuideLang(value, setLang)}
+    >
+      {label}
+    </button>
+  );
+
   return (
     <article className="user-guide space-y-4 text-[0.98rem] leading-relaxed">
+      <div
+        className="mb-2 flex flex-wrap items-center justify-end gap-1"
+        role="group"
+        aria-label="Guide language"
+        data-guide-lang-toggle=""
+      >
+        {btn("zh", "中文")}
+        {btn("en", "English")}
+      </div>
       {blocks.map((block, i) => {
         if (block.type === "h1") {
           return (
@@ -113,6 +222,18 @@ export function UserGuideArticle({ markdown }: { markdown: string }) {
             <h2 key={i} className="text-xl font-semibold pt-6">
               {parseInline(block.text)}
             </h2>
+          );
+        }
+        if (block.type === "img") {
+          const caption = localizeGuideHeading(block.alt, lang);
+          return (
+            <figure key={i} className="my-5 overflow-hidden rounded-lg border border-[var(--line)] bg-[#0f1c24]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={block.src} alt={caption} className="mx-auto block h-auto w-full" />
+              {caption ? (
+                <figcaption className="bg-white px-3 py-2 text-sm text-[var(--muted)]">{caption}</figcaption>
+              ) : null}
+            </figure>
           );
         }
         if (block.type === "p") {

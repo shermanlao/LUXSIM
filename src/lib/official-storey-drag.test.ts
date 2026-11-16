@@ -14,7 +14,7 @@ describe("official storey drag wiring", () => {
     expect(editor).toContain('beginCoalesce("drag")');
     expect(editor).toContain("officialTranslateStorey(s, storeyId, dx, dy)");
     expect(editor).toContain("onMoveStorey={(storeyId, dx, dy) => moveStorey(storeyId, dx, dy)}");
-    expect(editor).toMatch(/If the storey is selected in Building, dragging a room fill moves every room on that storey/);
+    expect(editor).toMatch(/Rooms are not translated by dragging the fill/);
   });
 
   it("starts a storey drag only when the storey is selected, and defers room select until a click", () => {
@@ -53,28 +53,19 @@ describe("official storey drag wiring", () => {
     expect(fixtureDown).not.toContain("beginRoomDrag");
   });
 
-  it("documents how to drag a whole storey without claiming only a single room can move", () => {
+  it("documents that a storey is not dragged on the plan", () => {
     const guide = readSrc("docs/USER_GUIDE.md");
     const roomDraw = readSrc("docs/ROOM_DRAW.md");
     const workflow = readSrc("docs/EDITOR_WORKFLOW.md");
-    const autosave = readSrc("docs/AUTOSAVE.md");
     const gap = readSrc("docs/DIALUX_GAP.md");
     const tips = readSrc("src/lib/ui-tips.ts");
-    for (const text of [guide, roomDraw, workflow, autosave, gap, tips]) {
-      expect(text).not.toMatch(/cannot be dragged/i);
-      expect(text).not.toMatch(/can be selected but not dragged/i);
-      expect(text).not.toMatch(/不能拖移/);
-      expect(text).not.toMatch(/Rooms are selectable, not draggable/);
-    }
-    expect(guide).toMatch(/select the storey in \*\*Building\*\*|tree selection is a storey/i);
-    expect(guide).toMatch(/every room on that storey/i);
-    expect(guide).toMatch(/該層所有房間/);
-    expect(guide).toMatch(/A click without movement on a room still selects that room/i);
-    expect(guide).toMatch(/點一下房間而未拖移，仍會改為選取該房間/);
-    expect(guide).toMatch(/Rooms on other storeys do not move/i);
-    expect(guide).toMatch(/其他樓層不會移動/);
-    expect(roomDraw).toMatch(/storey is selected in Building|every room on that storey/i);
-    expect(tips).toMatch(/storey is selected in Building/);
-    expect(gap).toMatch(/every room on a storey when the storey is selected/i);
+    expect(guide).toMatch(/storey cannot be dragged on the plan/);
+    expect(guide).toMatch(/整層也不能用拖曳來平移/);
+    expect(guide).toMatch(/點一下房間仍會選取該房間/);
+    expect(guide).toMatch(/A click on a room still selects that room|click on a room still selects/i);
+    expect(roomDraw).toMatch(/A click on a room still selects that room/);
+    expect(workflow).toMatch(/not translated by dragging the room fill/);
+    expect(tips).toMatch(/not translated by dragging the fill/);
+    expect(gap).toMatch(/not translated by dragging the fill/);
   });
 });

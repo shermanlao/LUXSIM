@@ -5,7 +5,8 @@ export function defaultDisplay3d(
   results?: ResultsV2 | null,
   stored?: Display3dMode | null
 ): Display3dMode {
-  if (stored === "greyscale" || stored === "falsecolor" || stored === "isolines") return stored;
+  if (stored === "isolines") return "falsecolor";
+  if (stored === "greyscale" || stored === "falsecolor") return stored;
   if (results && Object.keys(results.byRoomId).length > 0) return "falsecolor";
   return "greyscale";
 }

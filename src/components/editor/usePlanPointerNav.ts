@@ -197,6 +197,12 @@ export function usePlanPointerNav(
       e.stopPropagation();
     };
 
+    const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== PLAN_PAN_BUTTON) return;
+      e.preventDefault();
+      e.stopPropagation();
+    };
+
     const onLostCapture = () => {
       if (!panning) return;
       setPanning(false);
@@ -205,22 +211,25 @@ export function usePlanPointerNav(
       commitLive();
     };
 
-    el.addEventListener("wheel", onWheel, { passive: false });
-    el.addEventListener("pointerdown", onPointerDown);
-    el.addEventListener("pointermove", onPointerMove);
-    el.addEventListener("pointerup", endPan);
-    el.addEventListener("pointercancel", endPan);
+    const capture = { capture: true } as const;
+    el.addEventListener("wheel", onWheel, { passive: false, capture: true });
+    el.addEventListener("pointerdown", onPointerDown, capture);
+    el.addEventListener("pointermove", onPointerMove, capture);
+    el.addEventListener("pointerup", endPan, capture);
+    el.addEventListener("pointercancel", endPan, capture);
     el.addEventListener("lostpointercapture", onLostCapture);
-    el.addEventListener("auxclick", onAuxClick);
+    el.addEventListener("auxclick", onAuxClick, capture);
+    el.addEventListener("mousedown", onMouseDown, capture);
     return () => {
       clearWheelTimer();
-      el.removeEventListener("wheel", onWheel);
-      el.removeEventListener("pointerdown", onPointerDown);
-      el.removeEventListener("pointermove", onPointerMove);
-      el.removeEventListener("pointerup", endPan);
-      el.removeEventListener("pointercancel", endPan);
+      el.removeEventListener("wheel", onWheel, capture);
+      el.removeEventListener("pointerdown", onPointerDown, capture);
+      el.removeEventListener("pointermove", onPointerMove, capture);
+      el.removeEventListener("pointerup", endPan, capture);
+      el.removeEventListener("pointercancel", endPan, capture);
       el.removeEventListener("lostpointercapture", onLostCapture);
-      el.removeEventListener("auxclick", onAuxClick);
+      el.removeEventListener("auxclick", onAuxClick, capture);
+      el.removeEventListener("mousedown", onMouseDown, capture);
     };
   }, [svgRef]);
 }

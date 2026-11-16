@@ -49,7 +49,7 @@ describe("scene-3d camera and range helpers", () => {
     };
     expect(defaultDisplay3d(results, undefined)).toBe("falsecolor");
     expect(defaultDisplay3d(results, "greyscale")).toBe("greyscale");
-    expect(defaultDisplay3d(results, "isolines")).toBe("isolines");
+    expect(defaultDisplay3d(results, "isolines")).toBe("falsecolor");
     expect(defaultDisplay3d({ version: 2, byRoomId: {} }, undefined)).toBe("greyscale");
   });
 

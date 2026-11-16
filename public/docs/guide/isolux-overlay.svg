@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 260" role="img" aria-labelledby="t d">
+  <title id="t">False colour with isolines and value labels</title>
+  <desc id="d">False colour fills close to the room outline, leaving a thin gap. Isolines and value labels can overlay the field.</desc>
+  <rect width="840" height="260" fill="#0f1c24"/>
+  <defs>
+    <linearGradient id="fc1" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#1a3370"/>
+      <stop offset="0.35" stop-color="#1f8a4c"/>
+      <stop offset="0.7" stop-color="#d6c024"/>
+      <stop offset="1" stop-color="#e07020"/>
+    </linearGradient>
+    <linearGradient id="fc2" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#1a3370"/>
+      <stop offset="0.55" stop-color="#2db34a"/>
+      <stop offset="1" stop-color="#c8d020"/>
+    </linearGradient>
+  </defs>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="800" height="180" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <polygon points="70,170 300,170 300,50 70,50" fill="url(#fc1)" stroke="#c45c26" stroke-width="2"/>
+    <polygon points="308,170 560,170 560,70 308,70" fill="url(#fc2)" stroke="#8aa0ad"/>
+    <path d="M90,150 C140,130 180,90 220,80 S270,70 290,90" fill="none" stroke="#3a2a12" stroke-width="1.4"/>
+    <path d="M100,160 C150,145 200,110 240,100 S280,95 295,120" fill="none" stroke="#3a2a12" stroke-width="1.4"/>
+    <path d="M330,150 C380,130 430,110 500,105" fill="none" stroke="#3a2a12" stroke-width="1.4"/>
+    <text x="210" y="100" text-anchor="middle" fill="#1a3370" stroke="#0a1218" stroke-width="3" paint-order="stroke" font-size="11">300</text>
+    <text x="430" y="128" text-anchor="middle" fill="#1a3370" stroke="#0a1218" stroke-width="3" paint-order="stroke" font-size="11">500</text>
+    <rect x="590" y="50" width="14" height="120" fill="url(#fc1)"/>
+    <text x="610" y="58" fill="#c5d0d6" font-size="10">2500 lx</text>
+    <text x="610" y="170" fill="#c5d0d6" font-size="10">0 lx</text>
+    <text x="20" y="220" fill="#e8eef2" font-size="13">False colour fills close to the room outline, leaving a thin gap. Isolines and Value labels can overlay it.</text>
+    <text x="20" y="240" fill="#8aa0ad" font-size="12">偽色畫到接近房間輪廓，房與房之間留一條細縫。等照度線與數值圖可疊加顯示。</text>
+  </g>
+</svg>

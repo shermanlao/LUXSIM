@@ -3,7 +3,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { CalcResults } from "@luxsim/solver";
-import type { FalseColorScale, RoomV2 } from "@luxsim/project-io";
+import type { FalseColorScale, IsoluxPalette, RoomV2 } from "@luxsim/project-io";
 import {
   createClippedWorkplaneGeometry,
   createOfficialFalseColorWorkplane,
@@ -14,19 +14,21 @@ export function FalseColorPlane({
   results,
   elevationM = 0,
   scale,
+  palette = "falsecolor",
 }: {
   room: RoomV2;
   results: CalcResults;
   elevationM?: number;
   scale?: FalseColorScale;
+  palette?: IsoluxPalette;
 }) {
   const official = useMemo(
-    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale),
-    [room, results, elevationM, scale]
+    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale, palette),
+    [room, results, elevationM, scale, palette]
   );
   const fallback = useMemo(
-    () => (official ? null : createClippedWorkplaneGeometry(room, results, elevationM, scale)),
-    [official, room, results, elevationM, scale]
+    () => (official ? null : createClippedWorkplaneGeometry(room, results, elevationM, scale, palette)),
+    [official, room, results, elevationM, scale, palette]
   );
 
   useLayoutEffect(() => {

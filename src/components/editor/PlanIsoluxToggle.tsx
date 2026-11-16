@@ -1,36 +1,43 @@
 "use client";
 
-import type { IsoluxMode } from "@luxsim/project-io";
 import { HelpTip } from "@/components/HelpTip";
 
+function overlayButtonClass(on: boolean, enabled: boolean) {
+  return `!py-1.5 !px-3 !text-xs btn ${
+    on
+      ? "btn-accent !text-[#f5f7f8] !border-[#c45c26]"
+      : "!bg-[#162630]/90 !text-[#e8eef2] !border-[#4a6270] hover:!bg-[#1f3542]"
+  } ${!enabled ? "opacity-50 cursor-not-allowed" : ""}`;
+}
+
 export function PlanIsoluxToggle({
-  mode,
-  onModeChange,
+  showFalseColor,
+  onShowFalseColorChange,
+  showIsolines,
+  onShowIsolinesChange,
   showValueLabels,
   onShowValueLabelsChange,
   enabled,
   reason,
   className = "",
 }: {
-  mode: IsoluxMode;
-  onModeChange: (mode: IsoluxMode) => void;
+  showFalseColor: boolean;
+  onShowFalseColorChange: (show: boolean) => void;
+  showIsolines: boolean;
+  onShowIsolinesChange: (show: boolean) => void;
   showValueLabels: boolean;
   onShowValueLabelsChange: (show: boolean) => void;
   enabled: boolean;
   reason: string | null;
   className?: string;
 }) {
-  const btn = (value: IsoluxMode, label: string) => (
+  const btn = (on: boolean, label: string, onToggle: (next: boolean) => void) => (
     <button
       type="button"
-      className={`!py-1.5 !px-3 !text-xs btn ${
-        mode === value
-          ? "btn-accent !text-[#f5f7f8] !border-[#c45c26]"
-          : "!bg-[#162630]/90 !text-[#e8eef2] !border-[#4a6270] hover:!bg-[#1f3542]"
-      } ${!enabled ? "opacity-50 cursor-not-allowed" : ""}`}
-      aria-pressed={mode === value}
+      className={overlayButtonClass(on, enabled)}
+      aria-pressed={on}
       disabled={!enabled}
-      onClick={() => enabled && onModeChange(value)}
+      onClick={() => enabled && onToggle(!on)}
     >
       {label}
     </button>
@@ -39,23 +46,9 @@ export function PlanIsoluxToggle({
   return (
     <div className={`flex flex-col gap-1 ${className}`} data-plan-isolux-toggle="">
       <div className="inline-flex items-center gap-1" role="group" aria-label="Plan results display">
-        {btn("falsecolor", "False colour")}
-        {btn("isolines", "Isolines")}
-        <label
-          className={`ml-1 inline-flex items-center gap-1 text-[11px] ${
-            enabled ? "text-[#e8eef2]" : "text-[#8fa3ad] opacity-70"
-          }`}
-        >
-          <input
-            type="checkbox"
-            className="accent-[#c45c26]"
-            checked={showValueLabels}
-            disabled={!enabled}
-            onChange={(e) => enabled && onShowValueLabelsChange(e.target.checked)}
-            aria-label="Value labels"
-          />
-          Value labels
-        </label>
+        {btn(showFalseColor, "False colour", onShowFalseColorChange)}
+        {btn(showIsolines, "Isolines", onShowIsolinesChange)}
+        {btn(showValueLabels, "Value labels", onShowValueLabelsChange)}
         <HelpTip helpKey="view.planIsolux" />
       </div>
       {reason && (

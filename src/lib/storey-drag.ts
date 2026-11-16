@@ -1,5 +1,5 @@
 /** Official Select-tool storey translation on the Top / Bottom plan. */
-import { ROOM_DRAG_ENABLED, roomDragDelta } from "./room-drag";
+import { ROOM_TRANSLATE_ENABLED, roomDragDelta } from "./room-drag";
 
 export type MoveStoreyHandler = (storeyId: string, dx: number, dy: number) => void;
 
@@ -28,7 +28,7 @@ export type StoreyDragBeginInput = {
  */
 export function shouldBeginStoreyDrag(input: StoreyDragBeginInput = {}): boolean {
   return (
-    ROOM_DRAG_ENABLED &&
+    ROOM_TRANSLATE_ENABLED &&
     typeof input.onMoveStorey === "function" &&
     input.tool === "select" &&
     !input.drawing &&
@@ -69,7 +69,7 @@ export function applyStoreyDrag(
   next: { x: number; y: number },
   shiftKey = false
 ): { x: number; y: number } {
-  if (!ROOM_DRAG_ENABLED || !onMoveStorey || !movingStoreyId || !origin) return applied;
+  if (!ROOM_TRANSLATE_ENABLED || !onMoveStorey || !movingStoreyId || !origin) return applied;
   const total = roomDragDelta(origin, next, shiftKey);
   const dx = total.x - applied.x;
   const dy = total.y - applied.y;

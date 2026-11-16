@@ -14,8 +14,8 @@ describe("official room drag wiring", () => {
     expect(editor).toContain('beginCoalesce("drag")');
     expect(editor).toContain("officialTranslateRoom(s, roomId, dx, dy)");
     expect(editor).toContain("onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}");
-    expect(editor).not.toMatch(/Rooms cannot be dragged/);
-    expect(editor).toMatch(/drag the room with Select/i);
+    expect(editor).toMatch(/Rooms are not translated by dragging the fill/);
+    expect(editor).toMatch(/corner or mid-edge handles/);
   });
 
   it("starts a room drag only in Select mode, and fixture hits still move the fixture", () => {
@@ -45,25 +45,21 @@ describe("official room drag wiring", () => {
     expect(top).not.toContain("startVertex");
   });
 
-  it("documents how to drag a room and no longer says rooms cannot be moved", () => {
+  it("documents that rooms are not dragged as a whole, while corner handles still work", () => {
     const guide = readSrc("docs/USER_GUIDE.md");
     const roomDraw = readSrc("docs/ROOM_DRAW.md");
     const workflow = readSrc("docs/EDITOR_WORKFLOW.md");
-    const autosave = readSrc("docs/AUTOSAVE.md");
     const tips = readSrc("src/lib/ui-tips.ts");
-    for (const text of [guide, roomDraw, workflow, autosave, tips]) {
-      expect(text).not.toMatch(/cannot be dragged/i);
-      expect(text).not.toMatch(/can be selected but not dragged/i);
-      expect(text).not.toMatch(/不能拖移/);
-    }
-    expect(guide).toMatch(/Select/);
-    expect(guide).toMatch(/拖移已有房間|拖移房間/);
-    expect(guide).toMatch(/Fixtures that belong to that room move with it/i);
-    expect(guide).toMatch(/該房內的燈具會一併移動/);
-    expect(guide).toMatch(/without changing its shape/i);
-    expect(guide).toMatch(/形狀不變/);
-    expect(roomDraw).toMatch(/Select/);
+    expect(guide).toMatch(/Rooms cannot be dragged as a whole/);
+    expect(guide).toMatch(/不能整間拖移/);
+    expect(guide).toMatch(/corner handle/);
+    expect(guide).toMatch(/角點控制點/);
+    expect(guide).toMatch(/middle mouse button/);
+    expect(guide).toMatch(/滑鼠中鍵/);
+    expect(roomDraw).toMatch(/not translated by dragging the fill/);
+    expect(workflow).toMatch(/not translated by dragging the room fill/);
     expect(tips).toContain('helpKey: "tool.drawRect"');
     expect(tips).toMatch(/Select \/ move/);
+    expect(tips).toMatch(/not translated by dragging the fill/);
   });
 });

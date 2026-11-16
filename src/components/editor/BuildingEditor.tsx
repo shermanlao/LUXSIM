@@ -70,7 +70,6 @@ import {
   underlayWorldSize,
   type Camera3dView,
   type Display3dMode,
-  type IsoluxMode,
   type DxfEntity,
   type FalseColorScale,
   type ProjectSceneV2,
@@ -184,8 +183,9 @@ import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { Display3dToggle } from "./Display3dToggle";
 import { PlanIsoluxToggle } from "./PlanIsoluxToggle";
 import {
-  normalizePlanIsoluxMode,
   planIsoluxControlState,
+  planShowFalseColorFromUi,
+  planShowIsolinesFromUi,
 } from "@/lib/plan-isolux-display";
 import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
@@ -2018,7 +2018,8 @@ export function BuildingEditor({
 
 
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
-  const planIsoluxMode: IsoluxMode = normalizePlanIsoluxMode(scene.ui.planIsoluxMode);
+  const planShowFalseColor = planShowFalseColorFromUi(scene.ui);
+  const planShowIsolines = planShowIsolinesFromUi(scene.ui);
   const planValueLabels = scene.ui.planValueLabels === true;
   const planIsoluxControls = planIsoluxControlState(results, currentStoreyRoomIds());
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
@@ -2072,12 +2073,23 @@ export function BuildingEditor({
             onChange={(mode) =>
               patchSceneUi((s) => ({
                 ...s,
-                ui: { ...s.ui, display3d: mode },
+                ui: { ...s.ui, display3d: mode === "greyscale" ? "greyscale" : "falsecolor" },
               }))
             }
             showIsolines
+            isolinesOn={planShowIsolines}
             isolinesEnabled={planIsoluxControls.enabled}
             isolinesReason={planIsoluxControls.reason}
+            onShowIsolinesChange={(show) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: {
+                  ...s.ui,
+                  planShowIsolines: show,
+                  planIsoluxMode: show && !planShowFalseColorFromUi(s.ui) ? "isolines" : "falsecolor",
+                },
+              }))
+            }
             showValueLabels={planValueLabels}
             onShowValueLabelsChange={(show) =>
               patchSceneUi((s) => ({
@@ -2089,11 +2101,30 @@ export function BuildingEditor({
         )}
         {(viewMode === "top" || viewMode === "bottom") && (
           <PlanIsoluxToggle
-            mode={planIsoluxMode}
-            onModeChange={(mode) =>
+            showFalseColor={planShowFalseColor}
+            onShowFalseColorChange={(show) =>
               patchSceneUi((s) => ({
                 ...s,
-                ui: { ...s.ui, planIsoluxMode: mode },
+                ui: {
+                  ...s.ui,
+                  planShowFalseColor: show,
+                  planIsoluxMode: !show && planShowIsolinesFromUi({ ...s.ui, planShowFalseColor: show })
+                    ? "isolines"
+                    : "falsecolor",
+                },
+              }))
+            }
+            showIsolines={planShowIsolines}
+            onShowIsolinesChange={(show) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: {
+                  ...s.ui,
+                  planShowIsolines: show,
+                  planIsoluxMode: show && !planShowFalseColorFromUi({ ...s.ui, planShowIsolines: show })
+                    ? "isolines"
+                    : "falsecolor",
+                },
               }))
             }
             showValueLabels={planValueLabels}
@@ -2114,7 +2145,8 @@ export function BuildingEditor({
           scene={scene}
           variant={viewMode === "bottom" ? "bottom" : "top"}
           results={results}
-          planIsoluxMode={planIsoluxMode}
+          showFalseColor={planShowFalseColor}
+          showIsolines={planShowIsolines}
           showValueLabels={planValueLabels}
           falseColorScale={scale}
           underlayUrl={underlayUrl}
@@ -2220,11 +2252,12 @@ export function BuildingEditor({
           initialView={scene.ui.camera3d ?? camera3dRef.current}
           falseColorScale={scale}
           showValueLabels={planValueLabels}
+          showIsolines={planShowIsolines}
         />
       )}
       </div>
       {((viewMode === "persp3d" && display3d === "falsecolor") ||
-        ((viewMode === "top" || viewMode === "bottom") && planIsoluxMode === "falsecolor" && results)) && (
+        ((viewMode === "top" || viewMode === "bottom") && planShowFalseColor && results)) && (
         <FalseColorLegend
           emin={autoScale.minLux}
           emax={autoScale.maxLux}
@@ -2529,7 +2562,7 @@ export function BuildingEditor({
                 Create rectangle
               </button>
               <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using the Building Room height. After creation, drag the room with Select to move it. If the storey is selected in Building, dragging a room fill moves every room on that storey.
+                Places a rectangle at 0, 0 using the Building Room height. After creation, select the room and use corner or mid-edge handles to change its shape. Rooms are not translated by dragging the fill. Hold the middle mouse button to pan the plan.
               </p>
               <div className="flex items-center gap-1 pt-1">
                 <button

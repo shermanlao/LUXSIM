@@ -217,33 +217,36 @@ describe("isolux model-to-view wiring", () => {
   });
 
 
-  it("paints official false colour to the room outline, leaving the calculation wall zone unchanged", () => {
+  it("paints official false colour close to the room outline, leaving a thin gap and the calculation wall zone unchanged", () => {
     const { room, results } = officeScene({ withResults: true });
-    expect(ISOLUX_DISPLAY_WALL_ZONE_M).toBe(0);
+    expect(ISOLUX_DISPLAY_WALL_ZONE_M).toBeCloseTo(0.05, 10);
     expect(wallZoneM(room)).toBeCloseTo(0.25, 10);
 
     const official = officialIsoluxModelForRoom(room, results.byRoomId.r1, {
       mode: "falsecolor",
-      targetLongSide: 80,
+      targetLongSide: 400,
       includeContours: false,
       includeValueLabels: false,
     });
     const inset = buildIsoluxModel(room, results.byRoomId.r1!, {
       mode: "falsecolor",
       wallZoneM: wallZoneM(room),
-      targetLongSide: 80,
+      targetLongSide: 400,
       includeContours: false,
       includeValueLabels: false,
     });
     expect(official).not.toBeNull();
     expect(inset).not.toBeNull();
 
-    // 0.05 m inside the 0..6 × 0..5 room is inside the 0.25 m calculation wall zone.
-    expect(fieldAlphaAt(official!, 0.05, 2.5)).toBe(255);
+    // 0.02 m is inside the thin 0.05 m display gap; 0.15 m is inside the filled
+    // field but still inside the 0.25 m calculation wall zone. Use a 400 px
+    // long side so the 5 cm gap is more than one pixel (80 px is too coarse).
+    expect(fieldAlphaAt(official!, 0.02, 2.5)).toBe(0);
+    expect(fieldAlphaAt(official!, 0.15, 2.5)).toBe(255);
     expect(fieldAlphaAt(official!, 3, 2.5)).toBe(255);
-    expect(fieldAlphaAt(inset!, 0.05, 2.5)).toBe(0);
+    expect(fieldAlphaAt(inset!, 0.15, 2.5)).toBe(0);
     expect(fieldAlphaAt(inset!, 3, 2.5)).toBe(255);
-    expect(official!.workplaneOutline).toEqual(official!.roomOutline);
+    expect(official!.workplaneOutline).not.toEqual(official!.roomOutline);
   });
 
   it("uses formatPointLux text for grid labels and omits non-positive cells", () => {
@@ -368,7 +371,7 @@ describe("official editor and export path wiring", () => {
     expect(editor).toContain("PlanIsoluxToggle");
     expect(editor).toContain("viewMode === \"top\" || viewMode === \"bottom\"");
     expect(editor).toContain("planIsoluxControlState(results, currentStoreyRoomIds())");
-    expect(editor).toContain("planIsoluxMode={planIsoluxMode}");
+    expect(editor).toContain("showFalseColor={planShowFalseColor}");
     expect(editor).toContain("showValueLabels={planValueLabels}");
     const exportFn = editor.slice(editor.indexOf("async function exportFullPdf"));
     expect(exportFn).toContain("const isoluxSnapshots = collectOfficialIsoluxSnapshots(scene, results)");
@@ -382,7 +385,8 @@ describe("official editor and export path wiring", () => {
     expect(editor).toContain("Display3dToggle");
 
     expect(top).toContain("PlanIsoluxOverlay");
-    expect(top).toContain("planIsoluxMode");
+    expect(top).toContain("showFalseColor");
+    expect(top).toContain("showIsolines");
     expect(top).toContain("showValueLabels");
     expect(overlay).toContain("officialIsoluxModelForRoom");
     expect(overlay).toContain("isoluxPxToWorld");
@@ -415,8 +419,8 @@ describe("official editor and export path wiring", () => {
     expect(guide).toMatch(/Value labels/);
     expect(guide).toMatch(/不會發明數字/);
     expect(guide).toMatch(/do not invent numbers/);
-    expect(guide).toMatch(/畫到房間輪廓/);
-    expect(guide).toMatch(/painted to the room outline/);
+    expect(guide).toMatch(/接近房間輪廓/);
+    expect(guide).toMatch(/close to the room outline/);
     expect(guide).toMatch(/Full PDF report/);
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
     expect(guide).toMatch(/if 3D views cannot be captured/);

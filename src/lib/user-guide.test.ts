@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync } from "fs";
 import path from "path";
-import { parseUserGuideMarkdown } from "./user-guide-markdown";
+import { filterGuideBlocks, localizeGuideHeading, parseUserGuideMarkdown } from "./user-guide-markdown";
 import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "./line-array-pick";
 import {
   CIRCLE_ARRAY_PICK_HINT,
@@ -91,18 +91,14 @@ describe("user guide", () => {
     expect(guide).toMatch(/不必開 Fullscreen/);
     expect(guide).toMatch(/2D and 3D canvas stays fully visible/);
     expect(guide).toMatch(/2D／3D 畫布會留在視窗內完整可見/);
-    expect(guide).toMatch(/drag the room fill/);
-    expect(guide).toMatch(/拖移該房的填色範圍/);
-    expect(guide).toMatch(/Fixtures that belong to that room move with it/);
-    expect(guide).toMatch(/該房內的燈具會一併移動/);
-    expect(guide).toMatch(/without changing its shape/);
-    expect(guide).toMatch(/形狀不變/);
-    expect(guide).not.toMatch(/cannot be dragged/i);
-    expect(guide).not.toMatch(/不能拖移/);
-    expect(guide).toMatch(/every room on that storey/);
-    expect(guide).toMatch(/該層所有房間/);
-    expect(guide).toMatch(/A click without movement on a room still selects that room/);
-    expect(guide).toMatch(/點一下房間而未拖移，仍會改為選取該房間/);
+    expect(guide).toMatch(/Rooms cannot be dragged as a whole/);
+    expect(guide).toMatch(/不能整間拖移/);
+    expect(guide).toMatch(/storey cannot be dragged on the plan/);
+    expect(guide).toMatch(/整層也不能用拖曳來平移/);
+    expect(guide).toMatch(/corner handle/);
+    expect(guide).toMatch(/角點控制點/);
+    expect(guide).toMatch(/middle mouse button/);
+    expect(guide).toMatch(/滑鼠中鍵/);
   });
 
   it("parses the main headings", () => {
@@ -139,13 +135,12 @@ describe("user guide", () => {
     expect(tips).toMatch(/Backspace clears the typed length in one press, then removes the last corner/);
   });
 
-  it("keeps the rectangle tip in sync with room drag", () => {
+  it("keeps the rectangle tip in sync with corner handles and no fill drag", () => {
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "tool.drawRect"');
-    expect(tips).toMatch(/use Select to drag the room on the Top plan/);
-    expect(tips).toMatch(/fixtures in that room follow/);
-    expect(tips).toMatch(/storey is selected in Building/);
-    expect(tips).not.toMatch(/cannot be dragged/i);
+    expect(tips).toMatch(/corner handle/);
+    expect(tips).toMatch(/not translated by dragging the fill/);
+    expect(tips).toMatch(/Select \/ move/);
   });
 
   it("keeps the Line array tip in sync with click-to-pick and disabled Spacing Y", () => {
@@ -416,10 +411,10 @@ describe("user guide", () => {
 
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
-    expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);
-    expect(guide).toMatch(/切換 \*\*False colour\*\*（偽色）和 \*\*Isolines\*\*（等照度線）/);
-    expect(guide).toMatch(/tick \*\*Value labels\*/);
-    expect(guide).toMatch(/勾選 \*\*Value labels\*\*（數值圖）/);
+    expect(guide).toMatch(/turn \*\*False colour\*\*, \*\*Isolines\*\*, and \*\*Value labels\*\* on or off independently/);
+    expect(guide).toMatch(/分別開啟或關閉 \*\*False colour\*\*（偽色）、\*\*Isolines\*\*（等照度線）和 \*\*Value labels\*\*（數值圖）/);
+    expect(guide).toMatch(/same button style and can overlay/);
+    expect(guide).toMatch(/是同一種按鈕，可以疊加/);
     expect(guide).toMatch(/On the \*\*3D\*\* view/);
     expect(guide).toMatch(/在 \*\*3D\*\* 視圖/);
     expect(guide).toMatch(/do not invent numbers/);
@@ -434,5 +429,54 @@ describe("user guide", () => {
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "view.planIsolux"');
     expect(tips).toContain("PLAN_ISOLUX_HINT");
+  });
+
+  it("parses guide figures and keeps a Chinese / English language toggle", () => {
+    expect(guide).toContain("![平面視野控制 / Plan view controls](/docs/guide/plan-view-controls.svg)");
+    expect(guide).toContain("![房間角點控制點 / Room corner and edge handles](/docs/guide/room-handles.svg)");
+    expect(guide).toContain("![顯示開關 / Greyscale, False colour, Isolines and Value labels](/docs/guide/display-toggles.svg)");
+    expect(guide).toContain("![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)");
+    expect(guide).toContain("![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)");
+    for (const name of [
+      "plan-view-controls.svg",
+      "room-handles.svg",
+      "display-toggles.svg",
+      "isolux-overlay.svg",
+      "draw-room.svg",
+    ]) {
+      expect(existsSync(path.join(process.cwd(), "public/docs/guide", name))).toBe(true);
+    }
+
+    const sample = [
+      "# 使用手冊 / User guide",
+      "",
+      "這是中文說明。",
+      "",
+      "This is the English explanation.",
+      "",
+      "![平面視野控制 / Plan view controls](/docs/guide/plan-view-controls.svg)",
+    ].join("\n");
+    const parsed = parseUserGuideMarkdown(sample);
+    expect(parsed.some((block) => block.type === "img" && block.src === "/docs/guide/plan-view-controls.svg")).toBe(
+      true
+    );
+    const zh = filterGuideBlocks(parsed, "zh");
+    const en = filterGuideBlocks(parsed, "en");
+    expect(zh.some((block) => block.type === "p" && "text" in block && block.text.includes("中文說明"))).toBe(true);
+    expect(zh.some((block) => block.type === "p" && "text" in block && block.text.includes("English explanation"))).toBe(
+      false
+    );
+    expect(en.some((block) => block.type === "p" && "text" in block && block.text.includes("English explanation"))).toBe(
+      true
+    );
+    expect(en.some((block) => block.type === "p" && "text" in block && block.text.includes("中文說明"))).toBe(false);
+    expect(localizeGuideHeading("使用手冊 / User guide", "zh")).toBe("使用手冊");
+    expect(localizeGuideHeading("使用手冊 / User guide", "en")).toBe("User guide");
+
+    const article = read("src/lib/user-guide-markdown.tsx");
+    expect(article).toContain("data-guide-lang-toggle");
+    expect(article).toContain("中文");
+    expect(article).toContain("English");
+    expect(article).toContain("GUIDE_LANG_STORAGE_KEY");
   });
 });

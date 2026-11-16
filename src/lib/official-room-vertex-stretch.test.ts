@@ -73,7 +73,7 @@ describe("official vertex stretch wiring", () => {
     expect(top).not.toContain("click-drag pan");
   });
 
-  it("documents corner-handle stretch, mid-edge insert, vertex delete, DXF snap, interior whole-room drag, and invalid revert", () => {
+  it("documents corner-handle stretch, mid-edge insert, vertex delete, DXF snap, no fill translation, and invalid revert", () => {
     const guide = readSrc("docs/USER_GUIDE.md");
     const roomDraw = readSrc("docs/ROOM_DRAW.md");
     const workflow = readSrc("docs/EDITOR_WORKFLOW.md");
@@ -87,8 +87,8 @@ describe("official vertex stretch wiring", () => {
     expect(guide).toMatch(/邊上.*插入控制點|插入控制點.*加入新角點/);
     expect(guide).toMatch(/Delete 或 Backspace/);
     expect(guide).toMatch(/畫房草稿進行中，Backspace 仍會/);
-    expect(guide).toMatch(/interior drag still moves the whole room|drag the room fill still moves the whole room/i);
-    expect(guide).toMatch(/填色範圍.*仍會移動整個房間|拖移填色範圍仍會移動整個房間/);
+    expect(guide).toMatch(/Dragging inside the room fill no longer moves the whole room/);
+    expect(guide).toMatch(/填色範圍內拖移不會再移動整個房間/);
     expect(guide).toMatch(/reverted|還原/);
     expect(guide).toMatch(/pre-insert|插入前/);
     expect(guide).not.toMatch(/Deleting a vertex is not available yet/);

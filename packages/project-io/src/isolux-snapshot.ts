@@ -12,6 +12,7 @@ import {
   type FalseColorScale,
   type IsoluxMode,
   type IsoluxModel,
+  type IsoluxPalette,
 } from "./isolux-map";
 
 export function hasCalcGrid(results?: CalcResults | null): results is CalcResults {
@@ -38,8 +39,8 @@ export const OFFICIAL_PDF_ISOLUX_RENDER: OfficialIsoluxRenderOpts = {
   ...DEFAULT_RENDER,
 };
 
-/** Official false colour and isolines fill to the room outline. Calculation wall zone is unchanged. */
-export const ISOLUX_DISPLAY_WALL_ZONE_M = 0;
+/** Thin display inset so adjacent rooms stay visually separate. Calculation wall zone is unchanged. */
+export const ISOLUX_DISPLAY_WALL_ZONE_M = 0.05;
 
 export function officialIsoluxModelForRoom(
   room: RoomV2,
@@ -51,6 +52,7 @@ export function officialIsoluxModelForRoom(
     colorScale?: FalseColorScale;
     includeContours?: boolean;
     includeValueLabels?: boolean;
+    palette?: IsoluxPalette;
   }
 ): IsoluxModel | null {
   if (!hasCalcGrid(results)) return null;
@@ -62,6 +64,7 @@ export function officialIsoluxModelForRoom(
     colorScale: opts?.colorScale,
     includeContours: opts?.includeContours,
     includeValueLabels: opts?.includeValueLabels,
+    palette: opts?.palette,
   });
 }
 

@@ -248,21 +248,24 @@ describe("official 3D isolux model wiring", () => {
 });
 
 describe("official 3D isolux editor and PDF path wiring", () => {
-  it("adds Isolines as a 3D display mode without removing greyscale or false colour", () => {
+  it("keeps Greyscale and False colour exclusive, with Isolines as an overlay", () => {
     const results: ResultsV2 = { version: 2, byRoomId: { r1: calcResults([200, 400, 350, 550]) } };
     expect(defaultDisplay3d(results, undefined)).toBe("falsecolor");
     expect(defaultDisplay3d(results, "greyscale")).toBe("greyscale");
     expect(defaultDisplay3d(results, "falsecolor")).toBe("falsecolor");
-    expect(defaultDisplay3d(results, "isolines")).toBe("isolines");
+    expect(defaultDisplay3d(results, "isolines")).toBe("falsecolor");
     expect(defaultDisplay3d({ version: 2, byRoomId: {} }, undefined)).toBe("greyscale");
 
     const toggle = readSrc("src/components/editor/Display3dToggle.tsx");
     expect(toggle).toContain('btn("greyscale", "Greyscale")');
     expect(toggle).toContain('btn("falsecolor", "False colour")');
-    expect(toggle).toContain('btn("isolines", "Isolines", isolinesEnabled)');
+    expect(toggle).toContain("isolinesOn");
+    expect(toggle).toContain("Isolines");
     expect(toggle).toContain("Value labels");
+    expect(toggle).toContain("onShowIsolinesChange");
+    expect(toggle).toContain("onShowValueLabelsChange");
     expect(toggle).toContain('helpKey="view.planIsolux"');
-    expect(toggle).toContain("disabled={!isolinesEnabled}");
+    expect(toggle).toContain("disabled={!enabled}");
 
     const scene3d = readSrc("src/components/editor/BuildingScene3D.tsx");
     expect(scene3d).toContain('display3d === "falsecolor"');
@@ -273,7 +276,8 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     expect(model).toContain("officialIsoluxModelForRoom");
     expect(model).toContain("THREE.SRGBColorSpace");
     expect(model).toContain("luxToRgbLinear");
-    expect(scene3d).toContain('display3d === "isolines"');
+    expect(scene3d).toContain("showIsolines && results");
+    expect(scene3d).toContain('display3d === "greyscale"');
     expect(scene3d).toContain("Scene3dIsoluxOverlay");
     expect(scene3d).toContain("scale={[-1, 1, 1]}");
     expect(scene3d).toContain("setMirroredFrontFace");

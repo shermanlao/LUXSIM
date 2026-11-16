@@ -126,6 +126,7 @@ export type { ReportInput } from "./report";
 export { gridToFalseColorPngDataUrl, workplaneFalseColorRgb } from "./false-color-snapshot";
 export {
   luxToRgb,
+  luxToGrey,
   luxToRgbLinear,
   srgbToLinearChannel,
   rgbCss,
@@ -141,7 +142,7 @@ export {
   isoluxPxToWorld,
   isoluxFieldScreenRect,
 } from "./isolux-map";
-export type { IsoluxMode, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";
+export type { IsoluxMode, IsoluxPalette, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";
 export {
   hasCalcGrid,
   ISOLUX_DISPLAY_WALL_ZONE_M,

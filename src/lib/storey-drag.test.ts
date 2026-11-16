@@ -5,7 +5,7 @@ import {
   isStoreyDragClick,
   shouldBeginStoreyDrag,
 } from "./storey-drag";
-import { ROOM_DRAG_ENABLED } from "./room-drag";
+import { ROOM_DRAG_ENABLED, ROOM_TRANSLATE_ENABLED } from "./room-drag";
 
 const ready = {
   tool: "select" as const,
@@ -20,10 +20,11 @@ const ready = {
 };
 
 describe("storey drag pointer helpers", () => {
-  it("is enabled and begins only when the storey is selected under the official Select tool", () => {
+  it("does not begin storey translation while room translate is off", () => {
     const onMoveStorey = vi.fn();
     expect(ROOM_DRAG_ENABLED).toBe(true);
-    expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey })).toBe(true);
+    expect(ROOM_TRANSLATE_ENABLED).toBe(false);
+    expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey })).toBe(false);
     expect(shouldBeginStoreyDrag({ onMoveStorey })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready })).toBe(false);
     expect(shouldBeginStoreyDrag({ ...ready, onMoveStorey, tool: "drawRoom" })).toBe(false);
@@ -48,7 +49,7 @@ describe("storey drag pointer helpers", () => {
     expect(isStoreyDragClick(origin, { x: 20, y: 30 })).toBe(false);
   });
 
-  it("applies the pointer delta and snaps to X or Y when Shift is held", () => {
+  it("does not apply a storey translation while room translate is off", () => {
     const onMoveStorey = vi.fn();
     const first = applyStoreyDrag(
       onMoveStorey,
@@ -57,19 +58,8 @@ describe("storey drag pointer helpers", () => {
       { x: 0, y: 0 },
       { x: 2, y: 1 }
     );
-    expect(first).toEqual({ x: 2, y: 1 });
-    expect(onMoveStorey).toHaveBeenCalledWith("storey-gf", 2, 1);
-
-    const second = applyStoreyDrag(
-      onMoveStorey,
-      "storey-gf",
-      { x: 0, y: 0 },
-      first,
-      { x: 3, y: 0.5 },
-      true
-    );
-    expect(second).toEqual({ x: 3, y: 0 });
-    expect(onMoveStorey).toHaveBeenCalledWith("storey-gf", 1, -1);
+    expect(first).toEqual({ x: 0, y: 0 });
+    expect(onMoveStorey).not.toHaveBeenCalled();
   });
 
   it("does not start or apply a move without a handler or an active storey", () => {

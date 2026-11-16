@@ -196,11 +196,15 @@ export interface ProjectSceneV2 {
     workflowMode?: EditorWorkflowMode;
     /** Last 3D orbit pose; restored when opening / switching back to 3D */
     camera3d?: Camera3dView | null;
-    /** Greyscale architecture, false-colour workplanes, or isolines in the 3D view. */
+    /** Greyscale or false-colour illuminance in the 3D view. Isolines is a legacy stored value and is treated as false colour plus the isolines overlay. */
     display3d?: Display3dMode;
-    /** False-colour vs isolines overlay on the Top/Bottom plan. */
+    /** False-colour vs isolines overlay on the Top/Bottom plan (legacy exclusive mode). */
     planIsoluxMode?: "falsecolor" | "isolines";
-    /** Show workplane value labels on the Top/Bottom plan. */
+    /** When set, False colour on the plan is an independent overlay (default on). */
+    planShowFalseColor?: boolean;
+    /** Isolines overlay on the plan or 3D view, independent of Greyscale / False colour. */
+    planShowIsolines?: boolean;
+    /** Show workplane value labels on the Top/Bottom plan and 3D view. */
     planValueLabels?: boolean;
   };
 }

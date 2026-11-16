@@ -81,7 +81,22 @@ function paletteRgbAtT(t: number): [number, number, number] {
  * When a scale is provided, minLux and maxLux are stretched across the full
  * palette so the legend and the 3D surfaces stay in lock-step.
  */
-export function luxToRgb(lux: number, scale?: FalseColorScale | number): [number, number, number] {
+export function luxToGrey(lux: number, scale?: FalseColorScale | number): [number, number, number] {
+  const range = isFalseColorScale(scale)
+    ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
+    : { minLux: 0, maxLux: 2500 };
+  const span = Math.max(1e-9, range.maxLux - range.minLux);
+  const t = Math.max(0, Math.min(1, (lux - range.minLux) / span));
+  const g = 0.08 + 0.88 * t;
+  return [g, g, g];
+}
+
+export function luxToRgb(
+  lux: number,
+  scale?: FalseColorScale | number,
+  palette: IsoluxPalette = "falsecolor"
+): [number, number, number] {
+  if (palette === "greyscale") return luxToGrey(lux, scale);
   if (isFalseColorScale(scale)) {
     const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
     const t = (lux - range.minLux) / (range.maxLux - range.minLux);
@@ -97,8 +112,12 @@ export function srgbToLinearChannel(c: number): number {
 }
 
 /** luxToRgb values converted to linear-light so a colour-managed renderer shows the official ramp. */
-export function luxToRgbLinear(lux: number, scale?: FalseColorScale | number): [number, number, number] {
-  const [r, g, b] = luxToRgb(lux, scale);
+export function luxToRgbLinear(
+  lux: number,
+  scale?: FalseColorScale | number,
+  palette: IsoluxPalette = "falsecolor"
+): [number, number, number] {
+  const [r, g, b] = luxToRgb(lux, scale, palette);
   return [srgbToLinearChannel(r), srgbToLinearChannel(g), srgbToLinearChannel(b)];
 }
 
@@ -152,6 +171,8 @@ export function legendStopsForScale(scale: FalseColorScale): { lux: number; colo
   if (uniq.length < 2) uniq.push(range.maxLux);
   return uniq.map((lux) => ({ lux, color: rgbCss(luxToRgb(lux, range)) }));
 }
+
+export type IsoluxPalette = "falsecolor" | "greyscale";
 
 export type IsoluxMode = "falsecolor" | "isolines";
 
@@ -465,6 +486,7 @@ export function buildIsoluxModel(
     targetLongSide?: number;
     colorScale?: FalseColorScale;
     includeContours?: boolean;
+    palette?: IsoluxPalette;
     includeValueLabels?: boolean;
   }
 ): IsoluxModel | null {
@@ -499,7 +521,7 @@ export function buildIsoluxModel(
       const lux = sampleLux(grid, b, x, y);
       const i = (py * width + px) * 4;
       if (mode === "falsecolor") {
-        const [r, g, bc] = luxToRgb(lux, opts?.colorScale);
+        const [r, g, bc] = luxToRgb(lux, opts?.colorScale, opts?.palette);
         field[i] = Math.round(r * 255);
         field[i + 1] = Math.round(g * 255);
         field[i + 2] = Math.round(bc * 255);

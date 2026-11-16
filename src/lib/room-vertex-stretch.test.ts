@@ -94,7 +94,7 @@ describe("shouldBeginVertexStretch vs whole-room drag", () => {
         unionPickActive: true,
       })
     ).toBe(false);
-    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(false);
   });
 
   it("does not start a whole-room drag from a handle hit", () => {
@@ -108,7 +108,7 @@ describe("shouldBeginVertexStretch vs whole-room drag", () => {
     expect(shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: interior })).toBe(
       false
     );
-    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(false);
   });
 });
 
@@ -180,7 +180,7 @@ describe("mid-edge insert hit testing and priority", () => {
         unionPickActive: true,
       })
     ).toBe(false);
-    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(true);
+    expect(shouldBeginRoomDrag({ ...ready, onMoveRoom })).toBe(false);
     expect(shouldBeginVertexStretch({ ...ready, onSetRoomPolygon, handleIndex: null })).toBe(
       false
     );

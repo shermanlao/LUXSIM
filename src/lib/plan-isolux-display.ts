@@ -7,10 +7,33 @@ export const PLAN_ISOLUX_NO_RESULTS =
   "Run Calculate to show isolines and value labels — no rooms on this storey have results.";
 
 export const PLAN_ISOLUX_HINT =
-  "On the Top or Bottom plan, switch between false colour and Isolines for rooms on the current storey that have calculation results, without first selecting a room. In the 3D view, Isolines is an additional display mode beside Greyscale and False colour, drawn on the workplane at the room's workplane height from the same isolux model. Value labels can be shown or hidden on the workplane grid in both the plan and 3D isolines views. Rooms without results do not invent numbers. The Full PDF report includes isolines and value labels on the working-plane isolux diagram.";
+  "On the Top or Bottom plan, turn False colour, Isolines, and Value labels on or off independently for rooms on the current storey that have calculation results, without first selecting a room. Isolines and Value labels can overlay False colour. In the 3D view, Greyscale and False colour are the only exclusive display modes; Isolines and Value labels use the same button style and can overlay either mode, drawn on the workplane at the room's workplane height from the same isolux model. Rooms without results do not invent numbers. The Full PDF report includes isolines and value labels on the working-plane isolux diagram.";
 
 export function normalizePlanIsoluxMode(raw: unknown): IsoluxMode {
   return raw === "isolines" ? "isolines" : "falsecolor";
+}
+
+/** False colour on the plan defaults to on, and stays on when migrating from the old exclusive Isolines mode. */
+export function planShowFalseColorFromUi(ui: {
+  planShowFalseColor?: boolean;
+  planShowIsolines?: boolean;
+  planIsoluxMode?: unknown;
+  display3d?: unknown;
+} | null | undefined): boolean {
+  if (ui?.planShowFalseColor === false) return false;
+  return true;
+}
+
+/** Isolines overlay, including migration from the old exclusive Isolines mode. */
+export function planShowIsolinesFromUi(ui: {
+  planShowFalseColor?: boolean;
+  planShowIsolines?: boolean;
+  planIsoluxMode?: unknown;
+  display3d?: unknown;
+} | null | undefined): boolean {
+  if (ui?.planShowIsolines === true) return true;
+  if (ui?.planShowIsolines === false) return false;
+  return ui?.planIsoluxMode === "isolines" || ui?.display3d === "isolines";
 }
 
 export function planIsoluxHasResults(

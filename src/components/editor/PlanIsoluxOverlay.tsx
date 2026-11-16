@@ -3,7 +3,6 @@
 import { useLayoutEffect, useMemo, useRef } from "react";
 import type {
   FalseColorScale,
-  IsoluxMode,
   IsoluxModel,
   ProjectSceneV2,
   ResultsV2,
@@ -39,7 +38,8 @@ export function PlanIsoluxOverlay({
   scene,
   rooms,
   results,
-  mode,
+  showFalseColor = true,
+  showIsolines = false,
   showValueLabels,
   toScreen,
   viewW,
@@ -52,7 +52,8 @@ export function PlanIsoluxOverlay({
   scene: ProjectSceneV2;
   rooms: RoomV2[];
   results: ResultsV2;
-  mode: IsoluxMode;
+  showFalseColor?: boolean;
+  showIsolines?: boolean;
   showValueLabels: boolean;
   toScreen: (x: number, y: number) => ScreenPt;
   viewW: number;
@@ -63,35 +64,36 @@ export function PlanIsoluxOverlay({
   colorScale?: FalseColorScale;
 }) {
   const models = useMemo(() => {
+    if (!showFalseColor && !showIsolines && !showValueLabels) return [] as { room: RoomV2; model: IsoluxModel }[];
     const out: { room: RoomV2; model: IsoluxModel }[] = [];
     for (const room of rooms) {
       const model = officialIsoluxModelForRoom(room, results.byRoomId[room.id], {
-        mode,
+        mode: showFalseColor ? "falsecolor" : "isolines",
         fixtures: scene.instances.filter((i) => i.roomId === room.id),
         targetLongSide: 800,
         colorScale,
-        includeContours: mode === "isolines",
+        includeContours: showIsolines,
         includeValueLabels: showValueLabels,
       });
       if (model) out.push({ room, model });
     }
     return out;
-  }, [rooms, results, mode, scene.instances, colorScale, showValueLabels]);
+  }, [rooms, results, showFalseColor, showIsolines, scene.instances, colorScale, showValueLabels]);
 
   const fieldCanvases = useMemo(() => {
-    if (mode !== "falsecolor") return [] as { model: IsoluxModel; canvas: HTMLCanvasElement }[];
+    if (!showFalseColor) return [] as { model: IsoluxModel; canvas: HTMLCanvasElement }[];
     const out: { model: IsoluxModel; canvas: HTMLCanvasElement }[] = [];
     for (const { model } of models) {
       const canvas = fieldCanvasFor(model);
       if (canvas) out.push({ model, canvas });
     }
     return out;
-  }, [models, mode]);
+  }, [models, showFalseColor]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   useLayoutEffect(() => {
     const cvs = canvasRef.current;
-    if (!cvs || mode !== "falsecolor") return;
+    if (!cvs || !showFalseColor) return;
     if (cvs.width !== viewW) cvs.width = viewW;
     if (cvs.height !== viewH) cvs.height = viewH;
     const ctx = cvs.getContext("2d");
@@ -105,13 +107,13 @@ export function PlanIsoluxOverlay({
       ctx.drawImage(canvas, rect.x, rect.y, rect.width, rect.height);
     }
     // Only repaint when the committed plan view or field bitmaps change — not on cursor moves.
-  }, [mode, viewW, viewH, viewOx, viewOy, viewScale, fieldCanvases]);
+  }, [showFalseColor, viewW, viewH, viewOx, viewOy, viewScale, fieldCanvases]);
 
   if (models.length === 0 && fieldCanvases.length === 0) return null;
 
   return (
     <g data-plan-isolux-overlay="" pointerEvents="none">
-      {mode === "falsecolor" && viewW > 0 && viewH > 0 && (
+      {showFalseColor && viewW > 0 && viewH > 0 && (
         <foreignObject
           x={0}
           y={0}
@@ -137,14 +139,14 @@ export function PlanIsoluxOverlay({
         const topLeft = toS({ x: 0, y: 0 });
         const topRight = toS({ x: model.width, y: 0 });
         const imgW = Math.hypot(topRight.x - topLeft.x, topRight.y - topLeft.y);
-        const contourColor = mode === "falsecolor" ? "#3a2a12" : "#e8eef2";
-        const labelFill = mode === "falsecolor" ? "#1a1a1a" : "#f5f7f8";
-        const valueFill = mode === "falsecolor" ? "#1a3370" : "#dce8ff";
+        const contourColor = showFalseColor ? "#3a2a12" : "#e8eef2";
+        const labelFill = showFalseColor ? "#1a1a1a" : "#f5f7f8";
+        const valueFill = showFalseColor ? "#1a3370" : "#dce8ff";
         const fontScreen = Math.max(8, Math.min(18, model.fontPx * (imgW / Math.max(model.width, 1))));
 
         return (
           <g key={room.id} data-plan-isolux-room={room.id}>
-            {mode === "isolines" &&
+            {showIsolines &&
               model.contours.flatMap((c, ci) =>
                 c.polylines
                   .filter((line) => line.length >= 2)
@@ -158,7 +160,7 @@ export function PlanIsoluxOverlay({
                     />
                   ))
               )}
-            {mode === "isolines" &&
+            {showIsolines &&
               model.contourLabels.map((label, i) => {
                 const p = toS(label);
                 return (

@@ -139,6 +139,7 @@ export function BuildingScene3D({
   photometry,
   falseColorScale,
   showValueLabels = false,
+  showIsolines = false,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -155,6 +156,7 @@ export function BuildingScene3D({
   photometry?: Record<string, PhotometricData>;
   falseColorScale?: FalseColorScale;
   showValueLabels?: boolean;
+  showIsolines?: boolean;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -249,12 +251,13 @@ export function BuildingScene3D({
           </group>
         ))}
 
-        {display3d === "falsecolor" &&
+        {(display3d === "falsecolor" || display3d === "greyscale") &&
           results &&
           rooms.map((room) => {
             const res = results.byRoomId[room.id];
             const walls = results.wallsByRoomId?.[room.id] ?? [];
             if (!res && !walls.length) return null;
+            const palette = display3d === "greyscale" ? "greyscale" : "falsecolor";
             return (
               <group key={`fc-${room.id}`}>
                 {res && (
@@ -263,14 +266,20 @@ export function BuildingScene3D({
                     results={res}
                     elevationM={elev}
                     scale={falseColorScale}
+                    palette={palette}
                   />
                 )}
-                <FalseColorWalls surfaces={walls} elevationM={elev} scale={falseColorScale} />
+                <FalseColorWalls
+                  surfaces={walls}
+                  elevationM={elev}
+                  scale={falseColorScale}
+                  palette={palette}
+                />
               </group>
             );
           })}
 
-        {display3d === "isolines" && results && (
+        {showIsolines && results && (
           <Scene3dIsoluxOverlay
             scene={scene}
             rooms={rooms}

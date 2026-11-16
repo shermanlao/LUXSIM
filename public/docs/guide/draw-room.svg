@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 260" role="img" aria-labelledby="t d">
+  <title id="t">Draw room on the plan</title>
+  <desc id="d">Left-click corners on the Top plan, type a length to lock the next side, hold Shift for orthogonal, then click the first corner or press Enter to close.</desc>
+  <rect width="840" height="260" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="500" height="180" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <polyline points="80,160 80,60 260,60 260,160 80,160" fill="none" stroke="#c45c26" stroke-width="2"/>
+    <g fill="#f4d35e" stroke="#1a1510">
+      <circle cx="80" cy="160" r="5"/>
+      <circle cx="80" cy="60" r="5"/>
+      <circle cx="260" cy="60" r="5"/>
+      <circle cx="260" cy="160" r="5"/>
+    </g>
+    <text x="80" y="182" text-anchor="middle" fill="#c5d0d6" font-size="11">1</text>
+    <text x="80" y="50" text-anchor="middle" fill="#c5d0d6" font-size="11">2</text>
+    <text x="260" y="50" text-anchor="middle" fill="#c5d0d6" font-size="11">3</text>
+    <text x="170" y="110" text-anchor="middle" fill="#e8eef2" font-size="12">Enter or click first corner</text>
+    <rect x="540" y="16" width="280" height="180" rx="6" fill="#12202a" stroke="#2a3842"/>
+    <text x="556" y="44" fill="#e8eef2" font-size="13">Draw room</text>
+    <text x="556" y="70" fill="#c5d0d6" font-size="12">1. Left-click each corner</text>
+    <text x="556" y="92" fill="#c5d0d6" font-size="12">2. Type a length (mm)</text>
+    <text x="556" y="114" fill="#c5d0d6" font-size="12">3. Hold Shift for H / V</text>
+    <text x="556" y="136" fill="#c5d0d6" font-size="12">4. Enter to close</text>
+    <text x="556" y="158" fill="#c5d0d6" font-size="12">5. Esc cancels the draft</text>
+    <text x="20" y="220" fill="#e8eef2" font-size="13">Draw room on the Top or Bottom plan. Image or PDF underlays must be calibrated first.</text>
+    <text x="20" y="240" fill="#8aa0ad" font-size="12">在 Top 或 Bottom 用左鍵逐點畫房。圖像或 PDF 底圖須先用 Calibrate scale 校正。</text>
+  </g>
+</svg>

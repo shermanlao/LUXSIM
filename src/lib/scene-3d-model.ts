@@ -18,6 +18,7 @@ import {
   locateOnPolyline,
   sampleWallLux,
   type Display3dMode,
+  type IsoluxPalette,
   type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
@@ -28,20 +29,24 @@ import {
 export const EDITOR_BG = "#0f1c24";
 export const REPORT_BG = "#f3f3f0";
 
-/** Opaque enough that exterior faces stay grey and do not show interior lux colour. */
-export const FALSE_COLOR_WALL_SHELL_OPACITY = 0.96;
-export const GREYSCALE_WALL_SHELL_OPACITY = 0.82;
+/** Shell stays slightly visible so architecture remains readable over wall illuminance. */
+export const FALSE_COLOR_WALL_SHELL_OPACITY = 0.38;
+export const GREYSCALE_WALL_SHELL_OPACITY = 0.38;
+export const ILLUMINANCE_WALL_SHELL_OPACITY = 0.38;
 
 /** Outer wall face sits this far inside the room polygon so adjacent rooms do not share a plane. */
 export const WALL_SHELL_OUTER_INSET_M = 0.005;
 /** Visual wall thickness (inner face is this far inward of the outer face). */
 export const WALL_SHELL_THICKNESS_M = 0.02;
 export const WALL_SHELL_INNER_INSET_M = WALL_SHELL_OUTER_INSET_M + WALL_SHELL_THICKNESS_M;
-/** False-colour wall overlay, just inside the inner shell face so it does not z-fight the slab. */
-export const WALL_FALSE_COLOR_INSET_M = WALL_SHELL_INNER_INSET_M + 0.01;
+/** False-colour wall overlay sits in the middle of the visual wall thickness so both faces can show illuminance. */
+export const WALL_FALSE_COLOR_INSET_M = WALL_SHELL_OUTER_INSET_M + WALL_SHELL_THICKNESS_M / 2;
 
 export function wallShellOpacity(mode: Display3dMode): number {
-  return mode === "falsecolor" ? FALSE_COLOR_WALL_SHELL_OPACITY : GREYSCALE_WALL_SHELL_OPACITY;
+  if (mode === "falsecolor" || mode === "greyscale" || mode === "isolines") {
+    return ILLUMINANCE_WALL_SHELL_OPACITY;
+  }
+  return GREYSCALE_WALL_SHELL_OPACITY;
 }
 
 const FLOOR_COLOR = "#c8cbcf";
@@ -229,7 +234,8 @@ export function createClippedWorkplaneGeometry(
   room: RoomV2,
   results: CalcResults,
   elevationM: number,
-  scale?: FalseColorScale
+  scale?: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
 ): THREE.BufferGeometry | null {
   if (room.polygon.length < 3) return null;
   const triangles = triangulateRoomPlan(room.polygon);
@@ -266,7 +272,7 @@ export function createClippedWorkplaneGeometry(
     const i = positions.length / 3;
     positions.push(p.x, height, p.y);
     const lux = sampleGridLux(room, results.grid, p.x, p.y);
-    const [r, g, bl] = luxToRgbLinear(lux, scale);
+    const [r, g, bl] = luxToRgbLinear(lux, scale, palette);
     colors.push(r, g, bl);
     vertIndex.set(key, i);
     return i;
@@ -344,7 +350,8 @@ export function createOfficialFalseColorWorkplane(
   room: RoomV2,
   results: CalcResults,
   elevationM: number,
-  scale?: FalseColorScale
+  scale?: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
 ): { geometry: THREE.BufferGeometry; material: THREE.MeshBasicMaterial; texture: THREE.CanvasTexture } | null {
   if (typeof document === "undefined") return null;
   const model = officialIsoluxModelForRoom(room, results, {
@@ -353,6 +360,7 @@ export function createOfficialFalseColorWorkplane(
     colorScale: scale,
     includeContours: false,
     includeValueLabels: false,
+    palette,
   });
   if (!model) return null;
   const canvas = document.createElement("canvas");
@@ -402,7 +410,8 @@ export function createWallFalseColorGeometry(
   surface: WallSurfaceResult,
   elevationM: number,
   inwardOffset = WALL_FALSE_COLOR_INSET_M,
-  scale?: FalseColorScale
+  scale?: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
 ): THREE.BufferGeometry | null {
   const poly = surface.polyline;
   const normals = surface.normals;
@@ -429,7 +438,7 @@ export function createWallFalseColorGeometry(
         elevationM + v,
         loc.y + loc.normal.y * inwardOffset
       );
-      const [cr, cg, cb] = luxToRgbLinear(sampleWallLux(surface, u, v), scale);
+      const [cr, cg, cb] = luxToRgbLinear(sampleWallLux(surface, u, v), scale, palette);
       colors.push(cr, cg, cb);
     }
   }
