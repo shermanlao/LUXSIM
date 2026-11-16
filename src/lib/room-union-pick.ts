@@ -7,6 +7,10 @@ import {
   XOR_ROOMS_PICK_SECOND_STATUS,
   XOR_ROOMS_REFUSE_SAME_STATUS,
   XOR_ROOMS_REFUSE_STOREY_STATUS,
+  ALIGN_ROOMS_PICK_FIRST_STATUS,
+  ALIGN_ROOMS_PICK_SECOND_STATUS,
+  ALIGN_ROOMS_REFUSE_SAME_STATUS,
+  ALIGN_ROOMS_REFUSE_STOREY_STATUS,
   SUBTRACT_ROOMS_PICK_FIRST_STATUS,
   SUBTRACT_ROOMS_PICK_SECOND_STATUS,
   SUBTRACT_ROOMS_REFUSE_SAME_STATUS,
@@ -17,7 +21,7 @@ import {
   UNION_ROOMS_REFUSE_STOREY_STATUS,
 } from "@luxsim/project-io";
 
-export type OfficialTwoRoomPickKind = "union" | "subtract" | "intersect" | "xor";
+export type OfficialTwoRoomPickKind = "union" | "subtract" | "intersect" | "xor" | "align";
 
 export type RoomUnionPickState = {
   active: boolean;
@@ -394,6 +398,74 @@ export function applyOfficialRoomXorPick(
       status: picked.status,
       keepId: picked.keepId,
       removeId: picked.removeId,
+      selectRoomId: picked.selectRoomId,
+    };
+  }
+  return picked;
+}
+
+const ALIGN_PICK_COPY: TwoRoomPickCopy = {
+  pickFirst: ALIGN_ROOMS_PICK_FIRST_STATUS,
+  pickSecond: ALIGN_ROOMS_PICK_SECOND_STATUS,
+  refuseSame: ALIGN_ROOMS_REFUSE_SAME_STATUS,
+  refuseStorey: ALIGN_ROOMS_REFUSE_STOREY_STATUS,
+};
+
+export function startOfficialRoomAlignPick(
+  selectedRoomId: string | null,
+  currentStoreyRoomIds: string[]
+): RoomUnionPickState {
+  return startOfficialRoomUnionPick(selectedRoomId, currentStoreyRoomIds);
+}
+
+export function alignRoomsPickHint(state: RoomUnionPickState): string {
+  if (!state.active) return "";
+  return state.firstRoomId
+    ? ALIGN_ROOMS_PICK_SECOND_STATUS
+    : ALIGN_ROOMS_PICK_FIRST_STATUS;
+}
+
+export type OfficialRoomAlignPickResult =
+  | {
+      kind: "status";
+      state: RoomUnionPickState;
+      status: string;
+      selectRoomId?: string;
+    }
+  | {
+      kind: "align";
+      state: RoomUnionPickState;
+      status: string;
+      referenceId: string;
+      movingId: string;
+      selectRoomId?: string;
+    };
+
+/**
+ * Same official two-step pick as Union rooms: the first room is the
+ * reference and stays put, the second is the room to move. Rooms on
+ * another storey are refused. Esc cancels via roomUnionPickEscapeAction.
+ */
+export function applyOfficialRoomAlignPick(
+  state: RoomUnionPickState,
+  roomId: string,
+  roomStoreyId: string,
+  currentStoreyId: string
+): OfficialRoomAlignPickResult {
+  const picked = applyOfficialTwoRoomPick(
+    state,
+    roomId,
+    roomStoreyId,
+    currentStoreyId,
+    ALIGN_PICK_COPY
+  );
+  if (picked.kind === "ready") {
+    return {
+      kind: "align",
+      state: picked.state,
+      status: picked.status,
+      referenceId: picked.keepId,
+      movingId: picked.removeId,
       selectRoomId: picked.selectRoomId,
     };
   }

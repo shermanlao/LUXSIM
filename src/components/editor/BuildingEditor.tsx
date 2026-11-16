@@ -37,6 +37,14 @@ import {
   XOR_ROOMS_CANCELLED_STATUS,
   XOR_ROOMS_PICK_FIRST_STATUS,
   XOR_ROOMS_PICK_SECOND_STATUS,
+  officialAlignRooms,
+  ALIGN_ROOMS_CANCELLED_STATUS,
+  ALIGN_ROOMS_PICK_FIRST_STATUS,
+  ALIGN_ROOMS_PICK_SECOND_STATUS,
+  DEFAULT_OFFICIAL_ROOM_ALIGN_AXIS,
+  OFFICIAL_ROOM_ALIGN_AXES,
+  officialRoomAlignAxisLabel,
+  type OfficialRoomAlignAxis,
   applyOfficialRoomHeightMm,
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
@@ -105,7 +113,9 @@ import {
   applyOfficialRoomIntersectPick,
   applyOfficialRoomSubtractPick,
   applyOfficialRoomUnionPick,
+  applyOfficialRoomAlignPick,
   applyOfficialRoomXorPick,
+  startOfficialRoomAlignPick,
   startOfficialRoomIntersectPick,
   startOfficialRoomSubtractPick,
   startOfficialRoomUnionPick,
@@ -293,6 +303,9 @@ export function BuildingEditor({
   );
   const unionPickActive = booleanPick.active;
   const unionPickMode = booleanPick.active ? booleanPick.kind : undefined;
+  const [alignAxis, setAlignAxis] = useState<OfficialRoomAlignAxis>(
+    DEFAULT_OFFICIAL_ROOM_ALIGN_AXIS
+  );
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
@@ -824,10 +837,25 @@ export function BuildingEditor({
     );
   }
 
+  function startAlignRooms() {
+    if (booleanPick.active && booleanPick.kind === "align") {
+      setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+      setStatus(ALIGN_ROOMS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    const next = startOfficialRoomAlignPick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    setBooleanPick({ ...next, kind: "align" });
+    setStatus(
+      next.firstRoomId ? ALIGN_ROOMS_PICK_SECOND_STATUS : ALIGN_ROOMS_PICK_FIRST_STATUS
+    );
+  }
+
   function booleanPickCancelledStatus(kind: OfficialTwoRoomPickKind): string {
     if (kind === "subtract") return SUBTRACT_ROOMS_CANCELLED_STATUS;
     if (kind === "intersect") return INTERSECT_ROOMS_CANCELLED_STATUS;
     if (kind === "xor") return XOR_ROOMS_CANCELLED_STATUS;
+    if (kind === "align") return ALIGN_ROOMS_CANCELLED_STATUS;
     return UNION_ROOMS_CANCELLED_STATUS;
   }
 
@@ -835,6 +863,7 @@ export function BuildingEditor({
     if (kind === "subtract") return SUBTRACT_ROOMS_PICK_FIRST_STATUS;
     if (kind === "intersect") return INTERSECT_ROOMS_PICK_FIRST_STATUS;
     if (kind === "xor") return XOR_ROOMS_PICK_FIRST_STATUS;
+    if (kind === "align") return ALIGN_ROOMS_PICK_FIRST_STATUS;
     return UNION_ROOMS_PICK_FIRST_STATUS;
   }
 
@@ -849,6 +878,35 @@ export function BuildingEditor({
     const room = scene.rooms.find((r) => r.id === roomId);
     if (!room) {
       setStatus(booleanPickFirstStatus(booleanPick.kind));
+      return;
+    }
+    if (booleanPick.kind === "align") {
+      const picked = applyOfficialRoomAlignPick(
+        booleanPick,
+        room.id,
+        room.storeyId,
+        scene.ui.activeStoreyId
+      );
+      if (picked.selectRoomId) {
+        patchSceneUi((s) => ({
+          ...s,
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+        }));
+      }
+      if (picked.kind !== "align") {
+        setBooleanPick({ ...picked.state, kind: "align" });
+        setStatus(picked.status);
+        return;
+      }
+      endCoalesce();
+      const result = officialAlignRooms(scene, picked.referenceId, picked.movingId, alignAxis);
+      setStatus(result.status);
+      if (result.ok) {
+        setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+        patchScene(() => result.scene);
+        return;
+      }
+      setBooleanPick({ ...picked.state, kind: "align" });
       return;
     }
     if (booleanPick.kind === "xor") {
@@ -2437,6 +2495,38 @@ export function BuildingEditor({
               </div>
               <p className="text-[10px] text-[var(--muted)]">
                 Keeps the exclusive parts of two rooms on this storey as the first room (first XOR second). The first room keeps its name, maintenance factor, and other properties; the second is removed. The rooms must overlap in area, and the result must be a single simple outline. A bite that shares the outer boundary can succeed; two remainders or a hole are refused. Alignment is not included. Esc cancels the pick.
+              </p>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.alignRooms"
+                  className={`btn w-full !text-xs justify-start ${
+                    booleanPick.active && booleanPick.kind === "align" ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startAlignRooms}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Align rooms
+                </button>
+                <HelpTip helpKey="tool.alignRooms" />
+              </div>
+              <div className="grid grid-cols-3 gap-1">
+                {OFFICIAL_ROOM_ALIGN_AXES.map((axis) => (
+                  <button
+                    key={axis}
+                    type="button"
+                    className={`btn !text-[10px] !px-1 !py-1 ${
+                      alignAxis === axis ? "btn-accent" : "btn-secondary"
+                    }`}
+                    aria-pressed={alignAxis === axis}
+                    onClick={() => setAlignAxis(axis)}
+                  >
+                    {officialRoomAlignAxisLabel(axis)}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-[var(--muted)]">
+                Aligns a room on this storey to a reference along the selected edge or centre (Left is the default). The first room is the reference and stays put; the second room moves without changing shape. Both rooms are kept. Even spacing is not included. Esc cancels the pick.
               </p>
             </div>
           </div>

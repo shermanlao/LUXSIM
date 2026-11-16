@@ -327,6 +327,5 @@ describe("official editor Union rooms wiring", () => {
     expect(top).toContain("onUnionRoomPick");
     expect(top).toContain("roomUnionPickEscapeAction");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
-    expect(src).not.toContain("alignRooms");
   });
 });

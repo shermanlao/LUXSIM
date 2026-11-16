@@ -269,7 +269,5 @@ describe("official editor XOR rooms wiring", () => {
     expect(top).toContain("onUnionRoomPick");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain('unionPickMode === "xor"');
-    expect(src).not.toContain("alignRooms");
-    expect(top).not.toContain("alignRooms");
   });
 });

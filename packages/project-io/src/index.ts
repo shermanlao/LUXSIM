@@ -379,6 +379,36 @@ export type {
 } from "./official-room-xor";
 
 export {
+  ALIGN_ROOMS_CANCELLED_STATUS,
+  ALIGN_ROOMS_EPS_M,
+  ALIGN_ROOMS_PICK_FIRST_STATUS,
+  ALIGN_ROOMS_PICK_SECOND_STATUS,
+  ALIGN_ROOMS_REFUSE_AREA_STATUS,
+  ALIGN_ROOMS_REFUSE_CROSS_STATUS,
+  ALIGN_ROOMS_REFUSE_INVALID_STATUS,
+  ALIGN_ROOMS_REFUSE_MISSING_STATUS,
+  ALIGN_ROOMS_REFUSE_NOOP_STATUS,
+  ALIGN_ROOMS_REFUSE_SAME_STATUS,
+  ALIGN_ROOMS_REFUSE_STOREY_STATUS,
+  ALIGN_ROOMS_REFUSE_VERTICES_STATUS,
+  DEFAULT_OFFICIAL_ROOM_ALIGN_AXIS,
+  OFFICIAL_ROOM_ALIGN_AXES,
+  OFFICIAL_ROOM_ALIGN_AXIS_LABELS,
+  formatAlignRoomsSuccessStatus,
+  officialAlignRooms,
+  officialAlignTranslation,
+  officialPolygonBounds,
+  officialRoomAlignAxisLabel,
+  officialRoomAlignAxisPhrase,
+} from "./official-room-align";
+export type {
+  OfficialAlignRoomsReason,
+  OfficialAlignRoomsResult,
+  OfficialPolygonBounds,
+  OfficialRoomAlignAxis,
+} from "./official-room-align";
+
+export {
   DEFAULT_STOREY_HEIGHT_M,
   MIN_STOREY_HEIGHT_M,
   STOREY_METRICS_EXPLANATION,

@@ -353,6 +353,27 @@ describe("user guide", () => {
     expect(tips).toMatch(/Alignment is not included/);
   });
 
+  it("documents Align rooms for lining a room up to a reference on the same storey", () => {
+    expect(guide).toMatch(/use \*\*Align rooms\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Align rooms\*\*/);
+    expect(guide).toMatch(/it is the reference \(it stays put\)/);
+    expect(guide).toMatch(/該房會作為參考（不移動）/);
+    expect(guide).toMatch(/matching edge or centre of its bounding box lines up with the reference/);
+    expect(guide).toMatch(/使其包圍盒的對應邊或中心與參考房間對齊/);
+    expect(guide).toMatch(/Both rooms are kept/);
+    expect(guide).toMatch(/兩間房都會保留/);
+    expect(guide).toMatch(/Fixtures assigned to the moved room follow the same translation/);
+    expect(guide).toMatch(/屬於被移動房間的燈具會跟隨同一平移/);
+    expect(guide).toMatch(/the room is already aligned/);
+    expect(guide).toMatch(/該房已經對齊/);
+    expect(guide).toMatch(/Even spacing \/ distribute is not included/);
+    expect(guide).toMatch(/此增量不包括均勻分布/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.alignRooms"');
+    expect(tips).toMatch(/reference and stays put/);
+    expect(tips).toMatch(/Even spacing \/ distribute is not included/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

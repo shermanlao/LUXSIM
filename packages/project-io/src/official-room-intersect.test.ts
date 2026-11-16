@@ -276,7 +276,5 @@ describe("official editor Intersect rooms wiring", () => {
     expect(top).toContain("onUnionRoomPick");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain('unionPickMode === "intersect"');
-    expect(src).not.toContain("alignRooms");
-    expect(top).not.toContain("alignRooms");
   });
 });

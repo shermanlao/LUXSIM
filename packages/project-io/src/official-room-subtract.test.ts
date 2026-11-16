@@ -275,7 +275,5 @@ describe("official editor Subtract rooms wiring", () => {
     expect(top).toContain("onUnionRoomPick");
     expect(top).toContain("if (unionPickActive && onUnionRoomPick)");
     expect(top).toContain("unionPickMode");
-    expect(src).not.toContain("alignRooms");
-    expect(top).not.toContain("alignRooms");
   });
 });
