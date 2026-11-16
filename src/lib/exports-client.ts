@@ -2,6 +2,8 @@ import { jsPDF } from "jspdf";
 import {
   buildDialuxPack,
   downloadBlob,
+  LUXSIM_PROJECT_MIME,
+  luxsimProjectDownloadName,
   serializeLuxsim,
   type AnyScene,
   type LuxsimProjectFile,
@@ -107,8 +109,8 @@ export function exportPdfReport(opts: {
 export function exportLuxsimFile(project: LuxsimProjectFile) {
   const text = serializeLuxsim(project);
   downloadBlob(
-    `${sanitize(project.name)}.luxsim.json`,
-    new Blob([text], { type: "application/json" })
+    luxsimProjectDownloadName(project.name),
+    new Blob([text], { type: LUXSIM_PROJECT_MIME })
   );
 }
 

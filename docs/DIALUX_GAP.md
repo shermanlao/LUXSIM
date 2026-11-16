@@ -17,7 +17,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - IES / LDT upload → project fixture list (does **not** auto-place)
 - Drag-and-drop placement on Top / Bottom / Front / Side / 3D
 - Client solver: direct illuminance, simplified interreflection, simplified UGR, LPD
-- False-color overlay + PDF / `.luxsim` / **DIALux verification zip** (multi-room geometry + DXF + results CSV)
+- False-color overlay + PDF / `.lux` / **DIALux verification zip** (multi-room geometry + DXF + results CSV)
 - CAD point-to-point room draw (typed mm polar lock) + L×W rectangle at origin; 3D extrudes the floor polygon
 - **Select-tool room / storey translation** on the Top / Bottom plan (fixtures in the moved rooms follow; shape unchanged; Shift constrains to X or Y)
 - **EN 12464-1 assist** — task / surrounding / background targets; **CIE 97 MF breakdown**; pass-fail hints (not certification)

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { ProjectLoadingDialog } from "@/components/ProjectLoadingDialog";
+import { LUXSIM_PROJECT_FILE_ACCEPT } from "@luxsim/project-io";
 import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
 
 type WorkspaceOption = { id: string; name: string };
@@ -107,12 +108,12 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
           disabled={disabled}
           onClick={() => fileRef.current?.click()}
         >
-          {importing ? "Opening…" : "Open .luxsim"}
+          {importing ? "Opening…" : "Open .lux"}
         </button>
         <input
           ref={fileRef}
           type="file"
-          accept=".luxsim.json,.luxsim,application/json"
+          accept={LUXSIM_PROJECT_FILE_ACCEPT}
           className="sr-only"
           onChange={(e) => void onPickFile(e)}
         />

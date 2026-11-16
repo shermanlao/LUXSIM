@@ -271,7 +271,7 @@ export interface LuxsimProjectFile {
   luminaireLibrary?: Record<string, LuxsimLuminaireLibraryEntry>;
 }
 
-/** Library recognition fields for a luminaire stored in a .luxsim file. */
+/** Library recognition fields for a luminaire stored in a .lux / .luxsim file. */
 export interface LuxsimLuminaireLibraryEntry {
   origin?: string;
   libraryFamily?: string | null;

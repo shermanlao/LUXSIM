@@ -3562,7 +3562,7 @@ export function BuildingEditor({
                 }
               }}
             >
-              Save .luxsim
+              Save .lux
             </button>
             <button
               className="btn btn-accent w-full"

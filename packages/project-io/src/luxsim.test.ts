@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { PhotometricData } from "../../photometry/src/types";
 import {
+  LUXSIM_LEGACY_PROJECT_EXTENSIONS,
+  LUXSIM_PROJECT_EXTENSION,
+  LUXSIM_PROJECT_FILE_ACCEPT,
+  LUXSIM_PROJECT_MIME,
   LuxsimImportError,
+  isLuxsimProjectFilename,
+  luxsimProjectDownloadName,
   parseLuxsim,
   prepareLuxsimImport,
   rectPolygon,
@@ -339,3 +345,35 @@ describe("prepareLuxsimImport", () => {
     expect(olderPrepared.sourceFiles["lum-a"]?.text).toContain("SOURCE A");
   });
 });
+
+describe("official .lux project filename", () => {
+  it("saves as .lux and still recognises older .luxsim names", () => {
+    expect(LUXSIM_PROJECT_EXTENSION).toBe(".lux");
+    expect(LUXSIM_PROJECT_MIME).toBe("application/json");
+    expect(luxsimProjectDownloadName("Sample office")).toBe("Sample_office.lux");
+    expect(luxsimProjectDownloadName("")).toBe("luxsim-project.lux");
+    expect([...LUXSIM_LEGACY_PROJECT_EXTENSIONS]).toEqual([".luxsim", ".luxsim.json"]);
+    expect(LUXSIM_PROJECT_FILE_ACCEPT).toBe(".lux,.luxsim,.luxsim.json,application/json");
+    expect(isLuxsimProjectFilename("Office.lux")).toBe(true);
+    expect(isLuxsimProjectFilename("Office.LUX")).toBe(true);
+    expect(isLuxsimProjectFilename("Office.luxsim")).toBe(true);
+    expect(isLuxsimProjectFilename("Office.luxsim.json")).toBe(true);
+    expect(isLuxsimProjectFilename("path/Office.luxsim.JSON")).toBe(true);
+    expect(isLuxsimProjectFilename("Office.json")).toBe(false);
+    expect(isLuxsimProjectFilename("Office.luxury")).toBe(false);
+    expect(isLuxsimProjectFilename("Office.lux.bak")).toBe(false);
+  });
+
+  it("opens the same JSON format from a .lux or a .luxsim filename", () => {
+    const text = serializeLuxsim(sampleFile());
+    const fromLux = prepareLuxsimImport(text);
+    const fromLegacy = prepareLuxsimImport(text);
+    expect(isLuxsimProjectFilename("Sample_office.lux")).toBe(true);
+    expect(isLuxsimProjectFilename("Sample_office.luxsim")).toBe(true);
+    expect(fromLux.scene).toEqual(fromLegacy.scene);
+    expect(fromLux.results).toEqual(fromLegacy.results);
+    expect(fromLux.name).toBe("Sample office");
+    expect(JSON.parse(text).format).toBe("luxsim");
+  });
+});
+

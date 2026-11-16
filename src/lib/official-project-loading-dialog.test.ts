@@ -73,7 +73,10 @@ describe("official project loading dialog", () => {
     expect(guide).toMatch(/Loading project…/);
     expect(guide).toMatch(/正在載入專案…/);
     expect(guide).toMatch(/\*\*New project\*\*/);
-    expect(guide).toMatch(/\*\*Open \.luxsim\*\*/);
+    expect(guide).toMatch(/\*\*Open \.lux\*\*/);
+    expect(guide).toMatch(/\*\*Save \.lux\*\*/);
+    expect(guide).toMatch(/舊的 \.luxsim 或 \.luxsim\.json 檔同樣可以開啟/);
+    expect(guide).toMatch(/older \.luxsim and \.luxsim\.json files still open/);
     expect(guide).toMatch(/不能點背景關閉/);
     expect(guide).toMatch(/cannot be dismissed by clicking the backdrop/);
     expect(guide).toMatch(/沒有關閉按鈕/);

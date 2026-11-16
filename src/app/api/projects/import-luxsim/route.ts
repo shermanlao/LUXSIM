@@ -70,7 +70,7 @@ export async function POST(req: Request) {
     const body = await readImportRequest(req);
     if (!body.text.trim()) {
       return NextResponse.json(
-        { error: "A LUXSIM .luxsim.json file is required" },
+        { error: "A LUXSIM .lux or .luxsim file is required" },
         { status: 400 }
       );
     }

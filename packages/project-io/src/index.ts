@@ -27,6 +27,13 @@ export { normalizeWorkflowMode, WORKFLOW_MODES } from "./editor-workflow";
 export { buildDialuxPack, getDialuxPackWarnings } from "./dialux-pack";
 export type { DialuxPackInput } from "./dialux-pack";
 export {
+  LUXSIM_PROJECT_EXTENSION,
+  LUXSIM_LEGACY_PROJECT_EXTENSIONS,
+  LUXSIM_PROJECT_FILE_ACCEPT,
+  LUXSIM_PROJECT_MIME,
+  isLuxsimProjectFilename,
+  sanitizeProjectFilename,
+  luxsimProjectDownloadName,
   serializeLuxsim,
   parseLuxsim,
   prepareLuxsimImport,

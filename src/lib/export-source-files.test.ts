@@ -208,7 +208,7 @@ describe("collectOfficialExportSources", () => {
 });
 
 describe("official pack builders with collected sources", () => {
-  it("includes the cached original file in the verification zip and .luxsim", async () => {
+  it("includes the cached original file in the verification zip and .lux", async () => {
     const collected = await collectOfficialExportSources({
       luminaireIds: officialExportLuminaireIds(scene),
       photoCache: { "lum-a": photoA },

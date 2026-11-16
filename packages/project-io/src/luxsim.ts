@@ -7,6 +7,33 @@ import type {
   ResultsV2,
 } from "./types";
 
+/** Official download extension. File contents stay JSON with format: "luxsim". */
+export const LUXSIM_PROJECT_EXTENSION = ".lux";
+
+/** Older official names that must still open. */
+export const LUXSIM_LEGACY_PROJECT_EXTENSIONS = [".luxsim", ".luxsim.json"] as const;
+
+/** File-picker accept list: official .lux, legacy names, and JSON MIME. */
+export const LUXSIM_PROJECT_FILE_ACCEPT = ".lux,.luxsim,.luxsim.json,application/json";
+
+/** MIME type of the project file (pretty-printed JSON). */
+export const LUXSIM_PROJECT_MIME = "application/json";
+
+const LUXSIM_PROJECT_FILENAME_RE = /\.(lux|luxsim\.json|luxsim)$/i;
+
+export function isLuxsimProjectFilename(filename: string): boolean {
+  const base = filename.replace(/\\/g, "/").split("/").pop() || filename;
+  return LUXSIM_PROJECT_FILENAME_RE.test(base);
+}
+
+export function sanitizeProjectFilename(name: string): string {
+  return name.replace(/[^\w\-]+/g, "_").slice(0, 80) || "luxsim-project";
+}
+
+export function luxsimProjectDownloadName(projectName: string): string {
+  return `${sanitizeProjectFilename(projectName)}${LUXSIM_PROJECT_EXTENSION}`;
+}
+
 export function serializeLuxsim(project: LuxsimProjectFile): string {
   return JSON.stringify(project, null, 2);
 }

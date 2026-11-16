@@ -59,7 +59,7 @@ describe("app UI does not show DIALux wording", () => {
     expect(editor).not.toContain("desktop DIALux");
 
     expect(WORKFLOW_MODES.find((m) => m.id === "export")?.hint).toBe(
-      "Reports, .luxsim, verification pack."
+      "Reports, .lux, verification pack."
     );
     expect(WORKFLOW_MODES.find((m) => m.id === "export")?.hint).not.toMatch(/DIALux/i);
 
