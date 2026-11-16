@@ -40,7 +40,7 @@ describe("official room drag wiring", () => {
     expect(fixtureDown).not.toContain("shouldBeginRoomDrag");
     expect(fixtureDown).not.toContain("beginRoomDrag");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
+    expect(top).toContain("usePlanPointerNav");
     expect(top).not.toContain("click-drag pan");
     expect(top).not.toContain("startVertex");
   });

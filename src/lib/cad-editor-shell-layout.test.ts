@@ -297,5 +297,7 @@ describe("CAD editor shell keeps the canvas in view", () => {
     expect(buildingEditorSrc).toMatch(/if \(e\.key === "Escape"\) setFullscreen\(false\)/);
     // Fixtures list under the canvas must not steal the remaining height.
     expect(buildingEditorSrc).toMatch(/shrink-0 px-2 pb-2 max-h-40 overflow-auto/);
+    expect(buildingEditorSrc).toContain("editor-view-cluster");
+    expect(buildingEditorSrc).toContain('className="cad-chrome"');
   });
 });

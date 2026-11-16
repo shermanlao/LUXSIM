@@ -21,7 +21,7 @@ export function maintainedAverageLux(eave: number, maintenanceFactor: number): n
   return eave * maintenanceFactor;
 }
 export const DESIGN_ASSIST_DISCLAIMER =
-  "Design-assist only. Not tender-certified. Verify critical projects in DIALux or equivalent.";
+  "Design-assist only. Not tender-certified. Verify critical projects in a certified lighting calculation tool.";
 
 export function formatLux(value: number): string {
   if (!Number.isFinite(value)) return "—";

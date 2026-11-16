@@ -10,24 +10,28 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 
 ## 平面圖視野 / Plan view
 
-在 **Top** 或 **Bottom** 視圖：
+在 **Top**、**Bottom**、**Front**、**Side** 與 **3D** 視圖：
 
-- 在圖面上滾動滑鼠滾輪，會以游標位置為中心放大或縮小，不會捲動整頁。
-- 雙擊圖面空白處，會回到預設的置中適合視野。
+- 在圖面上滾動滑鼠滾輪，會放大或縮小（平面與立面以游標位置為中心），不會捲動整頁。
+- 按住滑鼠中鍵（滾輪按鈕）並拖曳，可平移圖面。不要用左鍵平移：左鍵仍用於點選、畫房，或拖移房間與燈具。
+- 在 **Top** 或 **Bottom** 雙擊圖面空白處，會回到預設的置中適合視野。
 - 切換樓層時，視野也會回到這個預設。
-- 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放仍可使用，並以游標為中心。
-- 目前不能用拖曳來平移圖面。在空白處拖曳不會移動視野；拖移房間請用 **Select** 在房間填色範圍上拖曳。若要一次移動整層，先在 **Building** 選取該樓層，再於該層任一房間填色範圍上拖曳。
+- 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放與中鍵平移仍可使用。
+- **Top**／**Bottom**／**Front**／**Side**／**3D** 切換與 **Fullscreen** 會連同等照度線或 3D 顯示開關，一起浮在圖面左上角，讓圖面本身有較大的操作面積。
+- 拖移房間請用 **Select** 在房間填色範圍上拖曳。若要一次移動整層，先在 **Building** 選取該樓層，再於該層任一房間填色範圍上拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
 - 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 或 **Bottom** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。若目前樓層的底圖是 DXF，可用 **Create rooms from DXF** 為每條封閉折線，以及由相連線段組成的簡單閉合迴路，在該層各建立一間房間；不會自動描繪 T 形交匯或共用牆的網絡。新房間使用官方預設，比例跟隨目前的 **Calibrate scale**。
 - 新匯入的 DXF 預設每個繪圖單位為 1 公尺，不必先校正即可畫房。若使用官方 **Calibrate scale** 兩點校正，DXF 描線與吸附點會一併按同一比例縮放（兩個軸使用同一個 `metersPerUnit`）。既有房間多邊形和燈具的世界座標已是公尺，不會再乘這個比例。
 
-On the **Top** or **Bottom** view:
+On the **Top**, **Bottom**, **Front**, **Side**, and **3D** views:
 
-- Scroll the mouse wheel on the plan to zoom toward the cursor. The page itself does not scroll.
-- Double-click an empty area of the plan to return to the default centred fit.
+- Scroll the mouse wheel on the view to zoom (toward the cursor on the plan and elevation views). The page itself does not scroll.
+- Hold the middle mouse button (the scroll-wheel button) and drag to pan the view. Do not pan with the left button: left-click still selects, draws rooms, or drags a room or fixture.
+- Double-click an empty area of the **Top** or **Bottom** plan to return to the default centred fit.
 - Switching storeys also resets the view to that default fit.
-- While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom still works toward the cursor.
-- Click-and-drag panning is not available yet. Dragging an empty area does not move the view. To move a room, use **Select** and drag the room fill. To move a whole storey, select the storey in **Building** first, then drag a room fill.
+- While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom toward the cursor and middle-button pan still work.
+- The **Top** / **Bottom** / **Front** / **Side** / **3D** tabs and **Fullscreen** sit together as floating controls at the top left of the plan, with the Isolines or 3D display toggles, so more of the canvas is available as operating area.
+- To move a room, use **Select** and drag the room fill. To move a whole storey, select the storey in **Building** first, then drag a room fill.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
 - When the active storey’s official underlay is a parsed DXF, picks on the **Top** or **Bottom** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, fixture drop placement, and dragging a room corner handle. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. With a DXF underlay, **Create rooms from DXF** makes rooms from closed polylines and from simple closed loops of connected lines on the current storey. It does not trace T-junctions or shared walls. New rooms use the official defaults, and scale follows the current **Calibrate scale**.
 - A newly imported DXF starts at 1 metre per drawing unit, so Draw room stays allowed without a prior calibrate. Official **Calibrate scale** (two points plus a real length) resizes the DXF drawing and the snap points together, using the same uniform `metersPerUnit` on both axes. Existing room polygons and fixture world coordinates are already in metres and are not multiplied by that scale.
@@ -53,7 +57,7 @@ If the plan underlay is an image or PDF that has not been calibrated, drawing a 
 
 若已選房間，該房每個角點會出現控制點，邊上亦會出現較小的插入控制點。拖移角點控制點可在世界 XY 平面拉伸該既有角，其餘角點不動。拖移邊上的插入控制點，會在該邊最接近的位置加入新角點，並可在同一拖移中放到目標位置。若有 DXF 底圖，插入與拖移時會使用同一套物件吸附（目前縮放下 8 個 CSS 像素內的端點、中點或線段上最近點）；沒有吸附時，新角點先落在該邊上最接近游標的位置，其後跟隨游標的世界座標。靠近既有角點的位置不會插入，以免搶走角點控制點。在房間填色範圍內拖移（不是角點或邊上控制點）仍會移動整個房間，形狀不變。若插入或拉伸後房間少於 3 個不重複角點、輪廓自交，或面積小於 0.01 m²，會還原到插入或拖移前的多邊形（不會留下多出來的頂點），並在狀態列說明原因。將游標移到角點控制點上，或先點一下該控制點但不拖移以選取該角，再按 Delete 或 Backspace，即可刪除該角點。邊上的插入控制點不能刪除。只選了房間但未指定要刪的角點時按 Delete，不會刪除任何角，狀態列會提示先選擇角點。若刪除後房間少於 3 個不重複角點、輪廓自交，或面積小於 0.01 m²，則不改房間，並在狀態列說明原因。畫房草稿進行中，Backspace 仍會先清掉鎖定長度，再撤回上一個草稿角，行為不變。
 
-若在左側 **Building** 樹選取的是樓層（該層平面被選取，而不是單一房間），用 **Select** 在該層任一房間的填色範圍上按下並拖曳，會把該層所有房間一次沿同一世界 XY 位移平移。各房形狀不變，屬於這些房間的燈具會一併移動（高度與旋轉不變）。其他樓層不會移動。允許房間重疊。計算結果會留在原位，直到再按 Calculate。若只是點一下房間而未拖移，仍會改為選取該房間；選取房間之後，拖移則只移動該房，行為與原本單一房間拖移相同。按住 **Shift** 同樣限制為水平或垂直。一次整層拖移可用 **Ctrl+Z** 撤銷。這不是平移圖面：空白處拖曳仍不會移動視野。
+若在左側 **Building** 樹選取的是樓層（該層平面被選取，而不是單一房間），用 **Select** 在該層任一房間的填色範圍上按下並拖曳，會把該層所有房間一次沿同一世界 XY 位移平移。各房形狀不變，屬於這些房間的燈具會一併移動（高度與旋轉不變）。其他樓層不會移動。允許房間重疊。計算結果會留在原位，直到再按 Calculate。若只是點一下房間而未拖移，仍會改為選取該房間；選取房間之後，拖移則只移動該房，行為與原本單一房間拖移相同。按住 **Shift** 同樣限制為水平或垂直。一次整層拖移可用 **Ctrl+Z** 撤銷。這不是平移圖面：左鍵在空白處拖曳仍不會移動視野；按住滑鼠中鍵拖曳才會平移。
 
 在左側 **Building** 面板可設定 **Room height**（毫米，預設 2800）。未選房間時此欄仍可見，會用於下一間用 **Draw room**、**Create rectangle** 或 **Create rooms from DXF** 建立的房間。若已選房間，改此欄也會更新該房的天花板高度，其他房間不變。
 
@@ -82,7 +86,7 @@ After a room is created, choose the **Select** tool and drag the room fill on th
 
 With a room selected, drag a corner handle to stretch that existing vertex in world XY; the rest of the polygon stays put. Drag a smaller mid-edge handle to insert a new corner at the closest point on that edge (or on a DXF object snap when one is in range) and place it in the same drag. When a DXF underlay is present, the same official object snap applies to inserts and stretches (endpoint, midpoint, or nearest-on-segment within 8 CSS pixels). If no snap is in range, a new vertex starts on the closest point on the edge, then follows the raw world point. A mid-edge hit uses the same 8 CSS-pixel aperture, excluding a margin around the two endpoints so it cannot steal a corner handle. Drag the room fill still moves the whole room without changing its shape. If an insert or stretch would leave fewer than 3 unique corners, a self-crossing outline, or an area below 0.01 m², the polygon is reverted to its pre-insert or pre-drag shape (no stuck extra vertex) and the status bar explains why. With a room selected, hover a corner handle, or click a corner handle without dragging to select that vertex, then press Delete or Backspace to remove it. A mid-edge insert handle is not deletable. Pressing Delete with a room selected but no target vertex does not change the room; the status bar explains that you need a corner handle. If a delete would leave fewer than 3 unique corners, a self-crossing outline, or an area below 0.01 m², the room is left unchanged and the status bar explains why. Draw-room Backspace is unchanged: while a draft is active, one Backspace clears a locked typed length and the next drops the last draft corner.
 
-If the **Building** tree selection is a storey (the plan / storey is selected, not a single room), use the **Select** tool and press-and-drag the fill of any room on that storey to translate every room on that storey by the same world XY delta. Room shapes stay the same. Fixtures whose room belongs to those rooms move with them (Z and rotation unchanged). Rooms on other storeys do not move. Overlap is allowed. Calculation results stay in place until you recalculate. A click without movement on a room still selects that room. Once a room is selected, drag still moves only that room, as before. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the whole-storey move as one step. This is not plan panning: dragging an empty area still does not move the view.
+If the **Building** tree selection is a storey (the plan / storey is selected, not a single room), use the **Select** tool and press-and-drag the fill of any room on that storey to translate every room on that storey by the same world XY delta. Room shapes stay the same. Fixtures whose room belongs to those rooms move with them (Z and rotation unchanged). Rooms on other storeys do not move. Overlap is allowed. Calculation results stay in place until you recalculate. A click without movement on a room still selects that room. Once a room is selected, drag still moves only that room, as before. Hold **Shift** to constrain the move to horizontal or vertical. **Ctrl+Z** undoes the whole-storey move as one step. This is not plan panning: left-dragging an empty area still does not move the view. Hold the middle mouse button to pan.
 
 Set **Room height** in the **Building** panel (millimetres, default 2800) before you create a room. The field stays visible when no room is selected and is used for the next room you draw or create with **Draw room**, **Create rectangle**, or **Create rooms from DXF**. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.
 
@@ -186,11 +190,11 @@ In **Light** mode, select a room in the building tree, then choose **Polygon** i
 
 ## 等照度線與數值圖 / Isolines and value labels
 
-在 **Top** 或 **Bottom** 視圖，若所選房間已有計算結果，可在圖面左上角切換 **False colour**（偽色）和 **Isolines**（等照度線），並可勾選 **Value labels**（數值圖）在工作面網格上顯示或隱藏照度數值。在 **3D** 視圖，可在既有的 **Greyscale**（灰階）和 **False colour** 之外切換 **Isolines**，把同一套等照度線畫在該房工作面高度上，並使用同一個 **Value labels** 開關顯示或隱藏網格數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。沒有結果的房間不會發明數字：等照度線與數值圖切換會停用，並提示先執行 **Calculate**。本產品沒有自訂等照度線預設。
+在 **Top** 或 **Bottom** 視圖，若所選房間已有計算結果，可在圖面左上角、與視圖及 Fullscreen 按鈕同一組浮動控制中，切換 **False colour**（偽色）和 **Isolines**（等照度線），並可勾選 **Value labels**（數值圖）在工作面網格上顯示或隱藏照度數值。在 **3D** 視圖，可在既有的 **Greyscale**（灰階）和 **False colour** 之外切換 **Isolines**，把同一套等照度線畫在該房工作面高度上，並使用同一個 **Value labels** 開關顯示或隱藏網格數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。沒有結果的房間不會發明數字：等照度線與數值圖切換會停用，並提示先執行 **Calculate**。本產品沒有自訂等照度線預設。
 
 匯出 **Full PDF report** 時，每間已計算房間的摘要會附上工作面等照度線圖，並標上沿線數值與網格數值。即使 3D 視圖未能擷取，這些由平面模型產生的圖仍會匯出。既有的偽色工作面圖與 3D 灰階／偽色章節維持不變；報告不會另增一章 3D 等照度線，也不會拿掉既有的 2D 等照度線圖。
 
-On the **Top** or **Bottom** view, when the selected room has calculation results, use the controls at the top left of the plan to switch between **False colour** and **Isolines**, and tick **Value labels** to show or hide illuminance values on the workplane grid. On the **3D** view, **Isolines** is an additional display mode beside **Greyscale** and **False colour**. It draws the same isolines on the workplane at the room’s workplane height, and uses the same **Value labels** control to show or hide grid values. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Rooms without results do not invent numbers: the isoline and value-label controls are disabled and ask you to run **Calculate** first. There are no custom isoline presets.
+On the **Top** or **Bottom** view, when the selected room has calculation results, use the floating controls at the top left of the plan, next to the view and Fullscreen buttons, to switch between **False colour** and **Isolines**, and tick **Value labels** to show or hide illuminance values on the workplane grid. On the **3D** view, **Isolines** is an additional display mode beside **Greyscale** and **False colour**. It draws the same isolines on the workplane at the room’s workplane height, and uses the same **Value labels** control to show or hide grid values. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Rooms without results do not invent numbers: the isoline and value-label controls are disabled and ask you to run **Calculate** first. There are no custom isoline presets.
 
 When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D greyscale / false-colour chapters are unchanged. The report does not add a separate 3D-isoline chapter, and it does not drop the existing 2D isolux snapshots.
 

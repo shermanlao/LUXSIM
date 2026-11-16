@@ -312,6 +312,13 @@ export function BuildingScene3D({
           target={startTarget.current}
           minPolarAngle={0.2}
           maxPolarAngle={Math.PI / 2 - 0.05}
+          enableZoom
+          enablePan
+          mouseButtons={{
+            LEFT: THREE.MOUSE.ROTATE,
+            MIDDLE: THREE.MOUSE.PAN,
+            RIGHT: THREE.MOUSE.DOLLY,
+          }}
         />
         <OrbitViewBridge
           viewRef={viewRef}

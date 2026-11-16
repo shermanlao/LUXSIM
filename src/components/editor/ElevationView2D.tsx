@@ -1,11 +1,23 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { FixtureInstance, ProjectSceneV2 } from "@luxsim/project-io";
 import { roomBounds } from "@luxsim/project-io";
 import { clientToSvgPoint } from "./svg-coords";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
+import { useViewElementSize } from "@/lib/use-view-element-size";
+import { usePlanPointerNav } from "./usePlanPointerNav";
+import {
+  DEFAULT_PLAN_ZOOM,
+  PLAN_PAN_BUTTON,
+  planViewTransform,
+} from "@/lib/plan-zoom";
+import {
+  OFFICIAL_PLAN_FIT_MARGIN,
+  OFFICIAL_PLAN_VIEW_H,
+  OFFICIAL_PLAN_VIEW_W,
+} from "@/lib/official-plan-world-bounds";
 
 type Props = {
   scene: ProjectSceneV2;
@@ -27,7 +39,10 @@ export function ElevationView2D({
   onMoveInstance,
   photometry,
 }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const panningRef = useRef(false);
+  const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const grabOffset = useRef({ a: 0, z: 0 });
 
   const storey = scene.storeys.find((s) => s.id === scene.ui.activeStoreyId);
@@ -35,6 +50,11 @@ export function ElevationView2D({
   const instances = scene.instances.filter((i) => i.storeyId === scene.ui.activeStoreyId);
   const elev = storey?.elevationM ?? 0;
   const height = storey?.heightM ?? 3;
+  const storeyId = scene.ui.activeStoreyId;
+
+  useEffect(() => {
+    setPlanView(DEFAULT_PLAN_ZOOM);
+  }, [storeyId]);
 
   let minA = 0,
     maxA = 10;
@@ -49,15 +69,31 @@ export function ElevationView2D({
     }
   }
   const widthM = Math.max(4, maxA - minA + 2);
-  const viewW = 640;
-  const viewH = 360;
-  const scale = Math.min(viewW / widthM, viewH / (height + 1)) * 0.9;
-  const ox = (viewW - widthM * scale) / 2;
-  const oy = 40;
+  const padM = 0.5;
+  const heightM = height + 2 * padM;
+  const { viewW, viewH } = useViewElementSize(
+    hostRef,
+    OFFICIAL_PLAN_VIEW_W,
+    OFFICIAL_PLAN_VIEW_H
+  );
+  const fitScale = Math.min(viewW / widthM, viewH / heightM) * OFFICIAL_PLAN_FIT_MARGIN;
+  const fitOx = (viewW - widthM * fitScale) / 2;
+  const fitOy = (viewH - heightM * fitScale) / 2;
+  const { scale, ox, oy } = planViewTransform(fitOx, fitOy, fitScale, viewW, viewH, planView);
+
+  usePlanPointerNav(svgRef, {
+    viewW,
+    viewH,
+    fitOx,
+    fitOy,
+    fitScale,
+    setPlanView,
+    panningRef,
+  });
 
   const toScreen = (a: number, z: number) => ({
     x: ox + (a - minA + 1) * scale,
-    y: oy + (elev + height - z) * scale,
+    y: oy + (padM + elev + height - z) * scale,
   });
 
   function clientToWorld(clientX: number, clientY: number) {
@@ -65,12 +101,13 @@ export function ElevationView2D({
     if (!svg) return { a: 0, z: 0 };
     const { x: sx, y: sy } = clientToSvgPoint(svg, clientX, clientY);
     const a = minA - 1 + (sx - ox) / scale;
-    const z = elev + height - (sy - oy) / scale;
+    const z = elev + height - ((sy - oy) / scale - padM);
     return { a, z };
   }
 
   return (
     <div
+      ref={hostRef}
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
@@ -110,6 +147,7 @@ export function ElevationView2D({
               key={inst.instanceId}
               style={{ cursor: "grab" }}
               onMouseDown={(e) => {
+                if (e.button === PLAN_PAN_BUTTON || e.button !== 0 || panningRef.current) return;
                 e.stopPropagation();
                 onSelect(inst.instanceId);
                 const w0 = clientToWorld(e.clientX, e.clientY);
@@ -150,7 +188,9 @@ export function ElevationView2D({
         })}
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
-        {mode === "front" ? "Front (X–Z)" : "Side (Y–Z)"} · drag fixtures vertically
+        {(mode === "front" ? "Front (X-Z)" : "Side (Y-Z)") +
+          " · drag fixtures vertically" +
+          (planView.zoom !== 1 ? " · scroll to zoom · hold middle button to pan" : "")}
       </div>
     </div>
   );

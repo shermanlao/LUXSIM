@@ -31,10 +31,19 @@ describe("user guide", () => {
   });
 
   it("documents wheel zoom, reset, Backspace, and Esc", () => {
-    expect(guide).toMatch(/zoom toward the cursor/i);
+    expect(guide).toMatch(/zoom \(toward the cursor on the plan and elevation views\)/i);
     expect(guide).toMatch(/以游標位置為中心/);
     expect(guide).toMatch(/The page itself does not scroll/);
     expect(guide).toMatch(/不會捲動整頁/);
+    expect(guide).toMatch(/middle mouse button/i);
+    expect(guide).toMatch(/滑鼠中鍵/);
+    expect(guide).toMatch(/Do not pan with the left button/);
+    expect(guide).toMatch(/不要用左鍵平移/);
+    expect(guide).toMatch(/\*\*Front\*\*/);
+    expect(guide).toMatch(/\*\*Side\*\*/);
+    expect(guide).toMatch(/\*\*3D\*\*/);
+    expect(guide).toMatch(/floating controls/);
+    expect(guide).toMatch(/浮在圖面左上角/);
     expect(guide).toMatch(/Double-click an empty area/);
     expect(guide).toMatch(/雙擊圖面空白處/);
     expect(guide).toMatch(/Switching storeys also resets/);

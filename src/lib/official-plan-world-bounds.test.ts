@@ -399,7 +399,8 @@ describe("TopView2D wiring", () => {
     expect(src).toContain("planViewTransform");
     expect(src).toContain("plan-zoom");
     expect(src).toContain("officialPlanFitTransform");
-    expect(src).toContain("zoomPlanToward");
+    expect(src).toContain("usePlanPointerNav");
+    expect(src).toContain("useViewElementSize");
     expect(helper).toContain("void input.draft");
     expect(helper).not.toMatch(/for \(const p of input\.draft/);
     expect(helper).toContain("OFFICIAL_PLAN_EMPTY_MAX_X = 12");

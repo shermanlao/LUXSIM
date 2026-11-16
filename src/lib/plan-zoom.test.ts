@@ -8,11 +8,14 @@ import {
 } from "./official-plan-world-bounds";
 import {
   DEFAULT_PLAN_ZOOM,
+  PLAN_PAN_BUTTON,
   PLAN_ZOOM_MAX,
   PLAN_ZOOM_MIN,
   centeredFitOrigin,
   clampPlanZoom,
+  panPlanBy,
   planViewTransform,
+  pointerDeltaToView,
   wheelZoomFactor,
   zoomPlanToward,
 } from "./plan-zoom";
@@ -108,14 +111,33 @@ describe("plan zoom", () => {
   });
 });
 
+describe("plan pan", () => {
+  it("adds a finite pan delta and leaves a zero or non-finite delta unchanged", () => {
+    const view = { zoom: 2, panX: 4, panY: -3 };
+    expect(PLAN_PAN_BUTTON).toBe(1);
+    expect(panPlanBy(view, 10, -5)).toEqual({ zoom: 2, panX: 14, panY: -8 });
+    expect(panPlanBy(view, 0, 0)).toBe(view);
+    expect(panPlanBy(view, Number.NaN, 1)).toBe(view);
+    expect(panPlanBy(view, 1, Number.POSITIVE_INFINITY)).toBe(view);
+  });
+
+  it("converts CSS pointer deltas into viewBox units", () => {
+    expect(pointerDeltaToView(20, -10, 200, 100, 640, 480)).toEqual({ dx: 64, dy: -48 });
+    expect(pointerDeltaToView(10, 10, 0, 100, 640, 480)).toEqual({ dx: 0, dy: 0 });
+    expect(pointerDeltaToView(Number.NaN, 8, 200, 100, 640, 480)).toEqual({ dx: 0, dy: 0 });
+  });
+});
+
 describe("TopView2D wheel-zoom wiring", () => {
   it("applies cursor-stable wheel zoom on the official fit and does not put draft in the auto-fit deps", () => {
     const src = topViewSrc();
     expect(src).toContain('from "@/lib/plan-zoom"');
     expect(src).toContain("DEFAULT_PLAN_ZOOM");
     expect(src).toContain("planViewTransform");
-    expect(src).toContain("wheelZoomFactor");
-    expect(src).toContain("zoomPlanToward");
+    expect(src).toContain("usePlanPointerNav");
+    expect(src).toContain("useViewElementSize");
+    expect(src).toContain("PLAN_PAN_BUTTON");
+    expect(src).toContain("panningRef");
     expect(src).toContain("officialPlanWorldBounds");
     expect(src).toContain("officialPlanFitTransform");
     expect(src).toMatch(
@@ -126,10 +148,22 @@ describe("TopView2D wheel-zoom wiring", () => {
     );
     expect(src).not.toMatch(/for \(const p of draft\)/);
     expect(src).not.toMatch(/underlaySize,\s*draft/);
-    expect(src).toContain("e.preventDefault()");
-    expect(src).toContain("e.stopPropagation()");
-    expect(src).toContain('addEventListener("wheel"');
-    expect(src).toContain("passive: false");
+    const navSrc = readFileSync(
+      path.join(process.cwd(), "src/components/editor/usePlanPointerNav.ts"),
+      "utf8"
+    );
+    expect(navSrc).toContain("wheelZoomFactor");
+    expect(navSrc).toContain("zoomPlanToward");
+    expect(navSrc).toContain("panPlanBy");
+    expect(navSrc).toContain("pointerDeltaToView");
+    expect(navSrc).toContain("PLAN_PAN_BUTTON");
+    expect(navSrc).toContain("e.preventDefault()");
+    expect(navSrc).toContain("e.stopPropagation()");
+    expect(navSrc).toContain('addEventListener("wheel"');
+    expect(navSrc).toContain("passive: false");
+    expect(navSrc).toContain("setPointerCapture");
+    expect(navSrc).not.toMatch(/e\.button\s*===\s*0/);
+    expect(src).toMatch(/e\.button === PLAN_PAN_BUTTON \|\| e\.button !== 0 \|\| panningRef\.current/);
     expect(src).toContain('data-plan-bg="true"');
     expect(src).toContain('closest("[data-plan-bg]")');
     expect(src).toContain("double-click empty area to reset");

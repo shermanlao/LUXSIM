@@ -24,7 +24,7 @@ export const WORKFLOW_MODES: {
   {
     id: "export",
     label: "Documentation",
-    hint: "Reports, .luxsim, DIALux verification zip.",
+    hint: "Reports, .luxsim, verification pack.",
   },
 ];
 

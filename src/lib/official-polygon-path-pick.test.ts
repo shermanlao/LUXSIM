@@ -85,8 +85,7 @@ describe("official Polygon custom-path pick wiring", () => {
     expect(top).toContain(
       "if (drawing || linePickActive || circlePickActive || polygonPickActive) return;"
     );
-    expect(top).toContain("wheelZoomFactor");
-    expect(top).toContain("zoomPlanToward");
+    expect(top).toContain("usePlanPointerNav");
     expect(top).toContain("polygonPathCloseSnapM");
     expect(POLYGON_PATH_CLOSE_SNAP_CSS_PX).toBe(4);
 

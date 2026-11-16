@@ -69,7 +69,7 @@ describe("official vertex stretch wiring", () => {
     expect(fixtureDown).not.toContain("beginVertexStretch");
     expect(fixtureDown).not.toContain("beginEdgeInsert");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
+    expect(top).toContain("usePlanPointerNav");
     expect(top).not.toContain("click-drag pan");
   });
 

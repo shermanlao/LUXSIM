@@ -256,7 +256,7 @@ describe("official DXF object-snap wiring", () => {
     expect(top).not.toMatch(/beginMove\([^)]*snappedWorldAt/);
     expect(top).toContain("onDropLuminaire(luminaireId, snapped.x, snapped.y)");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
+    expect(top).toContain("usePlanPointerNav");
     expect(top).not.toContain("click-drag pan");
     expect(top).not.toMatch(/auto-?room/i);
     expect(top).not.toMatch(/intersection snap/i);

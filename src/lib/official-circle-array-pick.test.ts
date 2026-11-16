@@ -51,8 +51,7 @@ describe("official Circle array wiring", () => {
     expect(top).toContain("circlePickActive");
     expect(top).toContain("toWorld");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
-    expect(top).toContain("zoomPlanToward");
+    expect(top).toContain("usePlanPointerNav");
 
     expect(panel).toContain('from "@/lib/circle-array-pick"');
     expect(panel).toContain('["circle", "Circle", "圓形"]');

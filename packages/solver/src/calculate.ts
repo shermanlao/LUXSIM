@@ -5,7 +5,7 @@ import { computeUgr } from "./ugr";
 import type { CalcOptions, CalcResults } from "./types";
 
 const DISCLAIMER =
-  "LUXSIM design-assist results. Not tender-certified. Verify critical projects in software such as DIALux.";
+  "LUXSIM design-assist results. Not tender-certified. Verify critical projects in a certified lighting calculation tool.";
 
 export function calculate(options: CalcOptions): CalcResults {
   const { room, luminaires, grid } = options;

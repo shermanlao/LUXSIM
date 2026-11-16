@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useViewElementSize } from "@/lib/use-view-element-size";
+import { usePlanPointerNav } from "./usePlanPointerNav";
 import type { DxfEntity, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
 import {
@@ -79,9 +81,8 @@ import {
 } from "@/lib/official-plan-world-bounds";
 import {
   DEFAULT_PLAN_ZOOM,
+  PLAN_PAN_BUTTON,
   planViewTransform,
-  wheelZoomFactor,
-  zoomPlanToward,
 } from "@/lib/plan-zoom";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
@@ -179,7 +180,9 @@ export function TopView2D({
   planIsoluxMode = "falsecolor",
   showValueLabels = false,
 }: Props) {
+  const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
+  const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const [draft, setDraft] = useState<Vec2[]>([]);
   const [cursor, setCursor] = useState<Vec2 | null>(null);
@@ -293,8 +296,11 @@ export function TopView2D({
     [rooms, dxfEntities, underlay, underlaySize]
   );
 
-  const viewW = OFFICIAL_PLAN_VIEW_W;
-  const viewH = OFFICIAL_PLAN_VIEW_H;
+  const { viewW, viewH } = useViewElementSize(
+    hostRef,
+    OFFICIAL_PLAN_VIEW_W,
+    OFFICIAL_PLAN_VIEW_H
+  );
   const { scale: fitScale, ox: fitOx, oy: fitOy } = officialPlanFitTransform(world, viewW, viewH);
   const { scale, ox, oy } = planViewTransform(fitOx, fitOy, fitScale, viewW, viewH, planView);
   /**
@@ -770,33 +776,19 @@ export function TopView2D({
   const liveMm =
     last && preview ? Math.round(mToMm(Math.hypot(preview.x - last.x, preview.y - last.y))) : null;
 
-  useEffect(() => {
-    const el = svgRef.current;
-    if (!el) return;
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const { x, y } = clientToSvgPoint(el, e.clientX, e.clientY);
-      const factor = wheelZoomFactor(e.deltaY);
-      setPlanView((view) =>
-        zoomPlanToward(view, {
-          factor,
-          cursorX: x,
-          cursorY: y,
-          viewW,
-          viewH,
-          fitOx,
-          fitOy,
-          fitScale,
-        })
-      );
-    };
-    el.addEventListener("wheel", onWheel, { passive: false });
-    return () => el.removeEventListener("wheel", onWheel);
-  }, [fitOx, fitOy, fitScale]);
+  usePlanPointerNav(svgRef, {
+    viewW,
+    viewH,
+    fitOx,
+    fitOy,
+    fitScale,
+    setPlanView,
+    panningRef,
+  });
 
   return (
     <div
+      ref={hostRef}
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onMouseLeave={() => {
@@ -832,6 +824,7 @@ export function TopView2D({
         className="w-full h-full"
         preserveAspectRatio="xMidYMid meet"
         onMouseDown={(e) => {
+          if (e.button === PLAN_PAN_BUTTON || e.button !== 0 || panningRef.current) return;
           const snapped = snappedWorldAt(e.clientX, e.clientY);
           const w = { x: snapped.x, y: snapped.y };
           setSnapHit(snapped.hit);
@@ -947,6 +940,7 @@ export function TopView2D({
                       : "inherit",
               }}
               onMouseDown={(e) => {
+                if (e.button !== 0 || panningRef.current) return;
                 if (drawing || scene.ui.tool === "calibrate") return;
                 if (linePickActive && onLinePickChange) {
                   e.stopPropagation();
@@ -1108,6 +1102,7 @@ export function TopView2D({
                     data-room-edge-insert={edge.edgeIndex}
                     style={{ cursor: "pointer" }}
                     onMouseDown={(e) => {
+                      if (e.button !== 0 || panningRef.current) return;
                       if (drawing || scene.ui.tool === "calibrate") return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
                       if (unionPickActive) return;
@@ -1193,6 +1188,7 @@ export function TopView2D({
                     data-room-vertex-active={selectedVertex ? "true" : undefined}
                     style={{ cursor: stretching ? "grabbing" : "pointer" }}
                     onMouseDown={(e) => {
+                      if (e.button !== 0 || panningRef.current) return;
                       if (drawing || scene.ui.tool === "calibrate") return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
                       if (unionPickActive) return;
@@ -1451,6 +1447,7 @@ export function TopView2D({
               transform={`translate(${s.x},${s.y})`}
               style={{ cursor: movingId === inst.instanceId ? "grabbing" : "grab" }}
               onMouseDown={(e) => {
+                if (e.button !== 0 || panningRef.current) return;
                 e.stopPropagation();
                 if (linePickActive && onLinePickChange) {
                   if (e.detail === 1) {

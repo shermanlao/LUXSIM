@@ -45,8 +45,7 @@ describe("official Line click-to-pick wiring", () => {
     expect(top).toContain("toWorld");
     expect(top).toContain("e.detail === 1");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
-    expect(top).toContain("zoomPlanToward");
+    expect(top).toContain("usePlanPointerNav");
 
     expect(panel).toContain('from "@/lib/line-array-pick"');
     expect(panel).toContain("lineStart");

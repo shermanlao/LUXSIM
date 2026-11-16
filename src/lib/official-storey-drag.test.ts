@@ -37,7 +37,7 @@ describe("official storey drag wiring", () => {
     expect(top).toContain("addEventListener(\"mousemove\", move)");
     expect(top).toContain("addEventListener(\"mouseup\", up)");
     expect(top).toContain("if (drawing || scene.ui.tool === \"calibrate\") return;");
-    expect(top).toContain("wheelZoomFactor");
+    expect(top).toContain("usePlanPointerNav");
     expect(top).not.toContain("click-drag pan");
     expect(top).not.toContain("startVertex");
   });

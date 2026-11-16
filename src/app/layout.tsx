@@ -18,7 +18,7 @@ const sourceSans = Source_Sans_3({
 export const metadata: Metadata = {
   title: "LUXSIM — Lighting design assist",
   description:
-    "Import IES/LDT, place luminaires in a room, calculate lux/UGR in the browser, export PDF and DIALux packs.",
+    "Import IES/LDT, place luminaires in a room, calculate lux/UGR in the browser, export PDF and a verification pack.",
 };
 
 export default function RootLayout({

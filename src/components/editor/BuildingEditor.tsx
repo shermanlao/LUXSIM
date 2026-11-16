@@ -1762,7 +1762,7 @@ export function BuildingEditor({
     setStatus(
       soft.length
         ? `Verification zip downloaded. Note: ${soft[0]}`
-        : "DIALux verification zip downloaded — see README.txt in the zip."
+        : "Verification pack downloaded — see README.txt in the zip."
     );
   }
 
@@ -1873,8 +1873,37 @@ export function BuildingEditor({
           : "panel relative overflow-hidden flex-1 min-h-0 bg-[#0a1218] border-[#2a3842] flex flex-col"
       }
     >
-      {viewMode === "persp3d" && (
-        <div className="absolute top-3 left-3 z-10">
+      <div className="editor-view-cluster">
+        <div className="editor-viewbar" role="toolbar" aria-label="View and fullscreen">
+          {viewTabs.map(({ mode, label, icon }) => (
+            <button
+              key={mode}
+              type="button"
+              className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
+              onClick={() =>
+                patchSceneUi((s) => ({
+                  ...s,
+                  ui: {
+                    ...s.ui,
+                    viewMode: mode,
+                    camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
+                  },
+                }))
+              }
+            >
+              {icon}
+              {label}
+            </button>
+          ))}
+          <button
+            type="button"
+            className="btn btn-secondary !py-1.5 !px-3 !text-xs editor-viewbar__fullscreen"
+            onClick={() => setFullscreen((v) => !v)}
+          >
+            {fullscreen ? "Exit fullscreen" : "Fullscreen"}
+          </button>
+        </div>
+        {viewMode === "persp3d" && (
           <Display3dToggle
             value={display3d}
             onChange={(mode) =>
@@ -1894,10 +1923,8 @@ export function BuildingEditor({
               }))
             }
           />
-        </div>
-      )}
-      {(viewMode === "top" || viewMode === "bottom") && (
-        <div className="absolute top-3 left-3 z-10">
+        )}
+        {(viewMode === "top" || viewMode === "bottom") && (
           <PlanIsoluxToggle
             mode={planIsoluxMode}
             onModeChange={(mode) =>
@@ -1916,16 +1943,7 @@ export function BuildingEditor({
             enabled={planIsoluxControls.enabled}
             reason={planIsoluxControls.reason}
           />
-        </div>
-      )}
-      <div className="absolute top-3 right-3 z-10 flex gap-2">
-        <button
-          type="button"
-          className="btn btn-secondary !py-1.5 !px-3 !text-xs"
-          onClick={() => setFullscreen((v) => !v)}
-        >
-          {fullscreen ? "Exit fullscreen" : "Fullscreen"}
-        </button>
+        )}
       </div>
       <div className="relative flex-1 min-h-0 bg-[#0a1218]">
       {(viewMode === "top" || viewMode === "bottom") && (
@@ -2063,6 +2081,7 @@ export function BuildingEditor({
 
   return (
     <div className="cad-editor">
+      <div className="cad-chrome">
       <header className="cad-file-bar">
         <span className="text-[10px] uppercase tracking-widest text-[#8fa3ad] shrink-0">Project</span>
         <input
@@ -2077,9 +2096,26 @@ export function BuildingEditor({
           aria-label="Project name"
         />
         <p className="cad-disclaimer hidden lg:block">
-          Design assist · not tender-certified · verify in DIALux
+          Design assist · not tender-certified
         </p>
-        <div className="flex flex-wrap gap-2 items-center ml-auto">
+      </header>
+
+      <nav className="cad-ribbon" role="tablist" aria-label="Workflow mode">
+        {WORKFLOW_MODES.map((m) => (
+          <button
+            key={m.id}
+            type="button"
+            role="tab"
+            aria-selected={workflow === m.id}
+            className={`cad-ribbon__mode ${workflow === m.id ? "is-active" : ""}`}
+            onClick={() => setWorkflowMode(m.id)}
+          >
+            {modeIcons[m.id]}
+            {m.label}
+          </button>
+        ))}
+        <span className="cad-ribbon__hint">{workflowMeta.hint}</span>
+        <div className="cad-ribbon__actions">
           <button type="button" className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
@@ -2109,24 +2145,8 @@ export function BuildingEditor({
             </span>
           )}
         </div>
-      </header>
-
-      <nav className="cad-ribbon" role="tablist" aria-label="Workflow mode">
-        {WORKFLOW_MODES.map((m) => (
-          <button
-            key={m.id}
-            type="button"
-            role="tab"
-            aria-selected={workflow === m.id}
-            className={`cad-ribbon__mode ${workflow === m.id ? "is-active" : ""}`}
-            onClick={() => setWorkflowMode(m.id)}
-          >
-            {modeIcons[m.id]}
-            {m.label}
-          </button>
-        ))}
-        <span className="cad-ribbon__hint">{workflowMeta.hint}</span>
       </nav>
+      </div>
 
       {workflow === "light" && !activeRoom && (
         <p className="workflow-banner">Select a room in the building tree — luminaires need a closed space.</p>
@@ -2488,29 +2508,6 @@ export function BuildingEditor({
         </aside>
 
         <section className="cad-center">
-          <div className="editor-viewbar">
-            {viewTabs.map(({ mode, label, icon }) => (
-              <button
-                key={mode}
-                type="button"
-                className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
-                onClick={() =>
-                  patchSceneUi((s) => ({
-                    ...s,
-                    ui: {
-                      ...s.ui,
-                      viewMode: mode,
-                      camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
-                    },
-                  }))
-                }
-              >
-                {icon}
-                {label}
-              </button>
-            ))}
-          </div>
-
           <div className="cad-viewport-wrap">
             {viewport}
           </div>
@@ -3103,10 +3100,10 @@ export function BuildingEditor({
               data-help-key="export.dialuxVerification"
               onClick={() => void onExportDialuxVerification()}
             >
-              DIALux verification (zip)
+              Verification pack (zip)
             </button>
             <p className="text-[10px] text-[var(--muted)]">
-              Multi-room geometry, IES/LDT, DXF, and results CSV for desktop DIALux cross-check.
+              Multi-room geometry, IES/LDT, DXF, and results CSV for an independent cross-check.
             </p>
           </div>
         </aside>

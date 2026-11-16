@@ -19,7 +19,7 @@ export default async function HomePage() {
           <p className="text-lg text-[var(--muted)] max-w-xl mb-8">
             Import your own IES/LDT photometry, place fixtures in a simple room, and
             run client-side lux, interreflection, and UGR — then export PDF or a
-            DIALux-ready pack.
+            verification pack.
           </p>
           <div className="flex flex-wrap gap-3">
             <Link href="/register" className="btn btn-accent">
@@ -35,12 +35,12 @@ export default async function HomePage() {
             <div className="absolute inset-6 border border-white/20" />
             <div className="absolute left-1/2 top-[42%] -translate-x-1/2 w-3/4 h-1/3 bg-[radial-gradient(ellipse_at_center,rgba(255,220,150,0.55),transparent_70%)] blur-sm" />
             <p className="absolute bottom-4 left-4 right-4 text-white/85 text-sm">
-              False-color workplane · IES import · DIALux pack export
+              False-color workplane · IES import · verification pack export
             </p>
           </div>
           <p className="disclaimer mt-4">
             Design-assist only. Numbers are approximate. Validate tender-critical
-            projects in certified tools such as DIALux.
+            projects in a certified lighting calculation tool.
           </p>
         </div>
       </section>

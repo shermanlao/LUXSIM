@@ -93,3 +93,33 @@ export function zoomPlanToward(
     panY: opts.cursorY - (afterBase.oy + afterBase.scale * worldOffsetY),
   };
 }
+
+/** Middle mouse button (the scroll-wheel button). Left-click must not pan. */
+export const PLAN_PAN_BUTTON = 1;
+
+/**
+ * Translate the user pan layer by SVG/view units.
+ * A zero or non-finite delta leaves the view unchanged.
+ */
+export function panPlanBy(view: PlanZoom, dx: number, dy: number): PlanZoom {
+  if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return view;
+  return { ...view, panX: view.panX + dx, panY: view.panY + dy };
+}
+
+/**
+ * Convert a pointer movement in CSS pixels into viewBox units.
+ * When the SVG is displayed at the same aspect as its viewBox this is a
+ * uniform scale; a zero-sized client box yields a zero delta.
+ */
+export function pointerDeltaToView(
+  dx: number,
+  dy: number,
+  clientWidth: number,
+  clientHeight: number,
+  viewW: number,
+  viewH: number
+): { dx: number; dy: number } {
+  if (!(clientWidth > 0) || !(clientHeight > 0)) return { dx: 0, dy: 0 };
+  if (!Number.isFinite(dx) || !Number.isFinite(dy)) return { dx: 0, dy: 0 };
+  return { dx: (dx * viewW) / clientWidth, dy: (dy * viewH) / clientHeight };
+}

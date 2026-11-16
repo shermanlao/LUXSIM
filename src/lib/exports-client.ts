@@ -27,7 +27,7 @@ export function exportPdfReport(opts: {
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text(
-    "Design-assist only. Not tender-certified. Verify critical projects in DIALux.",
+    "Design-assist only. Not tender-certified. Verify critical projects in a certified lighting calculation tool.",
     14,
     36
   );
@@ -120,7 +120,7 @@ export async function exportDialuxPack(opts: {
   luminaireNames: Record<string, string>;
 }) {
   const blob = await buildDialuxPack(opts);
-  downloadBlob(`${sanitize(opts.projectName)}-dialux-verification.zip`, blob);
+  downloadBlob(`${sanitize(opts.projectName)}-verification-pack.zip`, blob);
 }
 
 export function buildLuxsimProject(opts: {

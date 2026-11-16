@@ -60,8 +60,7 @@ describe("official Polygon array wiring", () => {
 
     expect(editor).toContain("planFixtureArray(activeRoom, params)");
     expect(top).toContain("if (drawing || linePickActive || circlePickActive || polygonPickActive) return;");
-    expect(top).toContain("wheelZoomFactor");
-    expect(top).toContain("zoomPlanToward");
+    expect(top).toContain("usePlanPointerNav");
   });
 
   it("keeps Spacing X/Y and wall offset disabled in Polygon mode, without an inset, second ring, or target-Ēm polygon path", () => {
