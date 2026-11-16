@@ -5,6 +5,7 @@ import { loadAccessibleProject } from "@/lib/session";
 import { parseProjectResults, parseProjectScene } from "@/lib/project-scene";
 import { BuildingEditor } from "@/components/editor/BuildingEditor";
 import { CadEditorRoot } from "@/components/editor/CadEditorRoot";
+import { ProjectEditorLoadGate } from "@/components/ProjectEditorLoadGate";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -31,18 +32,20 @@ export default async function ProjectPage({ params }: Props) {
 
   return (
     <CadEditorRoot>
-      <BuildingEditor
-      projectId={project.id}
-      initialName={project.name}
-      initialScene={scene}
-      initialResults={results}
-      initialAssets={project.assets.map((a) => ({
-        id: a.id,
-        kind: a.kind,
-        fileName: a.fileName,
-        metaJson: a.metaJson,
-      }))}
-      />
+      <ProjectEditorLoadGate>
+        <BuildingEditor
+        projectId={project.id}
+        initialName={project.name}
+        initialScene={scene}
+        initialResults={results}
+        initialAssets={project.assets.map((a) => ({
+          id: a.id,
+          kind: a.kind,
+          fileName: a.fileName,
+          metaJson: a.metaJson,
+        }))}
+        />
+      </ProjectEditorLoadGate>
     </CadEditorRoot>
   );
 }

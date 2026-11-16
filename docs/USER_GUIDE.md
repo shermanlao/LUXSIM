@@ -8,6 +8,12 @@ LUXSIM is a lighting design assist tool, not a tender-certified calculation. The
 
 Open a project from [Projects](/projects) to use the editor. This page explains plan view, room drawing, how to edit room corners, how to pick Line array endpoints, how to place a Circular or Polygon array, DXF object snap, and how to switch Isolines and value labels on the plan and in the 3D view after Calculate, including the latest shortcuts. The **?** buttons next to tools also show short tips.
 
+## 開啟專案 / Open a project
+
+在 [Projects](/projects) 點選專案卡片，或使用 **New project**、**Open .luxsim** 進入編輯器時，會出現載入對話框，顯示「Loading project…／正在載入專案…」。直接開啟專案網址時也會看到同一個對話框。載入完成、編輯器可以使用後，對話框會自行關閉；載入期間不能點背景關閉，也沒有關閉按鈕。
+
+When you open a project from [Projects](/projects), after **New project** or **Open .luxsim**, or by opening a project URL directly, a loading dialog shows *Loading project…* / *正在載入專案…*. It stays until the editor is ready to use, and cannot be dismissed by clicking the backdrop or a close button while the project is loading.
+
 ## 平面圖視野 / Plan view
 
 ![平面視野控制 / Plan view controls](/docs/guide/plan-view-controls.svg)

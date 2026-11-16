@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { getUserMemberships } from "@/lib/session";
 import { ProjectsListActions } from "@/components/CreateProjectButton";
+import { ProjectListCard } from "@/components/ProjectListCard";
 
 export default async function ProjectsPage() {
   const session = await auth();
@@ -47,19 +47,13 @@ export default async function ProjectsPage() {
           )}
           <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {ws.projects.map((p) => (
-              <Link
+              <ProjectListCard
                 key={p.id}
                 href={`/projects/${p.id}`}
-                className="panel p-5 hover:border-[var(--accent-2)] transition-colors"
-              >
-                <h2 className="display text-2xl mb-2">{p.name}</h2>
-                <p className="text-sm text-[var(--muted)]">
-                  Updated {new Date(p.updatedAt).toLocaleString()}
-                </p>
-                <p className="text-xs mt-3 text-[var(--accent-2)]">
-                  {p.resultsJson ? "Has calculation results" : "Not calculated yet"}
-                </p>
-              </Link>
+                name={p.name}
+                updatedLabel={new Date(p.updatedAt).toLocaleString()}
+                hasResults={Boolean(p.resultsJson)}
+              />
             ))}
             {ws.projects.length === 0 && (
               <div className="panel p-8 text-[var(--muted)] col-span-full">

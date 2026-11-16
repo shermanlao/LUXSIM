@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState, type ChangeEvent } from "react";
+import { ProjectLoadingDialog } from "@/components/ProjectLoadingDialog";
 
 type WorkspaceOption = { id: string; name: string };
 
@@ -12,7 +13,8 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const busy = creating || importing;
+  const [opening, setOpening] = useState(false);
+  const busy = creating || importing || opening;
   const disabled = workspaces.length === 0 || busy;
 
   async function create() {
@@ -32,6 +34,7 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
       return;
     }
     const project = await res.json();
+    setOpening(true);
     router.push(`/projects/${project.id}`);
     router.refresh();
   }
@@ -58,12 +61,14 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
       setImportError(data.error || "Not a valid LUXSIM project file");
       return;
     }
+    setOpening(true);
     router.push(`/projects/${data.id}`);
     router.refresh();
   }
 
   return (
     <div className="flex flex-col items-end gap-2">
+      {opening && <ProjectLoadingDialog />}
       <div className="flex flex-wrap items-center gap-2">
         {workspaces.length > 1 && (
           <label className="sr-only" htmlFor="new-project-workspace">
