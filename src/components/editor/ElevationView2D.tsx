@@ -26,6 +26,7 @@ type Props = {
   onSelect: (id: string | null) => void;
   onDropLuminaire: (luminaireId: string, a: number, z: number) => void;
   onMoveInstance: (instanceId: string, a: number, z: number) => void;
+  onBeginMoveInstance?: (instanceId: string) => boolean;
   photometry?: Record<string, PhotometricData>;
 };
 
@@ -37,6 +38,7 @@ export function ElevationView2D({
   onSelect,
   onDropLuminaire,
   onMoveInstance,
+  onBeginMoveInstance,
   photometry,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
@@ -159,6 +161,7 @@ export function ElevationView2D({
                 if (e.button === PLAN_PAN_BUTTON || e.button !== 0 || panningRef.current) return;
                 e.stopPropagation();
                 onSelect(inst.instanceId);
+                if (onBeginMoveInstance && !onBeginMoveInstance(inst.instanceId)) return;
                 const w0 = clientToWorld(e.clientX, e.clientY);
                 grabOffset.current = { a: w0.a - a, z: w0.z - inst.position.z };
 

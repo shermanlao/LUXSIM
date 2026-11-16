@@ -98,6 +98,7 @@ type Props = {
   onSelect: (id: string | null) => void;
   onDropLuminaire: (luminaireId: string, x: number, y: number) => void;
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
+  onBeginMoveInstance?: (instanceId: string) => boolean;
   onDrawRoomPolygon: (points: Vec2[]) => void;
   onMoveRoom?: (roomId: string, dx: number, dy: number) => void;
   onSetRoomPolygon?: (roomId: string, polygon: Vec2[], opts?: { discrete?: boolean }) => void;
@@ -154,6 +155,7 @@ export function TopView2D({
   onSelect,
   onDropLuminaire,
   onMoveInstance,
+  onBeginMoveInstance,
   onDrawRoomPolygon,
   onMoveRoom,
   onSetRoomPolygon,
@@ -1536,6 +1538,7 @@ export function TopView2D({
                   return;
                 }
                 onSelect(inst.instanceId);
+                if (onBeginMoveInstance && !onBeginMoveInstance(inst.instanceId)) return;
                 beginMove(inst.instanceId, e.clientX, e.clientY, inst.position);
 
                 const move = (ev: MouseEvent) => {

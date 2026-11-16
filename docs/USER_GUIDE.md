@@ -226,6 +226,12 @@ On the **Top** view, when any room on the current storey has calculation results
 When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D greyscale / false-colour chapters are unchanged. The report does not add a separate 3D-isoline chapter, and it does not drop the existing 2D isolux snapshots.
 
 
+## 變更燈具與計算結果 / Changing fixtures and calculation results
+
+若房間已有計算結果，移動、旋轉、編輯位置、刪除、新放燈具，或套用排列、RCP／燈具表提交時，會先出現確認對話框，說明變更燈具會捨棄受影響房間的目前計算結果（偽彩、等照度線、數值圖與結果列都會清除）。按 **Confirm** 後才套用變更並捨棄那些結果；按 **Cancel**、Esc 或點背景則不會變更燈具，亦保留原有結果。若該房沒有計算結果，不會出現對話框，變更會直接套用。拖移燈具時，只在開始拖移前詢問一次；確認後結果已清除，同一手勢其後的移動不會再詢問。
+
+If a room has calculation results, moving, rotating, editing the position, removing, or placing a fixture, or applying an array, RCP, or schedule commit, first shows a confirmation dialog: changing lighting fixtures will discard the current calculation results for the affected room(s), including false colour, isolines, value labels, and the results strip. **Confirm** applies the change and discards those results. **Cancel**, Esc, or clicking the backdrop leaves the fixture and the results unchanged. If there are no results, the change is applied immediately and the dialog is not shown. When dragging a fixture, you are asked once at the start of the drag; after you confirm, the results are already cleared, so later moves in that gesture do not re-prompt.
+
 ## 房間屬性 / Room properties
 
 選取房間後，右側 **Properties** 會顯示：

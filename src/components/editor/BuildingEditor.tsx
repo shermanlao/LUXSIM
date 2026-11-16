@@ -147,11 +147,18 @@ import {
   shouldShowBoundingMin,
 } from "@/lib/room-props-format";
 import {
+  clearResultsForRooms,
   writeFixtureInstances,
   type WriteInstancesCalcDeps,
 } from "@/lib/write-instances";
-import { commitAcceptedRcpProposals } from "@/lib/rcp-commit";
-import { commitScheduleImport, type ScheduleImportRow } from "@/lib/schedule-csv";
+import { decideFixtureChange } from "@/lib/discard-results-confirm";
+import { commitAcceptedRcpProposals, planRcpCommit } from "@/lib/rcp-commit";
+import {
+  commitScheduleImport,
+  planScheduleCommit,
+  scheduleCommitBlockedReason,
+  type ScheduleImportRow,
+} from "@/lib/schedule-csv";
 import {
   focusActiveRoomAfterPlacement,
   postPlaceCalcStatusSuffix,
@@ -192,6 +199,7 @@ import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
+import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { PolarPreview } from "@/components/PolarPreview";
 import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
@@ -300,6 +308,8 @@ export function BuildingEditor({
   const [status, setStatus] = useState<string | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [pendingDiscardRoomIds, setPendingDiscardRoomIds] = useState<string[] | null>(null);
+  const pendingFixtureApplyRef = useRef<(() => void) | null>(null);
   const [uploading, setUploading] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [calcAfterPlace, setCalcAfterPlace] = useState(false);
@@ -1184,6 +1194,7 @@ export function BuildingEditor({
     const lib = library.find((l) => l.id === luminaireId);
     const photo = photoCache[luminaireId];
     const mountZ = z ?? room.heightM - 0.1;
+    requestFixtureWrite([room.id], () => {
     void (async () => {
       try {
         const latest = latestRef.current;
@@ -1228,28 +1239,79 @@ export function BuildingEditor({
         setStatus(e instanceof Error ? e.message : "Placement failed");
       }
     })();
+    });
+  }
+
+  function requestFixtureWrite(roomIds: string[], apply: () => void) {
+    const decision = decideFixtureChange(latestRef.current.results, roomIds);
+    if (decision.action === "apply") {
+      apply();
+      return;
+    }
+    pendingFixtureApplyRef.current = apply;
+    setPendingDiscardRoomIds(decision.roomIdsToClear);
+  }
+
+  function confirmDiscardResults() {
+    const roomIds = pendingDiscardRoomIds;
+    const apply = pendingFixtureApplyRef.current;
+    pendingFixtureApplyRef.current = null;
+    setPendingDiscardRoomIds(null);
+    if (!roomIds) return;
+    setResults((r) => clearResultsForRooms(r, roomIds));
+    apply?.();
+  }
+
+  function cancelDiscardResults() {
+    pendingFixtureApplyRef.current = null;
+    setPendingDiscardRoomIds(null);
+  }
+
+  function beginMoveInstance(instanceId: string): boolean {
+    const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
+    const roomIds = inst?.roomId ? [inst.roomId] : [];
+    const decision = decideFixtureChange(latestRef.current.results, roomIds);
+    if (decision.action === "apply") return true;
+    pendingFixtureApplyRef.current = null;
+    setPendingDiscardRoomIds(decision.roomIdsToClear);
+    return false;
   }
 
   function updateInstanceRotation(instanceId: string, rotationDeg: number) {
-    patchScene((s) => ({
-      ...s,
-      instances: s.instances.map((i) =>
-        i.instanceId === instanceId ? { ...i, rotationDeg } : i
-      ),
-    }));
-    const inst = scene.instances.find((i) => i.instanceId === instanceId);
-    if (inst?.roomId) {
-      setResults((r) => {
-        const next = {
-          ...r,
-          byRoomId: { ...r.byRoomId },
-          wallsByRoomId: { ...(r.wallsByRoomId ?? {}) },
-        };
-        delete next.byRoomId[inst.roomId!];
-        delete next.wallsByRoomId[inst.roomId!];
-        return next;
-      });
-    }
+    const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
+    requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
+      patchScene((s) => ({
+        ...s,
+        instances: s.instances.map((i) =>
+          i.instanceId === instanceId ? { ...i, rotationDeg } : i
+        ),
+      }));
+    });
+  }
+
+  function updateInstancePosition(instanceId: string, axis: "x" | "y" | "z", value: number) {
+    const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
+    requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
+      patchScene((s) => ({
+        ...s,
+        instances: s.instances.map((i) =>
+          i.instanceId === instanceId
+            ? { ...i, position: { ...i.position, [axis]: value } }
+            : i
+        ),
+      }));
+    });
+  }
+
+  function removeInstance(instanceId: string) {
+    const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
+    requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
+      patchScene((s) => ({
+        ...s,
+        instances: s.instances.filter((i) => i.instanceId !== instanceId),
+      }));
+      setSelectedId((id) => (id === instanceId ? null : id));
+    });
   }
 
   function moveRoom(roomId: string, dx: number, dy: number) {
@@ -1308,11 +1370,21 @@ export function BuildingEditor({
       };
       window.addEventListener("mouseup", end);
     }
+    const currentScene = latestRef.current.scene;
+    const current = currentScene.instances.find((i) => i.instanceId === instanceId);
+    const room =
+      findRoomAt(currentScene.rooms, currentScene.ui.activeStoreyId, { x, y }) ??
+      currentScene.rooms.find((r) => r.id === current?.roomId) ??
+      null;
+    const clearIds = [current?.roomId, room?.id].filter((id): id is string => Boolean(id));
+    if (clearIds.length) {
+      setResults((r) => clearResultsForRooms(r, clearIds));
+    }
     patchScene((s) => ({
       ...s,
       instances: s.instances.map((i) => {
         if (i.instanceId !== instanceId) return i;
-        const room =
+        const nextRoom =
           findRoomAt(s.rooms, s.ui.activeStoreyId, { x, y }) ??
           s.rooms.find((r) => r.id === i.roomId) ??
           null;
@@ -1323,7 +1395,7 @@ export function BuildingEditor({
             y,
             z: z ?? i.position.z,
           },
-          roomId: room?.id ?? i.roomId,
+          roomId: nextRoom?.id ?? i.roomId,
         };
       }),
     }));
@@ -1613,6 +1685,32 @@ export function BuildingEditor({
     replaceExistingFromDetect: boolean;
     calcAfterCommit: boolean;
   }) {
+    const latest = latestRef.current;
+    const plan = planRcpCommit({
+      proposals: latest.scene.rcpProposals ?? [],
+      rules: latest.scene.fixtureCodeMap ?? [],
+      rooms: latest.scene.rooms,
+      storeyId: latest.scene.ui.activeStoreyId,
+      luminaireNames: codeMapLuminaireNames,
+      scene: latest.scene,
+    });
+    const roomIds = plan.drafts.map((d) => d.roomId);
+    if (options.replaceExistingFromDetect) {
+      for (const inst of latest.scene.instances) {
+        if (inst.rcpProposalId && inst.storeyId === latest.scene.ui.activeStoreyId && inst.roomId) {
+          roomIds.push(inst.roomId);
+        }
+      }
+    }
+    requestFixtureWrite(roomIds, () => {
+      void runRcpCommitNow(options);
+    });
+  }
+
+  async function runRcpCommitNow(options: {
+    replaceExistingFromDetect: boolean;
+    calcAfterCommit: boolean;
+  }) {
     setRcpCommitting(true);
     try {
       const latest = latestRef.current;
@@ -1664,6 +1762,22 @@ export function BuildingEditor({
   }
 
   async function runScheduleCommit(options: { calcAfterCommit: boolean }) {
+    const latest = latestRef.current;
+    const blockedReason = scheduleCommitBlockedReason(scheduleRows);
+    if (blockedReason) {
+      setStatus(blockedReason);
+      return;
+    }
+    const plan = planScheduleCommit(scheduleRows, latest.scene, luminaireNameMap());
+    requestFixtureWrite(
+      plan.drafts.map((d) => d.roomId),
+      () => {
+        void runScheduleCommitNow(options);
+      }
+    );
+  }
+
+  async function runScheduleCommitNow(options: { calcAfterCommit: boolean }) {
     setScheduleCommitting(true);
     try {
       const latest = latestRef.current;
@@ -1747,13 +1861,27 @@ export function BuildingEditor({
       return;
     }
 
+    requestFixtureWrite([activeRoom.id], () => {
+      void applyFixtureArrayNow(params, luminaireId, decision, activeRoom);
+    });
+  }
+
+  async function applyFixtureArrayNow(
+    params: ArrayParams,
+    luminaireId: string,
+    decision: {
+      placeable: { x: number; y: number; rotationDeg: number }[];
+      skippedOccupied: unknown[];
+    },
+    room: NonNullable<typeof activeRoom>
+  ) {
     const lib = library.find((l) => l.id === luminaireId);
     const photo = photoCache[luminaireId];
-    const mountZ = activeRoom.heightM - 0.1;
+    const mountZ = room.heightM - 0.1;
     const drafts = decision.placeable.map((p) => ({
       luminaireId,
       storeyId: scene.ui.activeStoreyId,
-      roomId: activeRoom.id,
+      roomId: room.id,
       name: lib?.name ?? photo?.description ?? "Fixture",
       position: { x: p.x, y: p.y, z: mountZ },
       rotationDeg: p.rotationDeg,
@@ -1798,7 +1926,7 @@ export function BuildingEditor({
         formatArrayApplyStatus({
           placed: out.instanceIds.length,
           skippedOccupied: decision.skippedOccupied.length,
-          roomName: activeRoom.name,
+          roomName: room.name,
           suffix: `${calcNote}${estimateNote}`,
         })
       );
@@ -2172,6 +2300,7 @@ export function BuildingEditor({
           photometry={photoCache}
           onDropLuminaire={(id, x, y) => placeAt(id, x, y)}
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
+          onBeginMoveInstance={beginMoveInstance}
           onDrawRoomPolygon={drawRoomPolygon}
           onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}
           onSetRoomPolygon={(roomId, polygon, opts) => setRoomPolygon(roomId, polygon, opts)}
@@ -2227,6 +2356,7 @@ export function BuildingEditor({
             if (!inst) return;
             moveInstance(id, a, inst.position.y, z);
           }}
+          onBeginMoveInstance={beginMoveInstance}
         />
       )}
       {viewMode === "side" && (
@@ -2249,6 +2379,7 @@ export function BuildingEditor({
             if (!inst) return;
             moveInstance(id, inst.position.x, a, z);
           }}
+          onBeginMoveInstance={beginMoveInstance}
         />
       )}
       {viewMode === "persp3d" && (
@@ -2844,13 +2975,7 @@ export function BuildingEditor({
                           className="text-xs text-[#f5a5a5]"
                           onClick={(e) => {
                             e.stopPropagation();
-                            patchScene((s) => ({
-                              ...s,
-                              instances: s.instances.filter(
-                                (i) => i.instanceId !== inst.instanceId
-                              ),
-                            }));
-                            if (selectedId === inst.instanceId) setSelectedId(null);
+                            removeInstance(inst.instanceId);
                           }}
                         >
                           Remove
@@ -3142,20 +3267,11 @@ export function BuildingEditor({
                     step={0.1}
                     value={selected.position[axis]}
                     onChange={(e) =>
-                      patchScene((s) => ({
-                        ...s,
-                        instances: s.instances.map((i) =>
-                          i.instanceId === selected.instanceId
-                            ? {
-                                ...i,
-                                position: {
-                                  ...i.position,
-                                  [axis]: Number(e.target.value),
-                                },
-                              }
-                            : i
-                        ),
-                      }))
+                      updateInstancePosition(
+                        selected.instanceId,
+                        axis,
+                        Number(e.target.value)
+                      )
                     }
                   />
                 </div>
@@ -3437,6 +3553,11 @@ export function BuildingEditor({
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}
       </div>
+      <DiscardResultsDialog
+        open={pendingDiscardRoomIds != null}
+        onConfirm={confirmDiscardResults}
+        onCancel={cancelDiscardResults}
+      />
     </div>
   );
 }
