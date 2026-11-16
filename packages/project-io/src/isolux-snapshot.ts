@@ -7,7 +7,6 @@
 
 import type { CalcResults } from "../../solver/src/types";
 import type { FixtureInstance, ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
-import { wallZoneM } from "./report-model";
 import {
   buildIsoluxModel,
   type FalseColorScale,
@@ -39,6 +38,9 @@ export const OFFICIAL_PDF_ISOLUX_RENDER: OfficialIsoluxRenderOpts = {
   ...DEFAULT_RENDER,
 };
 
+/** Official false colour and isolines fill to the room outline. Calculation wall zone is unchanged. */
+export const ISOLUX_DISPLAY_WALL_ZONE_M = 0;
+
 export function officialIsoluxModelForRoom(
   room: RoomV2,
   results: CalcResults | null | undefined,
@@ -54,7 +56,7 @@ export function officialIsoluxModelForRoom(
   if (!hasCalcGrid(results)) return null;
   return buildIsoluxModel(room, results, {
     mode: opts?.mode ?? "isolines",
-    wallZoneM: wallZoneM(room),
+    wallZoneM: ISOLUX_DISPLAY_WALL_ZONE_M,
     fixtures: opts?.fixtures,
     targetLongSide: opts?.targetLongSide,
     colorScale: opts?.colorScale,

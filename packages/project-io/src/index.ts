@@ -144,6 +144,7 @@ export {
 export type { IsoluxMode, IsoluxModel, IsoluxWorldFrame, IsoluxPoint, FalseColorScale } from "./isolux-map";
 export {
   hasCalcGrid,
+  ISOLUX_DISPLAY_WALL_ZONE_M,
   officialIsoluxModelForRoom,
   officialIsoluxModelsByRoom,
   renderIsoluxModelPngDataUrl,

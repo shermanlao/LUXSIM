@@ -14,7 +14,6 @@ import type { CalcResults } from "@luxsim/solver";
 import {
   PLAN_ISOLUX_HINT,
   PLAN_ISOLUX_NO_RESULTS,
-  PLAN_ISOLUX_NO_ROOM,
   planIsoluxControlState,
 } from "./plan-isolux-display";
 import {
@@ -324,12 +323,13 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     const { results } = officeScene();
     expect(planIsoluxControlState(results, null)).toEqual({
       enabled: false,
-      reason: PLAN_ISOLUX_NO_ROOM,
+      reason: PLAN_ISOLUX_NO_RESULTS,
     });
     expect(planIsoluxControlState(results, "missing")).toEqual({
       enabled: false,
       reason: PLAN_ISOLUX_NO_RESULTS,
     });
+    expect(planIsoluxControlState(results, ["missing", "r1"]).enabled).toBe(true);
     expect(planIsoluxControlState(results, "r1").enabled).toBe(true);
   });
 

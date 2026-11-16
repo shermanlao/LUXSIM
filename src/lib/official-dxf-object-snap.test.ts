@@ -246,8 +246,15 @@ describe("official DXF object-snap wiring", () => {
     expect(underlay3d).toContain("officialDxfEntitiesToWorld(dxfEntities, underlay)");
     expect(top).toContain("dxfObjectSnapRadiusM");
     expect(top).toContain("worldMetresPerCssPixel");
-    expect(top).toContain("data-dxf-snap");
+    expect(top).toContain("DxfSnapMarkerLayer");
+    expect(top).toContain("snapMarkerRef");
     expect(top).toContain('pointerEvents="none"');
+    const snapMarker = readFileSync(
+      path.join(process.cwd(), "src/components/editor/DxfSnapMarkerLayer.tsx"),
+      "utf8"
+    );
+    expect(snapMarker).toContain("data-dxf-snap");
+    expect(snapMarker).toContain('pointerEvents="none"');
     expect(top).toMatch(/function snappedWorldAt/);
     expect(top).toContain("beginRoomDrag(room.id, toWorld(e.clientX, e.clientY))");
     expect(top).toContain("beginMove(inst.instanceId, e.clientX, e.clientY, inst.position)");

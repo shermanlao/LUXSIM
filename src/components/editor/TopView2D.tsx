@@ -5,6 +5,7 @@ import { useViewElementSize } from "@/lib/use-view-element-size";
 import { usePlanPointerNav } from "./usePlanPointerNav";
 import type { DxfEntity, FalseColorScale, IsoluxMode, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
 import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
+import { DxfSnapMarkerLayer, type DxfSnapMarkerApi } from "./DxfSnapMarkerLayer";
 import {
   findRoomAt,
   isCloseToStart,
@@ -217,7 +218,7 @@ export function TopView2D({
   } | null>(null);
   const [lineCursor, setLineCursor] = useState<{ x: number; y: number } | null>(null);
   const [polygonCursor, setPolygonCursor] = useState<{ x: number; y: number } | null>(null);
-  const [snapHit, setSnapHit] = useState<DxfSnapHit | null>(null);
+  const snapMarkerRef = useRef<DxfSnapMarkerApi | null>(null);
   const polygonPickRef = useRef<PolygonPathPickState>(polygonPick ?? EMPTY_POLYGON_PATH_PICK);
   polygonPickRef.current = polygonPick ?? EMPTY_POLYGON_PATH_PICK;
 
@@ -714,7 +715,7 @@ export function TopView2D({
     if (!selectOnClick) setStretchingVertex({ roomId, index });
     const applyAt = (clientX: number, clientY: number, commit: boolean) => {
       const snapped = snappedWorldAt(clientX, clientY);
-      setSnapHit(snapped.hit);
+      snapMarkerRef.current?.setHit(snapped.hit);
       const next = moveRoomVertex(source, index, { x: snapped.x, y: snapped.y });
       if (commit) {
         const result = commitStretchedRoomPolygon(original, next);
@@ -760,7 +761,7 @@ export function TopView2D({
     clientY: number
   ) {
     const snapped = snappedWorldAt(clientX, clientY);
-    setSnapHit(snapped.hit);
+    snapMarkerRef.current?.setHit(snapped.hit);
     const resolved = resolveOfficialEdgeInsert(
       original,
       edgeIndex,
@@ -810,7 +811,7 @@ export function TopView2D({
       className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onMouseLeave={() => {
-        setSnapHit(null);
+        snapMarkerRef.current?.setHit(null);
         lastPointerRef.current = null;
       }}
       onDoubleClick={(e) => {
@@ -845,7 +846,7 @@ export function TopView2D({
           if (e.button === PLAN_PAN_BUTTON || e.button !== 0 || panningRef.current) return;
           const snapped = snappedWorldAt(e.clientX, e.clientY);
           const w = { x: snapped.x, y: snapped.y };
-          setSnapHit(snapped.hit);
+          snapMarkerRef.current?.setHit(snapped.hit);
           if (scene.ui.tool === "calibrate" && onCalibratePoints) {
             if (!calib.current) calib.current = w;
             else {
@@ -886,7 +887,7 @@ export function TopView2D({
           lastPointerRef.current = { clientX: e.clientX, clientY: e.clientY, world: raw };
           const snapped = snappedWorldAt(e.clientX, e.clientY);
           const w = { x: snapped.x, y: snapped.y };
-          setSnapHit(snapped.hit);
+          snapMarkerRef.current?.setHit(snapped.hit);
           if (drawing) {
             setCursor(w);
             return;
@@ -1259,6 +1260,9 @@ export function TopView2D({
             toScreen={toScreen}
             viewW={viewW}
             viewH={viewH}
+            viewOx={ox}
+            viewOy={oy}
+            viewScale={scale}
             colorScale={falseColorScale}
           />
         )}
@@ -1568,45 +1572,7 @@ export function TopView2D({
           );
         })}
 
-        {snapHit &&
-          (() => {
-            const spt = toScreen(snapHit.point.x, snapHit.point.y);
-            const r = 6;
-            const stroke = "#f4d35e";
-            return (
-              <g
-                data-dxf-snap={snapHit.kind}
-                transform={`translate(${spt.x},${spt.y})`}
-                pointerEvents="none"
-              >
-                {snapHit.kind === "endpoint" && (
-                  <rect
-                    x={-r}
-                    y={-r}
-                    width={r * 2}
-                    height={r * 2}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={1.5}
-                  />
-                )}
-                {snapHit.kind === "midpoint" && (
-                  <polygon
-                    points={`0,${-r} ${r},${r} ${-r},${r}`}
-                    fill="none"
-                    stroke={stroke}
-                    strokeWidth={1.5}
-                  />
-                )}
-                {snapHit.kind === "nearest" && (
-                  <>
-                    <line x1={-r} y1={-r} x2={r} y2={r} stroke={stroke} strokeWidth={1.5} />
-                    <line x1={r} y1={-r} x2={-r} y2={r} stroke={stroke} strokeWidth={1.5} />
-                  </>
-                )}
-              </g>
-            );
-          })()}
+        <DxfSnapMarkerLayer toScreen={toScreen} apiRef={snapMarkerRef} />
         </g>
       </svg>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">

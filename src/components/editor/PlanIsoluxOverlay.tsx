@@ -44,6 +44,9 @@ export function PlanIsoluxOverlay({
   toScreen,
   viewW,
   viewH,
+  viewOx,
+  viewOy,
+  viewScale,
   colorScale,
 }: {
   scene: ProjectSceneV2;
@@ -54,6 +57,9 @@ export function PlanIsoluxOverlay({
   toScreen: (x: number, y: number) => ScreenPt;
   viewW: number;
   viewH: number;
+  viewOx: number;
+  viewOy: number;
+  viewScale: number;
   colorScale?: FalseColorScale;
 }) {
   const models = useMemo(() => {
@@ -98,7 +104,8 @@ export function PlanIsoluxOverlay({
       if (!rect) continue;
       ctx.drawImage(canvas, rect.x, rect.y, rect.width, rect.height);
     }
-  });
+    // Only repaint when the committed plan view or field bitmaps change — not on cursor moves.
+  }, [mode, viewW, viewH, viewOx, viewOy, viewScale, fieldCanvases]);
 
   if (models.length === 0 && fieldCanvases.length === 0) return null;
 

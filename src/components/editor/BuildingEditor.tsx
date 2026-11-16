@@ -2020,7 +2020,7 @@ export function BuildingEditor({
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
   const planIsoluxMode: IsoluxMode = normalizePlanIsoluxMode(scene.ui.planIsoluxMode);
   const planValueLabels = scene.ui.planValueLabels === true;
-  const planIsoluxControls = planIsoluxControlState(results, scene.ui.activeRoomId);
+  const planIsoluxControls = planIsoluxControlState(results, currentStoreyRoomIds());
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);

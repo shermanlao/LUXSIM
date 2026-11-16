@@ -9,10 +9,12 @@ import {
   hasCalcGrid,
   officialIsoluxModelForRoom,
   officialIsoluxModelsByRoom,
+  ISOLUX_DISPLAY_WALL_ZONE_M,
   OFFICIAL_FALSE_COLOR_SCALE,
   OFFICIAL_PDF_ISOLUX_RENDER,
   rectPolygon,
   renderIsoluxModelPngDataUrl,
+  wallZoneM,
 } from "@luxsim/project-io";
 import type { IsoluxModel, ProjectSceneV2, ResultsV2, RoomV2 } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
@@ -20,7 +22,6 @@ import {
   DEFAULT_PLAN_ISOLUX_MODE,
   PLAN_ISOLUX_HINT,
   PLAN_ISOLUX_NO_RESULTS,
-  PLAN_ISOLUX_NO_ROOM,
   normalizePlanIsoluxMode,
   planIsoluxControlState,
   planIsoluxHasResults,
@@ -120,6 +121,15 @@ function officeScene(opts?: { withResults?: boolean; secondRoom?: boolean }): {
   return { scene, results, room };
 }
 
+
+function fieldAlphaAt(model: IsoluxModel, x: number, y: number): number {
+  const { minX, maxY, scale } = model.world;
+  const px = Math.floor((x - minX) * scale);
+  const py = Math.floor((maxY - y) * scale);
+  if (px < 0 || py < 0 || px >= model.width || py >= model.height) return -1;
+  return model.field[(py * model.width + px) * 4 + 3] ?? -1;
+}
+
 function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
   return Buffer.from(doc.output("arraybuffer")).toString("latin1");
 }
@@ -132,11 +142,15 @@ describe("plan isolux control state", () => {
     expect(normalizePlanIsoluxMode("greyscale")).toBe("falsecolor");
   });
 
-  it("disables the official plan toggles when the selected room has no results", () => {
+  it("enables the official plan toggles for the current storey when any room has results", () => {
     const { results } = officeScene({ withResults: true });
     expect(planIsoluxControlState(results, null)).toEqual({
       enabled: false,
-      reason: PLAN_ISOLUX_NO_ROOM,
+      reason: PLAN_ISOLUX_NO_RESULTS,
+    });
+    expect(planIsoluxControlState(results, [])).toEqual({
+      enabled: false,
+      reason: PLAN_ISOLUX_NO_RESULTS,
     });
     expect(planIsoluxControlState(results, "missing")).toEqual({
       enabled: false,
@@ -147,6 +161,8 @@ describe("plan isolux control state", () => {
     const ok = planIsoluxControlState(results, "r1");
     expect(ok.enabled).toBe(true);
     expect(ok.reason).toBeNull();
+    // A mixed storey still enables Isolines / Value labels without picking the room that has results.
+    expect(planIsoluxControlState(results, ["missing", "r1"]).enabled).toBe(true);
   });
 });
 
@@ -198,6 +214,36 @@ describe("isolux model-to-view wiring", () => {
     expect(absolute!.valueLabels).toEqual([]);
     expect(official!.field).toEqual(absolute!.field);
     expect(absolute!.field.some((v) => v > 0)).toBe(true);
+  });
+
+
+  it("paints official false colour to the room outline, leaving the calculation wall zone unchanged", () => {
+    const { room, results } = officeScene({ withResults: true });
+    expect(ISOLUX_DISPLAY_WALL_ZONE_M).toBe(0);
+    expect(wallZoneM(room)).toBeCloseTo(0.25, 10);
+
+    const official = officialIsoluxModelForRoom(room, results.byRoomId.r1, {
+      mode: "falsecolor",
+      targetLongSide: 80,
+      includeContours: false,
+      includeValueLabels: false,
+    });
+    const inset = buildIsoluxModel(room, results.byRoomId.r1!, {
+      mode: "falsecolor",
+      wallZoneM: wallZoneM(room),
+      targetLongSide: 80,
+      includeContours: false,
+      includeValueLabels: false,
+    });
+    expect(official).not.toBeNull();
+    expect(inset).not.toBeNull();
+
+    // 0.05 m inside the 0..6 × 0..5 room is inside the 0.25 m calculation wall zone.
+    expect(fieldAlphaAt(official!, 0.05, 2.5)).toBe(255);
+    expect(fieldAlphaAt(official!, 3, 2.5)).toBe(255);
+    expect(fieldAlphaAt(inset!, 0.05, 2.5)).toBe(0);
+    expect(fieldAlphaAt(inset!, 3, 2.5)).toBe(255);
+    expect(official!.workplaneOutline).toEqual(official!.roomOutline);
   });
 
   it("uses formatPointLux text for grid labels and omits non-positive cells", () => {
@@ -321,7 +367,7 @@ describe("official editor and export path wiring", () => {
     expect(editor).toContain("isoluxSnapshots,");
     expect(editor).toContain("PlanIsoluxToggle");
     expect(editor).toContain("viewMode === \"top\" || viewMode === \"bottom\"");
-    expect(editor).toContain("planIsoluxControlState(results, scene.ui.activeRoomId)");
+    expect(editor).toContain("planIsoluxControlState(results, currentStoreyRoomIds())");
     expect(editor).toContain("planIsoluxMode={planIsoluxMode}");
     expect(editor).toContain("showValueLabels={planValueLabels}");
     const exportFn = editor.slice(editor.indexOf("async function exportFullPdf"));
@@ -344,6 +390,10 @@ describe("official editor and export path wiring", () => {
     expect(overlay).toContain("contours");
     expect(overlay).toContain("data-plan-falsecolor-canvas");
     expect(overlay).toContain("isoluxFieldScreenRect");
+    expect(overlay).toContain("viewOx");
+    expect(top).toContain("viewOx={ox}");
+    expect(overlay).toContain("fieldCanvases");
+    expect(overlay).toContain("viewOx, viewOy, viewScale");
     expect(overlay).not.toContain("isoluxFieldPngDataUrl");
     expect(top).toContain("falseColorScale");
     expect(editor).toContain("OFFICIAL_FALSE_COLOR_SCALE");
@@ -365,6 +415,8 @@ describe("official editor and export path wiring", () => {
     expect(guide).toMatch(/Value labels/);
     expect(guide).toMatch(/不會發明數字/);
     expect(guide).toMatch(/do not invent numbers/);
+    expect(guide).toMatch(/畫到房間輪廓/);
+    expect(guide).toMatch(/painted to the room outline/);
     expect(guide).toMatch(/Full PDF report/);
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
     expect(guide).toMatch(/if 3D views cannot be captured/);
