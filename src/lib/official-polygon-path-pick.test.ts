@@ -232,8 +232,8 @@ describe("official Polygon custom-path pick wiring", () => {
     const guide = readSrc("docs/USER_GUIDE.md");
     const tips = readSrc("src/lib/ui-tips.ts");
     const gap = readSrc("docs/DIALUX_GAP.md");
-    expect(guide).toMatch(/click on the \*\*Top\*\* or \*\*Bottom\*\* plan to add path vertices/i);
-    expect(guide).toMatch(/可在 \*\*Top\*\* 或 \*\*Bottom\*\* 平面圖上逐點點選自訂路徑/);
+    expect(guide).toMatch(/click on the \*\*Top\*\* plan to add path vertices/i);
+    expect(guide).toMatch(/可在 \*\*Top\*\* 平面圖上逐點點選自訂路徑/);
     expect(guide).toMatch(/later click starts a new path/);
     expect(guide).toMatch(/再點一下會開始一條新路徑/);
     expect(guide).toMatch(/\*\*Enter\*\* or a double-click on empty background finishes an open path/);

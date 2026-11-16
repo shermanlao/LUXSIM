@@ -204,8 +204,10 @@ export interface ProjectSceneV2 {
     planShowFalseColor?: boolean;
     /** Isolines overlay on the plan or 3D view, independent of Greyscale / False colour. */
     planShowIsolines?: boolean;
-    /** Show workplane value labels on the Top/Bottom plan and 3D view. */
+    /** Show workplane value labels on the Top plan and 3D view. */
     planValueLabels?: boolean;
+    /** Show the 3D workplane / calculation plane (default shown). */
+    showWorkplane?: boolean;
   };
 }
 

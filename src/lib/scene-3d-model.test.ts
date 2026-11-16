@@ -11,6 +11,9 @@ import {
   createCeilingGeometry,
   createClippedWorkplaneGeometry,
   createFloorGeometry,
+  createWorkplanePlateGeometry,
+  officialFalseColorWorkplaneHeight,
+  workplaneDisplayHeightM,
   createPlanHandednessRoot,
   createWallFalseColorGeometry,
   createWallGeometry,
@@ -639,5 +642,29 @@ describe("plan handedness in a south look-down", () => {
     const r = ndc("reception");
     expect(m.x).toBeLessThan(o.x);
     expect(m.y).toBeGreaterThan(r.y);
+  });
+});
+
+describe("3D workplane display height", () => {
+  it("follows room.workplaneHeightM immediately, ignoring a stale calculated grid z", () => {
+    const room = lShapedRoom();
+    room.workplaneHeightM = 0.75;
+    const results = {
+      grid: { originX: 0, originY: 0, spacing: 0.5, nx: 2, ny: 2, z: 1.4, lux: [100, 100, 100, 100] },
+    } as CalcResults;
+    expect(workplaneDisplayHeightM(room, 2)).toBe(2 + 0.75 + 0.02);
+    expect(officialFalseColorWorkplaneHeight(room, results, 2)).toBe(2 + 0.75 + 0.02);
+    room.workplaneHeightM = 1.1;
+    expect(officialFalseColorWorkplaneHeight(room, results, 2)).toBe(2 + 1.1 + 0.02);
+    const plate = createWorkplanePlateGeometry(room, 2);
+    expect(plate).not.toBeNull();
+    const pos = plate!.getAttribute("position")!;
+    const ys = Array.from({ length: pos.count }, (_, i) => pos.getY(i));
+    expect(ys.every((y) => Math.abs(y - (2 + 1.1 + 0.02)) < 1e-6)).toBe(true);
+    plate!.dispose();
+    const floor = createFloorGeometry(room, 2);
+    const floorY = floor!.getAttribute("position")!.getY(0);
+    expect(floorY).toBeCloseTo(2.002, 5);
+    floor!.dispose();
   });
 });

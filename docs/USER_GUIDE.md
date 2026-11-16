@@ -14,30 +14,30 @@ Open a project from [Projects](/projects) to use the editor. This page explains 
 
 ![房間角點控制點 / Room corner and edge handles](/docs/guide/room-handles.svg)
 
-在 **Top**、**Bottom**、**Front**、**Side** 與 **3D** 視圖：
+在 **Top**、**Front**、**Side** 與 **3D** 視圖：
 
 - 在圖面上滾動滑鼠滾輪，會放大或縮小（平面與立面以游標位置為中心），不會捲動整頁。
 - 按住滑鼠中鍵（滾輪按鈕）並拖曳，可平移圖面。不要用左鍵平移：左鍵仍用於點選、畫房或移動燈具。房間不能整間拖移；選取房間後仍可拖動角點或在邊上插入角點來改形狀。
-- 在 **Top** 或 **Bottom** 雙擊圖面空白處，會回到預設的置中適合視野。
+- 在 **Top** 雙擊圖面空白處，會回到預設的置中適合視野。
 - 切換樓層時，視野也會回到這個預設。
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放與中鍵平移仍可使用。
-- **Top**／**Bottom**／**Front**／**Side**／**3D** 切換與 **Fullscreen** 會連同等照度線或 3D 顯示開關，一起浮在圖面左上角，讓圖面本身有較大的操作面積。
+- **Top**／**Front**／**Side**／**3D** 切換與 **Fullscreen** 會連同等照度線或 3D 顯示開關，一起浮在圖面左上角，讓圖面本身有較大的操作面積。編輯器沒有 Bottom 視圖按鈕；報告若需要由下向上的投影，仍可在匯出時使用。
 - 房間不能整間拖移，整層也不能用拖曳來平移。選取房間後，可用角點控制點拉伸，或在邊上插入角點。平移圖面請按住滑鼠中鍵拖曳。
 - 一般視圖（不必開 Fullscreen）下，2D／3D 畫布會留在視窗內完整可見。右側屬性／工具欄若內容較長，會在欄內捲動，不會把圖面推走或裁掉。左側 Building 樹過長時同樣在欄內捲動。
-- 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 或 **Bottom** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。若目前樓層的底圖是 DXF，可用 **Create rooms from DXF** 為每條封閉折線，以及由相連線段組成的簡單閉合迴路，在該層各建立一間房間；不會自動描繪 T 形交匯或共用牆的網絡。新房間使用官方預設，比例跟隨目前的 **Calibrate scale**。
+- 若目前樓層的官方底圖是已解析的 DXF，在 **Top** 上進行點選時，游標會在目前縮放下 8 個 CSS 像素範圍內，吸附到線段端點、中點，或線段上最近的一點，並顯示對應標記；超出範圍時標記會消失。圖像或 PDF 底圖不會做像素吸附。DWG 仍未解析，不會當成可顯示或可吸附的圖則。沒有 DXF 底圖、或沒有線段時，吸附不會啟動，也不會發明幾何。若目前樓層的底圖是 DXF，可用 **Create rooms from DXF** 為每條封閉折線，以及由相連線段組成的簡單閉合迴路，在該層各建立一間房間；不會自動描繪 T 形交匯或共用牆的網絡。新房間使用官方預設，比例跟隨目前的 **Calibrate scale**。
 - 新匯入的 DXF 預設每個繪圖單位為 1 公尺，不必先校正即可畫房。若使用官方 **Calibrate scale** 兩點校正，DXF 描線與吸附點會一併按同一比例縮放（兩個軸使用同一個 `metersPerUnit`）。既有房間多邊形和燈具的世界座標已是公尺，不會再乘這個比例。
 
-On the **Top**, **Bottom**, **Front**, **Side**, and **3D** views:
+On the **Top**, **Front**, **Side**, and **3D** views:
 
 - Scroll the mouse wheel on the view to zoom (toward the cursor on the plan and elevation views). The page itself does not scroll.
 - Hold the middle mouse button (the scroll-wheel button) and drag to pan the view. Do not pan with the left button: left-click still selects, draws rooms, or moves a fixture. Rooms cannot be dragged as a whole; after a room is selected you can still drag a corner handle or insert a vertex on an edge.
-- Double-click an empty area of the **Top** or **Bottom** plan to return to the default centred fit.
+- Double-click an empty area of the **Top** plan to return to the default centred fit.
 - Switching storeys also resets the view to that default fit.
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom toward the cursor and middle-button pan still work.
-- The **Top** / **Bottom** / **Front** / **Side** / **3D** tabs and **Fullscreen** sit together as floating controls at the top left of the plan, with the Isolines or 3D display toggles, so more of the canvas is available as operating area.
+- The **Top** / **Front** / **Side** / **3D** tabs and **Fullscreen** sit together as floating controls at the top left of the plan, with the Isolines or 3D display toggles, so more of the canvas is available as operating area. There is no Bottom view button in the editor; a bottom projection, if needed, is kept for PDF / capture export.
 - Rooms cannot be dragged as a whole, and a storey cannot be dragged on the plan. After a room is selected, drag a corner handle to stretch it, or use the mid-edge handle to insert a vertex. A click on a room still selects that room. Hold the middle mouse button to pan the view.
 - In the normal (non-fullscreen) editor view, the 2D and 3D canvas stays fully visible in the window. If the right-hand Properties / tools rail is longer than the column, it scrolls inside the rail instead of pushing or cropping the plan. You do not need **Fullscreen** just to see the plan. A long Building tree on the left also scrolls inside its column.
-- When the active storey’s official underlay is a parsed DXF, picks on the **Top** or **Bottom** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, fixture drop placement, and dragging a room corner handle. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. With a DXF underlay, **Create rooms from DXF** makes rooms from closed polylines and from simple closed loops of connected lines on the current storey. It does not trace T-junctions or shared walls. New rooms use the official defaults, and scale follows the current **Calibrate scale**.
+- When the active storey’s official underlay is a parsed DXF, picks on the **Top** plan snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels at the current zoom. A small marker shows the active snap kind, and disappears when none is in range. This applies to Draw room corners, Calibrate scale clicks, Line-array endpoints, Circle-array centres, Polygon-array custom-path vertices, fixture drop placement, and dragging a room corner handle. **Create rectangle** still places a room at `(0, 0)` and does not pick on the plan. Image and PDF underlays do not get raster snap. DWG is not parsed and is not snappable. If there is no DXF underlay, or the entities are empty, snap stays inactive and no geometry is invented. With a DXF underlay, **Create rooms from DXF** makes rooms from closed polylines and from simple closed loops of connected lines on the current storey. It does not trace T-junctions or shared walls. New rooms use the official defaults, and scale follows the current **Calibrate scale**.
 - A newly imported DXF starts at 1 metre per drawing unit, so Draw room stays allowed without a prior calibrate. Official **Calibrate scale** (two points plus a real length) resizes the DXF drawing and the snap points together, using the same uniform `metersPerUnit` on both axes. Existing room polygons and fixture world coordinates are already in metres and are not multiplied by that scale.
 
 放大後，圖面角落會提示 *double-click empty area to reset*。
@@ -48,7 +48,7 @@ When zoomed in, the plan shows the hint *double-click empty area to reset*.
 
 ![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)
 
-在 **Construction** 模式，選 **Draw room**，於 **Top** 或 **Bottom** 視圖操作：
+在 **Construction** 模式，選 **Draw room**，於 **Top** 視圖操作：
 
 1. 左鍵逐點點出房間角點。
 2. 用鍵盤輸入長度（預設單位是毫米）。下一個角點會鎖在以上一點為圓心、該長度為半徑的圓上，游標只決定方向。
@@ -57,7 +57,7 @@ When zoomed in, the plan shows the hint *double-click empty area to reset*.
 5. 若已輸入並鎖定長度，按一次 **Backspace** 會整段清掉該長度，再按一次才撤回上一個角點。
 6. 畫房途中按 **Esc** 會取消草稿。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有草稿時，**Esc** 仍可用來退出全畫面。
 
-If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan. A new DXF still starts at 1 metre per drawing unit. After official **Calibrate scale** on a DXF underlay, the drawing and the snap points resize together. With a DXF underlay, official Top/Bottom picks (including Draw room corners and Calibrate scale clicks) snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels. **Create rooms from DXF** makes rooms from closed polylines and from simple closed loops of connected lines on the current storey. It does not trace T-junctions or shared walls. New rooms use the official defaults (maintenance factor 0.80, no EN template, and the Building Room height). Scale follows the current **Calibrate scale**.
+If the plan underlay is an image or PDF that has not been calibrated, drawing a room or creating a rectangle is blocked until you use **Calibrate scale**. The status bar then says: *Calibrate scale first — the plan underlay is a preview size until you set a real distance.* You can draw with no underlay, a DXF underlay, or a calibrated plan. A new DXF still starts at 1 metre per drawing unit. After official **Calibrate scale** on a DXF underlay, the drawing and the snap points resize together. With a DXF underlay, official Top picks (including Draw room corners and Calibrate scale clicks) snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels. **Create rooms from DXF** makes rooms from closed polylines and from simple closed loops of connected lines on the current storey. It does not trace T-junctions or shared walls. New rooms use the official defaults (maintenance factor 0.80, no EN template, and the Building Room height). Scale follows the current **Calibrate scale**.
 
 房間建立後，不能在平面上整間拖移該房。選取房間後，可在 **Select** 工具下用角點控制點拉伸形狀，或在邊上插入角點。單一燈具仍可用 **Select / move** 單獨拖移。平移圖面請按住滑鼠中鍵拖曳。
 
@@ -83,7 +83,7 @@ If the plan underlay is an image or PDF that has not been calibrated, drawing a 
 
 若要在目前樓層上把三間或以上房間沿一軸均勻分布，可在 Construction tools 按 **Distribute rooms**。先選軸向（Horizontal 或 Vertical；預設為 Horizontal），再於 **Select** 閒置時點選至少三間房，然後按 **Enter** 套用。若已選一間房，該房會作為點選集合的第一間。房間按包圍盒的前緣（水平為最小 X，垂直為最小 Y）排序；該順序的第一間與最後一間留在原位，中間的房間會平移，使相鄰包圍盒之間的間隙相等。形狀不變。屬於被移動房間的燈具會跟隨同一平移，燈具不會被刪除。若房間不在目前樓層、其中一間缺失、選取少於三間、房間已經均勻分布，或移動後會自交、少於 3 個不重複角點、面積小於 0.01 m²，指令會被拒絕，房間不變，並在狀態列說明原因。計算結果會留在原位，直到再按 Calculate。一次成功分布可用 **Ctrl+Z** 整步撤銷。按 **Esc** 或再按一次 **Distribute rooms** 可取消點選。
 
-On **Construction**, choose **Draw room** on the **Top** or **Bottom** view:
+On **Construction**, choose **Draw room** on the **Top** view:
 
 1. Left-click each corner.
 2. Type a length (millimetres by default). The next point is locked to a circle of that radius around the last corner; the pointer only sets the direction.
@@ -140,7 +140,7 @@ To copy the current storey, use **Copy storey** in the **Building** panel. The s
 
 在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Line**（直線）。
 
-1. 可在 **Top** 或 **Bottom** 平面圖上點兩下，設定線段的起點與終點。第一次點擊是起點，第二次點擊完成線段，預覽會沿這條線更新。
+1. 可在 **Top** 平面圖上點兩下，設定線段的起點與終點。第一次點擊是起點，第二次點擊完成線段，預覽會沿這條線更新。
 2. 線段完成後，再點一下會開始一條新線（先重設起點，再點終點）。
 3. 未完成起點時按 **Esc** 會取消該起點，回到用數量與間距的預設直線。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有未完成點選時，**Esc** 仍可用來退出全畫面。
 4. 若未點選端點，**Count**、**Spacing X** 與 **Rotation** 仍會在房間中心沿旋轉方向排成一直線，行為與先前相同。
@@ -150,7 +150,7 @@ To copy the current storey, use **Copy storey** in the **Building** panel. The s
 
 In **Light** mode, select a room in the building tree, then choose **Line** in **Arrange**.
 
-1. Click two points on the **Top** or **Bottom** plan to set the line start and end. The first click is the start; the second click completes the segment and the preview follows that line.
+1. Click two points on the **Top** plan to set the line start and end. The first click is the start; the second click completes the segment and the preview follows that line.
 2. After a segment is complete, a later click starts a new line.
 3. **Esc** cancels an unfinished start and returns to the centred numeric line. It does not exit the browser’s fullscreen view. When you are not mid-pick, **Esc** can still exit fullscreen.
 4. If you do not pick endpoints, **Count**, **Spacing X** and **Rotation** still place a line through the room centre, as before.
@@ -164,7 +164,7 @@ In **Light** mode, select a room in the building tree, then choose **Line** in *
 在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Circle**（圓形）。
 
 1. 用 **Count**、**Radius**（公尺）和 **Rotation** 放置燈具。預設圓心是房間外接矩形的中心，與直線模式未點選端點時所用的中心相同。半徑以欄位上看到的數值為準；未改過時，會按房間較短邊的約四分之一預填。
-2. 可在 **Top** 或 **Bottom** 平面圖上點一下，設定圓心。之後再點一下會改設圓心。
+2. 可在 **Top** 平面圖上點一下，設定圓心。之後再點一下會改設圓心。
 3. 按 **Esc** 會取消已選圓心，回到房間中心的預設圓。即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有已選圓心時，**Esc** 仍可用來退出全畫面。點 **Clear centre** 同樣回到房間中心。
 4. 若未點選圓心，**Count**、**Radius** 與 **Rotation** 仍會以房間中心畫圓。
 5. 燈具在圓周上均勻分布。**Count** 為 1 時，單一點放在起始角度的半徑上，而不是圓心。角度 0° 是 +X 方向，**Rotation** 是第一點的起始角度，同時也是燈具朝向，與直線模式相同，不會自動指向圓心或沿切線。
@@ -174,7 +174,7 @@ In **Light** mode, select a room in the building tree, then choose **Line** in *
 In **Light** mode, select a room in the building tree, then choose **Circle** in **Arrange**.
 
 1. Place fixtures with **Count**, **Radius** (metres) and **Rotation**. The default centre is the room’s bounding-box centre, the same centre used by the Line numeric fallback. The radius used is the value shown in the field; if you have not changed it, it is prefilled to about a quarter of the room’s shorter side.
-2. Click once on the **Top** or **Bottom** plan to set the circle centre. A later click replaces the centre.
+2. Click once on the **Top** plan to set the circle centre. A later click replaces the centre.
 3. **Esc** cancels an unwanted centre pick and returns to the room-centre fallback. It does not exit the browser’s fullscreen view. When no centre is picked, **Esc** can still exit fullscreen. **Clear centre** also returns to the room centre.
 4. If you do not pick a centre, **Count**, **Radius** and **Rotation** still place the circle on the room centre.
 5. Fixtures are spaced equally around the circle. When **Count** is 1, the single point is placed at the start angle on the radius, not at the centre. Angle 0° is +X. **Rotation** is the start angle of the first point and is also the fixture orientation, as in Line mode; fixtures are not aimed at the centre or along the tangent.
@@ -188,7 +188,7 @@ In **Light** mode, select a room in the building tree, then choose **Circle** in
 在 **Light** 模式，先在左側選一個房間，再開右側 **Arrange** 的 **Polygon**（多邊形）。
 
 1. 用 **Count** 和 **Rotation** 放置燈具。若未點選自訂路徑，路徑是所選房間的官方封閉輪廓，由第一個角點（Origin）開始，沿周長均勻分布。
-2. 可在 **Top** 或 **Bottom** 平面圖上逐點點選自訂路徑，座標使用當前縮放或貼合後的世界座標。路徑完成後，再點一下會開始一條新路徑。
+2. 可在 **Top** 平面圖上逐點點選自訂路徑，座標使用當前縮放或貼合後的世界座標。路徑完成後，再點一下會開始一條新路徑。
 3. 按 **Enter** 或在空白處雙擊，可完成一條開放路徑。在目前縮放下點近第一個頂點（約 4 CSS 像素，與整層拖移的點擊容差同一量級）則閉合路徑。未完成路徑時按 **Esc** 會取消該路徑，回到房間輪廓後備；即使瀏覽器處於全畫面，也不會因此退出全畫面。沒有未完成路徑時，**Esc** 仍可用來退出全畫面。點 **Clear path** 同樣回到房間輪廓後備，也不會退出全畫面。
 4. 封閉的自訂路徑（以及未點選時的房間輪廓）沿路徑間距是周長除以 **Count**，因此第一點與最後一點不會重疊在閉合頂點上。**Count** 為 1 時，單一燈具放在第一個角點；自訂路徑則放在第一個點選頂點。開放的自訂路徑由起點到終點均勻分布，**Count** ≥ 2 時包含兩端；**Count** 為 1 時，單一燈具放在起點。
 5. **Rotation** 是燈具朝向，與直線和圓形模式相同，不會自動沿切線或指向室內。
@@ -198,7 +198,7 @@ In **Light** mode, select a room in the building tree, then choose **Circle** in
 In **Light** mode, select a room in the building tree, then choose **Polygon** in **Arrange**.
 
 1. Place fixtures with **Count** and **Rotation**. If you do not pick a custom path, the path is the selected room’s official closed outline, starting at the first corner (Origin), with fixtures spaced equally along the perimeter.
-2. Click on the **Top** or **Bottom** plan to add path vertices in the current zoomed or fitted world coordinates. After a path is finished, a later click starts a new path.
+2. Click on the **Top** plan to add path vertices in the current zoomed or fitted world coordinates. After a path is finished, a later click starts a new path.
 3. **Enter** or a double-click on empty background finishes an open path. Click near the first vertex (within about 4 CSS pixels at the current zoom, the same order as the storey-drag click slop) to close the path. **Esc** cancels an unfinished path and returns to the room-outline fallback. It does not exit the browser’s fullscreen view. When you are not mid-pick, **Esc** can still exit fullscreen. **Clear path** also returns to the room-outline fallback and does not exit fullscreen.
 4. A closed custom path, and the room outline when no custom path is set, uses spacing equal to the perimeter divided by **Count**, so the first and last points do not coincide on the closing vertex. When **Count** is 1, the single fixture sits at the first corner, or at the first picked vertex on a custom path. An open custom path spaces fixtures equally from start to end, including the endpoints when **Count** ≥ 2; when **Count** is 1, the single fixture sits at the start.
 5. **Rotation** is the fixture orientation, as in Line and Circle modes; fixtures are not aimed along the tangent or inward.
@@ -211,11 +211,11 @@ In **Light** mode, select a room in the building tree, then choose **Polygon** i
 
 ![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)
 
-在 **Top** 或 **Bottom** 視圖，只要目前樓層有房間已有計算結果，不必先選房間，即可在圖面左上角、與視圖及 Fullscreen 按鈕同一組浮動控制中，分別開啟或關閉 **False colour**（偽色）、**Isolines**（等照度線）和 **Value labels**（數值圖）。**Isolines** 與 **Value labels** 是同一種按鈕，可以疊加在偽色上，並在工作面網格上顯示或隱藏等照度線與照度數值。等照度線與數值會畫在該層所有已有結果的房間上。在 **3D** 視圖，**Greyscale**（灰階）和 **False colour** 是一對互斥的顯示方式：灰階會把同一套照度場畫成由暗到亮的灰色，偽色則使用官方色階；**Isolines** 與同一個 **Value labels** 開關是同一種按鈕，可以疊加在灰階或偽色上，把同一套等照度線畫在該房工作面高度上，並顯示或隱藏網格數值。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。3D 牆身假色（或灰階照度）會畫在牆厚中間，雙面可見。Top、Bottom 與 3D 的偽色預設使用同一條固定照度色階（約 0–2500 lx，與原先 Top 視圖相同）；圖面下方的 False-colour scale 可在這三個視圖調整，並同時套用。Top 與 Bottom 的偽色畫在畫布上；平移與縮放只移動平面變換，游標移動時也不會重畫偽色圖。3D 偽色使用與平面相同的官方假色圖，並以正確的色彩空間顯示，以免顏色偏淺或偏黃。偽色與等照度線會畫到接近房間輪廓，並在房與房之間留下一條很細的分隔，避免視覺上連成一塊；計算網格與報告中的牆邊區域數值（預設為網格間距的一半，約 0.25 m）維持不變。沒有結果的房間不會發明數字：等照度線與數值圖切換會停用，並提示先執行 **Calculate**。本產品沒有自訂等照度線預設。
+在 **Top** 視圖，只要目前樓層有房間已有計算結果，不必先選房間，即可在圖面左上角、與視圖及 Fullscreen 按鈕同一組浮動控制中，分別開啟或關閉 **False colour**（偽色）、**Isolines**（等照度線）和 **Value labels**（數值圖）。**Isolines** 與 **Value labels** 是同一種按鈕，可以疊加在偽色上，並在工作面網格上顯示或隱藏等照度線與照度數值。等照度線與數值會畫在該層所有已有結果的房間上。在 **3D** 視圖，**Greyscale**（灰階）和 **False colour** 是一對互斥的顯示方式：灰階會把同一套照度場畫成由暗到亮的灰色，偽色則使用官方色階；兩者共用圖面下方同一條可調的照度刻度（最小／最大 lx 與 **Reset**）。在灰階模式，刻度條改為灰色漸層，標題為 **Greyscale scale**，3D 表面跟隨該刻度；線性色彩轉換後，低端仍保持可見。官方偽色色階本身不變。**Isolines** 與同一個 **Value labels** 開關是同一種按鈕，可以疊加在灰階或偽色上，把同一套等照度線畫在該房工作面高度上，並顯示或隱藏網格數值。工作面（計算平面）的高度跟隨右側屬性的 **Workplane (m)**，修改後 3D 平面會立即上下移動，不必先再計算。**Workplane** 開關（預設顯示）可隱藏該平面，但不會隱藏房間地板、牆身或燈具。在 3D 點選燈具時，右側會改顯示該燈具的屬性，而不是房間卡片。點選背景、房間、空白處，或環繞旋轉，都不會取消燈具選取；點另一盞燈會改選它，再點已選的那盞可以取消選取。選取燈具不會因此把房間單獨隔離；按房間隔離 3D 視圖的行為維持不變。偽色、等照度線與數值都來自同一套計算結果與刻度，不會另造一種光度量。3D 牆身假色（或灰階照度）會畫在牆厚中間，雙面可見。Top 與 3D 的偽色預設使用同一條固定照度色階（約 0–2500 lx，與原先 Top 視圖相同）；圖面下方的刻度條可在這兩個視圖調整，並同時套用。Top 的偽色以每房一張圖像畫在平面上；平移與縮放只移動平面變換，不會在拖曳或縮放途中重繪所有房間的偽色圖，游標移動時也不會重建等照度模型。3D 偽色使用與平面相同的官方假色圖，並以正確的色彩空間顯示，以免顏色偏淺或偏黃。偽色與等照度線會畫到接近房間輪廓，並在房與房之間留下一條很細的分隔，避免視覺上連成一塊；計算網格與報告中的牆邊區域數值（預設為網格間距的一半，約 0.25 m）維持不變。沒有結果的房間不會發明數字：等照度線與數值圖切換會停用，並提示先執行 **Calculate**。本產品沒有自訂等照度線預設。
 
 匯出 **Full PDF report** 時，每間已計算房間的摘要會附上工作面等照度線圖，並標上沿線數值與網格數值。即使 3D 視圖未能擷取，這些由平面模型產生的圖仍會匯出。既有的偽色工作面圖與 3D 灰階／偽色章節維持不變；報告不會另增一章 3D 等照度線，也不會拿掉既有的 2D 等照度線圖。
 
-On the **Top** or **Bottom** view, when any room on the current storey has calculation results, you do not need to select a room first: use the floating controls at the top left of the plan, next to the view and Fullscreen buttons, to turn **False colour**, **Isolines**, and **Value labels** on or off independently. **Isolines** and **Value labels** use the same button style and can overlay False colour, to show or hide isolines and illuminance values on the workplane grid. Isolines and labels are drawn on every room on that storey that has results. On the **3D** view, **Greyscale** and **False colour** are the only exclusive display modes: Greyscale paints the same official illuminance field from dark to light grey, and False colour uses the official colour scale. **Isolines** and the same **Value labels** control are matching buttons that can overlay either mode. Isolines are drawn on the workplane at the room’s workplane height, and Value labels show or hide grid values. 3D wall false colour (or greyscale illuminance) is drawn in the middle of the wall thickness and is visible from both sides. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. Top, Bottom, and 3D false colour share the same official absolute illuminance scale (about 0–2500 lx, the previous Top mapping) by default. The False-colour scale bar under the view is available in all three, and dragging it updates both the plan and 3D. On Top and Bottom, false colour is painted on a canvas, and pan and zoom move a live plan transform instead of redrawing every node on each pointer move. Moving the cursor also does not redraw the false-colour field; the DXF snap marker updates on its own layer. 3D false colour uses the same official field bitmap as the plan, in the correct colour space, so it does not look washed or yellowed. False colour and isolines are painted close to the room outline, leaving a thin visible gap between adjacent rooms so they do not merge. The calculation grid and the wall-zone value in the report (half the grid spacing, 0.25 m by default) are unchanged. Rooms without results do not invent numbers: the isoline and value-label controls are disabled and ask you to run **Calculate** first. There are no custom isoline presets.
+On the **Top** view, when any room on the current storey has calculation results, you do not need to select a room first: use the floating controls at the top left of the plan, next to the view and Fullscreen buttons, to turn **False colour**, **Isolines**, and **Value labels** on or off independently. **Isolines** and **Value labels** use the same button style and can overlay False colour, to show or hide isolines and illuminance values on the workplane grid. Isolines and labels are drawn on every room on that storey that has results. On the **3D** view, **Greyscale** and **False colour** are the only exclusive display modes: Greyscale paints the same official illuminance field from dark to light grey, and False colour uses the official colour scale. Both modes share the same interactive illuminance scale bar under the view (minimum / maximum lx and **Reset**). In Greyscale the bar uses a grey gradient and the title **Greyscale scale**, and the 3D surfaces follow that scale; the low end stays visible after linear colour conversion. The official false-colour ramp itself is unchanged. **Isolines** and the same **Value labels** control are matching buttons that can overlay either mode. Isolines are drawn on the workplane at the room’s workplane height, and Value labels show or hide grid values. The displayed 3D workplane (calculation plane) follows **Workplane (m)** in the room properties immediately; you do not need to calculate first for the plane to move. A **Workplane** control (shown by default) can hide that plane without hiding the room floor, walls, or fixtures. Selecting a fixture in 3D shows that fixture’s properties on the right instead of the room card. Clicks on the background, a room, empty space, or orbiting do not deselect it. Clicking another fixture selects it; clicking the already-selected fixture may toggle the selection off. Selecting a fixture does not isolate a room. 3D isolate-on-select for a chosen room is unchanged. False colour, isolines, and the labels all come from the same calculation results and scale; they do not invent a third photometric quantity. 3D wall false colour (or greyscale illuminance) is drawn in the middle of the wall thickness and is visible from both sides. Top and 3D false colour share the same official absolute illuminance scale (about 0–2500 lx, the previous Top mapping) by default. The scale bar under the view is available in both, and dragging it updates the plan and 3D. On the Top view, false colour is a per-room image on the plan, and pan and zoom move a live plan transform instead of re-rasterizing every room or rebuilding isolux models during the gesture. Moving the cursor also does not redraw the false-colour field or rebuild isolux models; the DXF snap marker updates on its own layer, and snap stays inactive on idle hover. 3D false colour uses the same official field bitmap as the plan, in the correct colour space, so it does not look washed or yellowed. False colour and isolines are painted close to the room outline, leaving a thin visible gap between adjacent rooms so they do not merge. The calculation grid and the wall-zone value in the report (half the grid spacing, 0.25 m by default) are unchanged. Rooms without results do not invent numbers: the isoline and value-label controls are disabled and ask you to run **Calculate** first. There are no custom isoline presets.
 
 When you export the **Full PDF report**, each calculated room’s Summary includes a working-plane isolux diagram with isolines, contour labels, and value labels. These 2D figures are still exported if 3D views cannot be captured. Existing false-colour workplane figures and 3D greyscale / false-colour chapters are unchanged. The report does not add a separate 3D-isoline chapter, and it does not drop the existing 2D isolux snapshots.
 

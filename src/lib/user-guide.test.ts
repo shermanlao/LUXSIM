@@ -155,8 +155,8 @@ describe("user guide", () => {
   it("keeps the Circular array tip and guide in sync with centre pick, radius, and rotation", () => {
     const tips = read("src/lib/ui-tips.ts");
     expect(guide).toMatch(/圓形排列 \/ Circular array/);
-    expect(guide).toMatch(/Click once on the \*\*Top\*\* or \*\*Bottom\*\* plan to set the circle centre/);
-    expect(guide).toMatch(/在 \*\*Top\*\* 或 \*\*Bottom\*\* 平面圖上點一下，設定圓心/);
+    expect(guide).toMatch(/Click once on the \*\*Top\*\* plan to set the circle centre/);
+    expect(guide).toMatch(/在 \*\*Top\*\* 平面圖上點一下，設定圓心/);
     expect(guide).toMatch(/later click replaces the centre/);
     expect(guide).toMatch(/再點一下會改設圓心/);
     expect(guide).toMatch(/\*\*Esc\*\* cancels an unwanted centre pick/);
@@ -210,7 +210,7 @@ describe("user guide", () => {
     expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
   });
 
-  it("documents official DXF object snap on Top/Bottom picks", () => {
+  it("documents official DXF object snap on Top picks", () => {
     expect(guide).toMatch(/snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels/i);
     expect(guide).toMatch(/吸附到線段端點、中點，或線段上最近的一點/);
     expect(guide).toMatch(/8 個 CSS 像素/);
@@ -222,7 +222,7 @@ describe("user guide", () => {
     expect(guide).toMatch(/圖像或 PDF 底圖不會做像素吸附/);
     expect(guide).toMatch(/DWG is not parsed and is not snappable/);
     const tips = read("src/lib/ui-tips.ts");
-    expect(tips).toMatch(/With a DXF underlay, official Top\/Bottom picks snap to endpoints/);
+    expect(tips).toMatch(/With a DXF underlay, official Top picks snap to endpoints/);
   });
 
   it("documents official Calibrate scale on a DXF underlay", () => {
@@ -426,6 +426,16 @@ describe("user guide", () => {
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
     expect(guide).toMatch(/does not add a separate 3D-isoline chapter/);
     expect(guide).toMatch(/不會另增一章 3D 等照度線/);
+    expect(guide).toMatch(/Greyscale scale/);
+    expect(guide).toMatch(/灰階模式，刻度條改為灰色漸層/);
+    expect(guide).toMatch(/Workplane \(m\)/);
+    expect(guide).toMatch(/工作面（計算平面）的高度跟隨/);
+    expect(guide).toMatch(/does not isolate a room/);
+    expect(guide).toMatch(/不會因此把房間單獨隔離/);
+    expect(guide).toMatch(/There is no Bottom view button/);
+    expect(guide).toMatch(/沒有 Bottom 視圖按鈕/);
+    expect(guide).toMatch(/re-rasterizing every room or rebuilding isolux models/);
+    expect(guide).toMatch(/不會在拖曳或縮放途中重繪所有房間的偽色圖/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "view.planIsolux"');
     expect(tips).toContain("PLAN_ISOLUX_HINT");

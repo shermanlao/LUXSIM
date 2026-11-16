@@ -21,8 +21,9 @@ export function isoluxWorkplaneHeightM(
   results?: Pick<CalcResults, "grid"> | null,
   elevationM = 0
 ): number {
-  const wp = results?.grid?.z ?? room.workplaneHeightM;
-  return elevationM + wp + ISOLUX_WORKPLANE_LIFT_M;
+  // Display follows the live room property, not the last calculated grid z.
+  void results;
+  return elevationM + room.workplaneHeightM + ISOLUX_WORKPLANE_LIFT_M;
 }
 
 export type Official3dIsoluxPolyline = [number, number, number][];

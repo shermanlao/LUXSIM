@@ -76,10 +76,20 @@ function paletteRgbAtT(t: number): [number, number, number] {
   return absoluteLuxToRgb(first + u * (last - first));
 }
 
+export type IsoluxPalette = "falsecolor" | "greyscale";
+
 /**
- * Map illuminance to the DIALux colour ramp.
+ * sRGB greyscale endpoints. The floor is high enough that after an sRGB→linear
+ * conversion (colour-managed 3D / CanvasTexture) the low end stays visible,
+ * instead of collapsing to near-black. The official false-colour ramp is unchanged.
+ */
+export const GREYSCALE_SRGB_MIN = 0.42;
+export const GREYSCALE_SRGB_MAX = 1;
+
+/**
+ * Map illuminance to greyscale.
  * When a scale is provided, minLux and maxLux are stretched across the full
- * palette so the legend and the 3D surfaces stay in lock-step.
+ * grey range so the legend and the 3D surfaces stay in lock-step.
  */
 export function luxToGrey(lux: number, scale?: FalseColorScale | number): [number, number, number] {
   const range = isFalseColorScale(scale)
@@ -87,7 +97,7 @@ export function luxToGrey(lux: number, scale?: FalseColorScale | number): [numbe
     : { minLux: 0, maxLux: 2500 };
   const span = Math.max(1e-9, range.maxLux - range.minLux);
   const t = Math.max(0, Math.min(1, (lux - range.minLux) / span));
-  const g = 0.08 + 0.88 * t;
+  const g = GREYSCALE_SRGB_MIN + (GREYSCALE_SRGB_MAX - GREYSCALE_SRGB_MIN) * t;
   return [g, g, g];
 }
 
@@ -159,8 +169,11 @@ export function isoluxLevels(emin: number, emax: number): number[] {
   return levels;
 }
 
-/** Tick labels and colours for an interactive false-colour scale bar. */
-export function legendStopsForScale(scale: FalseColorScale): { lux: number; color: string }[] {
+/** Tick labels and colours for an interactive false-colour or greyscale scale bar. */
+export function legendStopsForScale(
+  scale: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
+): { lux: number; color: string }[] {
   const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
   const ticks = [range.minLux, ...isoluxLevels(range.minLux, range.maxLux), range.maxLux];
   const uniq: number[] = [];
@@ -169,10 +182,8 @@ export function legendStopsForScale(scale: FalseColorScale): { lux: number; colo
     if (!uniq.some((u) => Math.abs(u - rounded) < 1e-6)) uniq.push(rounded);
   }
   if (uniq.length < 2) uniq.push(range.maxLux);
-  return uniq.map((lux) => ({ lux, color: rgbCss(luxToRgb(lux, range)) }));
+  return uniq.map((lux) => ({ lux, color: rgbCss(luxToRgb(lux, range, palette)) }));
 }
-
-export type IsoluxPalette = "falsecolor" | "greyscale";
 
 export type IsoluxMode = "falsecolor" | "isolines";
 

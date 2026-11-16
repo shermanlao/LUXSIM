@@ -21,6 +21,8 @@ export function Display3dToggle({
   showValueLabels = false,
   onShowIsolinesChange,
   onShowValueLabelsChange,
+  showWorkplane = true,
+  onShowWorkplaneChange,
   className = "",
 }: {
   value: Display3dMode;
@@ -33,6 +35,8 @@ export function Display3dToggle({
   showValueLabels?: boolean;
   onShowIsolinesChange?: (show: boolean) => void;
   onShowValueLabelsChange?: (show: boolean) => void;
+  showWorkplane?: boolean;
+  onShowWorkplaneChange?: (show: boolean) => void;
   className?: string;
 }) {
   const surface = value === "greyscale" ? "greyscale" : "falsecolor";
@@ -70,6 +74,8 @@ export function Display3dToggle({
         {showIsolines &&
           onShowValueLabelsChange &&
           overlayBtn(showValueLabels, "Value labels", isolinesEnabled, onShowValueLabelsChange)}
+        {onShowWorkplaneChange &&
+          overlayBtn(showWorkplane, "Workplane", true, onShowWorkplaneChange)}
         {showIsolines && <HelpTip helpKey="view.planIsolux" />}
       </div>
       {showIsolines && isolinesReason && (

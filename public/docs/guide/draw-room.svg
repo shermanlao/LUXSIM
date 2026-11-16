@@ -22,7 +22,7 @@
     <text x="556" y="114" fill="#c5d0d6" font-size="12">3. Hold Shift for H / V</text>
     <text x="556" y="136" fill="#c5d0d6" font-size="12">4. Enter to close</text>
     <text x="556" y="158" fill="#c5d0d6" font-size="12">5. Esc cancels the draft</text>
-    <text x="20" y="220" fill="#e8eef2" font-size="13">Draw room on the Top or Bottom plan. Image or PDF underlays must be calibrated first.</text>
-    <text x="20" y="240" fill="#8aa0ad" font-size="12">在 Top 或 Bottom 用左鍵逐點畫房。圖像或 PDF 底圖須先用 Calibrate scale 校正。</text>
+    <text x="20" y="220" fill="#e8eef2" font-size="13">Draw room on the Top plan. Image or PDF underlays must be calibrated first.</text>
+    <text x="20" y="240" fill="#8aa0ad" font-size="12">在 Top 用左鍵逐點畫房。圖像或 PDF 底圖須先用 Calibrate scale 校正。</text>
   </g>
 </svg>

@@ -26,10 +26,12 @@ import {
   createCeilingGeometry,
   createFloorGeometry,
   createWallGeometry,
+  createWorkplanePlateGeometry,
   setMirroredFrontFace,
   wallShellOpacity,
 } from "@/lib/scene-3d-model";
 import { planToThree } from "@/lib/scene-3d-isolux";
+import { next3dFixtureSelection } from "@/lib/scene-3d-selection";
 
 function MirroredFrontFace() {
   const gl = useThree((s) => s.gl);
@@ -101,6 +103,35 @@ function RoomShell({
   );
 }
 
+function WorkplanePlate({
+  room,
+  elev,
+}: {
+  room: ProjectSceneV2["rooms"][number];
+  elev: number;
+}) {
+  const geometry = useMemo(() => createWorkplanePlateGeometry(room, elev), [room, elev]);
+  useLayoutEffect(() => {
+    return () => {
+      geometry?.dispose();
+    };
+  }, [geometry]);
+  if (!geometry) return null;
+  return (
+    <mesh geometry={geometry} userData={{ workplane: true }}>
+      <meshStandardMaterial
+        color="#c5d0d8"
+        roughness={0.95}
+        metalness={0.02}
+        transparent
+        opacity={0.35}
+        side={THREE.DoubleSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
+
 function ViewportSync() {
   const { gl, camera, set } = useThree();
   useLayoutEffect(() => {
@@ -140,6 +171,7 @@ export function BuildingScene3D({
   falseColorScale,
   showValueLabels = false,
   showIsolines = false,
+  showWorkplane = true,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -157,6 +189,7 @@ export function BuildingScene3D({
   falseColorScale?: FalseColorScale;
   showValueLabels?: boolean;
   showIsolines?: boolean;
+  showWorkplane?: boolean;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -235,19 +268,16 @@ export function BuildingScene3D({
         )}
 
         {rooms.map((room) => (
-          <group
-            key={room.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              onSelect(null);
-            }}
-          >
+          <group key={room.id}>
             <RoomShell
               room={room}
               elev={elev}
               active={room.id === scene.ui.activeRoomId}
               display3d={display3d}
             />
+            {showWorkplane && !(results && results.byRoomId[room.id]) && (
+              <WorkplanePlate room={room} elev={elev} />
+            )}
           </group>
         ))}
 
@@ -260,7 +290,7 @@ export function BuildingScene3D({
             const palette = display3d === "greyscale" ? "greyscale" : "falsecolor";
             return (
               <group key={`fc-${room.id}`}>
-                {res && (
+                {showWorkplane && res && (
                   <FalseColorPlane
                     room={room}
                     results={res}
@@ -302,7 +332,7 @@ export function BuildingScene3D({
               rotation={[0, (-lum.rotationDeg * Math.PI) / 180, 0]}
               onClick={(e) => {
                 e.stopPropagation();
-                onSelect(lum.instanceId);
+                onSelect(next3dFixtureSelection(selectedId, lum.instanceId));
               }}
             >
               <LuminaireBodyMesh

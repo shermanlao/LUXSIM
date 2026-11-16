@@ -225,8 +225,14 @@ export function TopView2D({
   polygonPickRef.current = polygonPick ?? EMPTY_POLYGON_PATH_PICK;
 
   const storeyId = scene.ui.activeStoreyId;
-  const rooms = scene.rooms.filter((r) => r.storeyId === storeyId);
-  const instances = scene.instances.filter((i) => i.storeyId === storeyId);
+  const rooms = useMemo(
+    () => scene.rooms.filter((r) => r.storeyId === storeyId),
+    [scene.rooms, storeyId]
+  );
+  const instances = useMemo(
+    () => scene.instances.filter((i) => i.storeyId === storeyId),
+    [scene.instances, storeyId]
+  );
   const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
   const drawing =
     scene.ui.tool === "drawRoom" && officialDrawRoomAllowed(underlay);

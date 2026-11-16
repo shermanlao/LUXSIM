@@ -22,7 +22,7 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.drawRoom",
     title: "Draw room (CAD)",
-    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click the first point (or press Enter when near it) to close the room. Esc cancels; Backspace clears the typed length in one press, then removes the last corner. With a DXF underlay, official Top/Bottom picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels.",
+    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click the first point (or press Enter when near it) to close the room. Esc cancels; Backspace clears the typed length in one press, then removes the last corner. With a DXF underlay, official Top picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels.",
   },
   {
     helpKey: "tool.drawRect",

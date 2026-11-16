@@ -194,9 +194,14 @@ describe("official 3D isolux model wiring", () => {
     const room = lShapedRoom();
     const calc = lShapeGradientResults();
     const elev = 3.2;
-    const expectedH = elev + (calc.grid.z ?? room.workplaneHeightM) + ISOLUX_WORKPLANE_LIFT_M;
+    const expectedH = elev + room.workplaneHeightM + ISOLUX_WORKPLANE_LIFT_M;
     expect(isoluxWorkplaneHeightM(room, calc, elev)).toBe(expectedH);
-    expect(expectedH).toBe(3.2 + 0.9 + 0.02);
+    expect(expectedH).toBe(3.2 + 0.8 + 0.02);
+    // A stale calculated grid.z (0.9) must not pin the displayed plane.
+    expect(calc.grid.z).toBe(0.9);
+    expect(isoluxWorkplaneHeightM({ ...room, workplaneHeightM: 1.1 }, calc, elev)).toBe(
+      elev + 1.1 + ISOLUX_WORKPLANE_LIFT_M
+    );
     expect(planToThree(1.25, 4.5, expectedH)).toEqual([1.25, expectedH, 4.5]);
 
     const overlay = official3dIsoluxOverlayForRoom(room, calc, elev);

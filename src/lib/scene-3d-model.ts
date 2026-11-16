@@ -262,7 +262,7 @@ export function createClippedWorkplaneGeometry(
   const positions: number[] = [];
   const colors: number[] = [];
   const indices: number[] = [];
-  const height = elevationM + (results.grid.z ?? room.workplaneHeightM) + 0.02;
+  const height = officialFalseColorWorkplaneHeight(room, results, elevationM);
   const vertIndex = new Map<string, number>();
 
   const vertexAt = (p: PlanPt): number => {
@@ -334,12 +334,33 @@ export function createClippedWorkplaneGeometry(
   return geo;
 }
 
+/** Display height of the 3D workplane / calculation plane. Follows room.workplaneHeightM immediately. */
+export function workplaneDisplayHeightM(room: Pick<RoomV2, "workplaneHeightM">, elevationM = 0): number {
+  return elevationM + room.workplaneHeightM + 0.02;
+}
+
 export function officialFalseColorWorkplaneHeight(
   room: RoomV2,
   results: CalcResults,
   elevationM: number
 ): number {
-  return elevationM + (results.grid.z ?? room.workplaneHeightM) + 0.02;
+  // Display follows the live Workplane (m) field, not the last calculated grid z.
+  void results;
+  return workplaneDisplayHeightM(room, elevationM);
+}
+
+/** Uncoloured calculation-plane plate, at the same height as the false-colour workplane. */
+export function createWorkplanePlateGeometry(
+  room: RoomV2,
+  elevationM: number
+): THREE.BufferGeometry | null {
+  const shape = shapeFromPolygon(room.polygon);
+  if (!shape) return null;
+  const geo = new THREE.ShapeGeometry(shape);
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, workplaneDisplayHeightM(room, elevationM), 0);
+  geo.computeVertexNormals();
+  return geo;
 }
 
 /**

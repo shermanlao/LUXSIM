@@ -127,6 +127,8 @@ export { gridToFalseColorPngDataUrl, workplaneFalseColorRgb } from "./false-colo
 export {
   luxToRgb,
   luxToGrey,
+  GREYSCALE_SRGB_MIN,
+  GREYSCALE_SRGB_MAX,
   luxToRgbLinear,
   srgbToLinearChannel,
   rgbCss,

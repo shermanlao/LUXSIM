@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   DIALUX_LUX_STOPS,
+  GREYSCALE_SRGB_MAX,
+  GREYSCALE_SRGB_MIN,
   OFFICIAL_FALSE_COLOR_SCALE,
   isoluxFieldScreenRect,
   isoluxPxToWorld,
   legendStopsForScale,
+  luxToGrey,
   luxToRgb,
   luxToRgbLinear,
   normalizeFalseColorScale,
@@ -83,6 +86,50 @@ describe("false-colour scale mapping", () => {
     // Treating sRGB as linear (the previous 3D path) makes mid greens much brighter.
     expect(r).toBeGreaterThan(linear[0]);
     expect(g).toBeGreaterThan(linear[1]);
+  });
+});
+
+
+describe("greyscale illuminance scale", () => {
+  it("follows the same min/max scale as false colour", () => {
+    const scale = normalizeFalseColorScale(50, 150);
+    expect(luxToGrey(50, scale)[0]).toBeCloseTo(GREYSCALE_SRGB_MIN, 8);
+    expect(luxToGrey(150, scale)[0]).toBeCloseTo(GREYSCALE_SRGB_MAX, 8);
+    expect(luxToGrey(100, scale)[0]).toBeCloseTo((GREYSCALE_SRGB_MIN + GREYSCALE_SRGB_MAX) / 2, 8);
+    expect(luxToGrey(0, scale)).toEqual(luxToGrey(50, scale));
+    expect(luxToGrey(400, scale)).toEqual(luxToGrey(150, scale));
+  });
+
+  it("keeps the low end visible after sRGB to linear conversion", () => {
+    const scale = OFFICIAL_FALSE_COLOR_SCALE;
+    const [g] = luxToGrey(0, scale);
+    expect(g).toBeCloseTo(GREYSCALE_SRGB_MIN, 8);
+    const linearMin = luxToRgbLinear(0, scale, "greyscale")[0];
+    expect(linearMin).toBeGreaterThanOrEqual(0.12);
+    expect(linearMin).toBeCloseTo(srgbToLinearChannel(GREYSCALE_SRGB_MIN), 8);
+    // 72 lx on the official 0–2500 scale must not collapse to near-black in 3D.
+    const linear72 = luxToRgbLinear(72, scale, "greyscale")[0];
+    expect(linear72).toBeGreaterThan(linearMin);
+    expect(linear72).toBeGreaterThan(0.12);
+  });
+
+  it("does not change the official false-colour ramp", () => {
+    for (const lux of [0, 56, 72, 240, 500, 1170, 2500]) {
+      expect(luxToRgb(lux, OFFICIAL_FALSE_COLOR_SCALE)).toEqual(luxToRgb(lux));
+      expect(luxToRgb(lux, OFFICIAL_FALSE_COLOR_SCALE, "falsecolor")).toEqual(luxToRgb(lux));
+    }
+    expect(luxToRgb(72, undefined, "falsecolor")).not.toEqual(luxToRgb(72, undefined, "greyscale"));
+  });
+
+  it("labels a greyscale legend with grey stops", () => {
+    const scale = { minLux: 0, maxLux: 2500 };
+    const stops = legendStopsForScale(scale, "greyscale");
+    expect(stops[0]!.color).toBe(rgbCss(luxToGrey(0, scale)));
+    expect(stops[stops.length - 1]!.color).toBe(rgbCss(luxToGrey(2500, scale)));
+    const [r, g, b] = stops[0]!.color.match(/\d+/g)!.map(Number);
+    expect(r).toBe(g);
+    expect(g).toBe(b);
+    expect(legendStopsForScale(scale)[0]!.color).not.toBe(stops[0]!.color);
   });
 });
 

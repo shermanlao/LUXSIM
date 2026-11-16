@@ -125,8 +125,8 @@ describe("official Circle array wiring", () => {
     const guide = readSrc("docs/USER_GUIDE.md");
     const tips = readSrc("src/lib/ui-tips.ts");
     expect(guide).toMatch(/圓形排列 \/ Circular array/);
-    expect(guide).toMatch(/Click once on the \*\*Top\*\* or \*\*Bottom\*\* plan to set the circle centre/);
-    expect(guide).toMatch(/在 \*\*Top\*\* 或 \*\*Bottom\*\* 平面圖上點一下，設定圓心/);
+    expect(guide).toMatch(/Click once on the \*\*Top\*\* plan to set the circle centre/);
+    expect(guide).toMatch(/在 \*\*Top\*\* 平面圖上點一下，設定圓心/);
     expect(guide).toMatch(/later click replaces the centre/);
     expect(guide).toMatch(/再點一下會改設圓心/);
     expect(guide).toMatch(/\*\*Esc\*\* cancels an unwanted centre pick/);

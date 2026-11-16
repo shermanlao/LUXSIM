@@ -369,7 +369,7 @@ describe("official editor and export path wiring", () => {
     expect(editor).toContain("collectOfficialIsoluxSnapshots(scene, results)");
     expect(editor).toContain("isoluxSnapshots,");
     expect(editor).toContain("PlanIsoluxToggle");
-    expect(editor).toContain("viewMode === \"top\" || viewMode === \"bottom\"");
+    expect(editor).toContain("viewMode === \"top\"");
     expect(editor).toContain("planIsoluxControlState(results, currentStoreyRoomIds())");
     expect(editor).toContain("showFalseColor={planShowFalseColor}");
     expect(editor).toContain("showValueLabels={planValueLabels}");
@@ -389,15 +389,13 @@ describe("official editor and export path wiring", () => {
     expect(top).toContain("showIsolines");
     expect(top).toContain("showValueLabels");
     expect(overlay).toContain("officialIsoluxModelForRoom");
+    expect(overlay).toContain("officialPlanIsoluxModels");
     expect(overlay).toContain("isoluxPxToWorld");
     expect(overlay).toContain("valueLabels");
     expect(overlay).toContain("contours");
-    expect(overlay).toContain("data-plan-falsecolor-canvas");
+    expect(overlay).toContain("data-plan-falsecolor-image");
     expect(overlay).toContain("isoluxFieldScreenRect");
-    expect(overlay).toContain("viewOx");
-    expect(top).toContain("viewOx={ox}");
-    expect(overlay).toContain("fieldCanvases");
-    expect(overlay).toContain("viewOx, viewOy, viewScale");
+    expect(overlay).not.toContain("useLayoutEffect");
     expect(overlay).not.toContain("isoluxFieldPngDataUrl");
     expect(top).toContain("falseColorScale");
     expect(editor).toContain("OFFICIAL_FALSE_COLOR_SCALE");
@@ -425,7 +423,7 @@ describe("official editor and export path wiring", () => {
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
     expect(guide).toMatch(/if 3D views cannot be captured/);
     expect(gap).not.toMatch(/isolines \/ value charts no/i);
-    expect(gap).toMatch(/official Top\/Bottom plan/);
+    expect(gap).toMatch(/official Top plan/);
     expect(gap).toMatch(/official Full PDF isolux diagram/);
     expect(gap).toMatch(/official 3D can also show isolines/);
     expect(tips).toContain('helpKey: "view.planIsolux"');

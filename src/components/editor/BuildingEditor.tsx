@@ -187,6 +187,7 @@ import {
   planShowFalseColorFromUi,
   planShowIsolinesFromUi,
 } from "@/lib/plan-isolux-display";
+import { showWorkplaneFromUi } from "@/lib/workplane-display";
 import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
@@ -1980,15 +1981,22 @@ export function BuildingEditor({
     export: <IconModeExport className="w-4 h-4" />,
   };
 
-  const viewMode = scene.ui.viewMode;
+  const viewMode = scene.ui.viewMode === "bottom" ? "top" : scene.ui.viewMode;
 
   const viewTabs: { mode: ViewMode; label: string; icon: ReactElement }[] = [
     { mode: "top", label: "Top", icon: <IconViewTop /> },
-    { mode: "bottom", label: "Bottom", icon: <IconViewTop /> },
     { mode: "front", label: "Front", icon: <IconViewElevation /> },
     { mode: "side", label: "Side", icon: <IconViewElevation /> },
     { mode: "persp3d", label: "3D", icon: <IconView3d /> },
   ];
+
+  useEffect(() => {
+    if (scene.ui.viewMode !== "bottom") return;
+    patchSceneUi((s) => ({
+      ...s,
+      ui: { ...s.ui, viewMode: "top" },
+    }));
+  }, [scene.ui.viewMode]);
 
   useEffect(() => {
     if (!fullscreen) return;
@@ -2018,6 +2026,7 @@ export function BuildingEditor({
 
 
   const display3d: Display3dMode = defaultDisplay3d(results, scene.ui.display3d);
+  const showWorkplane = showWorkplaneFromUi(scene.ui);
   const planShowFalseColor = planShowFalseColorFromUi(scene.ui);
   const planShowIsolines = planShowIsolinesFromUi(scene.ui);
   const planValueLabels = scene.ui.planValueLabels === true;
@@ -2097,9 +2106,16 @@ export function BuildingEditor({
                 ui: { ...s.ui, planValueLabels: show },
               }))
             }
+            showWorkplane={showWorkplane}
+            onShowWorkplaneChange={(show) =>
+              patchSceneUi((s) => ({
+                ...s,
+                ui: { ...s.ui, showWorkplane: show },
+              }))
+            }
           />
         )}
-        {(viewMode === "top" || viewMode === "bottom") && (
+        {(viewMode === "top") && (
           <PlanIsoluxToggle
             showFalseColor={planShowFalseColor}
             onShowFalseColorChange={(show) =>
@@ -2140,10 +2156,10 @@ export function BuildingEditor({
         )}
       </div>
       <div className="relative flex-1 min-h-0 bg-[#0a1218]">
-      {(viewMode === "top" || viewMode === "bottom") && (
+      {(viewMode === "top") && (
         <TopView2D
           scene={scene}
-          variant={viewMode === "bottom" ? "bottom" : "top"}
+          variant="top"
           results={results}
           showFalseColor={planShowFalseColor}
           showIsolines={planShowIsolines}
@@ -2253,11 +2269,12 @@ export function BuildingEditor({
           falseColorScale={scale}
           showValueLabels={planValueLabels}
           showIsolines={planShowIsolines}
+          showWorkplane={showWorkplane}
         />
       )}
       </div>
-      {((viewMode === "persp3d" && display3d === "falsecolor") ||
-        ((viewMode === "top" || viewMode === "bottom") && planShowFalseColor && results)) && (
+      {((viewMode === "persp3d" && (display3d === "falsecolor" || display3d === "greyscale")) ||
+        ((viewMode === "top") && planShowFalseColor && results)) && (
         <FalseColorLegend
           emin={autoScale.minLux}
           emax={autoScale.maxLux}
@@ -2273,6 +2290,7 @@ export function BuildingEditor({
           }}
           layout="bar"
           tone="dark"
+          palette={viewMode === "persp3d" && display3d === "greyscale" ? "greyscale" : "falsecolor"}
         />
       )}
     </div>
@@ -2855,7 +2873,7 @@ export function BuildingEditor({
 
         <aside className="cad-right space-y-2">
           <p className="cad-section-title">Properties</p>
-          {activeRoom ? (
+          {!selected && activeRoom ? (
             <div
               className={`cad-props-card space-y-2 ${
                 workflow !== "construction" && workflow !== "calculation" ? "cad-panel-hidden" : ""
@@ -2890,7 +2908,23 @@ export function BuildingEditor({
                   </p>
                 </>
               )}
-              <label className="label">Workplane (m)</label>
+              <div className="flex items-center justify-between gap-2">
+                <label className="label mb-0">Workplane (m)</label>
+                <label className="flex items-center gap-1 text-[11px] text-[var(--muted)]">
+                  <input
+                    type="checkbox"
+                    checked={showWorkplane}
+                    onChange={(e) =>
+                      patchSceneUi((s) => ({
+                        ...s,
+                        ui: { ...s.ui, showWorkplane: e.target.checked },
+                      }))
+                    }
+                    data-show-workplane=""
+                  />
+                  Show
+                </label>
+              </div>
               <input
                 className="input"
                 type="number"
@@ -3072,18 +3106,17 @@ export function BuildingEditor({
                 </div>
               )}
             </div>
-          ) : (
+          ) : !selected ? (
             <p className="text-xs text-[var(--muted)]">
               No room selected. Set Room height in the Building panel for the next room
               you draw or create. Area and origin appear after a room is selected.
             </p>
-          )}
+          ) : null}
 
           {selected && (
             <div
-              className={`cad-props-card space-y-2 ${
-                workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
-              }`}
+              className="cad-props-card space-y-2"
+              data-fixture-properties=""
             >
               <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
               <input

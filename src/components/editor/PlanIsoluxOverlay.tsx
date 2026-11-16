@@ -1,6 +1,6 @@
 "use client";
 
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useMemo } from "react";
 import type {
   FalseColorScale,
   IsoluxModel,
@@ -13,6 +13,7 @@ import {
   isoluxPxToWorld,
   officialIsoluxModelForRoom,
 } from "@luxsim/project-io";
+import { officialPlanIsoluxModels } from "@/lib/plan-falsecolor-layer";
 
 type ScreenPt = { x: number; y: number };
 
@@ -20,7 +21,7 @@ function pointsAttr(pts: ScreenPt[]): string {
   return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 }
 
-function fieldCanvasFor(model: IsoluxModel): HTMLCanvasElement | null {
+function fieldImageHref(model: IsoluxModel): string | null {
   if (typeof document === "undefined") return null;
   if (model.field.length < model.width * model.height * 4) return null;
   const canvas = document.createElement("canvas");
@@ -31,7 +32,7 @@ function fieldCanvasFor(model: IsoluxModel): HTMLCanvasElement | null {
   const image = new ImageData(model.width, model.height);
   image.data.set(model.field);
   ctx.putImageData(image, 0, 0);
-  return canvas;
+  return canvas.toDataURL("image/png");
 }
 
 export function PlanIsoluxOverlay({
@@ -42,11 +43,6 @@ export function PlanIsoluxOverlay({
   showIsolines = false,
   showValueLabels,
   toScreen,
-  viewW,
-  viewH,
-  viewOx,
-  viewOy,
-  viewScale,
   colorScale,
 }: {
   scene: ProjectSceneV2;
@@ -56,81 +52,63 @@ export function PlanIsoluxOverlay({
   showIsolines?: boolean;
   showValueLabels: boolean;
   toScreen: (x: number, y: number) => ScreenPt;
-  viewW: number;
-  viewH: number;
-  viewOx: number;
-  viewOy: number;
-  viewScale: number;
+  /** @deprecated Kept so existing call sites can pass the committed view; not used to rebuild or re-rasterize. */
+  viewW?: number;
+  viewH?: number;
+  viewOx?: number;
+  viewOy?: number;
+  viewScale?: number;
   colorScale?: FalseColorScale;
 }) {
-  const models = useMemo(() => {
-    if (!showFalseColor && !showIsolines && !showValueLabels) return [] as { room: RoomV2; model: IsoluxModel }[];
-    const out: { room: RoomV2; model: IsoluxModel }[] = [];
-    for (const room of rooms) {
-      const model = officialIsoluxModelForRoom(room, results.byRoomId[room.id], {
-        mode: showFalseColor ? "falsecolor" : "isolines",
-        fixtures: scene.instances.filter((i) => i.roomId === room.id),
-        targetLongSide: 800,
+  const models = useMemo(
+    () =>
+      officialPlanIsoluxModels({
+        rooms,
+        results,
+        fixtures: scene.instances,
+        showFalseColor,
+        showIsolines,
+        showValueLabels,
         colorScale,
-        includeContours: showIsolines,
-        includeValueLabels: showValueLabels,
-      });
-      if (model) out.push({ room, model });
-    }
-    return out;
-  }, [rooms, results, showFalseColor, showIsolines, scene.instances, colorScale, showValueLabels]);
+      }),
+    [rooms, results, showFalseColor, showIsolines, scene.instances, colorScale, showValueLabels]
+  );
 
-  const fieldCanvases = useMemo(() => {
-    if (!showFalseColor) return [] as { model: IsoluxModel; canvas: HTMLCanvasElement }[];
-    const out: { model: IsoluxModel; canvas: HTMLCanvasElement }[] = [];
-    for (const { model } of models) {
-      const canvas = fieldCanvasFor(model);
-      if (canvas) out.push({ model, canvas });
+  const fieldImages = useMemo(() => {
+    if (!showFalseColor) return [] as { room: RoomV2; model: IsoluxModel; href: string }[];
+    const out: { room: RoomV2; model: IsoluxModel; href: string }[] = [];
+    for (const { room, model } of models) {
+      const href = fieldImageHref(model);
+      if (href) out.push({ room, model, href });
     }
     return out;
+    // Field bitmaps are baked once per isolux model — not when the committed view pan/zoom changes.
   }, [models, showFalseColor]);
 
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  useLayoutEffect(() => {
-    const cvs = canvasRef.current;
-    if (!cvs || !showFalseColor) return;
-    if (cvs.width !== viewW) cvs.width = viewW;
-    if (cvs.height !== viewH) cvs.height = viewH;
-    const ctx = cvs.getContext("2d");
-    if (!ctx) return;
-    ctx.clearRect(0, 0, viewW, viewH);
-    ctx.imageSmoothingEnabled = true;
-    ctx.globalAlpha = 0.92;
-    for (const { model, canvas } of fieldCanvases) {
-      const rect = isoluxFieldScreenRect(model.world, model.width, model.height, toScreen);
-      if (!rect) continue;
-      ctx.drawImage(canvas, rect.x, rect.y, rect.width, rect.height);
-    }
-    // Only repaint when the committed plan view or field bitmaps change — not on cursor moves.
-  }, [showFalseColor, viewW, viewH, viewOx, viewOy, viewScale, fieldCanvases]);
-
-  if (models.length === 0 && fieldCanvases.length === 0) return null;
+  if (models.length === 0 && fieldImages.length === 0) return null;
 
   return (
     <g data-plan-isolux-overlay="" pointerEvents="none">
-      {showFalseColor && viewW > 0 && viewH > 0 && (
-        <foreignObject
-          x={0}
-          y={0}
-          width={viewW}
-          height={viewH}
-          pointerEvents="none"
-          data-plan-falsecolor-layer=""
-        >
-          <canvas
-            ref={canvasRef}
-            width={viewW}
-            height={viewH}
-            data-plan-falsecolor-canvas=""
-            style={{ display: "block", width: "100%", height: "100%" }}
-          />
-        </foreignObject>
-      )}
+      {showFalseColor &&
+        fieldImages.map(({ room, model, href }) => {
+          const rect = isoluxFieldScreenRect(model.world, model.width, model.height, toScreen);
+          if (!rect) return null;
+          return (
+            <image
+              key={`${room.id}-falsecolor`}
+              href={href}
+              x={rect.x}
+              y={rect.y}
+              width={rect.width}
+              height={rect.height}
+              preserveAspectRatio="none"
+              opacity={0.92}
+              pointerEvents="none"
+              data-plan-falsecolor-image={room.id}
+              data-plan-falsecolor-canvas=""
+            />
+          );
+        })}
       {models.map(({ room, model }) => {
         const toS = (px: { x: number; y: number }) => {
           const w = isoluxPxToWorld(model.world, px);
@@ -206,3 +184,6 @@ export function PlanIsoluxOverlay({
     </g>
   );
 }
+
+// Re-export so source-wiring tests and callers can find the model builder.
+export { officialIsoluxModelForRoom, officialPlanIsoluxModels };

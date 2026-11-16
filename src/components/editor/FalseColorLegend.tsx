@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 import type { CalcResults } from "@luxsim/solver";
-import type { FalseColorScale } from "@luxsim/project-io";
+import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import { legendStopsForScale, normalizeFalseColorScale } from "@/lib/false-color";
 
 function formatLux(value: number): string {
@@ -20,6 +20,7 @@ export function FalseColorLegend({
   compact = false,
   tone = "light",
   layout = "card",
+  palette = "falsecolor",
 }: {
   results?: CalcResults | null;
   emin?: number;
@@ -31,13 +32,15 @@ export function FalseColorLegend({
   tone?: "light" | "dark";
   /** "bar" is a short, full-width strip under the 3D window. */
   layout?: "card" | "bar";
+  /** Greyscale uses a grey gradient and title; the official false-colour ramp is unchanged. */
+  palette?: IsoluxPalette;
 }) {
   const fallback = normalizeFalseColorScale(
     eminProp ?? results?.summary.emin ?? 56,
     emaxProp ?? results?.summary.emax ?? 500
   );
   const current = scale ? normalizeFalseColorScale(scale.minLux, scale.maxLux) : fallback;
-  const stops = legendStopsForScale(current);
+  const stops = legendStopsForScale(current, palette);
   const hasResults = Boolean(results) || eminProp != null || emaxProp != null || scale != null;
   const gradient = `linear-gradient(90deg, ${stops
     .map((s, i) => `${s.color} ${(i / Math.max(stops.length - 1, 1)) * 100}%`)
@@ -76,10 +79,10 @@ export function FalseColorLegend({
       : "panel p-3";
 
   return (
-    <div className={shell} data-falsecolor-legend={layout}>
+    <div className={shell} data-falsecolor-legend={layout} data-scale-palette={palette}>
       <div className={`flex items-center gap-2 ${isBar ? "mb-1" : "justify-between gap-2 mb-2"}`}>
         <h3 className={isBar || compact ? "text-[10px] uppercase tracking-wider font-semibold shrink-0" : "text-sm font-semibold"}>
-          {isBar ? "False-colour scale" : "False-colour scale"}
+          {palette === "greyscale" ? "Greyscale scale" : "False-colour scale"}
         </h3>
         {!isBar && (
           <span className={`text-xs ${dark ? "text-[#8fa3ad]" : "text-[var(--muted)]"}`}>

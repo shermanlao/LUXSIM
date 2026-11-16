@@ -104,7 +104,7 @@ describe("room property formatting", () => {
 
 describe("BuildingEditor Properties wiring", () => {
   const src = readSrc("src/components/editor/BuildingEditor.tsx");
-  const roomBranchStart = src.indexOf("{activeRoom ? (");
+  const roomBranchStart = src.indexOf("{!selected && activeRoom ? (");
   const roomBranchEnd = src.indexOf("No room selected. Set Room height in the Building panel");
 
   it("shows Area and Origin only on the selected-room Properties path", () => {

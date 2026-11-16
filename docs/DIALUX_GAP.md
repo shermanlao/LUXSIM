@@ -50,7 +50,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **RCP confirm (F2.3)**: human review table (code map column, accept/reject, edit code → `codeNorm`); autosaved proposals only
 - **RCP commit (F2.4)**: **Commit accepted** places mapped proposals as fixtures (`rcpProposalId` on instance); optional replace prior detect-sourced fixtures on storey; room results cleared; optional calc after commit
 - **Post-place calc (F2.6)**: RCP commit, array apply, drag-drop, and **Calc room/all** use shared **`post-place-calc`** → `runClientCalcForRooms` / `packages/solver`; bottom results strip + EN/MF assist; photometry gaps surfaced by luminaire name
-- Official DXF object snap on Top/Bottom picks (endpoint, midpoint, nearest-on-segment, 8 CSS px). **Create rooms from DXF** builds rooms from closed polylines and from simple closed loops of connected LINE / open LWPOLYLINE segments on the current storey; T-junction / shared-wall networks are not auto-traced. DWG is still unparsed
+- Official DXF object snap on Top picks (endpoint, midpoint, nearest-on-segment, 8 CSS px). **Create rooms from DXF** builds rooms from closed polylines and from simple closed loops of connected LINE / open LWPOLYLINE segments on the current storey; T-junction / shared-wall networks are not auto-traced. DWG is still unparsed
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)
 - No Metaroom / LiDAR scan path
@@ -74,7 +74,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Visualization & docs
 
-- False colour, isolines, and value labels on the official Top/Bottom plan (after Calculate) and in the official Full PDF isolux diagram; official 3D can also show isolines and value labels on the workplane from the same model, beside greyscale / false-colour. No custom isoline presets. Not a raytraced visualisation.
+- False colour, isolines, and value labels on the official Top plan (after Calculate) and in the official Full PDF isolux diagram; official 3D can also show isolines and value labels on the workplane from the same model, beside greyscale / false-colour. No custom isoline presets. Not a raytraced visualisation.
 - No raytrace
 - PDF is a fixed template; no DOCX / PPT / CD layouts
 - No proprietary native DIALux project write
