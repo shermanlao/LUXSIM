@@ -267,7 +267,5 @@ describe("official editor Distribute rooms wiring", () => {
     expect(top).toContain("onDistributeApply");
     expect(top).toContain('unionPickMode === "distribute"');
     expect(top).toContain("Enter applies");
-    expect(src).not.toContain("copyStorey");
-    expect(top).not.toContain("copyStorey");
   });
 });

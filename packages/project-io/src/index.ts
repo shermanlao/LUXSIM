@@ -451,6 +451,23 @@ export {
 } from "./official-storey-metrics";
 
 export {
+  COPY_STOREY_ELEVATION_EPS_M,
+  COPY_STOREY_REFUSE_BUILDING_STATUS,
+  COPY_STOREY_REFUSE_INVALID_STATUS,
+  COPY_STOREY_REFUSE_MISSING_STATUS,
+  formatCopyStoreySuccessStatus,
+  officialCopyStorey,
+  officialCopyStoreyElevationM,
+  officialCopyStoreyName,
+} from "./official-copy-storey";
+export type {
+  OfficialCopyStoreyInput,
+  OfficialCopyStoreyReason,
+  OfficialCopyStoreyResult,
+} from "./official-copy-storey";
+
+
+export {
   buildWallChains,
   calculateRoomWalls,
   inwardNormal,

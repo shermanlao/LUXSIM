@@ -57,6 +57,7 @@ import {
   DEFAULT_NEW_ROOM_HEIGHT_MM,
   STOREY_METRICS_EXPLANATION,
   officialAppendStorey,
+  officialCopyStorey,
   applyOfficialStoreyMetrics,
   UNCALIBRATED_DRAW_ROOM_STATUS,
   legacyScaleToMetersPerPixel,
@@ -727,6 +728,19 @@ export function BuildingEditor({
   function addStorey() {
     const id = nid("storey");
     patchScene((s) => officialAppendStorey(s, { id }));
+  }
+
+  function copyStorey() {
+    endCoalesce();
+    const result = officialCopyStorey(scene, {
+      storeyId: nid("storey"),
+      nextRoomId: () => nid("room"),
+      nextInstanceId: () => nid("fix"),
+    });
+    setStatus(result.status);
+    if (result.ok) {
+      patchScene(() => result.scene);
+    }
   }
 
   function applyStoreyMetrics(patch: { elevationM?: number; heightM?: number }) {
@@ -2310,9 +2324,20 @@ export function BuildingEditor({
       <div className="cad-body">
         <aside className="cad-left space-y-1">
           <p className="cad-section-title">Building</p>
-          <button className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
+          <button type="button" className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
             Add storey
           </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              data-help-key="tool.copyStorey"
+              className="btn btn-secondary w-full !text-xs"
+              onClick={copyStorey}
+            >
+              Copy storey
+            </button>
+            <HelpTip helpKey="tool.copyStorey" />
+          </div>
           <ul className="space-y-0.5">
             {scene.storeys.map((st) => (
               <li key={st.id}>

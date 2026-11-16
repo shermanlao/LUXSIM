@@ -395,6 +395,25 @@ describe("user guide", () => {
     expect(tips).toMatch(/gaps between consecutive bounding boxes are equal/);
   });
 
+  it("documents Copy storey for duplicating the current storey in the same building", () => {
+    expect(guide).toMatch(/use \*\*Copy storey\*\* in the \*\*Building\*\* panel/);
+    expect(guide).toMatch(/可在左側 \*\*Building\*\* 按 \*\*Copy storey\*\*/);
+    expect(guide).toMatch(/named \*\*Copy of \{name\}\*\*/);
+    expect(guide).toMatch(/新樓層名稱為 \*\*Copy of \{名稱\}\*\*/);
+    expect(guide).toMatch(/source elevation \+ source storey height/);
+    expect(guide).toMatch(/來源標高 \+ 來源層高/);
+    expect(guide).toMatch(/steps up by the source storey height until a free slot is found/);
+    expect(guide).toMatch(/再按來源層高往上尋找空位/);
+    expect(guide).toMatch(/Underlays and calculation results are not copied/);
+    expect(guide).toMatch(/底圖與計算結果不會被複製/);
+    expect(guide).toMatch(/the new storey is selected so the plan shows it/);
+    expect(guide).toMatch(/成功後會選取新樓層/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.copyStorey"');
+    expect(tips).toMatch(/Copy of \{name\}/);
+    expect(tips).toMatch(/Underlays and calculation results are not copied/);
+  });
+
   it("documents isolines and value labels on the plan, in 3D, and in the official PDF", () => {
     expect(guide).toMatch(/等照度線與數值圖 \/ Isolines and value labels/);
     expect(guide).toMatch(/switch between \*\*False colour\*\* and \*\*Isolines\*/);

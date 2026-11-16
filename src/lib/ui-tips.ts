@@ -70,6 +70,11 @@ export const UI_TIPS: UiTipSeed[] = [
     body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",
   },
   {
+    helpKey: "tool.copyStorey",
+    title: "Copy storey",
+    body: "Copies the current storey into a new storey in the same building. The source storey is left unchanged. The copy is named Copy of {name} (or Copy of {name} 2, 3, … if that name is taken) and is placed immediately above the source at source elevation + source storey height, so the new floor does not overlap the source slab. If another storey already occupies that elevation, the copy steps up by the source storey height until a free slot is found. Rooms are copied with the same plan polygons, heights, materials, maintenance factor, EN targets, and other official properties, but with new ids. Luminaires on the source storey are copied with the same plan position, mounting height, rotation, and photometry reference; room assignments are remapped to the new rooms. Underlays and calculation results are not copied — run Calculate on the new storey. After a successful copy, the new storey is selected. Ctrl+Z undoes the copy as one step.",
+  },
+  {
     helpKey: "tool.storeyHeight",
     title: "Storey elevation and height",
     body: STOREY_METRICS_EXPLANATION,
