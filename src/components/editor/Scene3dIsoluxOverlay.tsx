@@ -77,14 +77,19 @@ function IsoluxLabels({
 }
 
 function IsoluxContours({ overlay }: { overlay: Official3dIsoluxOverlay }) {
-  const geos = useMemo(() => {
-    const out: THREE.BufferGeometry[] = [];
+  const lines = useMemo(() => {
+    const material = new THREE.LineBasicMaterial({
+      color: CONTOUR_COLOR,
+      depthTest: true,
+      depthWrite: false,
+    });
+    const out: THREE.Line[] = [];
     for (const contour of overlay.contours) {
-      for (const line of contour.polylines) {
-        if (line.length < 2) continue;
+      for (const polyline of contour.polylines) {
+        if (polyline.length < 2) continue;
         const geo = new THREE.BufferGeometry();
-        geo.setFromPoints(line.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
-        out.push(geo);
+        geo.setFromPoints(polyline.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+        out.push(new THREE.Line(geo, material));
       }
     }
     return out;
@@ -92,16 +97,16 @@ function IsoluxContours({ overlay }: { overlay: Official3dIsoluxOverlay }) {
 
   useLayoutEffect(() => {
     return () => {
-      for (const geo of geos) geo.dispose();
+      const mat = lines[0]?.material;
+      for (const line of lines) line.geometry.dispose();
+      if (mat && !Array.isArray(mat)) mat.dispose();
     };
-  }, [geos]);
+  }, [lines]);
 
   return (
     <group>
-      {geos.map((geo, i) => (
-        <line key={i} geometry={geo} renderOrder={2}>
-          <lineBasicMaterial color={CONTOUR_COLOR} depthTest depthWrite={false} />
-        </line>
+      {lines.map((line, i) => (
+        <primitive key={i} object={line} renderOrder={2} />
       ))}
     </group>
   );

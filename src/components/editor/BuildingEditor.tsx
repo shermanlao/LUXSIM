@@ -983,7 +983,7 @@ export function BuildingEditor({
       if (picked.selectRoomId) {
         patchSceneUi((s) => ({
           ...s,
-          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
         }));
       }
       setDistributePick(picked.state);
@@ -1000,7 +1000,7 @@ export function BuildingEditor({
       if (picked.selectRoomId) {
         patchSceneUi((s) => ({
           ...s,
-          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
         }));
       }
       if (picked.kind !== "align") {
@@ -1029,7 +1029,7 @@ export function BuildingEditor({
       if (picked.selectRoomId) {
         patchSceneUi((s) => ({
           ...s,
-          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
         }));
       }
       if (picked.kind !== "xor") {
@@ -1058,7 +1058,7 @@ export function BuildingEditor({
       if (picked.selectRoomId) {
         patchSceneUi((s) => ({
           ...s,
-          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
         }));
       }
       if (picked.kind !== "intersect") {
@@ -1087,7 +1087,7 @@ export function BuildingEditor({
       if (picked.selectRoomId) {
         patchSceneUi((s) => ({
           ...s,
-          ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+          ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
         }));
       }
       if (picked.kind !== "subtract") {
@@ -1115,7 +1115,7 @@ export function BuildingEditor({
     if (picked.selectRoomId) {
       patchSceneUi((s) => ({
         ...s,
-        ui: { ...s.ui, activeRoomId: picked.selectRoomId },
+        ui: { ...s.ui, activeRoomId: picked.selectRoomId ?? null },
       }));
     }
     if (picked.kind !== "union") {

@@ -1,5 +1,6 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import type { CalcResults, RoomSpec } from "../../solver/src/types";
+export type { CalcResults };
 import type { EditorWorkflowMode } from "./editor-workflow";
 import type { MfBreakdown } from "./maintenance-factor";
 

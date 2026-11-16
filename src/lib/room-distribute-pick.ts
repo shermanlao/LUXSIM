@@ -56,6 +56,7 @@ export type OfficialRoomDistributePickResult =
       state: RoomDistributePickState;
       status: string;
       roomIds: string[];
+      selectRoomId?: string;
     };
 
 /**

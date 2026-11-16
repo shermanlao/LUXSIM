@@ -99,7 +99,7 @@ type Props = {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onDrawRoomPolygon: (points: Vec2[]) => void;
   onMoveRoom?: (roomId: string, dx: number, dy: number) => void;
-  onSetRoomPolygon?: (roomId: string, polygon: Vec2[]) => void;
+  onSetRoomPolygon?: (roomId: string, polygon: Vec2[], opts?: { discrete?: boolean }) => void;
   onVertexStretchStatus?: (status: string) => void;
   onMoveStorey?: (storeyId: string, dx: number, dy: number) => void;
   onSelectRoom?: (roomId: string) => void;
@@ -991,7 +991,7 @@ export function TopView2D({
                     shouldBeginVertexStretch({
                       tool: scene.ui.tool,
                       drawing,
-                      calibrating: scene.ui.tool === "calibrate",
+                      calibrating: false,
                       linePickActive,
                       circlePickActive,
                       polygonPickActive,
@@ -1015,7 +1015,7 @@ export function TopView2D({
                     shouldBeginEdgeInsert({
                       tool: scene.ui.tool,
                       drawing,
-                      calibrating: scene.ui.tool === "calibrate",
+                      calibrating: false,
                       linePickActive,
                       circlePickActive,
                       polygonPickActive,
@@ -1039,7 +1039,7 @@ export function TopView2D({
                   shouldBeginStoreyDrag({
                     tool: scene.ui.tool,
                     drawing,
-                    calibrating: scene.ui.tool === "calibrate",
+                    calibrating: false,
                     linePickActive,
                     circlePickActive,
                     polygonPickActive,
@@ -1062,7 +1062,7 @@ export function TopView2D({
                   !shouldBeginRoomDrag({
                     tool: scene.ui.tool,
                     drawing,
-                    calibrating: scene.ui.tool === "calibrate",
+                    calibrating: false,
                     linePickActive,
                     circlePickActive,
                     polygonPickActive,
@@ -1111,7 +1111,7 @@ export function TopView2D({
                     style={{ cursor: "pointer" }}
                     onMouseDown={(e) => {
                       if (e.button !== 0 || panningRef.current) return;
-                      if (drawing || scene.ui.tool === "calibrate") return;
+                      if (drawing) return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
                       if (unionPickActive) return;
                       e.stopPropagation();
@@ -1126,7 +1126,7 @@ export function TopView2D({
                         !shouldBeginEdgeInsert({
                           tool: scene.ui.tool,
                           drawing,
-                          calibrating: scene.ui.tool === "calibrate",
+                          calibrating: false,
                           linePickActive,
                           circlePickActive,
                           polygonPickActive,
@@ -1197,7 +1197,7 @@ export function TopView2D({
                     style={{ cursor: stretching ? "grabbing" : "pointer" }}
                     onMouseDown={(e) => {
                       if (e.button !== 0 || panningRef.current) return;
-                      if (drawing || scene.ui.tool === "calibrate") return;
+                      if (drawing) return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
                       if (unionPickActive) return;
                       e.stopPropagation();
@@ -1205,7 +1205,7 @@ export function TopView2D({
                         !shouldBeginVertexStretch({
                           tool: scene.ui.tool,
                           drawing,
-                          calibrating: scene.ui.tool === "calibrate",
+                          calibrating: false,
                           linePickActive,
                           circlePickActive,
                           polygonPickActive,

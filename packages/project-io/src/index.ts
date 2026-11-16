@@ -5,6 +5,7 @@ export type {
   LuxsimLuminaireLibraryEntry,
   ProjectSceneV2,
   ResultsV2,
+  CalcResults,
   RoomV2,
   Storey,
   Underlay,
