@@ -517,6 +517,12 @@ describe("user guide", () => {
     expect(guide).toMatch(/工作面（計算平面）的高度跟隨/);
     expect(guide).toMatch(/When the workplane is hidden, Greyscale, False colour, Isolines, and Value labels stay visible, drawn on the floor/);
     expect(guide).toMatch(/工作面隱藏時，這些照度顯示改畫在地板上/);
+    expect(guide).toMatch(/3D wall false colour \(or greyscale illuminance\) is drawn only on the inward illuminated face, and the outside of the wall stays grey/);
+    expect(guide).toMatch(/3D 牆身假色（或灰階照度）只畫在向內的受光面上，外牆保持灰色/);
+    expect(guide).not.toMatch(/visible from both sides/);
+    expect(guide).not.toMatch(/雙面可見/);
+    expect(guide).not.toMatch(/middle of the wall thickness/);
+    expect(guide).not.toMatch(/牆厚中間/);
     expect(guide).toMatch(/without hiding the room floor, walls, or fixtures/);
     expect(guide).toMatch(/不會隱藏房間地板、牆身或燈具/);
     expect(guide).toMatch(/does not isolate a room/);

@@ -30,24 +30,23 @@ import { officialIlluminanceFieldHeightM } from "./workplane-display";
 export const EDITOR_BG = "#0f1c24";
 export const REPORT_BG = "#f3f3f0";
 
-/** Shell stays slightly visible so architecture remains readable over wall illuminance. */
-export const FALSE_COLOR_WALL_SHELL_OPACITY = 0.38;
-export const GREYSCALE_WALL_SHELL_OPACITY = 0.38;
-export const ILLUMINANCE_WALL_SHELL_OPACITY = 0.38;
+/** Opaque grey shell so the exterior façade stays uncoloured and interior wall colour cannot show through. */
+export const FALSE_COLOR_WALL_SHELL_OPACITY = 1;
+export const GREYSCALE_WALL_SHELL_OPACITY = 1;
+export const ILLUMINANCE_WALL_SHELL_OPACITY = 1;
 
 /** Outer wall face sits this far inside the room polygon so adjacent rooms do not share a plane. */
 export const WALL_SHELL_OUTER_INSET_M = 0.005;
 /** Visual wall thickness (inner face is this far inward of the outer face). */
 export const WALL_SHELL_THICKNESS_M = 0.02;
 export const WALL_SHELL_INNER_INSET_M = WALL_SHELL_OUTER_INSET_M + WALL_SHELL_THICKNESS_M;
-/** False-colour wall overlay sits in the middle of the visual wall thickness so both faces can show illuminance. */
-export const WALL_FALSE_COLOR_INSET_M = WALL_SHELL_OUTER_INSET_M + WALL_SHELL_THICKNESS_M / 2;
+/** Extra inward offset past the inner shell face so the colour mesh sits just inside the room. */
+export const WALL_FALSE_COLOR_INSET_EPSILON_M = 0.002;
+/** False-colour wall overlay sits just inside the opaque inner shell face. FrontSide only; the exterior stays grey. */
+export const WALL_FALSE_COLOR_INSET_M = WALL_SHELL_INNER_INSET_M + WALL_FALSE_COLOR_INSET_EPSILON_M;
 
-export function wallShellOpacity(mode: Display3dMode): number {
-  if (mode === "falsecolor" || mode === "greyscale" || mode === "isolines") {
-    return ILLUMINANCE_WALL_SHELL_OPACITY;
-  }
-  return GREYSCALE_WALL_SHELL_OPACITY;
+export function wallShellOpacity(_mode: Display3dMode): number {
+  return ILLUMINANCE_WALL_SHELL_OPACITY;
 }
 
 const FLOOR_COLOR = "#c8cbcf";
@@ -959,7 +958,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       roughness: 0.88,
       metalness: 0.04,
       transparent: shellOpacity < 0.999,
-      opacity: opts.mode === "falsecolor" ? Math.min(1, shellOpacity + 0.02) : 0.86,
+      opacity: shellOpacity,
       side: THREE.FrontSide,
       depthWrite: true,
     })

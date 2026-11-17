@@ -30,10 +30,8 @@ function WallSurfaceMesh({
     <mesh geometry={geometry}>
       <meshBasicMaterial
         vertexColors
-        transparent
-        opacity={0.98}
-        side={THREE.DoubleSide}
-        depthWrite={false}
+        side={THREE.FrontSide}
+        depthWrite
         toneMapped={false}
       />
     </mesh>

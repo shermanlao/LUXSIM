@@ -1,9 +1,13 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { luxToRgbLinear, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
 import * as THREE from "three";
 import { editorOverviewCamera, type ProjectSceneV2 } from "@luxsim/project-io";
 import {
   FALSE_COLOR_WALL_SHELL_OPACITY,
+  GREYSCALE_WALL_SHELL_OPACITY,
+  ILLUMINANCE_WALL_SHELL_OPACITY,
+  WALL_FALSE_COLOR_INSET_EPSILON_M,
   WALL_FALSE_COLOR_INSET_M,
   WALL_SHELL_INNER_INSET_M,
   WALL_SHELL_OUTER_INSET_M,
@@ -398,6 +402,11 @@ describe("ceiling geometry", () => {
 });
 
 
+/** FrontSide is visible when the face normal points toward the eye. */
+function frontSideFacesEye(eye: THREE.Vector3, point: THREE.Vector3, normal: THREE.Vector3): boolean {
+  return new THREE.Vector3().subVectors(eye, point).dot(normal) > 0;
+}
+
 describe("false-colour exterior facing and scale", () => {
   it("points wall false-colour normals inward so FrontSide is hidden from outside", () => {
     // South edge of a CCW room: (0,0)→(4,0), inward is +Y (Three.js +Z).
@@ -439,11 +448,52 @@ describe("false-colour exterior facing and scale", () => {
     tight!.dispose();
   });
 
-  it("keeps illuminance wall shells translucent so wall false colour shows from both sides", () => {
-    expect(wallShellOpacity("falsecolor")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
-    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBeLessThan(0.6);
-    expect(wallShellOpacity("greyscale")).toBe(FALSE_COLOR_WALL_SHELL_OPACITY);
-    expect(wallShellOpacity("isolines")).toBe(wallShellOpacity("greyscale"));
+  it("keeps wall shells opaque so exterior façades stay grey", () => {
+    for (const mode of ["falsecolor", "greyscale", "isolines"] as const) {
+      expect(wallShellOpacity(mode)).toBeGreaterThanOrEqual(0.999);
+      expect(wallShellOpacity(mode)).toBe(ILLUMINANCE_WALL_SHELL_OPACITY);
+    }
+    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBe(1);
+    expect(GREYSCALE_WALL_SHELL_OPACITY).toBe(1);
+    expect(ILLUMINANCE_WALL_SHELL_OPACITY).toBe(1);
+  });
+
+  it("hides FrontSide wall colour from outside and shows it from inside the room", () => {
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    const normals = geo!.getAttribute("normal");
+    const i = Math.floor(pos.count / 2);
+    const point = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+    const normal = new THREE.Vector3(normals.getX(i), normals.getY(i), normals.getZ(i)).normalize();
+    expect(normal.z).toBeGreaterThan(0.9);
+    const outside = new THREE.Vector3(2, 1.4, -1);
+    const inside = new THREE.Vector3(2, 1.4, 1);
+    expect(frontSideFacesEye(outside, point, normal)).toBe(false);
+    expect(frontSideFacesEye(inside, point, normal)).toBe(true);
+    geo!.dispose();
+  });
+
+  it("draws editor and capture wall colour on FrontSide only, matching the opaque inward overlay", () => {
+    const walls = readFileSync("src/components/editor/FalseColorWalls.tsx", "utf8");
+    expect(walls).toContain("side={THREE.FrontSide}");
+    expect(walls).not.toMatch(/side=\{THREE\.DoubleSide\}/);
+    expect(walls).not.toMatch(/depthWrite=\{false\}/);
+    expect(walls).not.toMatch(/opacity=\{0\.98\}/);
+    const model = readFileSync("src/lib/scene-3d-model.ts", "utf8");
+    expect(model).toMatch(/const wallFalseColorMat = track\([\s\S]*?side: THREE\.FrontSide/);
+    expect(model).not.toMatch(/False-colour wall overlay sits in the middle of the visual wall thickness/);
   });
 });
 
@@ -561,9 +611,12 @@ describe("wall shell slab geometry", () => {
     rightGeo!.dispose();
   });
 
-  it("places default false-colour wall geometry in the middle of the visual wall thickness", () => {
-    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
-    expect(WALL_FALSE_COLOR_INSET_M).toBeLessThan(WALL_SHELL_INNER_INSET_M);
+  it("places default false-colour wall geometry just inside the inner shell face", () => {
+    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+    expect(WALL_FALSE_COLOR_INSET_M).toBeCloseTo(
+      WALL_SHELL_INNER_INSET_M + WALL_FALSE_COLOR_INSET_EPSILON_M,
+      6
+    );
     const wall = fakeWall(
       "south",
       "r1",
@@ -580,8 +633,7 @@ describe("wall shell slab geometry", () => {
     const pos = geo!.getAttribute("position");
     for (let i = 0; i < pos.count; i += 1) {
       expect(pos.getZ(i)).toBeCloseTo(WALL_FALSE_COLOR_INSET_M, 4);
-      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
-      expect(pos.getZ(i)).toBeLessThan(WALL_SHELL_INNER_INSET_M);
+      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
     }
     geo!.dispose();
   });
