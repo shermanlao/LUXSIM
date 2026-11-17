@@ -2,7 +2,7 @@ import type { DxfEntity, Vec2 } from "./types";
 import { officialDxfPointsCoincide } from "./official-dxf-polyline";
 
 /**
- * Tessellation rule for CIRCLE, ARC, and POLYLINE / LWPOLYLINE bulge arcs:
+ * Tessellation rule for CIRCLE, ARC, ELLIPSE, and POLYLINE / LWPOLYLINE bulge arcs:
  * 48 segments per full turn (2π). An open arc or bulge uses
  * max(2, round(48 × |sweep| / 2π)), capped at 48.
  * The count is angle-based (not radius-based) so the same angular
@@ -104,6 +104,84 @@ function tessellateOpenArc(
 }
 
 /**
+ * DXF ELLIPSE start/end parameters are already in radians, measured from the
+ * major axis. A full ellipse is a 2π sweep (the documented full-ellipse values
+ * are start=0, end=2π). Sweeps within 1e-6 rad of 2π are treated as a full
+ * turn so common decimal writings of 2π still close. Equal start and end wrap
+ * to a full turn (same idea as the ARC equal-angle convention).
+ */
+const DXF_ELLIPSE_FULL_SWEEP_EPS = 1e-6;
+
+export function dxfEllipseSweepRad(startParam: number, endParam: number): {
+  startRad: number;
+  sweepRad: number;
+} {
+  if (!Number.isFinite(startParam) || !Number.isFinite(endParam)) {
+    return { startRad: 0, sweepRad: 0 };
+  }
+  let sweepRad = endParam - startParam;
+  while (sweepRad <= 0) sweepRad += TAU;
+  if (sweepRad > TAU - DXF_ELLIPSE_FULL_SWEEP_EPS) sweepRad = TAU;
+  return { startRad: startParam, sweepRad };
+}
+
+/** Minor-axis vector: major rotated 90° CCW in the XY plane and scaled by the ratio. */
+function ellipseMinorAxis(major: Vec2, ratio: number): Vec2 {
+  return { x: -major.y * ratio, y: major.x * ratio };
+}
+
+function pointOnEllipse(cx: number, cy: number, major: Vec2, minor: Vec2, t: number): Vec2 {
+  const c = Math.cos(t);
+  const s = Math.sin(t);
+  return { x: cx + major.x * c + minor.x * s, y: cy + major.y * c + minor.y * s };
+}
+
+function tessellateEllipse(
+  cx: number,
+  cy: number,
+  major: Vec2,
+  minor: Vec2,
+  startRad = 0
+): Vec2[] {
+  const n = DXF_CURVE_SEGMENTS_PER_TURN;
+  const pts: Vec2[] = [];
+  for (let i = 0; i < n; i++) {
+    pts.push(pointOnEllipse(cx, cy, major, minor, startRad + (TAU * i) / n));
+  }
+  return pts;
+}
+
+function tessellateEllipticalArc(
+  cx: number,
+  cy: number,
+  major: Vec2,
+  minor: Vec2,
+  startRad: number,
+  sweepRad: number
+): Vec2[] {
+  const n = dxfCurveSegmentCount(sweepRad);
+  if (
+    n < 2 ||
+    !Number.isFinite(cx) ||
+    !Number.isFinite(cy) ||
+    !Number.isFinite(major.x) ||
+    !Number.isFinite(major.y) ||
+    !Number.isFinite(minor.x) ||
+    !Number.isFinite(minor.y) ||
+    !Number.isFinite(startRad) ||
+    !Number.isFinite(sweepRad)
+  ) {
+    return [];
+  }
+  const pts: Vec2[] = [];
+  for (let i = 0; i <= n; i++) {
+    pts.push(pointOnEllipse(cx, cy, major, minor, startRad + (sweepRad * i) / n));
+  }
+  return pts;
+}
+
+
+/**
  * Intermediate vertices along a POLYLINE or LWPOLYLINE bulge (group 42).
  * Bulge = tan(included angle / 4); positive is CCW, negative is CW.
  * Endpoints are omitted — the caller already has the VERTEX points.
@@ -169,10 +247,17 @@ function isFiniteNumber(value: number): boolean {
 
 /**
  * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
- * CIRCLE, ARC, and old-style POLYLINE (VERTEX + SEQEND, including the closed
- * flag and bulges). Curves are tessellated into official planar polyline segments.
- * Paperspace / 3D extrusion are not handled (same as the previous parser).
- * Polygon-mesh and polyface-mesh POLYLINE entities are skipped.
+ * CIRCLE, ARC, ELLIPSE, and old-style POLYLINE (VERTEX + SEQEND, including the
+ * closed flag and bulges). Curves are tessellated into official planar polyline
+ * segments. ELLIPSE uses groups 10/20 (center), 11/21 (major-axis vector relative
+ * to the center), 40 (radius ratio; the DXF spec gives no default, so a missing,
+ * zero, or non-finite ratio is skipped rather than inventing 1.0), and 41/42
+ * (start/end parameters in radians from the major axis; omitted values follow
+ * the documented full-ellipse values 0 and 2π). A sweep within 1e-6 rad of 2π
+ * is treated as a full closed ellipse so common decimal writings of 2π still
+ * close. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
+ * CIRCLE / ARC). Paperspace / 3D extrusion are not handled (same as the
+ * previous parser). Polygon-mesh and polyface-mesh POLYLINE entities are skipped.
  */
 export function parseDxfEntities(text: string): DxfEntity[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
@@ -317,6 +402,56 @@ export function parseDxfEntities(text: string): DxfEntity[] {
           const entity = full
             ? closedPolylineEntity(tessellateCircle(cx, cy, r, startRad))
             : openPolylineEntity(tessellateOpenArc(cx, cy, r, startRad, sweepRad));
+          if (entity) entities.push(entity);
+        }
+      }
+
+    } else if (type === "ELLIPSE") {
+      let cx = 0,
+        cy = 0,
+        mx = 0,
+        my = 0;
+      let ratio: number | undefined;
+      // Omitted 41/42 follow the DXF full-ellipse values 0 and 2π.
+      let startParam = 0;
+      let endParam = TAU;
+      let hasRatio = false;
+      readGroups((code, value) => {
+        if (code === 10) cx = Number(value);
+        if (code === 20) cy = Number(value);
+        if (code === 11) mx = Number(value);
+        if (code === 21) my = Number(value);
+        if (code === 40) {
+          ratio = Number(value);
+          hasRatio = true;
+        }
+        if (code === 41) startParam = Number(value);
+        if (code === 42) endParam = Number(value);
+      });
+      const majorLen = Math.hypot(mx, my);
+      if (
+        hasRatio &&
+        ratio != null &&
+        isFiniteNumber(cx) &&
+        isFiniteNumber(cy) &&
+        isFiniteNumber(mx) &&
+        isFiniteNumber(my) &&
+        isFiniteNumber(ratio) &&
+        ratio > 0 &&
+        majorLen > 0 &&
+        isFiniteNumber(startParam) &&
+        isFiniteNumber(endParam)
+      ) {
+        const major = { x: mx, y: my };
+        const minor = ellipseMinorAxis(major, ratio);
+        const { startRad, sweepRad } = dxfEllipseSweepRad(startParam, endParam);
+        if (sweepRad > 0) {
+          const full = sweepRad === TAU;
+          const entity = full
+            ? closedPolylineEntity(tessellateEllipse(cx, cy, major, minor, startRad))
+            : openPolylineEntity(
+                tessellateEllipticalArc(cx, cy, major, minor, startRad, sweepRad)
+              );
           if (entity) entities.push(entity);
         }
       }

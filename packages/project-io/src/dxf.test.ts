@@ -6,6 +6,7 @@ import {
   dxfBounds,
   DXF_CURVE_SEGMENTS_PER_TURN,
   dxfCurveSegmentCount,
+  dxfEllipseSweepRad,
   tessellateDxfBulgeIntermediates,
 } from "./dxf";
 import { importIfcText } from "./ifc-import";
@@ -398,5 +399,125 @@ describe("parseDxfEntities LWPOLYLINE bulges", () => {
     const apex = entities[0]!.points[12]!;
     expect(apex.x).toBeCloseTo(0);
     expect(apex.y).toBeCloseTo(1);
+  });
+});
+
+
+function ellipseEnt(
+  cx: number,
+  cy: number,
+  mx: number,
+  my: number,
+  ratio?: number,
+  start?: number,
+  end?: number
+): string {
+  let s =
+    `  0\nELLIPSE\n  10\n${cx}\n  20\n${cy}\n  11\n${mx}\n  21\n${my}\n`;
+  if (ratio != null) s += `  40\n${ratio}\n`;
+  if (start != null) s += `  41\n${start}\n`;
+  if (end != null) s += `  42\n${end}\n`;
+  return s;
+}
+
+describe("parseDxfEntities ELLIPSE", () => {
+  it("parses an axis-aligned full ellipse as a closed 48-vertex loop with known extents", () => {
+    const entities = parseDxfEntities(dxfFile(ellipseEnt(0, 0, 2, 0, 0.5, 0, Math.PI * 2)));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.type).toBe("polyline");
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(2);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(0);
+    const q = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 4]!;
+    expect(q.x).toBeCloseTo(0);
+    expect(q.y).toBeCloseTo(1);
+    const half = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 2]!;
+    expect(half.x).toBeCloseTo(-2);
+    expect(half.y).toBeCloseTo(0);
+    const three = entities[0]!.points[(3 * DXF_CURVE_SEGMENTS_PER_TURN) / 4]!;
+    expect(three.x).toBeCloseTo(0);
+    expect(three.y).toBeCloseTo(-1);
+    expect(entities[0]!.points[0]).not.toEqual(
+      entities[0]!.points[entities[0]!.points.length - 1]
+    );
+    const b = dxfBounds(entities)!;
+    expect(b.minX).toBeCloseTo(-2);
+    expect(b.maxX).toBeCloseTo(2);
+    expect(b.minY).toBeCloseTo(-1);
+    expect(b.maxY).toBeCloseTo(1);
+  });
+
+  it("treats omitted start/end parameters as a full ellipse (DXF defaults 0 and 2π)", () => {
+    const omitted = parseDxfEntities(dxfFile(ellipseEnt(0, 0, 2, 0, 0.5)));
+    expect(omitted[0]?.closed).toBe(true);
+    expect(omitted[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(dxfEllipseSweepRad(0, Math.PI * 2).sweepRad).toBe(Math.PI * 2);
+  });
+
+  it("tessellates a ratio-1 ELLIPSE as a 48-vertex circle and does not drop it", () => {
+    const entities = parseDxfEntities(dxfFile(ellipseEnt(0, 0, 2, 0, 1, 0, Math.PI * 2)));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(2);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(0);
+    const q = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 4]!;
+    expect(q.x).toBeCloseTo(0);
+    expect(q.y).toBeCloseTo(2);
+    for (const p of entities[0]!.points) {
+      expect(Math.hypot(p.x, p.y)).toBeCloseTo(2, 9);
+    }
+    const b = dxfBounds(entities)!;
+    expect(b.minX).toBeCloseTo(-2);
+    expect(b.maxX).toBeCloseTo(2);
+    expect(b.minY).toBeCloseTo(-2);
+    expect(b.maxY).toBeCloseTo(2);
+  });
+
+  it("tessellates a quarter and a half elliptical arc without a closing chord", () => {
+    const quarter = parseDxfEntities(
+      dxfFile(ellipseEnt(0, 0, 2, 0, 0.5, 0, Math.PI / 2))
+    );
+    expect(quarter).toHaveLength(1);
+    expect(quarter[0]?.type).toBe("polyline");
+    expect(quarter[0]?.closed).toBeUndefined();
+    expect(quarter[0]?.points).toHaveLength(13);
+    expect(quarter[0]!.points[0]!.x).toBeCloseTo(2);
+    expect(quarter[0]!.points[0]!.y).toBeCloseTo(0);
+    const qEnd = quarter[0]!.points[quarter[0]!.points.length - 1]!;
+    expect(qEnd.x).toBeCloseTo(0);
+    expect(qEnd.y).toBeCloseTo(1);
+    // No invented closing chord through the interior or the missing quadrants.
+    expect(quarter[0]!.points.some((p) => p.x < -1e-9 || p.y < -1e-9)).toBe(false);
+
+    const half = parseDxfEntities(dxfFile(ellipseEnt(0, 0, 2, 0, 0.5, 0, Math.PI)));
+    expect(half[0]?.closed).toBeUndefined();
+    expect(half[0]?.points).toHaveLength(25);
+    expect(half[0]!.points[0]!.x).toBeCloseTo(2);
+    expect(half[0]!.points[0]!.y).toBeCloseTo(0);
+    const apex = half[0]!.points[12]!;
+    expect(apex.x).toBeCloseTo(0);
+    expect(apex.y).toBeCloseTo(1);
+    const hEnd = half[0]!.points[half[0]!.points.length - 1]!;
+    expect(hEnd.x).toBeCloseTo(-2);
+    expect(hEnd.y).toBeCloseTo(0);
+    expect(half[0]!.points.some((p) => p.y < -1e-9)).toBe(false);
+  });
+
+  it("skips a missing, zero, or non-finite ratio, and a degenerate or missing major axis", () => {
+    const skipped = parseDxfEntities(
+      dxfFile(
+        ellipseEnt(0, 0, 2, 0) + // no group 40
+          ellipseEnt(0, 0, 2, 0, 0) +
+          ellipseEnt(0, 0, 2, 0, Number.NaN) +
+          ellipseEnt(0, 0, 2, 0, Number.POSITIVE_INFINITY) +
+          ellipseEnt(0, 0, 0, 0, 0.5) +
+          "  0\nELLIPSE\n  10\n0\n  20\n0\n  40\n0.5\n"
+      )
+    );
+    expect(skipped).toEqual([]);
+    expect(parseDxfEntities("")).toEqual([]);
+    expect(parseDxfEntities(dxfFile(""))).toEqual([]);
   });
 });

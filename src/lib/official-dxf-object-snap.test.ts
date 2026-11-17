@@ -275,7 +275,7 @@ describe("official DXF object-snap wiring", () => {
   });
 });
 
-describe("object snap and bounds on tessellated CIRCLE, ARC, and POLYLINE bulges", () => {
+describe("object snap and bounds on tessellated CIRCLE, ARC, ELLIPSE, and POLYLINE bulges", () => {
   it("snaps to tessellated CIRCLE and ARC segments and includes them in bounds", () => {
     const circle = parseDxfEntities(
       "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  0\nENDSEC\n  0\nEOF\n"
@@ -367,5 +367,52 @@ describe("object snap and bounds on tessellated CIRCLE, ARC, and POLYLINE bulges
     expect(bounds.maxX).toBeCloseTo(1);
     expect(bounds.maxY).toBeCloseTo(1);
     expect(bounds.minY).toBeCloseTo(0);
+  });
+
+  it("snaps to tessellated ELLIPSE segments and does not invent a chord on an open arc", () => {
+    const full = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nELLIPSE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n  40\n0.5\n  41\n0\n  42\n" +
+        `${Math.PI * 2}\n  0\nENDSEC\n  0\nEOF\n`
+    );
+    expect(full[0]?.closed).toBe(true);
+    expect(full[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const bounds = dxfBounds(full)!;
+    expect(bounds.minX).toBeCloseTo(-2);
+    expect(bounds.maxX).toBeCloseTo(2);
+    expect(bounds.minY).toBeCloseTo(-1);
+    expect(bounds.maxY).toBeCloseTo(1);
+
+    const end = pickDxfObjectSnap({ x: 2.02, y: 0 }, full, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point.x).toBeCloseTo(2);
+    expect(end?.point.y).toBeCloseTo(0);
+
+    const first = full[0]!.points[0]!;
+    const second = full[0]!.points[1]!;
+    const midPt = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+    const mid = pickDxfObjectSnap(midPt, full, 0.05);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point.x).toBeCloseTo(midPt.x);
+    expect(mid?.point.y).toBeCloseTo(midPt.y);
+    const nearest = pickDxfObjectSnap({ x: midPt.x, y: midPt.y + 0.02 }, full, 0.08);
+    expect(nearest?.kind).toBe("nearest");
+
+    const quarter = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nELLIPSE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n  40\n0.5\n  41\n0\n  42\n" +
+        `${Math.PI / 2}\n  0\nENDSEC\n  0\nEOF\n`
+    );
+    expect(quarter[0]?.closed).toBeUndefined();
+    // Open elliptical arc must not invent a closing chord from (0,1) back to (2,0).
+    const invented = pickDxfObjectSnap({ x: 1, y: 0.5 }, quarter, 0.15);
+    expect(invented).toBeNull();
+    const arcEnd = pickDxfObjectSnap({ x: 0, y: 1.02 }, quarter, 0.1);
+    expect(arcEnd?.kind).toBe("endpoint");
+    expect(arcEnd?.point.x).toBeCloseTo(0);
+    expect(arcEnd?.point.y).toBeCloseTo(1);
+    const arcBounds = dxfBounds(quarter)!;
+    expect(arcBounds.minX).toBeCloseTo(0);
+    expect(arcBounds.maxX).toBeCloseTo(2);
+    expect(arcBounds.minY).toBeCloseTo(0);
+    expect(arcBounds.maxY).toBeCloseTo(1);
   });
 });

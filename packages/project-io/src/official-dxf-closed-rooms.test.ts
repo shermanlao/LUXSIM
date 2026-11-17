@@ -875,3 +875,89 @@ describe("officialAppendRoomsFromDxfClosedPolylines LWPOLYLINE bulges", () => {
     expect(roomAreaM2(created)).toBeCloseTo(8 + caps, 5);
   });
 });
+
+describe("officialAppendRoomsFromDxfClosedPolylines ELLIPSE", () => {
+  it("creates a room from a closed axis-aligned ELLIPSE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nELLIPSE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n  40\n0.5\n  41\n0\n  42\n" +
+          `${Math.PI * 2}\n`
+      )
+    );
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const expectedArea =
+      0.5 *
+      DXF_CURVE_SEGMENTS_PER_TURN *
+      2 *
+      1 *
+      Math.sin((2 * Math.PI) / DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(roomAreaM2(created)).toBeCloseTo(expectedArea, 6);
+    expect(roomAreaM2(created)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+  });
+
+  it("creates a room from an open elliptical arc plus a closing LINE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nELLIPSE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n  40\n0.5\n  41\n0\n  42\n" +
+          `${Math.PI}\n` +
+          "  0\nLINE\n  10\n-2\n  20\n0\n  11\n2\n  21\n0\n"
+      )
+    );
+    expect(entities).toHaveLength(2);
+    expect(entities[0]?.closed).toBeUndefined();
+    expect(entities[0]?.points).toHaveLength(25);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon.length).toBeGreaterThanOrEqual(24);
+    const expected = 24 * Math.sin(Math.PI / 24);
+    expect(roomAreaM2(created)).toBeCloseTo(expected, 5);
+  });
+
+  it("does not invent a room from an open elliptical arc alone, or from an empty DXF", () => {
+    const open = parseDxfEntities(
+      dxfFile(
+        "  0\nELLIPSE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n  40\n0.5\n  41\n0\n  42\n" +
+          `${Math.PI / 2}\n`
+      )
+    );
+    expect(open).toHaveLength(1);
+    expect(open[0]?.closed).toBeUndefined();
+    const openScene = sceneWithDxf(open);
+    const openOut = officialAppendRoomsFromDxfClosedPolylines(openScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(openOut.created).toBe(0);
+    expect(openOut.scene.rooms).toEqual([]);
+    expect(openOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+
+    expect(parseDxfEntities("")).toEqual([]);
+    expect(parseDxfEntities(dxfFile(""))).toEqual([]);
+    const emptyScene = sceneWithDxf(parseDxfEntities(dxfFile("")));
+    expect(officialCanCreateRoomsFromDxf(emptyScene.underlays[0])).toBe(false);
+    const emptyOut = officialAppendRoomsFromDxfClosedPolylines(emptyScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(emptyOut.created).toBe(0);
+    expect(emptyOut.scene.rooms).toEqual([]);
+    expect(emptyOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+});
