@@ -102,6 +102,22 @@ export function officialProductSheetColumns(contentWidth = CONTENT_W): {
 }
 
 
+
+/** Line height and padding so a table row can grow with wrapped cell text. */
+export const REPORT_TABLE_LINE_H = 4.2;
+export const REPORT_TABLE_ROW_PAD = 3;
+export const REPORT_TABLE_ROW_MIN_H = 7;
+
+/** Wrap one table cell so the full value is kept; the row height should follow this. */
+export function officialTableCellLines(doc: jsPDF, text: string, widthMm: number): string[] {
+  const lines = doc.splitTextToSize(String(text || "—"), Math.max(4, widthMm)) as string[];
+  return lines.length ? lines : ["—"];
+}
+
+export function officialTableRowHeight(lineCount: number): number {
+  return Math.max(REPORT_TABLE_ROW_MIN_H, lineCount * REPORT_TABLE_LINE_H + REPORT_TABLE_ROW_PAD);
+}
+
 /** Visible footer label: trimmed, trailing slashes stripped. Blank input is omitted. */
 export function formatReportWebsite(raw?: string | null): string | undefined {
   const trimmed = raw?.trim();
@@ -519,32 +535,25 @@ class ReportPdfBuilder {
     this.font("normal");
     y += 6;
     for (const row of rows) {
-      const nameLines = this.doc.splitTextToSize(row.articleName || "—", cols[3].w - 2) as string[];
-      const rowH = Math.max(6, nameLines.length * 4 + 2);
-      y = this.ensureY(y, rowH, "Luminaire list");
       const flux = row.flux != null ? `${Math.round(row.flux)} lm` : "—";
       const eff = row.efficacy != null ? row.efficacy.toFixed(1) : "—";
       const cells = [
-        String(row.count),
-        row.manufacturer || "—",
-        row.catalogNumber || "—",
-        nameLines,
-        flux,
-        formatWatts(row.watts),
-        eff,
+        officialTableCellLines(this.doc, String(row.count), cols[0].w - 2),
+        officialTableCellLines(this.doc, row.manufacturer || "—", cols[1].w - 2),
+        officialTableCellLines(this.doc, row.catalogNumber || "—", cols[2].w - 2),
+        officialTableCellLines(this.doc, row.articleName || "—", cols[3].w - 2),
+        officialTableCellLines(this.doc, flux, cols[4].w - 2),
+        officialTableCellLines(this.doc, formatWatts(row.watts), cols[5].w - 2),
+        officialTableCellLines(this.doc, eff, cols[6].w - 2),
       ];
+      const rowH = officialTableRowHeight(Math.max(...cells.map((c) => c.length)));
+      y = this.ensureY(y, rowH, "Luminaire list");
       x = MARGIN;
       this.doc.setDrawColor(220);
       this.doc.line(MARGIN, y + rowH - 2, PAGE_W - MARGIN, y + rowH - 2);
-      cells.forEach((cell, i) => {
-        const w = cols[i]!.w;
-        if (Array.isArray(cell)) {
-          this.doc.text(cell, x + 1, y);
-        } else {
-          const lines = this.doc.splitTextToSize(cell, w - 2) as string[];
-          this.doc.text(lines[0] ?? "—", x + 1, y);
-        }
-        x += w;
+      cells.forEach((lines, i) => {
+        this.doc.text(lines, x + 1, y);
+        x += cols[i]!.w;
       });
       y += rowH;
     }
@@ -1079,28 +1088,42 @@ class ReportPdfBuilder {
       }
 
       const { gap, symbolW, tableW } = officialProductSheetColumns(this.contentWidth());
-      const rowH = 7;
-      const tableH = props.length * rowH;
+      const labelW = 62;
+      const valueW = tableW - labelW - 4;
+      this.font("normal", TYPE.table);
+      const sheetRows = props.map(([k, v]) => {
+        this.font("normal", TYPE.table);
+        const keyLines = officialTableCellLines(this.doc, k, labelW - 4);
+        this.font("bold", TYPE.table);
+        const valueLines = officialTableCellLines(this.doc, v, valueW);
+        return {
+          keyLines,
+          valueLines,
+          h: officialTableRowHeight(Math.max(keyLines.length, valueLines.length)),
+        };
+      });
+      const tableH = sheetRows.reduce((sum, row) => sum + row.h, 0);
       const symbolH = Math.max(tableH, 48);
       const tableRight = MARGIN + tableW;
       const symbolX = tableRight + gap;
-      const symbolY = y - 4;
+      const symbolY = y - 4.5;
+      let rowTop = symbolY;
 
-      this.font("normal", TYPE.table);
       setReportRgb(this.doc, "draw", RULE);
-      props.forEach(([k, v], i) => {
-        const yy = y + i * rowH;
+      sheetRows.forEach((row, i) => {
         if (i % 2 === 0) {
           setReportRgb(this.doc, "fill", TABLE_ALT);
-          this.doc.rect(MARGIN, yy - 4.5, tableW, rowH, "F");
+          this.doc.rect(MARGIN, rowTop, tableW, row.h, "F");
         }
-        this.doc.rect(MARGIN, yy - 4.5, tableW, rowH);
+        this.doc.rect(MARGIN, rowTop, tableW, row.h);
+        const baseline = rowTop + 4.5;
         this.font("normal", TYPE.table);
         setReportRgb(this.doc, "text", MUTED);
-        this.doc.text(k, MARGIN + 2, yy);
+        this.doc.text(row.keyLines, MARGIN + 2, baseline);
         this.font("bold", TYPE.table);
         setReportRgb(this.doc, "text", INK);
-        this.doc.text(v, MARGIN + 62, yy, { maxWidth: tableW - 66 });
+        this.doc.text(row.valueLines, MARGIN + labelW, baseline);
+        rowTop += row.h;
       });
 
       const scaleLabel = drawPlanSymbol(this.doc, body, symbolX, symbolY, symbolW, symbolH);
@@ -1151,10 +1174,6 @@ class ReportPdfBuilder {
     };
     y = drawHead(y);
     this.input.scene.instances.forEach((inst, idx) => {
-      const needed = rowH;
-      const before = y;
-      y = this.ensureY(y, needed + 2, "Luminaire schedule");
-      if (y !== before) y = drawHead(y);
       const storey = this.input.scene.storeys.find((s) => s.id === inst.storeyId)?.name ?? "—";
       const room = this.input.scene.rooms.find((r) => r.id === inst.roomId)?.name ?? "—";
       const values = [
@@ -1167,23 +1186,28 @@ class ReportPdfBuilder {
         inst.position.z.toFixed(2),
         inst.rotationDeg.toFixed(0),
       ];
+      this.font("normal", TYPE.table);
+      const wrapped = values.map((value, i) => officialTableCellLines(this.doc, value, cols[i]!.w - 3));
+      const needed = officialTableRowHeight(Math.max(...wrapped.map((lines) => lines.length)));
+      const before = y;
+      y = this.ensureY(y, needed + 2, "Luminaire schedule");
+      if (y !== before) y = drawHead(y);
       if (idx % 2 === 0) {
         setReportRgb(this.doc, "fill", TABLE_ALT);
-        this.doc.rect(MARGIN, y - 4.4, tableW, rowH, "F");
+        this.doc.rect(MARGIN, y - 4.4, tableW, needed, "F");
       }
       setReportRgb(this.doc, "draw", RULE);
-      this.doc.rect(MARGIN, y - 4.4, tableW, rowH);
+      this.doc.rect(MARGIN, y - 4.4, tableW, needed);
       this.font("normal", TYPE.table);
       setReportRgb(this.doc, "text", INK);
       let x = MARGIN;
-      values.forEach((value, i) => {
+      wrapped.forEach((lines, i) => {
         const c = cols[i]!;
-        const clipped = this.doc.splitTextToSize(value, c.w - 3) as string[];
         const tx = c.align === "right" ? x + c.w - 1.5 : x + 1.5;
-        this.doc.text(clipped[0] ?? value, tx, y, { align: c.align === "right" ? "right" : "left" });
+        this.doc.text(lines, tx, y, { align: c.align === "right" ? "right" : "left" });
         x += c.w;
       });
-      y += rowH;
+      y += needed;
     });
   }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildFullReportPdf, officialProductSheetColumns, REPORT_FONT, reportPdfPlainText } from "./index";
+import { buildFullReportPdf, officialProductSheetColumns, officialTableRowHeight, REPORT_FONT, reportPdfPlainText } from "./index";
 import type { ProjectSceneV2, ResultsV2 } from "./types";
 
 function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
@@ -72,4 +72,48 @@ describe("official report layout", () => {
     expect(fonts).toContain(REPORT_FONT);
     expect(raw.includes("SourceSans3") || raw.includes(REPORT_FONT)).toBe(true);
   });
+
+  it("expands table row height so a long Article No. is fully visible", () => {
+    const catalog = "L1-PS.TROFFER1200-28W-4000K-120D-R90";
+    const longName = "L1-PS.TROFFER1200-28W-4000K-120D-R90-OPEN-OFFICE-FIXTURE";
+    const doc = buildFullReportPdf({
+      projectName: "Studio 5",
+      scene: {
+        ...scene,
+        instances: [
+          {
+            ...scene.instances[0]!,
+            name: longName,
+            roomId: "r1",
+          },
+        ],
+      },
+      results,
+      photometry: {
+        lum1: {
+          format: "ies",
+          manufacturer: "PHILIPS",
+          catalogNumber: catalog,
+          description: catalog,
+          luminousFlux: 3900,
+          watts: 28,
+          cctK: 4000,
+          lampCount: 1,
+          ballastFactor: 1,
+          verticalAngles: [0, 90],
+          horizontalAngles: [0],
+          intensities: [[100, 0]],
+          symmetry: "axial",
+        },
+      },
+    });
+    const text = pdfText(doc);
+    const compact = text.replace(/\s+/g, "");
+    expect(text).toContain("Article No.");
+    expect(compact).toContain(catalog.replace(/\s+/g, ""));
+    expect(compact).toContain(longName.replace(/\s+/g, ""));
+    expect(officialTableRowHeight(1)).toBeGreaterThanOrEqual(7);
+    expect(officialTableRowHeight(3)).toBeGreaterThan(officialTableRowHeight(1));
+  });
+
 });

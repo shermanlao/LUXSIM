@@ -158,7 +158,7 @@ export type {
 } from "./official-dxf-closed-rooms";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
-export { buildFullReportPdf, buildFullReportPdfAsync, officialProductSheetColumns } from "./report";
+export { buildFullReportPdf, buildFullReportPdfAsync, officialProductSheetColumns, officialTableCellLines, officialTableRowHeight, REPORT_TABLE_LINE_H, REPORT_TABLE_ROW_MIN_H } from "./report";
 export { reportPdfPlainText, reportPdfPageText } from "./report-text-log";
 export { TYPE, REPORT_FONT, loadReportFontsSync, registerReportFonts, reportFontFamily } from "./report-style";
 export { qrMatrixForUrl, drawQrCode } from "./qr-code";
