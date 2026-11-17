@@ -27,6 +27,7 @@ describe("official wait dialog wiring", () => {
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.exportingVerification");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.savingProjectFile");
     expect(editor).toContain("<OfficialWaitDialog {...OFFICIAL_WAIT_COPY.loading3d} />");
+    expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.loadingView");
     // Live interactions must not be gated by the modal.
     expect(editor).not.toMatch(/officialWait\.run\([^)]*pan/i);
     expect(editor).not.toMatch(/officialWait\.show\(/);

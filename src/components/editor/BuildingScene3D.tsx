@@ -1,6 +1,6 @@
 "use client";
 
-import { Canvas, useThree } from "@react-three/fiber";
+import { Canvas, useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls, Edges } from "@react-three/drei";
 import { useLayoutEffect, useMemo, useRef } from "react";
 import * as THREE from "three";
@@ -155,6 +155,16 @@ function ViewportSync() {
   return null;
 }
 
+function ViewReadySignal({ onViewReady }: { onViewReady?: () => void }) {
+  const called = useRef(false);
+  useFrame(() => {
+    if (called.current || !onViewReady) return;
+    called.current = true;
+    onViewReady();
+  });
+  return null;
+}
+
 export function BuildingScene3D({
   scene,
   results,
@@ -173,6 +183,7 @@ export function BuildingScene3D({
   showValueLabels = false,
   showIsolines = false,
   showWorkplane = true,
+  onViewReady,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -191,6 +202,7 @@ export function BuildingScene3D({
   showValueLabels?: boolean;
   showIsolines?: boolean;
   showWorkplane?: boolean;
+  onViewReady?: () => void;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -248,6 +260,7 @@ export function BuildingScene3D({
         style={{ position: "absolute", inset: 0 }}
         resize={{ debounce: 0 }}
       >
+        <ViewReadySignal onViewReady={onViewReady} />
         <ViewportSync />
         <MirroredFrontFace />
         <color attach="background" args={[EDITOR_BG]} />

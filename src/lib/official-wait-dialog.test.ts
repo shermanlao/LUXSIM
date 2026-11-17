@@ -35,6 +35,10 @@ describe("official reusable wait dialog", () => {
       titleEn: "Updating scale…",
       titleZh: "正在更新比例尺…",
     });
+    expect(OFFICIAL_WAIT_COPY.loadingView).toEqual({
+      titleEn: "Loading…",
+      titleZh: "正在載入…",
+    });
 
     const dialog = read("src/components/OfficialWaitDialog.tsx");
     expect(dialog).toContain('role="dialog"');

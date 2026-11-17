@@ -82,8 +82,12 @@ export const OFFICIAL_WAIT_COPY = {
     titleZh: "正在更新比例尺…",
   },
   loading3d: {
-    titleEn: "Loading 3D…",
-    titleZh: "正在載入 3D…",
+    titleEn: "Loading…",
+    titleZh: "正在載入…",
+  },
+  loadingView: {
+    titleEn: "Loading…",
+    titleZh: "正在載入…",
   },
 } as const satisfies Record<string, OfficialWaitCopy>;
 

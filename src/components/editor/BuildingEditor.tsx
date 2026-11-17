@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
+import { flushSync } from "react-dom";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdfAsync,
@@ -238,7 +239,8 @@ import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
-import { OFFICIAL_WAIT_COPY, officialWaitYield } from "@/lib/official-wait-dialog";
+import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitYield } from "@/lib/official-wait-dialog";
+import { officialViewSwitchReady, shouldWaitForOfficialViewSwitch } from "@/lib/official-view-switch";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
@@ -2556,6 +2558,40 @@ export function BuildingEditor({
     void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {});
   }
 
+  const viewReadyResolverRef = useRef<(() => void) | null>(null);
+
+  function markOfficialViewReady() {
+    const resolve = viewReadyResolverRef.current;
+    viewReadyResolverRef.current = null;
+    resolve?.();
+  }
+
+  function switchOfficialView(mode: ViewMode) {
+    if (!shouldWaitForOfficialViewSwitch(viewMode, mode)) return;
+    const ready = new Promise<void>((resolve) => {
+      viewReadyResolverRef.current = resolve;
+    });
+    void officialWait.run(OFFICIAL_WAIT_COPY.loadingView, async () => {
+      flushSync(() => {
+        patchSceneUi((s) => ({
+          ...s,
+          ui: {
+            ...s.ui,
+            viewMode: mode,
+            camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
+          },
+        }));
+      });
+      await officialWaitYield();
+      await officialWaitAfterPaint();
+      if (mode === "persp3d") {
+        await officialViewSwitchReady(ready);
+      } else {
+        markOfficialViewReady();
+      }
+    });
+  }
+
   const viewport = (
     <div
       className={
@@ -2571,16 +2607,7 @@ export function BuildingEditor({
               key={mode}
               type="button"
               className={`view-tab ${viewMode === mode ? "is-active" : ""}`}
-              onClick={() =>
-                patchSceneUi((s) => ({
-                  ...s,
-                  ui: {
-                    ...s.ui,
-                    viewMode: mode,
-                    camera3d: camera3dRef.current ?? s.ui.camera3d ?? null,
-                  },
-                }))
-              }
+              onClick={() => switchOfficialView(mode)}
             >
               {icon}
               {label}
@@ -2798,6 +2825,7 @@ export function BuildingEditor({
           showValueLabels={planValueLabels}
           showIsolines={planShowIsolines}
           showWorkplane={showWorkplane}
+          onViewReady={markOfficialViewReady}
         />
       )}
       </div>
