@@ -24,29 +24,18 @@ describe("resetForm", () => {
 
 describe("LibraryClient upload refresh", () => {
   const src = readSrc("src/components/LibraryClient.tsx");
-  const onUpload = src.slice(
-    src.indexOf("async function onUpload"),
-    src.indexOf("async function openDetail"),
-  );
 
-  it("captures the form before await and resets only after a successful upload", () => {
-    expect(onUpload).toMatch(/const formEl = e\.currentTarget/);
-    expect(onUpload.indexOf("const formEl")).toBeGreaterThanOrEqual(0);
-    expect(onUpload.indexOf("const formEl")).toBeLessThan(onUpload.indexOf("await fetch"));
-    expect(onUpload).not.toMatch(/e\.currentTarget\.reset\s*\(/);
-    expect(onUpload).toContain("resetForm(formEl)");
-
-    const failBlock = onUpload.match(/if\s*\(\s*!res\.ok\s*\)\s*\{[\s\S]*?return;\s*\}/);
-    expect(failBlock).not.toBeNull();
-    expect(failBlock![0]).not.toContain("resetForm");
-
-    expect(onUpload.indexOf("resetForm(formEl)")).toBeGreaterThan(
-      onUpload.indexOf("return;", onUpload.search(/if\s*\(\s*!res\.ok\s*\)/)),
+  it("reloads the list and opens the last successful luminaire after import", () => {
+    expect(src).not.toContain("resetForm");
+    expect(src).toContain("uploadPhotometryBatch");
+    const confirm = src.slice(
+      src.indexOf("async function confirmPending"),
+      src.indexOf("className=\"mx-auto max-w-7xl"),
     );
-    expect(onUpload).toMatch(/await load\(\)/);
-    expect(onUpload).toMatch(/openDetail\(/);
-    expect(onUpload.indexOf("resetForm(formEl)")).toBeLessThan(onUpload.indexOf("await load()"));
-    expect(onUpload.indexOf("await load()")).toBeLessThan(onUpload.indexOf("openDetail("));
+    expect(confirm).toContain("await load()");
+    expect(confirm).toContain("openDetail(outcome.lastSuccessId)");
+    expect(confirm.indexOf("await load()")).toBeLessThan(confirm.indexOf("openDetail(outcome.lastSuccessId)"));
+    expect(confirm.indexOf("uploadPhotometryBatch")).toBeLessThan(confirm.indexOf("await load()"));
   });
 
   it("keeps the Traditional Chinese laboratory-file disclaimer wiring", () => {

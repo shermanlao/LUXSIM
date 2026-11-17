@@ -270,6 +270,12 @@ When a fixture is selected, **Properties** also shows a **Light cone / 光束錐
 
 After you select a room, **Properties** shows **Area**, **Origin (first corner)**, and **Bounding min** when the first corner is not the bounding-box minimum.
 
-其他功能（計算、燈具庫、報告匯出等）可先使用編輯器工具旁的「？」提示。本手冊會隨新操作繼續補上。
+## 燈具庫 / Luminaire library
 
-Other tools, calculation, the library, and exports are described by the **?** tips next to those controls. This guide will be extended as further operations are documented.
+在 **Luminaire library** 頁，左側上方是燈具列表（名稱、格式、lm / W、刪除）。左側下方是 **Generate LDT**，用來產生庫內錐形配光，用法不變。右側極座標預覽區同時是匯入區：可把一個或多個 IES／LDT 檔拖放到該區，或按該區上的 **Import** 選擇檔案。選取或放下檔案後，會先出現顯示名稱對話框：單檔時可選填一個 **Display name**（並顯示檔名）；多檔時每個 LDT／IES 各有一列顯示檔名與 **Display name**。名稱可留空，系統會依光度檔說明、型號或檔名決定顯示名稱。按對話框的 **Import** 開始上傳；按 **Cancel**、Esc 或點背景則取消，不會上傳。上傳期間會顯示既有的等候對話框。一次可匯入多個檔案；若其中一個失敗，已成功的檔案會保留，並顯示失敗檔名與原因，其餘檔案會繼續匯入。匯入後列表會重新載入，並在右側開啟最後一個成功匯入的燈具預覽。
+
+On the **Luminaire library** page, the luminaire list (Name, Format, lm / W, Delete) is at the top of the left column. **Generate LDT** stays below the list and is unchanged. The right-hand polar-curve preview is also the import area: drop one or more IES or LDT files onto that panel, or use the **Import** button on the same section to choose files. After you drop or choose files, a display-name dialog opens first. For one file, you can optionally enter a **Display name** (the filename is shown). For more than one file, each LDT/IES has its own **Display name** field, with the filename visible on that row. Names may be left empty; the display name then follows the photometry description, catalog number, or filename. **Import** on the dialog starts the upload. **Cancel**, Esc, or clicking the backdrop discards the pending files and does not upload. While files are uploading, the existing wait dialog is shown. You can import more than one file at a time. If one file in a batch fails, already-imported files are kept, the failed file and reason are shown, and the rest of the batch still continues. After a fully or partly successful import, the list reloads and the last successfully imported luminaire opens in the preview.
+
+其他功能（計算、報告匯出等）可先使用編輯器工具旁的「？」提示。本手冊會隨新操作繼續補上。
+
+Other tools, calculation, and exports are described by the **?** tips next to those controls. This guide will be extended as further operations are documented.
