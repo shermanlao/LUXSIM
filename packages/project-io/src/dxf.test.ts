@@ -10,6 +10,7 @@ import {
   dxfEllipseSweepRad,
   dxfSplineSegmentCount,
   evaluateDxfSpline,
+  interpolateDxfFitSpline,
   tessellateDxfBulgeIntermediates,
 } from "./dxf";
 import { importIfcText } from "./ifc-import";
@@ -528,25 +529,78 @@ describe("parseDxfEntities ELLIPSE", () => {
 function splineEnt(opts: {
   flags?: number;
   degree: number;
-  knots: number[];
-  points: Array<{ x: number; y: number }>;
+  knots?: number[];
+  points?: Array<{ x: number; y: number }>;
   weights?: number[];
   fitPoints?: Array<{ x: number; y: number }>;
+  startTangent?: { x: number; y: number };
+  endTangent?: { x: number; y: number };
 }): string {
   const flags = opts.flags ?? 0;
+  const knots = opts.knots ?? [];
+  const points = opts.points ?? [];
   let s =
     `  0\nSPLINE\n  70\n${flags}\n  71\n${opts.degree}\n` +
-    `  72\n${opts.knots.length}\n  73\n${opts.points.length}\n`;
+    `  72\n${knots.length}\n  73\n${points.length}\n`;
   if (opts.fitPoints) s += `  74\n${opts.fitPoints.length}\n`;
-  for (const k of opts.knots) s += `  40\n${k}\n`;
+  for (const k of knots) s += `  40\n${k}\n`;
   if (opts.weights) {
     for (const w of opts.weights) s += `  41\n${w}\n`;
   }
-  for (const pt of opts.points) s += `  10\n${pt.x}\n  20\n${pt.y}\n  30\n0\n`;
+  for (const pt of points) s += `  10\n${pt.x}\n  20\n${pt.y}\n  30\n0\n`;
   if (opts.fitPoints) {
     for (const pt of opts.fitPoints) s += `  11\n${pt.x}\n  21\n${pt.y}\n`;
   }
+  if (opts.startTangent) {
+    s += `  12\n${opts.startTangent.x}\n  22\n${opts.startTangent.y}\n`;
+  }
+  if (opts.endTangent) {
+    s += `  13\n${opts.endTangent.x}\n  23\n${opts.endTangent.y}\n`;
+  }
   return s;
+}
+
+function pointToSegmentDistance(
+  p: { x: number; y: number },
+  a: { x: number; y: number },
+  b: { x: number; y: number }
+): number {
+  const dx = b.x - a.x;
+  const dy = b.y - a.y;
+  const len2 = dx * dx + dy * dy;
+  if (len2 === 0) return Math.hypot(p.x - a.x, p.y - a.y);
+  let t = ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2;
+  t = Math.max(0, Math.min(1, t));
+  return Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy));
+}
+
+function minDistanceToPolyline(
+  p: { x: number; y: number },
+  pts: Array<{ x: number; y: number }>,
+  closed: boolean
+): number {
+  let min = Infinity;
+  const n = pts.length;
+  const segs = closed ? n : n - 1;
+  for (let i = 0; i < segs; i++) {
+    min = Math.min(min, pointToSegmentDistance(p, pts[i]!, pts[(i + 1) % n]!));
+  }
+  return min;
+}
+
+function finiteSecondDerivative(
+  interp: { degree: number; control: { x: number; y: number }[]; knots: number[] },
+  u: number,
+  towardEnd: boolean
+): { x: number; y: number } {
+  const h = 1e-5;
+  const u0 = towardEnd ? u : u;
+  const u1 = towardEnd ? u - h : u + h;
+  const u2 = towardEnd ? u - 2 * h : u + 2 * h;
+  const a = evaluateDxfSpline(interp.degree, interp.control, interp.knots, u0)!;
+  const b = evaluateDxfSpline(interp.degree, interp.control, interp.knots, u1)!;
+  const c = evaluateDxfSpline(interp.degree, interp.control, interp.knots, u2)!;
+  return { x: (c.x - 2 * b.x + a.x) / (h * h), y: (c.y - 2 * b.y + a.y) / (h * h) };
 }
 
 describe("parseDxfEntities SPLINE", () => {
@@ -725,7 +779,7 @@ describe("parseDxfEntities SPLINE", () => {
     expect(many[0]?.points).toHaveLength(DXF_SPLINE_MAX_SEGMENTS + 1);
   });
 
-  it("skips degenerate, missing-knot, too-few-control, non-finite, and fit-point-only splines", () => {
+  it("skips degenerate, missing-knot, too-few-control, and non-finite control-point splines", () => {
     const skipped = parseDxfEntities(
       dxfFile(
         splineEnt({ degree: 0, knots: [0, 1], points: cubicPts }) +
@@ -753,22 +807,207 @@ describe("parseDxfEntities SPLINE", () => {
             knots: cubicKnots,
             points: cubicPts,
             weights: [0, 0, 0, 0],
-          }) +
-          splineEnt({
-            degree: 3,
-            knots: [],
-            points: [],
-            fitPoints: [
-              { x: 0, y: 0 },
-              { x: 1, y: 1 },
-              { x: 2, y: 0 },
-            ],
           })
       )
     );
     expect(skipped).toEqual([]);
     expect(parseDxfEntities("")).toEqual([]);
     expect(parseDxfEntities(dxfFile(""))).toEqual([]);
+  });
+
+  const openFitPts = [
+    { x: 0, y: 0 },
+    { x: 1, y: 2 },
+    { x: 3, y: 1 },
+    { x: 4, y: 0 },
+  ];
+
+  it("traces an open fit-point-only cubic through every fit point", () => {
+    const interp = interpolateDxfFitSpline(openFitPts, 3);
+    expect(interp).not.toBeNull();
+    expect(interp!.closed).toBe(false);
+    expect(interp!.params).toHaveLength(openFitPts.length);
+    expect(interp!.params[0]).toBeCloseTo(0, 12);
+    expect(interp!.params[openFitPts.length - 1]).toBeCloseTo(1, 12);
+    // Parameters are centripetal (α = 1/2) on [0, 1].
+    const chords = openFitPts.slice(1).map((p, i) =>
+      Math.sqrt(Math.hypot(p.x - openFitPts[i]!.x, p.y - openFitPts[i]!.y))
+    );
+    const total = chords.reduce((s, d) => s + d, 0);
+    let acc = 0;
+    for (let i = 0; i < chords.length; i++) {
+      acc += chords[i]!;
+      expect(interp!.params[i + 1]).toBeCloseTo(acc / total, 12);
+    }
+    for (let i = 0; i < openFitPts.length; i++) {
+      const pt = evaluateDxfSpline(
+        interp!.degree,
+        interp!.control,
+        interp!.knots,
+        interp!.params[i]!
+      );
+      expect(pt).not.toBeNull();
+      expect(pt!.x).toBeCloseTo(openFitPts[i]!.x, 10);
+      expect(pt!.y).toBeCloseTo(openFitPts[i]!.y, 10);
+    }
+    // Natural (C'' = 0) ends: a one-sided second difference at each end is
+    // near zero, and much smaller than the mid-domain curvature.
+    const c0 = finiteSecondDerivative(interp!, 0, false);
+    const c1 = finiteSecondDerivative(interp!, 1, true);
+    const cMid = finiteSecondDerivative(interp!, 0.5, false);
+    const midMag = Math.hypot(cMid.x, cMid.y);
+    expect(Math.hypot(c0.x, c0.y)).toBeLessThan(Math.max(0.05, midMag / 20));
+    expect(Math.hypot(c1.x, c1.y)).toBeLessThan(Math.max(0.05, midMag / 20));
+
+    const entities = parseDxfEntities(
+      dxfFile(splineEnt({ degree: 3, fitPoints: openFitPts }))
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBeUndefined();
+    expect(entities[0]?.type).toBe("polyline");
+    expect(entities[0]!.points.length).toBeGreaterThanOrEqual(
+      DXF_CURVE_SEGMENTS_PER_TURN + 1
+    );
+    const first = entities[0]!.points[0]!;
+    const last = entities[0]!.points[entities[0]!.points.length - 1]!;
+    expect(first.x).toBeCloseTo(0, 10);
+    expect(first.y).toBeCloseTo(0, 10);
+    expect(last.x).toBeCloseTo(4, 10);
+    expect(last.y).toBeCloseTo(0, 10);
+    for (const q of openFitPts) {
+      expect(minDistanceToPolyline(q, entities[0]!.points, false)).toBeLessThan(1e-6);
+    }
+  });
+
+  it("traces a closed fit-point-only cubic with no invented chord at the join", () => {
+    const fitPts = [
+      { x: 2, y: 0 },
+      { x: 0, y: 2 },
+      { x: -2, y: 0 },
+      { x: 0, y: -2 },
+    ];
+    const interp = interpolateDxfFitSpline(fitPts, 3, { closed: true });
+    expect(interp).not.toBeNull();
+    expect(interp!.closed).toBe(true);
+    for (let i = 0; i < fitPts.length; i++) {
+      const pt = evaluateDxfSpline(
+        interp!.degree,
+        interp!.control,
+        interp!.knots,
+        interp!.params[i]!
+      );
+      expect(pt).not.toBeNull();
+      expect(pt!.x).toBeCloseTo(fitPts[i]!.x, 10);
+      expect(pt!.y).toBeCloseTo(fitPts[i]!.y, 10);
+    }
+    const entities = parseDxfEntities(
+      dxfFile(splineEnt({ flags: 1, degree: 3, fitPoints: fitPts }))
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    const pts = entities[0]!.points;
+    expect(pts.length).toBeGreaterThanOrEqual(DXF_CURVE_SEGMENTS_PER_TURN);
+    for (const q of fitPts) {
+      expect(minDistanceToPolyline(q, pts, true)).toBeLessThan(1e-6);
+    }
+    const joinChord = Math.hypot(
+      fitPts[0]!.x - fitPts[fitPts.length - 1]!.x,
+      fitPts[0]!.y - fitPts[fitPts.length - 1]!.y
+    );
+    let maxEdge = 0;
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i]!;
+      const b = pts[(i + 1) % pts.length]!;
+      maxEdge = Math.max(maxEdge, Math.hypot(b.x - a.x, b.y - a.y));
+    }
+    // A periodic interpolant tessellates the join; it must not close with a
+    // single straight chord between the last and first fit points.
+    expect(maxEdge).toBeLessThan(joinChord * 0.5);
+  });
+
+  it("uses start and end fit tangents when they are present", () => {
+    const startTangent = { x: 0, y: 5 };
+    const endTangent = { x: 0, y: -5 };
+    const withT = interpolateDxfFitSpline(openFitPts, 3, { startTangent, endTangent });
+    const noT = interpolateDxfFitSpline(openFitPts, 3);
+    expect(withT).not.toBeNull();
+    expect(noT).not.toBeNull();
+    const h = 1e-6;
+    const a0 = evaluateDxfSpline(withT!.degree, withT!.control, withT!.knots, 0)!;
+    const b0 = evaluateDxfSpline(withT!.degree, withT!.control, withT!.knots, h)!;
+    expect((b0.x - a0.x) / h).toBeCloseTo(startTangent.x, 3);
+    expect((b0.y - a0.y) / h).toBeCloseTo(startTangent.y, 3);
+    const a1 = evaluateDxfSpline(withT!.degree, withT!.control, withT!.knots, 1)!;
+    const b1 = evaluateDxfSpline(withT!.degree, withT!.control, withT!.knots, 1 - h)!;
+    expect((a1.x - b1.x) / h).toBeCloseTo(endTangent.x, 3);
+    expect((a1.y - b1.y) / h).toBeCloseTo(endTangent.y, 3);
+
+    const tracedT = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          degree: 3,
+          fitPoints: openFitPts,
+          startTangent,
+          endTangent,
+        })
+      )
+    );
+    const tracedN = parseDxfEntities(
+      dxfFile(splineEnt({ degree: 3, fitPoints: openFitPts }))
+    );
+    expect(tracedT).toHaveLength(1);
+    expect(tracedN).toHaveLength(1);
+    const midT = tracedT[0]!.points[1]!;
+    const midN = tracedN[0]!.points[1]!;
+    expect(Math.hypot(midT.x - midN.x, midT.y - midN.y)).toBeGreaterThan(1e-3);
+  });
+
+  it("ignores fit points when usable control points are present", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          degree: 3,
+          knots: cubicKnots,
+          points: cubicPts,
+          fitPoints: [
+            { x: 9, y: 9 },
+            { x: 8, y: 8 },
+            { x: 7, y: 7 },
+            { x: 6, y: 6 },
+          ],
+        })
+      )
+    );
+    const controlOnly = parseDxfEntities(
+      dxfFile(splineEnt({ degree: 3, knots: cubicKnots, points: cubicPts }))
+    );
+    expect(entities).toHaveLength(1);
+    expect(controlOnly).toHaveLength(1);
+    expect(entities[0]!.points).toHaveLength(controlOnly[0]!.points.length);
+    for (let i = 0; i < entities[0]!.points.length; i++) {
+      expect(entities[0]!.points[i]!.x).toBeCloseTo(controlOnly[0]!.points[i]!.x, 12);
+      expect(entities[0]!.points[i]!.y).toBeCloseTo(controlOnly[0]!.points[i]!.y, 12);
+    }
+    const mid = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 2]!;
+    expect(mid.x).toBeCloseTo(2, 10);
+    expect(mid.y).toBeCloseTo(1.5, 10);
+  });
+
+  it("skips an unusable fit-point-only spline", () => {
+    const skipped = parseDxfEntities(
+      dxfFile(
+        splineEnt({ degree: 3, fitPoints: [{ x: 1, y: 1 }] }) +
+          splineEnt({
+            degree: 3,
+            fitPoints: [
+              { x: 0, y: 0 },
+              { x: Number.NaN, y: 1 },
+              { x: 2, y: 0 },
+            ],
+          })
+      )
+    );
+    expect(skipped).toEqual([]);
   });
 });
 

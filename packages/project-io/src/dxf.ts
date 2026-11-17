@@ -375,7 +375,8 @@ function tessellateSpline(
   control: Vec2[],
   knots: number[],
   weights: number[] | undefined,
-  closedHint: boolean
+  closedHint: boolean,
+  extraParams?: number[]
 ): DxfEntity | null {
   const nSeg = dxfSplineSegmentCount(knotSpanCount(knots, degree, control.length));
   if (nSeg < 2) return null;
@@ -383,9 +384,18 @@ function tessellateSpline(
   const u1 = knots[control.length]!;
   const domain = u1 - u0;
   if (!(domain > 0) || !Number.isFinite(domain)) return null;
-  const raw: Vec2[] = [];
+  const us: number[] = [];
   for (let i = 0; i <= nSeg; i++) {
-    const u = i === 0 ? u0 : i === nSeg ? u1 : u0 + (domain * i) / nSeg;
+    us.push(i === 0 ? u0 : i === nSeg ? u1 : u0 + (domain * i) / nSeg);
+  }
+  if (extraParams) {
+    for (const u of extraParams) {
+      if (Number.isFinite(u) && u > u0 && u < u1) us.push(u);
+    }
+    us.sort((a, b) => a - b);
+  }
+  const raw: Vec2[] = [];
+  for (const u of us) {
     const pt = evaluateDxfSpline(degree, control, knots, u, weights);
     if (!pt) return null;
     raw.push(pt);
@@ -406,7 +416,7 @@ function normalizeSplineWeights(count: number, weights: number[]): number[] | nu
   return w;
 }
 
-function splineEntityFromParsed(
+function controlPointSplineEntity(
   flags: number,
   degree: number,
   control: Vec2[],
@@ -449,6 +459,490 @@ function splineEntityFromParsed(
     prepared.knots,
     prepared.weights,
     closedFlag
+  );
+}
+
+/**
+ * Distinct fit points for interpolation. Consecutive copies (and a closed
+ * first==last pair) are collapsed with officialDxfPointsCoincide. Any
+ * non-finite coordinate makes the fit-point path unusable.
+ */
+function uniqueFitPoints(points: Vec2[], closed: boolean): Vec2[] | null {
+  const out: Vec2[] = [];
+  for (const p of points) {
+    if (!Number.isFinite(p.x) || !Number.isFinite(p.y)) return null;
+    const prev = out[out.length - 1];
+    if (prev && officialDxfPointsCoincide(prev, p)) continue;
+    out.push(p);
+  }
+  if (
+    closed &&
+    out.length >= 2 &&
+    officialDxfPointsCoincide(out[0]!, out[out.length - 1]!)
+  ) {
+    out.pop();
+  }
+  return out;
+}
+
+/**
+ * Centripetal parameterization (α = 1/2), Lee 1989 / The NURBS Book.
+ * Parameters are normalized to [0, 1]. For a closed curve the wrap-around
+ * chord is included in the total length; the returned values are the
+ * parameters of the distinct points (the last is < 1) and the period ends at 1.
+ */
+function centripetalParams(points: Vec2[], closed: boolean): number[] | null {
+  const n = points.length;
+  if (n < 2) return null;
+  const segs = closed ? n : n - 1;
+  const d: number[] = [];
+  let total = 0;
+  for (let i = 0; i < segs; i++) {
+    const a = points[i]!;
+    const b = points[(i + 1) % n]!;
+    const li = Math.sqrt(Math.hypot(b.x - a.x, b.y - a.y));
+    if (!Number.isFinite(li)) return null;
+    d.push(li);
+    total += li;
+  }
+  if (!(total > 0) || !Number.isFinite(total)) return null;
+  const u: number[] = [0];
+  let acc = 0;
+  for (let i = 0; i < n - 1; i++) {
+    acc += d[i]!;
+    const ti = acc / total;
+    if (!Number.isFinite(ti) || ti < u[u.length - 1]!) return null;
+    u.push(ti);
+  }
+  if (!closed) u[n - 1] = 1;
+  return u;
+}
+
+/** Clamped knot vector by parameter averaging (The NURBS Book 9.2.1). */
+function clampedAveragingKnots(params: number[], degree: number): number[] | null {
+  const m = params.length;
+  const p = degree;
+  if (m < p + 1) return null;
+  const knots: number[] = [];
+  const t0 = params[0]!;
+  const t1 = params[m - 1]!;
+  for (let i = 0; i <= p; i++) knots.push(t0);
+  for (let j = 1; j <= m - p - 1; j++) {
+    let s = 0;
+    for (let i = j; i <= j + p - 1; i++) s += params[i]!;
+    const knot = s / p;
+    if (!Number.isFinite(knot)) return null;
+    knots.push(knot);
+  }
+  for (let i = 0; i <= p; i++) knots.push(t1);
+  if (knots.length !== m + p + 1) return null;
+  if (!knotsAreNonDecreasing(knots)) return null;
+  return knots;
+}
+
+/**
+ * Knot vector for an open cubic interpolant with two end conditions
+ * (natural and/or fit tangents): m+2 control points, clamped, with simple
+ * interior knots at the interior centripetal parameters.
+ */
+function cubicEndConditionKnots(params: number[]): number[] | null {
+  const m = params.length;
+  if (m < 2) return null;
+  const t0 = params[0]!;
+  const t1 = params[m - 1]!;
+  const knots: number[] = [t0, t0, t0, t0];
+  for (let i = 1; i <= m - 2; i++) knots.push(params[i]!);
+  knots.push(t1, t1, t1, t1);
+  if (knots.length !== m + 6) return null;
+  if (!knotsAreNonDecreasing(knots)) return null;
+  return knots;
+}
+
+function compactPeriodicKnots(params: number[]): number[] | null {
+  const knots = params.slice();
+  knots.push(1);
+  if (knots.length !== params.length + 1) return null;
+  if (!knotsAreNonDecreasing(knots)) return null;
+  if (!(knots[knots.length - 1]! > knots[0]!)) return null;
+  return knots;
+}
+
+function solveLinearSystem(A: number[][], b: number[]): number[] | null {
+  const n = b.length;
+  if (A.length !== n) return null;
+  const M: number[][] = [];
+  for (let i = 0; i < n; i++) {
+    const row = A[i];
+    if (!row || row.length !== n || !Number.isFinite(b[i]!)) return null;
+    const copy = row.slice();
+    copy.push(b[i]!);
+    if (copy.some((v) => !Number.isFinite(v))) return null;
+    let scale = 0;
+    for (let j = 0; j < n; j++) scale = Math.max(scale, Math.abs(copy[j]!));
+    if (!(scale > 0)) {
+      if (Math.abs(copy[n]!) > 1e-14) return null;
+      return null;
+    }
+    for (let j = 0; j <= n; j++) copy[j] = copy[j]! / scale;
+    M.push(copy);
+  }
+  for (let k = 0; k < n; k++) {
+    let pivot = k;
+    let best = Math.abs(M[k]![k]!);
+    for (let i = k + 1; i < n; i++) {
+      const v = Math.abs(M[i]![k]!);
+      if (v > best) {
+        best = v;
+        pivot = i;
+      }
+    }
+    if (!(best > 1e-12)) return null;
+    if (pivot !== k) {
+      const tmp = M[k]!;
+      M[k] = M[pivot]!;
+      M[pivot] = tmp;
+    }
+    const pk = M[k]![k]!;
+    for (let i = k + 1; i < n; i++) {
+      const f = M[i]![k]! / pk;
+      if (!Number.isFinite(f)) return null;
+      for (let j = k; j <= n; j++) {
+        M[i]![j] = M[i]![j]! - f * M[k]![j]!;
+      }
+    }
+  }
+  const x: number[] = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i]![n]!;
+    for (let j = i + 1; j < n; j++) s -= M[i]![j]! * x[j]!;
+    const d = M[i]![i]!;
+    if (!(Math.abs(d) > 1e-12) || !Number.isFinite(s)) return null;
+    x[i] = s / d;
+    if (!Number.isFinite(x[i]!)) return null;
+  }
+  return x;
+}
+
+function derivativeCurve(
+  degree: number,
+  control: Vec2[],
+  knots: number[]
+): { degree: number; control: Vec2[]; knots: number[] } | null {
+  const n = control.length;
+  const p = degree;
+  if (p < 1 || n < 2) return null;
+  const newControl: Vec2[] = [];
+  for (let i = 0; i < n - 1; i++) {
+    const denom = knots[i + p + 1]! - knots[i + 1]!;
+    if (!Number.isFinite(denom)) return null;
+    const s = denom === 0 ? 0 : p / denom;
+    if (!Number.isFinite(s)) return null;
+    const a = control[i]!;
+    const b = control[i + 1]!;
+    newControl.push({ x: s * (b.x - a.x), y: s * (b.y - a.y) });
+  }
+  const newKnots = knots.slice(1, knots.length - 1);
+  if (newKnots.length !== newControl.length + (p - 1) + 1) return null;
+  return { degree: p - 1, control: newControl, knots: newKnots };
+}
+
+function evaluateSplineDerivative(
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  u: number,
+  order: number
+): Vec2 | null {
+  if (order < 0 || !Number.isInteger(order)) return null;
+  if (order === 0) return evaluateDxfSpline(degree, control, knots, u);
+  let cur: { degree: number; control: Vec2[]; knots: number[] } = {
+    degree,
+    control,
+    knots,
+  };
+  for (let k = 0; k < order; k++) {
+    const next = derivativeCurve(cur.degree, cur.control, cur.knots);
+    if (!next) return null;
+    cur = next;
+  }
+  return evaluateDxfSpline(cur.degree, cur.control, cur.knots, u);
+}
+
+function basisRow(
+  degree: number,
+  controlCount: number,
+  knots: number[],
+  u: number,
+  order: number
+): number[] | null {
+  const row: number[] = [];
+  for (let i = 0; i < controlCount; i++) {
+    const unit: Vec2[] = [];
+    for (let j = 0; j < controlCount; j++) unit.push({ x: j === i ? 1 : 0, y: 0 });
+    const v = evaluateSplineDerivative(degree, unit, knots, u, order);
+    if (!v || !Number.isFinite(v.x)) return null;
+    row.push(v.x);
+  }
+  return row;
+}
+
+function solveControls(A: number[][], xs: number[], ys: number[]): Vec2[] | null {
+  const cx = solveLinearSystem(A, xs);
+  const cy = solveLinearSystem(A, ys);
+  if (!cx || !cy || cx.length !== cy.length) return null;
+  const pts: Vec2[] = [];
+  for (let i = 0; i < cx.length; i++) {
+    const x = cx[i]!;
+    const y = cy[i]!;
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+/** Tight metre check that a built interpolant actually hits every fit point. */
+const FIT_INTERP_EPS_M = 1e-6;
+
+function interpolantHitsFitPoints(
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  params: number[],
+  points: Vec2[],
+  closed: boolean
+): boolean {
+  if (params.length !== points.length) return false;
+  for (let k = 0; k < points.length; k++) {
+    const pt = evaluateDxfSpline(degree, control, knots, params[k]!);
+    if (!pt || !officialDxfPointsCoincide(pt, points[k]!, FIT_INTERP_EPS_M)) return false;
+  }
+  if (closed) {
+    const u0 = knots[degree];
+    const u1 = knots[control.length];
+    if (u0 == null || u1 == null) return false;
+    const start = evaluateDxfSpline(degree, control, knots, u0);
+    const end = evaluateDxfSpline(degree, control, knots, u1);
+    if (!start || !end || !officialDxfPointsCoincide(start, end, FIT_INTERP_EPS_M)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function interpolateOpenFitSpline(
+  points: Vec2[],
+  degree: number,
+  startTangent: Vec2 | undefined,
+  endTangent: Vec2 | undefined
+): DxfFitSplineInterpolant | null {
+  const m = points.length;
+  const p = degree;
+  const params = centripetalParams(points, false);
+  if (!params) return null;
+
+  if (p === 1) {
+    const knots = clampedAveragingKnots(params, 1);
+    if (!knots) return null;
+    if (!interpolantHitsFitPoints(1, points, knots, params, points, false)) return null;
+    return { degree: 1, control: points.slice(), knots, params, closed: false };
+  }
+
+  // Open cubics use natural (C'' = 0) ends when a fit tangent is absent; a
+  // present start (12/22) and/or end (13/23) tangent is used as dC/dt on the
+  // normalized [0, 1] parameter and replaces that end's natural condition.
+  // Other degrees use global interpolation with averaging knots (NURBS Book
+  // 9.2.1) and do not consume fit tangents.
+  if (p !== 3) {
+    if (m < p + 1) return null;
+    const knots = clampedAveragingKnots(params, p);
+    if (!knots) return null;
+    const A: number[][] = [];
+    for (let k = 0; k < m; k++) {
+      const row = basisRow(p, m, knots, params[k]!, 0);
+      if (!row) return null;
+      A.push(row);
+    }
+    const control = solveControls(
+      A,
+      points.map((q) => q.x),
+      points.map((q) => q.y)
+    );
+    if (!control) return null;
+    if (!interpolantHitsFitPoints(p, control, knots, params, points, false)) return null;
+    return { degree: p, control, knots, params, closed: false };
+  }
+
+  const knots = cubicEndConditionKnots(params);
+  if (!knots) return null;
+  const nc = m + 2;
+  const A: number[][] = [];
+  const bx: number[] = [];
+  const by: number[] = [];
+
+  const startOrder = startTangent ? 1 : 2;
+  const startRow = basisRow(p, nc, knots, params[0]!, startOrder);
+  if (!startRow) return null;
+  A.push(startRow);
+  bx.push(startTangent ? startTangent.x : 0);
+  by.push(startTangent ? startTangent.y : 0);
+
+  for (let k = 0; k < m; k++) {
+    const row = basisRow(p, nc, knots, params[k]!, 0);
+    if (!row) return null;
+    A.push(row);
+    bx.push(points[k]!.x);
+    by.push(points[k]!.y);
+  }
+
+  const endOrder = endTangent ? 1 : 2;
+  const endRow = basisRow(p, nc, knots, params[m - 1]!, endOrder);
+  if (!endRow) return null;
+  A.push(endRow);
+  bx.push(endTangent ? endTangent.x : 0);
+  by.push(endTangent ? endTangent.y : 0);
+
+  const control = solveControls(A, bx, by);
+  if (!control) return null;
+  if (!interpolantHitsFitPoints(p, control, knots, params, points, false)) return null;
+  return { degree: p, control, knots, params, closed: false };
+}
+
+function interpolateClosedFitSpline(
+  points: Vec2[],
+  degree: number
+): DxfFitSplineInterpolant | null {
+  const m = points.length;
+  const p = degree;
+  // Periodic wrap in expandPeriodicSpline needs m >= p+1; a closed loop also
+  // needs at least three distinct points.
+  if (m < 3 || m < p + 1) return null;
+  const params = centripetalParams(points, true);
+  if (!params) return null;
+  const compact = compactPeriodicKnots(params);
+  if (!compact) return null;
+  const expanded = expandPeriodicSpline(p, points, compact, undefined);
+  if (!expanded) return null;
+  const { knots } = expanded;
+  const nExp = m + p;
+  const A: number[][] = [];
+  for (let k = 0; k < m; k++) {
+    const full = basisRow(p, nExp, knots, params[k]!, 0);
+    if (!full) return null;
+    const row = new Array(m).fill(0);
+    for (let j = 0; j < nExp; j++) {
+      const i = j < m ? j : j - m;
+      if (i < 0 || i >= m) return null;
+      row[i] = row[i]! + full[j]!;
+    }
+    A.push(row);
+  }
+  const unique = solveControls(
+    A,
+    points.map((q) => q.x),
+    points.map((q) => q.y)
+  );
+  if (!unique) return null;
+  const prepared = expandPeriodicSpline(p, unique, compact, undefined);
+  if (!prepared) return null;
+  if (!interpolantHitsFitPoints(p, prepared.control, prepared.knots, params, points, true)) {
+    return null;
+  }
+  return {
+    degree: p,
+    control: prepared.control,
+    knots: prepared.knots,
+    params,
+    closed: true,
+  };
+}
+
+export type DxfFitSplineInterpolant = {
+  degree: number;
+  control: Vec2[];
+  knots: number[];
+  /** Centripetal parameter of each distinct fit point, in [0, 1]. */
+  params: number[];
+  closed: boolean;
+};
+
+/**
+ * Build a global interpolating B-spline through usable fit points (11/21).
+ * Degree defaults to 3 when the value is not an integer ≥ 1. Closed or
+ * periodic flags produce a periodic interpolant (fit tangents unused, so the
+ * join stays C^{p-1}). Open cubics use natural or tangent end conditions as
+ * documented on interpolateOpenFitSpline. The result is intended for
+ * evaluateDxfSpline / tessellateSpline; this is not a second display path.
+ */
+export function interpolateDxfFitSpline(
+  fitPoints: Vec2[],
+  degree: number,
+  opts?: {
+    closed?: boolean;
+    startTangent?: Vec2;
+    endTangent?: Vec2;
+  }
+): DxfFitSplineInterpolant | null {
+  const p = Number.isInteger(degree) && degree >= 1 ? degree : 3;
+  const closed = !!opts?.closed;
+  const unique = uniqueFitPoints(fitPoints, closed);
+  if (!unique) return null;
+  if (closed) return interpolateClosedFitSpline(unique, p);
+  const st = opts?.startTangent;
+  const et = opts?.endTangent;
+  const startT =
+    st && Number.isFinite(st.x) && Number.isFinite(st.y) ? st : undefined;
+  const endT =
+    et && Number.isFinite(et.x) && Number.isFinite(et.y) ? et : undefined;
+  return interpolateOpenFitSpline(unique, p, startT, endT);
+}
+
+function fitPointSplineEntity(
+  flags: number,
+  degreeIn: number,
+  fitPoints: Vec2[],
+  fitInvalid: boolean,
+  startTangent: Vec2 | null,
+  endTangent: Vec2 | null
+): DxfEntity | null {
+  if (fitInvalid) return null;
+  const periodic = (flags & 2) === 2;
+  const closedFlag = (flags & 1) === 1 || periodic;
+  const interp = interpolateDxfFitSpline(fitPoints, degreeIn, {
+    closed: closedFlag,
+    startTangent: startTangent ?? undefined,
+    endTangent: endTangent ?? undefined,
+  });
+  if (!interp) return null;
+  return tessellateSpline(
+    interp.degree,
+    interp.control,
+    interp.knots,
+    undefined,
+    interp.closed,
+    interp.params
+  );
+}
+
+function splineEntityFromParsed(
+  flags: number,
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  weightsIn: number[],
+  fitPoints: Vec2[],
+  fitInvalid: boolean,
+  startTangent: Vec2 | null,
+  endTangent: Vec2 | null
+): DxfEntity | null {
+  const fromControls = controlPointSplineEntity(flags, degree, control, knots, weightsIn);
+  if (fromControls) return fromControls;
+  return fitPointSplineEntity(
+    flags,
+    degree,
+    fitPoints,
+    fitInvalid,
+    startTangent,
+    endTangent
   );
 }
 
@@ -534,9 +1028,20 @@ function isFiniteNumber(value: number): boolean {
  * projective De Boor when weights are present. A periodic spline stored with
  * knots = control points + 1 is expanded to a standard periodic B-spline;
  * AutoCAD’s already-clamped form (knots = control points + degree + 1) is
- * evaluated directly. Fit points (11/21), fit tangents, and tolerances are
- * not used; a SPLINE with no usable control points is skipped rather than
- * inventing a fit-point interpolant. A knot vector that is missing or the
+ * evaluated directly. When usable control points are present, fit points
+ * (11/21) and fit tangents (12/22, 13/23) are unused. If there are no usable
+ * control points but there are usable fit points, a global interpolating
+ * B-spline is built through the distinct fit points (centripetal
+ * parameterization, α = 1/2, parameters on [0, 1]) and tessellated with the
+ * same evaluateDxfSpline / dxfSplineSegmentCount pipeline. Degree comes from
+ * group 71 when it is an integer ≥ 1, otherwise cubic (3). Open cubics use
+ * natural (C'' = 0) ends, or a present start and/or end fit tangent as dC/dt
+ * on [0, 1]. Closed (bit 1) or periodic (bit 2) flags produce a periodic
+ * interpolant with no gap at the join; fit tangents are then ignored.
+ * Tolerances (42/43/44) are unused. The interpolant is skipped when it cannot
+ * be built correctly (too few distinct fit points for the degree, non-finite
+ * coordinates, a singular system, or a result that misses the fit points).
+ * A knot vector that is missing or the
  * wrong length for a clamped, unclamped, or periodic B-spline of that degree
  * is skipped. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
  * CIRCLE / ARC). A non-mesh 3D POLYLINE (group 70 flag bit 8) is traced in
@@ -766,7 +1271,14 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       const knots: number[] = [];
       const weights: number[] = [];
       const control: Vec2[] = [];
+      const fitPoints: Vec2[] = [];
+      let fitInvalid = false;
       let pending: { x?: number; y?: number } | null = null;
+      let pendingFit: { x?: number; y?: number } | null = null;
+      let startTx: number | undefined;
+      let startTy: number | undefined;
+      let endTx: number | undefined;
+      let endTy: number | undefined;
       const flushControl = () => {
         if (
           pending &&
@@ -779,6 +1291,16 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
         pending = null;
       };
+      const flushFit = () => {
+        if (pendingFit && pendingFit.x != null && pendingFit.y != null) {
+          if (isFiniteNumber(pendingFit.x) && isFiniteNumber(pendingFit.y)) {
+            fitPoints.push({ x: pendingFit.x, y: pendingFit.y });
+          } else {
+            fitInvalid = true;
+          }
+        }
+        pendingFit = null;
+      };
       const paperspace = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
         if (code === 71) degree = Number(value);
@@ -789,13 +1311,43 @@ export function parseDxfEntities(text: string): DxfEntity[] {
           pending = { x: Number(value), y: 0 };
         }
         if (code === 20 && pending) pending.y = Number(value);
+        if (code === 11) {
+          flushFit();
+          pendingFit = { x: Number(value), y: 0 };
+        }
+        if (code === 21 && pendingFit) pendingFit.y = Number(value);
+        if (code === 12) startTx = Number(value);
+        if (code === 22) startTy = Number(value);
+        if (code === 13) endTx = Number(value);
+        if (code === 23) endTy = Number(value);
       });
       flushControl();
+      flushFit();
       if (paperspace) continue;
-      if (Number.isFinite(flags) && Number.isFinite(degree)) {
-        const entity = splineEntityFromParsed(flags, degree, control, knots, weights);
-        if (entity) entities.push(entity);
-      }
+      const flagsIn = Number.isFinite(flags) ? flags : 0;
+      const startTangent =
+        startTx != null &&
+        startTy != null &&
+        isFiniteNumber(startTx) &&
+        isFiniteNumber(startTy)
+          ? { x: startTx, y: startTy }
+          : null;
+      const endTangent =
+        endTx != null && endTy != null && isFiniteNumber(endTx) && isFiniteNumber(endTy)
+          ? { x: endTx, y: endTy }
+          : null;
+      const entity = splineEntityFromParsed(
+        flagsIn,
+        degree,
+        control,
+        knots,
+        weights,
+        fitPoints,
+        fitInvalid,
+        startTangent,
+        endTangent
+      );
+      if (entity) entities.push(entity);
     } else if (type === "POLYLINE") {
       let flags = 0;
       const paperspace = readEntityGroups((code, value) => {

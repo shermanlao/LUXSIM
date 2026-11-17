@@ -280,8 +280,8 @@ describe("user guide", () => {
     expect(tips).toContain('helpKey: "tool.createRoomsFromDxf"');
     expect(tips).toMatch(/rooms from closed polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network/);
     expect(tips).toMatch(/if one room lies fully inside another with no connecting wall, only the inner room is kept/);
-    expect(guide).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE, old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
-    expect(guide).toMatch(/CIRCLE、ARC、ELLIPSE、SPLINE、舊式 POLYLINE 與 LWPOLYLINE 凸度也會描繪（曲線以多邊形近似）/);
+    expect(guide).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE \(including a spline that has only fit points\), old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
+    expect(guide).toMatch(/CIRCLE、ARC、ELLIPSE、SPLINE（包括只有擬合點的 SPLINE）、舊式 POLYLINE 與 LWPOLYLINE 凸度也會描繪（曲線以多邊形近似）/);
     expect(guide).toMatch(/A non-mesh 3D POLYLINE is traced in plan \(Z is ignored\)/);
     expect(guide).toMatch(/非網格的 3D POLYLINE 會按平面描繪（忽略 Z）/);
     expect(guide).toMatch(/Paperspace entities \(group 67 = 1\) are not displayed, snapped, bounded, or used to create rooms/);
@@ -290,7 +290,7 @@ describe("user guide", () => {
     expect(guide).toMatch(/多邊形網格與多面網格 POLYLINE 會被跳過/);
     expect(guide).toMatch(/DWG is not parsed/);
     expect(guide).not.toMatch(/CIRCLE, ARC, and old POLYLINE entities are not traced/);
-    expect(tips).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE, old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
+    expect(tips).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE \(including a spline that has only fit points\), old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
     expect(tips).toMatch(/A non-mesh 3D POLYLINE is traced in plan \(Z is ignored\)/);
     expect(tips).toMatch(/Paperspace entities \(group 67 = 1\) are not displayed, snapped, bounded, or used to create rooms/);
     expect(tips).not.toMatch(/CIRCLE, ARC, and old POLYLINE entities are not traced/);

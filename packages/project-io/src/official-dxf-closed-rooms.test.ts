@@ -965,19 +965,26 @@ describe("officialAppendRoomsFromDxfClosedPolylines ELLIPSE", () => {
 function splineEnt(opts: {
   flags?: number;
   degree: number;
-  knots: number[];
-  points: Array<{ x: number; y: number }>;
+  knots?: number[];
+  points?: Array<{ x: number; y: number }>;
   weights?: number[];
+  fitPoints?: Array<{ x: number; y: number }>;
 }): string {
   const flags = opts.flags ?? 0;
+  const knots = opts.knots ?? [];
+  const points = opts.points ?? [];
   let s =
     `  0\nSPLINE\n  70\n${flags}\n  71\n${opts.degree}\n` +
-    `  72\n${opts.knots.length}\n  73\n${opts.points.length}\n`;
-  for (const k of opts.knots) s += `  40\n${k}\n`;
+    `  72\n${knots.length}\n  73\n${points.length}\n`;
+  if (opts.fitPoints) s += `  74\n${opts.fitPoints.length}\n`;
+  for (const k of knots) s += `  40\n${k}\n`;
   if (opts.weights) {
     for (const w of opts.weights) s += `  41\n${w}\n`;
   }
-  for (const pt of opts.points) s += `  10\n${pt.x}\n  20\n${pt.y}\n`;
+  for (const pt of points) s += `  10\n${pt.x}\n  20\n${pt.y}\n`;
+  if (opts.fitPoints) {
+    for (const pt of opts.fitPoints) s += `  11\n${pt.x}\n  21\n${pt.y}\n`;
+  }
   return s;
 }
 
@@ -1126,6 +1133,50 @@ describe("officialAppendRoomsFromDxfClosedPolylines SPLINE", () => {
   });
 });
 
+
+describe("officialAppendRoomsFromDxfClosedPolylines fit-point-only SPLINE", () => {
+  const fitLoop = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ];
+
+  it("creates a room from a closed fit-point-only SPLINE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(splineEnt({ flags: 1, degree: 3, fitPoints: fitLoop }))
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon.length).toBeGreaterThanOrEqual(3);
+    expect(roomAreaM2(created)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+  });
+
+  it("does not invent a room from an open fit-point-only SPLINE alone", () => {
+    const open = parseDxfEntities(
+      dxfFile(splineEnt({ degree: 3, fitPoints: fitLoop }))
+    );
+    expect(open).toHaveLength(1);
+    expect(open[0]?.closed).toBeUndefined();
+    const openScene = sceneWithDxf(open);
+    const openOut = officialAppendRoomsFromDxfClosedPolylines(openScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(openOut.created).toBe(0);
+    expect(openOut.scene.rooms).toEqual([]);
+    expect(openOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+});
 
 describe("officialAppendRoomsFromDxfClosedPolylines paperspace and 3D POLYLINE", () => {
   const closedPoly = (
