@@ -173,3 +173,23 @@ describe("officialDxfSimpleLineLoopRings", () => {
     expect(areas).toEqual([4, 12]);
   });
 });
+
+describe("officialDxfSimpleLineLoopRings with a tessellated ARC", () => {
+  it("forms a simple loop from an ARC and a closing LINE", () => {
+    const arc: DxfEntity = {
+      type: "polyline",
+      points: [
+        { x: 2, y: 0 },
+        { x: 0, y: 2 },
+        { x: -2, y: 0 },
+      ],
+    };
+    const entities: DxfEntity[] = [arc, line(-2, 0, 2, 0)];
+    const rings = officialDxfSimpleLineLoopRings(entities);
+    expect(rings).toHaveLength(1);
+    expect(rings[0]!).toHaveLength(3);
+    expect(area(rings[0]!)).toBe(4);
+    expect(officialDxfHasSimpleLineLoop(entities)).toBe(true);
+    expect(officialDxfPolylineClosed(arc)).toBe(false);
+  });
+});

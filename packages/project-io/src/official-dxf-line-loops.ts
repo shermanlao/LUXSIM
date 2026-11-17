@@ -7,7 +7,7 @@ import {
 
 /**
  * Segments used to look for simple line loops: LINE entities, and consecutive
- * vertices of *open* LWPOLYLINE paths. Closed polylines are excluded so they
+ * vertices of *open* LWPOLYLINE / ARC / old-POLYLINE paths. Closed polylines are excluded so they
  * stay on the official closed-polyline room path and are not double-created.
  * Zero-length segments are dropped. Open paths still have no invented closing
  * edge.
@@ -44,7 +44,7 @@ function nextAlongDegree2(adj: number[][], cur: number, prev: number): number | 
 }
 
 /**
- * Simple closed loops formed by joining open LINE / LWPOLYLINE endpoints that
+ * Simple closed loops formed by joining open LINE / ARC / polyline endpoints that
  * coincide within DXF_CLOSED_VERTEX_EPS_M. A simple loop in this increment is
  * a cycle in which every vertex has degree exactly 2 (a single closed chain).
  * Vertices with degree ≠ 2 are ignored: T-junctions, figure-8 / degree-4

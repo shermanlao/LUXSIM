@@ -127,8 +127,9 @@ export interface DxfEntity {
   type: "line" | "polyline";
   points: Vec2[];
   /**
-   * LWPOLYLINE closed flag (group 70 bit 1), or first and last vertices
-   * coincide. Omitted on open LINE / LWPOLYLINE entities.
+   * Closed flag from LWPOLYLINE / old POLYLINE (group 70 bit 1), a CIRCLE
+   * or full-turn ARC, or first and last vertices coincide. Omitted on open
+   * LINE, ARC, and open polyline entities.
    */
   closed?: boolean;
 }

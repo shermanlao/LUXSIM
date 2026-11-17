@@ -44,7 +44,7 @@ export function dxfObjectSnapRadiusM(metresPerCssPx: number): number {
 }
 
 /**
- * Only a parsed DXF underlay with LINE / LWPOLYLINE entities is snappable.
+ * Only a parsed DXF underlay with LINE, LWPOLYLINE, CIRCLE, ARC, or old POLYLINE entities (curves tessellated to segments) is snappable.
  * DWG, rasters, empty entity lists, and missing underlays yield [].
  */
 export function officialDxfSnapEntities(
@@ -68,7 +68,7 @@ export function nearestPointOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
 /**
  * Endpoint and midpoint of every displayed segment, plus the nearest point
  * on that segment to the pointer. Closed polylines include the official
- * closing segment. Open LINE / LWPOLYLINE paths stay open — no invented
+ * closing segment. Open LINE / ARC / polyline paths stay open — no invented
  * closing edge.
  */
 export function collectDxfSnapCandidates(

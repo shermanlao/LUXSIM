@@ -110,7 +110,14 @@ export {
 export { mmToM, mToMm, parseLengthToM } from "./units";
 export { roomToCalcOptions, clipResultsToPolygon, roomSpecFromV2 } from "./room-adapter";
 export { ugrObserverPositionsInRoom, polygonCentroid, interiorTarget } from "./ugr-observers";
-export { parseDxfEntities, dxfBounds } from "./dxf";
+export {
+  parseDxfEntities,
+  dxfBounds,
+  DXF_CURVE_SEGMENTS_PER_TURN,
+  dxfCurveSegmentCount,
+  dxfCcwSweepRad,
+  tessellateDxfBulgeIntermediates,
+} from "./dxf";
 export {
   DXF_CLOSED_VERTEX_EPS_M,
   officialDxfClosedRingVertices,

@@ -50,7 +50,7 @@ export function officialDxfEntityToWorld(
 }
 
 /**
- * Map LINE / LWPOLYLINE entity points into official world metres.
+ * Map official DXF entity points (LINE, LWPOLYLINE, and tessellated CIRCLE / ARC / old POLYLINE) into official world metres.
  * Identity (`metersPerUnit` 1, origin 0) returns the same array.
  */
 export function officialDxfEntitiesToWorld<T extends Pick<DxfEntity, "points">>(

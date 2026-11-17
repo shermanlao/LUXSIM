@@ -73,7 +73,7 @@ export function officialDxfPolylineStrokePoints(
 
 /**
  * Displayed segments used by object snap. Closed polylines include the
- * official closing segment; open LINE / LWPOLYLINE paths do not.
+ * official closing segment; open LINE / ARC / polyline paths do not.
  */
 export function officialDxfEntitySegments(
   entity: Pick<DxfEntity, "points" | "closed"> & { type?: DxfEntity["type"] }

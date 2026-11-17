@@ -1,7 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "fs";
 import path from "path";
-import { parseDxfEntities } from "./dxf";
+import {
+  parseDxfEntities,
+  dxfBounds,
+  DXF_CURVE_SEGMENTS_PER_TURN,
+  dxfCurveSegmentCount,
+  tessellateDxfBulgeIntermediates,
+} from "./dxf";
 import { importIfcText } from "./ifc-import";
 
 describe("parseDxfEntities", () => {
@@ -116,5 +122,178 @@ describe("parseDxfEntities closed LWPOLYLINE flag", () => {
         ],
       },
     ]);
+  });
+});
+
+function dxfFile(body: string): string {
+  return "  0\nSECTION\n  2\nENTITIES\n" + body + "  0\nENDSEC\n  0\nEOF\n";
+}
+
+function circleEnt(cx: number, cy: number, r: number): string {
+  return `  0\nCIRCLE\n  10\n${cx}\n  20\n${cy}\n  40\n${r}\n`;
+}
+
+function arcEnt(cx: number, cy: number, r: number, start: number, end: number): string {
+  return `  0\nARC\n  10\n${cx}\n  20\n${cy}\n  40\n${r}\n  50\n${start}\n  51\n${end}\n`;
+}
+
+function oldPoly(
+  verts: Array<{ x: number; y: number; bulge?: number }>,
+  flags?: number
+): string {
+  let s = "  0\nPOLYLINE\n";
+  if (flags != null) s += `  70\n${flags}\n`;
+  for (const v of verts) {
+    s += `  0\nVERTEX\n  10\n${v.x}\n  20\n${v.y}\n`;
+    if (v.bulge != null) s += `  42\n${v.bulge}\n`;
+  }
+  return s + "  0\nSEQEND\n";
+}
+
+describe("parseDxfEntities CIRCLE, ARC, and old POLYLINE", () => {
+  it("uses 48 segments per full turn, and a 90° arc uses 12", () => {
+    expect(DXF_CURVE_SEGMENTS_PER_TURN).toBe(48);
+    expect(dxfCurveSegmentCount(Math.PI * 2)).toBe(48);
+    expect(dxfCurveSegmentCount(Math.PI / 2)).toBe(12);
+    expect(dxfCurveSegmentCount(Math.PI / 2)).toBe(
+      Math.max(2, Math.round((48 * (Math.PI / 2)) / (Math.PI * 2)))
+    );
+    // A 20° seam-crossing sweep is still at least 2, typically 3.
+    expect(dxfCurveSegmentCount((20 * Math.PI) / 180)).toBe(3);
+    expect(dxfCurveSegmentCount(0)).toBe(0);
+  });
+
+  it("parses a CIRCLE as a closed 48-vertex polygonal loop", () => {
+    const entities = parseDxfEntities(dxfFile(circleEnt(1, 2, 3)));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.type).toBe("polyline");
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(4);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(2);
+    const mid = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 4]!;
+    expect(mid.x).toBeCloseTo(1);
+    expect(mid.y).toBeCloseTo(5);
+    expect(entities[0]!.points[0]).not.toEqual(
+      entities[0]!.points[entities[0]!.points.length - 1]
+    );
+    const b = dxfBounds(entities)!;
+    expect(b.minX).toBeCloseTo(-2);
+    expect(b.maxX).toBeCloseTo(4);
+    expect(b.minY).toBeCloseTo(-1);
+    expect(b.maxY).toBeCloseTo(5);
+  });
+
+  it("parses an ARC, including one that crosses the 0° seam, as an open polyline", () => {
+    const quarter = parseDxfEntities(dxfFile(arcEnt(0, 0, 2, 0, 90)));
+    expect(quarter).toHaveLength(1);
+    expect(quarter[0]?.type).toBe("polyline");
+    expect(quarter[0]?.closed).toBeUndefined();
+    expect(quarter[0]?.points).toHaveLength(13);
+    expect(quarter[0]!.points[0]!.x).toBeCloseTo(2);
+    expect(quarter[0]!.points[0]!.y).toBeCloseTo(0);
+    const end = quarter[0]!.points[quarter[0]!.points.length - 1]!;
+    expect(end.x).toBeCloseTo(0);
+    expect(end.y).toBeCloseTo(2);
+
+    const seam = parseDxfEntities(dxfFile(arcEnt(0, 0, 1, 350, 10)));
+    expect(seam).toHaveLength(1);
+    expect(seam[0]?.closed).toBeUndefined();
+    expect(seam[0]?.points).toHaveLength(4);
+    expect(seam[0]!.points[0]!.x).toBeCloseTo(Math.cos((350 * Math.PI) / 180));
+    expect(seam[0]!.points[0]!.y).toBeCloseTo(Math.sin((350 * Math.PI) / 180));
+    const seamEnd = seam[0]!.points[seam[0]!.points.length - 1]!;
+    expect(seamEnd.x).toBeCloseTo(Math.cos((10 * Math.PI) / 180));
+    expect(seamEnd.y).toBeCloseTo(Math.sin((10 * Math.PI) / 180));
+    // CCW 20° sweep stays in the first and fourth quadrants, not the long way.
+    for (const p of seam[0]!.points) {
+      expect(p.x).toBeGreaterThan(0.9);
+    }
+  });
+
+  it("treats an ARC with equal start and end angles as a closed full circle", () => {
+    const full = parseDxfEntities(dxfFile(arcEnt(0, 0, 1, 45, 45)));
+    expect(full[0]?.closed).toBe(true);
+    expect(full[0]?.points).toHaveLength(48);
+    expect(full[0]!.points[0]!.x).toBeCloseTo(Math.cos(Math.PI / 4));
+    expect(full[0]!.points[0]!.y).toBeCloseTo(Math.sin(Math.PI / 4));
+  });
+
+  it("parses open and closed old-style POLYLINE entities", () => {
+    const rect = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ];
+    const closed = parseDxfEntities(dxfFile(oldPoly(rect, 1)));
+    expect(closed).toHaveLength(1);
+    expect(closed[0]).toMatchObject({ type: "polyline", closed: true });
+    expect(closed[0]!.points).toEqual(rect);
+
+    const open = parseDxfEntities(dxfFile(oldPoly(rect, 0)));
+    expect(open[0]?.closed).toBeUndefined();
+    expect(open[0]?.points).toEqual(rect);
+
+    const coinc = parseDxfEntities(dxfFile(oldPoly([...rect, rect[0]!], 0)));
+    expect(coinc[0]?.closed).toBe(true);
+    expect(coinc[0]?.points).toEqual(rect);
+  });
+
+  it("tessellates an old POLYLINE bulge (including a semicircle)", () => {
+    expect(Math.tan(Math.PI / 4)).toBeCloseTo(1);
+    const entities = parseDxfEntities(
+      dxfFile(
+        oldPoly(
+          [
+            { x: 1, y: 0, bulge: 1 },
+            { x: -1, y: 0 },
+          ],
+          0
+        )
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBeUndefined();
+    // 180° → 24 segments, 25 points including endpoints.
+    expect(entities[0]?.points).toHaveLength(25);
+    expect(entities[0]!.points[0]).toEqual({ x: 1, y: 0 });
+    expect(entities[0]!.points[entities[0]!.points.length - 1]).toEqual({
+      x: -1,
+      y: 0,
+    });
+    const apex = entities[0]!.points[12]!;
+    expect(apex.x).toBeCloseTo(0);
+    expect(apex.y).toBeCloseTo(1);
+    for (const p of entities[0]!.points) {
+      expect(Math.hypot(p.x, p.y)).toBeCloseTo(1, 9);
+    }
+
+    const intermediates = tessellateDxfBulgeIntermediates(
+      { x: 1, y: 0 },
+      { x: -1, y: 0 },
+      -1
+    );
+    expect(intermediates).toHaveLength(23);
+    const cwApex = intermediates[11]!;
+    expect(cwApex.x).toBeCloseTo(0);
+    expect(cwApex.y).toBeCloseTo(-1);
+  });
+
+  it("skips a zero-radius CIRCLE, an empty POLYLINE, and a mesh POLYLINE", () => {
+    const empty = parseDxfEntities(
+      dxfFile(
+        circleEnt(0, 0, 0) +
+          oldPoly([{ x: 1, y: 1 }]) +
+          oldPoly(
+            [
+              { x: 0, y: 0 },
+              { x: 1, y: 0 },
+            ],
+            16
+          )
+      )
+    );
+    expect(empty).toEqual([]);
   });
 });

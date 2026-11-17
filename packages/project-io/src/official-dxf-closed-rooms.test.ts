@@ -7,6 +7,7 @@ import { officialNewRoom } from "./new-room-defaults";
 import { rectPolygon, roomAreaM2 } from "./geometry";
 import { DEFAULT_NEW_ROOM_HEIGHT_M } from "./official-room-height";
 import type { DxfEntity, ProjectSceneV2, RoomV2 } from "./types";
+import { parseDxfEntities, DXF_CURVE_SEGMENTS_PER_TURN } from "./dxf";
 import { officialDxfHasSimpleLineLoop } from "./official-dxf-line-loops";
 import {
   DXF_CLOSED_ROOM_MIN_AREA_M2,
@@ -690,5 +691,134 @@ describe("official editor Create rooms from DXF wiring", () => {
     );
     expect(top).toContain("officialDxfPolylineStrokePoints");
     expect(underlay3d).toContain("officialDxfPolylineStrokePoints");
+  });
+});
+
+function dxfFile(body: string): string {
+  return "  0\nSECTION\n  2\nENTITIES\n" + body + "  0\nENDSEC\n  0\nEOF\n";
+}
+
+describe("officialAppendRoomsFromDxfClosedPolylines CIRCLE, ARC, and old POLYLINE", () => {
+  it("creates a room from a circular DXF entity", () => {
+    const entities = parseDxfEntities(
+      dxfFile("  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n")
+    );
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(created.calc.maintenanceFactor).toBe(0.8);
+    const expectedArea =
+      0.5 * DXF_CURVE_SEGMENTS_PER_TURN * 2 * 2 * Math.sin((2 * Math.PI) / DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(roomAreaM2(created)).toBeCloseTo(expectedArea, 6);
+    expect(roomAreaM2(created)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+  });
+
+  it("creates a room from a closed old POLYLINE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nPOLYLINE\n  70\n1\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n0\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n0\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n3\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n3\n" +
+          "  0\nSEQEND\n"
+      )
+    );
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.scene.rooms[0]!.polygon).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
+  });
+
+  it("creates a room from an ARC plus closing LINEs", () => {
+    // Semicircle from (2,0) to (-2,0) CCW (through (0,2)) and a diameter LINE.
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nARC\n  10\n0\n  20\n0\n  40\n2\n  50\n0\n  51\n180\n" +
+          "  0\nLINE\n  10\n-2\n  20\n0\n  11\n2\n  21\n0\n"
+      )
+    );
+    expect(entities).toHaveLength(2);
+    expect(entities[0]?.closed).toBeUndefined();
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    const created = out.scene.rooms[0]!;
+    // 24 arc segments + the diameter: 25 unique ring vertices? 
+    // Arc has 25 points from (2,0) to (-2,0); LINE reconnects. Ring should drop the shared ends once.
+    expect(created.polygon.length).toBeGreaterThanOrEqual(24);
+    const expected =
+      0.5 * 24 * 2 * 2 * Math.sin(Math.PI / 24); // polygonal semicircle area
+    expect(roomAreaM2(created)).toBeCloseTo(expected, 5);
+  });
+
+  it("creates rooms from a T-junction whose outer side is an ARC", () => {
+    // 10×4 box with a right-side semicircle bulge and a 4×2 T partition.
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nLINE\n  10\n0\n  20\n0\n  11\n10\n  21\n0\n" +
+          "  0\nARC\n  10\n10\n  20\n2\n  40\n2\n  50\n270\n  51\n90\n" +
+          "  0\nLINE\n  10\n10\n  20\n4\n  11\n0\n  21\n4\n" +
+          "  0\nLINE\n  10\n0\n  20\n4\n  11\n0\n  21\n0\n" +
+          "  0\nLINE\n  10\n0\n  20\n2\n  11\n4\n  21\n2\n" +
+          "  0\nLINE\n  10\n4\n  20\n2\n  11\n4\n  21\n0\n"
+      )
+    );
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(2);
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas[0]).toBeCloseTo(8, 6);
+    const semicircle =
+      0.5 * 24 * 2 * 2 * Math.sin(Math.PI / 24);
+    expect(areas[1]).toBeCloseTo(32 + semicircle, 5);
+  });
+
+  it("refuses a very tiny CIRCLE below the official minimum room area", () => {
+    // r = 0.05 → true area ≈ 0.00785 m² < 0.01; the 48-gon is slightly smaller.
+    const entities = parseDxfEntities(
+      dxfFile("  0\nCIRCLE\n  10\n20\n  20\n20\n  40\n0.05\n")
+    );
+    expect(entities[0]?.closed).toBe(true);
+    const polyArea =
+      0.5 *
+      DXF_CURVE_SEGMENTS_PER_TURN *
+      0.05 *
+      0.05 *
+      Math.sin((2 * Math.PI) / DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(polyArea).toBeLessThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(0);
+    expect(out.scene.rooms).toEqual([]);
+    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
   });
 });

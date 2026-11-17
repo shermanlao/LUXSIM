@@ -2,7 +2,12 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { DxfEntity, Vec2 } from "@luxsim/project-io";
-import { officialDxfEntitiesToWorld } from "@luxsim/project-io";
+import {
+  officialDxfEntitiesToWorld,
+  parseDxfEntities,
+  dxfBounds,
+  DXF_CURVE_SEGMENTS_PER_TURN,
+} from "@luxsim/project-io";
 import {
   collectDxfSnapCandidates,
   DXF_OBJECT_SNAP_CSS_PX,
@@ -267,5 +272,73 @@ describe("official DXF object-snap wiring", () => {
     expect(top).not.toContain("click-drag pan");
     expect(top).not.toMatch(/auto-?room/i);
     expect(top).not.toMatch(/intersection snap/i);
+  });
+});
+
+describe("object snap and bounds on tessellated CIRCLE, ARC, and old POLYLINE", () => {
+  it("snaps to tessellated CIRCLE and ARC segments and includes them in bounds", () => {
+    const circle = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(circle[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const bounds = dxfBounds(circle)!;
+    expect(bounds.minX).toBeCloseTo(-2);
+    expect(bounds.maxX).toBeCloseTo(2);
+    expect(bounds.minY).toBeCloseTo(-2);
+    expect(bounds.maxY).toBeCloseTo(2);
+
+    const end = pickDxfObjectSnap({ x: 2.02, y: 0 }, circle, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point.x).toBeCloseTo(2);
+    expect(end?.point.y).toBeCloseTo(0);
+
+    const first = circle[0]!.points[0]!;
+    const second = circle[0]!.points[1]!;
+    const midPt = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+    const mid = pickDxfObjectSnap(midPt, circle, 0.05);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point.x).toBeCloseTo(midPt.x);
+    expect(mid?.point.y).toBeCloseTo(midPt.y);
+
+    const off = {
+      x: midPt.x,
+      y: midPt.y + 0.02,
+    };
+    const nearest = pickDxfObjectSnap(off, circle, 0.08);
+    expect(nearest?.kind).toBe("nearest");
+
+    const arc = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nARC\n  10\n0\n  20\n0\n  40\n2\n  50\n0\n  51\n90\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    // Open ARC must not invent a closing chord from (0,2) back to (2,0).
+    const invented = pickDxfObjectSnap({ x: 1, y: 1 }, arc, 0.2);
+    expect(invented).toBeNull();
+    const arcEnd = pickDxfObjectSnap({ x: 0, y: 2.02 }, arc, 0.1);
+    expect(arcEnd?.kind).toBe("endpoint");
+    expect(arcEnd?.point.x).toBeCloseTo(0);
+    expect(arcEnd?.point.y).toBeCloseTo(2);
+    const arcBounds = dxfBounds(arc)!;
+    expect(arcBounds.minX).toBeCloseTo(0);
+    expect(arcBounds.maxX).toBeCloseTo(2);
+    expect(arcBounds.minY).toBeCloseTo(0);
+    expect(arcBounds.maxY).toBeCloseTo(2);
+  });
+
+  it("snaps to a tessellated old POLYLINE bulge and includes it in bounds", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nPOLYLINE\n  70\n0\n" +
+        "  0\nVERTEX\n  10\n1\n  20\n0\n  42\n1\n" +
+        "  0\nVERTEX\n  10\n-1\n  20\n0\n" +
+        "  0\nSEQEND\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    const apex = pickDxfObjectSnap({ x: 0, y: 1.02 }, entities, 0.1);
+    expect(apex?.kind).toBe("endpoint");
+    expect(apex?.point.x).toBeCloseTo(0);
+    expect(apex?.point.y).toBeCloseTo(1);
+    const bounds = dxfBounds(entities)!;
+    expect(bounds.minX).toBeCloseTo(-1);
+    expect(bounds.maxX).toBeCloseTo(1);
+    expect(bounds.maxY).toBeCloseTo(1);
+    expect(bounds.minY).toBeCloseTo(0);
   });
 });
