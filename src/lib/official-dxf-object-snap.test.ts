@@ -476,3 +476,57 @@ describe("object snap and bounds on tessellated CIRCLE, ARC, ELLIPSE, SPLINE, an
     expect(arcBounds.maxY).toBeCloseTo(1);
   });
 });
+
+
+describe("object snap and bounds skip paperspace and keep 3D POLYLINE in plan", () => {
+  it("does not snap to or bound a paperspace entity, and keeps model-space geometry in a mixed file", () => {
+    const paperCircle = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  67\n1\n  10\n0\n  20\n0\n  40\n2\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(paperCircle).toEqual([]);
+    expect(dxfBounds(paperCircle)).toBeNull();
+    expect(pickDxfObjectSnap({ x: 2, y: 0 }, paperCircle, 0.2)).toBeNull();
+    expect(pickDxfObjectSnap({ x: 0, y: 0 }, paperCircle, 0.2)).toBeNull();
+
+    const mixed = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n" +
+        "  0\nCIRCLE\n  67\n1\n  10\n100\n  20\n100\n  40\n10\n" +
+        "  0\nLINE\n  67\n0\n  10\n0\n  20\n0\n  11\n4\n  21\n0\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(mixed).toHaveLength(1);
+    const bounds = dxfBounds(mixed)!;
+    expect(bounds).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 0 });
+    const end = pickDxfObjectSnap({ x: -0.02, y: 0 }, mixed, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point).toEqual({ x: 0, y: 0 });
+    expect(pickDxfObjectSnap({ x: 100, y: 100 }, mixed, 1)).toBeNull();
+  });
+
+  it("snaps to a closed non-mesh 3D POLYLINE in plan and ignores Z", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nPOLYLINE\n  70\n9\n" +
+        "  0\nVERTEX\n  10\n0\n  20\n0\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n4\n  20\n0\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n4\n  20\n3\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n0\n  20\n3\n  30\n5\n" +
+        "  0\nSEQEND\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+    const bounds = dxfBounds(entities)!;
+    expect(bounds).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 3 });
+    const end = pickDxfObjectSnap({ x: 0, y: -0.02 }, entities, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point).toEqual({ x: 0, y: 0 });
+    const mid = pickDxfObjectSnap({ x: 2, y: 0.02 }, entities, 0.1);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point).toEqual({ x: 2, y: 0 });
+  });
+});

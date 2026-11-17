@@ -539,8 +539,12 @@ function isFiniteNumber(value: number): boolean {
  * inventing a fit-point interpolant. A knot vector that is missing or the
  * wrong length for a clamped, unclamped, or periodic B-spline of that degree
  * is skipped. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
- * CIRCLE / ARC). Paperspace / 3D extrusion are not handled (same as the
- * previous parser). Polygon-mesh and polyface-mesh POLYLINE entities are skipped.
+ * CIRCLE / ARC). A non-mesh 3D POLYLINE (group 70 flag bit 8) is traced in
+ * plan from VERTEX 10/20; Z (30) is ignored. An entity with group 67 = 1
+ * is paperspace and is skipped — it is not displayed, snapped, bounded, or
+ * used to create rooms. Group 67 omitted or 0 is model space and is kept.
+ * 3D extrusion (210/220/230) is not applied. Polygon-mesh and polyface-mesh
+ * POLYLINE entities are skipped.
  */
 export function parseDxfEntities(text: string): DxfEntity[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
@@ -572,6 +576,19 @@ export function parseDxfEntities(text: string): DxfEntity[] {
     }
   };
 
+  /**
+   * Like readGroups, and return true when group 67 = 1 (DXF paperspace).
+   * 67 omitted or 0 is model space.
+   */
+  const readEntityGroups = (onGroup: (code: number, value: string) => void): boolean => {
+    let paperspace = false;
+    readGroups((code, value) => {
+      if (code === 67 && Number(value) === 1) paperspace = true;
+      onGroup(code, value);
+    });
+    return paperspace;
+  };
+
   const skipUntilSeqend = () => {
     while (i < lines.length) {
       const p = readPair();
@@ -596,12 +613,13 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         y1 = 0,
         x2 = 0,
         y2 = 0;
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 10) x1 = Number(value);
         if (code === 20) y1 = Number(value);
         if (code === 11) x2 = Number(value);
         if (code === 21) y2 = Number(value);
       });
+      if (paperspace) continue;
       entities.push({
         type: "line",
         points: [
@@ -629,7 +647,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
         pending = null;
       };
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
         if (code === 10) {
           flushPending();
@@ -642,6 +660,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
       });
       flushPending();
+      if (paperspace) continue;
       const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
       const entity = polylineFromVertices(verts, closedByFlag);
       if (entity) entities.push(entity);
@@ -649,11 +668,12 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       let cx = 0,
         cy = 0,
         r = 0;
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
         if (code === 40) r = Number(value);
       });
+      if (paperspace) continue;
       if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(r) && r > 0) {
         const entity = closedPolylineEntity(tessellateCircle(cx, cy, r));
         if (entity) entities.push(entity);
@@ -664,13 +684,14 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         r = 0,
         startDeg = 0,
         endDeg = 0;
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
         if (code === 40) r = Number(value);
         if (code === 50) startDeg = Number(value);
         if (code === 51) endDeg = Number(value);
       });
+      if (paperspace) continue;
       if (
         isFiniteNumber(cx) &&
         isFiniteNumber(cy) &&
@@ -699,7 +720,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       let startParam = 0;
       let endParam = TAU;
       let hasRatio = false;
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
         if (code === 11) mx = Number(value);
@@ -711,6 +732,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         if (code === 41) startParam = Number(value);
         if (code === 42) endParam = Number(value);
       });
+      if (paperspace) continue;
       const majorLen = Math.hypot(mx, my);
       if (
         hasRatio &&
@@ -757,7 +779,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
         pending = null;
       };
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
         if (code === 71) degree = Number(value);
         if (code === 40) knots.push(Number(value));
@@ -769,18 +791,19 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         if (code === 20 && pending) pending.y = Number(value);
       });
       flushControl();
+      if (paperspace) continue;
       if (Number.isFinite(flags) && Number.isFinite(degree)) {
         const entity = splineEntityFromParsed(flags, degree, control, knots, weights);
         if (entity) entities.push(entity);
       }
     } else if (type === "POLYLINE") {
       let flags = 0;
-      readGroups((code, value) => {
+      const paperspace = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
       });
       const isMesh = Number.isFinite(flags) && ((flags & 16) === 16 || (flags & 64) === 64);
       const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
-      if (isMesh) {
+      if (isMesh || paperspace) {
         skipUntilSeqend();
         continue;
       }

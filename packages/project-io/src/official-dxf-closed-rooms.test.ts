@@ -1125,3 +1125,136 @@ describe("officialAppendRoomsFromDxfClosedPolylines SPLINE", () => {
     expect(emptyOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
   });
 });
+
+
+describe("officialAppendRoomsFromDxfClosedPolylines paperspace and 3D POLYLINE", () => {
+  const closedPoly = (
+    flags: number,
+    space?: number,
+    z?: number
+  ): string => {
+    const spaceBlock = space == null ? "" : `  67\n${space}\n`;
+    const zBlock = z == null ? "" : `  30\n${z}\n`;
+    return (
+      "  0\nPOLYLINE\n" +
+      spaceBlock +
+      `  70\n${flags}\n` +
+      "  0\nVERTEX\n  10\n0\n  20\n0\n" + zBlock +
+      "  0\nVERTEX\n  10\n4\n  20\n0\n" + zBlock +
+      "  0\nVERTEX\n  10\n4\n  20\n3\n" + zBlock +
+      "  0\nVERTEX\n  10\n0\n  20\n3\n" + zBlock +
+      "  0\nSEQEND\n"
+    );
+  };
+
+  it("creates a room from a model-space closed polyline, including when group 67 is 0", () => {
+    for (const space of [undefined, 0]) {
+      const entities = parseDxfEntities(dxfFile(closedPoly(1, space)));
+      expect(entities).toHaveLength(1);
+      const scene = sceneWithDxf(entities);
+      expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+      const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+        heightM: 2.8,
+        nextId: ids().nextId,
+      });
+      expect(out.created).toBe(1);
+      expect(out.scene.rooms[0]!.polygon).toEqual([
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+        { x: 4, y: 3 },
+        { x: 0, y: 3 },
+      ]);
+    }
+  });
+
+  it("does not create a room from the same entity when group 67 = 1", () => {
+    const entities = parseDxfEntities(dxfFile(closedPoly(1, 1)));
+    expect(entities).toEqual([]);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(false);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(0);
+    expect(out.scene.rooms).toEqual([]);
+    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+
+  it("invents no rooms from a paperspace-only file, and keeps only model-space rooms in a mixed file", () => {
+    const onlyPaper = parseDxfEntities(
+      dxfFile("  0\nCIRCLE\n  67\n1\n  10\n0\n  20\n0\n  40\n2\n" + closedPoly(1, 1))
+    );
+    expect(onlyPaper).toEqual([]);
+    const paperScene = sceneWithDxf(onlyPaper);
+    expect(officialCanCreateRoomsFromDxf(paperScene.underlays[0])).toBe(false);
+    const paperOut = officialAppendRoomsFromDxfClosedPolylines(paperScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(paperOut.created).toBe(0);
+    expect(paperOut.scene.rooms).toEqual([]);
+    expect(paperOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+
+    const mixed = parseDxfEntities(
+      dxfFile(
+        "  0\nCIRCLE\n  67\n1\n  10\n100\n  20\n100\n  40\n10\n" +
+          closedPoly(1, 0)
+      )
+    );
+    expect(mixed).toHaveLength(1);
+    const mixedScene = sceneWithDxf(mixed);
+    const mixedOut = officialAppendRoomsFromDxfClosedPolylines(mixedScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(mixedOut.created).toBe(1);
+    expect(mixedOut.scene.rooms[0]!.polygon).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+  });
+
+  it("creates a plan room from a closed non-mesh 3D POLYLINE and ignores Z", () => {
+    const entities = parseDxfEntities(dxfFile(closedPoly(9, undefined, 5)));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(out.scene.rooms[0]!.polygon).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
+  });
+
+  it("still skips a mesh POLYLINE and does not invent a room", () => {
+    const entities = parseDxfEntities(dxfFile(closedPoly(16) + closedPoly(64)));
+    expect(entities).toEqual([]);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(false);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(0);
+    expect(out.scene.rooms).toEqual([]);
+    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+});

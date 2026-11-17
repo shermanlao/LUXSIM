@@ -771,3 +771,117 @@ describe("parseDxfEntities SPLINE", () => {
     expect(parseDxfEntities(dxfFile(""))).toEqual([]);
   });
 });
+
+
+describe("parseDxfEntities paperspace and 3D POLYLINE", () => {
+  const rect = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 4, y: 3 },
+    { x: 0, y: 3 },
+  ];
+
+  function spaceGroup(space?: number): string {
+    return space == null ? "" : `  67\n${space}\n`;
+  }
+
+  function circleWithSpace(cx: number, cy: number, r: number, space?: number): string {
+    return `  0\nCIRCLE\n${spaceGroup(space)}  10\n${cx}\n  20\n${cy}\n  40\n${r}\n`;
+  }
+
+  function oldPoly3d(
+    verts: Array<{ x: number; y: number; z?: number }>,
+    flags?: number,
+    space?: number
+  ): string {
+    let s = "  0\nPOLYLINE\n";
+    s += spaceGroup(space);
+    if (flags != null) s += `  70\n${flags}\n`;
+    for (const v of verts) {
+      s += `  0\nVERTEX\n  10\n${v.x}\n  20\n${v.y}\n`;
+      if (v.z != null) s += `  30\n${v.z}\n`;
+    }
+    return s + "  0\nSEQEND\n";
+  }
+
+  it("keeps a model-space CIRCLE when group 67 is omitted or 0", () => {
+    for (const space of [undefined, 0]) {
+      const entities = parseDxfEntities(dxfFile(circleWithSpace(1, 2, 3, space)));
+      expect(entities).toHaveLength(1);
+      expect(entities[0]?.closed).toBe(true);
+      expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+      const b = dxfBounds(entities)!;
+      expect(b.minX).toBeCloseTo(-2);
+      expect(b.maxX).toBeCloseTo(4);
+      expect(b.minY).toBeCloseTo(-1);
+      expect(b.maxY).toBeCloseTo(5);
+    }
+  });
+
+  it("skips a paperspace CIRCLE with group 67 = 1, including from bounds", () => {
+    const entities = parseDxfEntities(dxfFile(circleWithSpace(1, 2, 3, 1)));
+    expect(entities).toEqual([]);
+    expect(dxfBounds(entities)).toBeNull();
+  });
+
+  it("keeps only model-space entities in a mixed file, and invents none from paperspace-only input", () => {
+    const mixed = parseDxfEntities(
+      dxfFile(
+        circleWithSpace(0, 0, 2, 0) +
+          "  0\nLINE\n  67\n1\n  10\n100\n  20\n100\n  11\n200\n  21\n200\n" +
+          "  0\nLWPOLYLINE\n  67\n1\n  70\n1\n  90\n4\n" +
+          "  10\n100\n  20\n0\n  10\n110\n  20\n0\n  10\n110\n  20\n10\n  10\n100\n  20\n10\n" +
+          "  0\nARC\n  67\n1\n  10\n50\n  20\n50\n  40\n5\n  50\n0\n  51\n90\n" +
+          "  0\nELLIPSE\n  67\n1\n  10\n80\n  20\n80\n  11\n4\n  21\n0\n  40\n0.5\n" +
+          "  0\nSPLINE\n  67\n1\n  70\n0\n  71\n3\n  72\n8\n  73\n4\n" +
+          "  40\n0\n  40\n0\n  40\n0\n  40\n0\n  40\n1\n  40\n1\n  40\n1\n  40\n1\n" +
+          "  10\n90\n  20\n90\n  10\n91\n  20\n92\n  10\n93\n  20\n92\n  10\n94\n  20\n90\n" +
+          oldPoly3d(rect, 1, 1)
+      )
+    );
+    expect(mixed).toHaveLength(1);
+    expect(mixed[0]?.closed).toBe(true);
+    expect(mixed[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const b = dxfBounds(mixed)!;
+    expect(b.minX).toBeCloseTo(-2);
+    expect(b.maxX).toBeCloseTo(2);
+    expect(b.minY).toBeCloseTo(-2);
+    expect(b.maxY).toBeCloseTo(2);
+
+    const onlyPaper = parseDxfEntities(
+      dxfFile(
+        circleWithSpace(100, 100, 10, 1) +
+          "  0\nLINE\n  67\n1\n  10\n0\n  20\n0\n  11\n10\n  21\n0\n"
+      )
+    );
+    expect(onlyPaper).toEqual([]);
+    expect(dxfBounds(onlyPaper)).toBeNull();
+  });
+
+  it("traces a closed non-mesh 3D POLYLINE in plan and ignores Z", () => {
+    const verts = rect.map((p) => ({ ...p, z: 5 }));
+    const closed = parseDxfEntities(dxfFile(oldPoly3d(verts, 9)));
+    expect(closed).toHaveLength(1);
+    expect(closed[0]).toMatchObject({ type: "polyline", closed: true });
+    expect(closed[0]!.points).toEqual(rect);
+    expect(closed[0]!.points.every((p) => !("z" in p))).toBe(true);
+    const b = dxfBounds(closed)!;
+    expect(b).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 3 });
+
+    const open = parseDxfEntities(dxfFile(oldPoly3d(verts, 8)));
+    expect(open[0]?.closed).toBeUndefined();
+    expect(open[0]?.points).toEqual(rect);
+  });
+
+  it("still skips polygon-mesh and polyface-mesh POLYLINE entities, including 3D meshes", () => {
+    const skipped = parseDxfEntities(
+      dxfFile(
+        oldPoly3d(rect, 16) +
+          oldPoly3d(rect, 64) +
+          oldPoly3d(rect.map((p) => ({ ...p, z: 5 })), 24) +
+          oldPoly3d(rect.map((p) => ({ ...p, z: 5 })), 72)
+      )
+    );
+    expect(skipped).toEqual([]);
+  });
+});
