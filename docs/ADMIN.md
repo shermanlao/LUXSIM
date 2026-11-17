@@ -21,7 +21,7 @@ Visible only to site admins.
 | Page | Purpose |
 |------|---------|
 | `/admin/users` | List accounts, create a user, disable or enable, set site admin, place someone in a workspace, reset a password |
-| `/admin/workspaces` | List organisations, members, and projects; add or remove members; open a project; delete a workspace (users are not deleted) |
+| `/admin/workspaces` | List organisations, members, and projects; sort those lists; add or remove members; open a project; delete a workspace (users are not deleted) |
 | `/admin/traffic` | Site visitors and page views for today, the last 7 days, and the last 30 days, plus a last-14-days daily table |
 | `/admin/settings` | Open or close public registration, set the default autosave for *new* users, set the website shown in lighting-report PDF footers, edit in-app help tips |
 
@@ -30,6 +30,12 @@ The last remaining active site admin cannot be demoted or disabled. The last own
 Temporary passwords from create-user or reset-password are returned once in the API response and shown in a one-time dialog. They are not written to logs or the repository.
 
 Disabled users cannot sign in or use APIs.
+
+## Workspaces list sorting
+
+`/admin/workspaces` sorts the already-loaded lists in the browser. The first view keeps the API order: workspaces by Created ascending, members by the time they were added (created, ascending), and projects by Updated descending. Click a sort key to sort by that field; click the same key again to switch ascending and descending. The workspace-list sort applies to the stack of organisation cards. Each card has its own members and projects sort, independent of the other cards.
+
+Workspace keys: Name, Created, Members (count), Projects (count), Luminaires (count), and Last project update (the most recent project update time; a workspace with no projects is listed last). Member keys: Email, Name, Role, and Status (Active or Disabled). Project keys: Name and Updated. Names and emails use a locale-aware comparison; empty or missing names are listed after named rows.
 
 ## Site traffic
 
