@@ -163,7 +163,7 @@ export { reportPdfPlainText, reportPdfPageText } from "./report-text-log";
 export { TYPE, REPORT_FONT, loadReportFontsSync, registerReportFonts, reportFontFamily } from "./report-style";
 export { qrMatrixForUrl, drawQrCode } from "./qr-code";
 export type { ReportInput } from "./report";
-export { gridToFalseColorPngDataUrl, gridToFalseColorPngDataUrlAsync, workplaneFalseColorRgb, FALSE_COLOR_PNG_YIELD_ROWS, FALSE_COLOR_PNG_MAX_EDGE, FALSE_COLOR_PNG_MIN_SAMPLES, sampleWorkplaneLuxBilinear, falseColorPngPixelSize } from "./false-color-snapshot";
+export { gridToFalseColorJpegDataUrl, gridToFalseColorJpegDataUrlAsync, gridToFalseColorPngDataUrl, gridToFalseColorPngDataUrlAsync, workplaneFalseColorRgb, FALSE_COLOR_JPEG_MAX_EDGE, FALSE_COLOR_JPEG_QUALITY, FALSE_COLOR_JPEG_MIN_SAMPLES, FALSE_COLOR_JPEG_YIELD_ROWS, FALSE_COLOR_PNG_YIELD_ROWS, FALSE_COLOR_PNG_MAX_EDGE, FALSE_COLOR_PNG_MIN_SAMPLES, sampleWorkplaneLuxBilinear, falseColorJpegPixelSize, falseColorPngPixelSize } from "./false-color-snapshot";
 export {
   luxToRgb,
   luxToGrey,

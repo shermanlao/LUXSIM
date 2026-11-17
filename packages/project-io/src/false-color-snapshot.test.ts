@@ -1,10 +1,17 @@
 import { describe, expect, it } from "vitest";
+import { createCanvas } from "@napi-rs/canvas";
 import {
   workplaneFalseColorRgb,
   sampleWorkplaneLuxBilinear,
   falseColorPngPixelSize,
+  falseColorJpegPixelSize,
   FALSE_COLOR_PNG_MIN_SAMPLES,
+  FALSE_COLOR_JPEG_MAX_EDGE,
+  FALSE_COLOR_JPEG_QUALITY,
+  gridToFalseColorJpegDataUrl,
 } from "./false-color-snapshot";
+import { rectPolygon } from "./geometry";
+import type { CalcResults, RoomV2 } from "./types";
 import {
   DIALUX_LUX_STOPS,
   legendStopsForRange,
@@ -80,5 +87,63 @@ describe("falseColorPngPixelSize", () => {
     const size = falseColorPngPixelSize(10, 8);
     expect(size.samples).toBeGreaterThanOrEqual(FALSE_COLOR_PNG_MIN_SAMPLES);
     expect(size.width).toBeGreaterThan(10 * 2);
+  });
+
+  it("caps the long edge so a large workplane stays within the official JPEG limit", () => {
+    const size = falseColorJpegPixelSize(134, 134);
+    expect(FALSE_COLOR_JPEG_MAX_EDGE).toBe(1100);
+    expect(FALSE_COLOR_JPEG_QUALITY).toBe(0.75);
+    expect(Math.max(size.width, size.height)).toBeLessThanOrEqual(FALSE_COLOR_JPEG_MAX_EDGE);
+    expect(size.samples).toBeGreaterThanOrEqual(2);
+  });
+});
+
+function largeOffice(): { room: RoomV2; results: CalcResults } {
+  const nx = 80;
+  const ny = 80;
+  const lux = new Array(nx * ny);
+  for (let j = 0; j < ny; j += 1) {
+    for (let i = 0; i < nx; i += 1) {
+      lux[j * nx + i] = 80 + ((i + j) / (nx + ny)) * 900;
+    }
+  }
+  const room: RoomV2 = {
+    id: "r-big",
+    storeyId: "s1",
+    name: "OPEN OFFICE",
+    polygon: rectPolygon(0, 0, 24, 24),
+    heightM: 2.8,
+    workplaneHeightM: 0.75,
+    reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+    calc: { gridSpacing: 0.3, interreflection: false, bounces: 0, computeUgr: false },
+  };
+  const results: CalcResults = {
+    version: 1,
+    summary: { eave: 400, emin: 80, emax: 980, uo: 0.2, ugr: null, lpd: 0, totalWatts: 0, areaM2: 576 },
+    grid: { originX: 0, originY: 0, spacing: 0.3, nx, ny, z: 0.75, lux },
+    meta: { interreflection: false, bounces: 0, calculatedAt: "2026-11-17T00:00:00.000Z", disclaimer: "assist" },
+  };
+  return { room, results };
+}
+
+function dataUrlBytes(url: string): number {
+  const b64 = url.split(",")[1] ?? "";
+  return Buffer.from(b64, "base64").length;
+}
+
+describe("gridToFalseColorJpegDataUrl", () => {
+  it("encodes a large bilinear workplane as JPEG that is much smaller than PNG", () => {
+    const { room, results } = largeOffice();
+    const createCanvasFn = (width: number, height: number) => createCanvas(width, height);
+    const jpeg = gridToFalseColorJpegDataUrl(room, results, { createCanvas: createCanvasFn });
+    const png = gridToFalseColorJpegDataUrl(room, results, { createCanvas: createCanvasFn, format: "png" });
+    expect(jpeg).toMatch(/^data:image\/jpeg/);
+    expect(png).toMatch(/^data:image\/png/);
+    const jpegBytes = dataUrlBytes(jpeg!);
+    const pngBytes = dataUrlBytes(png!);
+    expect(jpegBytes).toBeGreaterThan(1_000);
+    expect(pngBytes).toBeGreaterThan(jpegBytes * 3);
+    const size = falseColorJpegPixelSize(results.grid.nx, results.grid.ny);
+    expect(Math.max(size.width, size.height)).toBeLessThanOrEqual(FALSE_COLOR_JPEG_MAX_EDGE);
   });
 });

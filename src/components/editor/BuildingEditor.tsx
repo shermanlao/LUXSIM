@@ -6,7 +6,7 @@ import { flushSync } from "react-dom";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   buildFullReportPdfAsync,
-  gridToFalseColorPngDataUrlAsync,
+  gridToFalseColorJpegDataUrlAsync,
   collectOfficialIsoluxSnapshotsAsync,
   defaultDisplay3d,
   findRoomAt,
@@ -2321,7 +2321,7 @@ export function BuildingEditor({
     for (const room of scene.rooms) {
       const res = results.byRoomId[room.id];
       if (!res) continue;
-      const snap = await gridToFalseColorPngDataUrlAsync(room, res, {
+      const snap = await gridToFalseColorJpegDataUrlAsync(room, res, {
         yieldTo: officialWaitYield,
       });
       if (snap) falseColorSnapshots[room.id] = snap;

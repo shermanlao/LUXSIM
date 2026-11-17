@@ -16,6 +16,13 @@ import {
 } from "@luxsim/project-io";
 import { buildBuildingThreeScene, setMirroredFrontFace } from "./scene-3d-model";
 
+/** Official Full PDF 3D stills: sharp enough on A4, small enough for the file. */
+export const REPORT_3D_JPEG_QUALITY = 0.75;
+export const REPORT_3D_OVERVIEW_WIDTH = 1280;
+export const REPORT_3D_OVERVIEW_HEIGHT = 720;
+export const REPORT_3D_ROOM_WIDTH = 960;
+export const REPORT_3D_ROOM_HEIGHT = 680;
+
 export function webglCaptureAvailable(): boolean {
   if (typeof document === "undefined") return false;
   try {
@@ -65,7 +72,7 @@ export function createOffscreenReportRenderer(): OfficialReportRenderer {
       cam.lookAt(opts.camera.target[0], opts.camera.target[1], opts.camera.target[2]);
       cam.updateProjectionMatrix();
       renderer.render(opts.scene, cam);
-      return renderer.domElement.toDataURL("image/jpeg", opts.quality ?? 0.85);
+      return renderer.domElement.toDataURL("image/jpeg", opts.quality ?? REPORT_3D_JPEG_QUALITY);
     },
     dispose() {
       renderer.dispose();
@@ -128,9 +135,9 @@ function renderMode(
     const jpegOpts = {
       scene: built.scene,
       camera,
-      width: opts.width ?? 1800,
-      height: opts.height ?? 1400,
-      quality: opts.quality ?? 0.85,
+      width: opts.width ?? REPORT_3D_OVERVIEW_WIDTH,
+      height: opts.height ?? REPORT_3D_OVERVIEW_HEIGHT,
+      quality: opts.quality ?? REPORT_3D_JPEG_QUALITY,
     };
     return renderer ? renderer.renderToJpeg(jpegOpts) : renderThreeSceneToJpeg(jpegOpts);
   } finally {
@@ -163,8 +170,8 @@ export function renderRoom3dPair(
     highlightRoomId: null,
     storeyId: opts.room.storeyId,
     camera,
-    width: opts.width ?? 1280,
-    height: opts.height ?? 900,
+    width: opts.width ?? REPORT_3D_ROOM_WIDTH,
+    height: opts.height ?? REPORT_3D_ROOM_HEIGHT,
   };
   return {
     greyscale: renderMode(shared, "greyscale", camera, opts.renderer),
@@ -196,8 +203,8 @@ export function renderAllReport3dViews(opts: {
     photometry: opts.photometry,
     camera: opts.overviewCamera ?? fitOverviewCamera(opts.scene, storeyId),
     storeyId,
-    width: opts.overviewWidth ?? 1920,
-    height: opts.overviewHeight ?? 1080,
+    width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
+    height: opts.overviewHeight ?? REPORT_3D_OVERVIEW_HEIGHT,
   });
   const roomGreyscale: Record<string, string> = {};
   const roomFalseColor: Record<string, string> = {};
@@ -209,8 +216,8 @@ export function renderAllReport3dViews(opts: {
       photometry: opts.photometry,
       room,
       elevationM: storey?.elevationM ?? 0,
-      width: opts.roomWidth ?? 1400,
-      height: opts.roomHeight ?? 1100,
+      width: opts.roomWidth ?? REPORT_3D_ROOM_WIDTH,
+      height: opts.roomHeight ?? REPORT_3D_ROOM_HEIGHT,
     });
     roomGreyscale[room.id] = pair.greyscale;
     roomFalseColor[room.id] = pair.falsecolor;
@@ -252,8 +259,8 @@ export async function renderAllReport3dViewsAsync(
       photometry: opts.photometry,
       camera: opts.overviewCamera ?? fitOverviewCamera(opts.scene, storeyId),
       storeyId,
-      width: opts.overviewWidth ?? 1920,
-      height: opts.overviewHeight ?? 1080,
+      width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
+      height: opts.overviewHeight ?? REPORT_3D_OVERVIEW_HEIGHT,
       renderer,
     });
     const roomGreyscale: Record<string, string> = {};
@@ -270,8 +277,8 @@ export async function renderAllReport3dViewsAsync(
         highlightRoomId: null as string | null,
         storeyId: room.storeyId,
         camera,
-        width: opts.roomWidth ?? 1400,
-        height: opts.roomHeight ?? 1100,
+        width: opts.roomWidth ?? REPORT_3D_ROOM_WIDTH,
+        height: opts.roomHeight ?? REPORT_3D_ROOM_HEIGHT,
         renderer,
       };
       roomGreyscale[room.id] = renderMode(shared, "greyscale", camera, renderer);

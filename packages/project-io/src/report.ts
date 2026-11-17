@@ -175,7 +175,7 @@ class ReportPdfBuilder {
   private fontName = "helvetica";
 
   constructor(input: ReportInput) {
-    this.doc = new jsPDF();
+    this.doc = new jsPDF({ compress: true });
     attachReportTextLog(this.doc);
     this.input = input;
   }

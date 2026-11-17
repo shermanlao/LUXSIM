@@ -49,7 +49,7 @@ describe("Full PDF export stays responsive", () => {
     const editor = read("src/components/editor/BuildingEditor.tsx");
     const exportFn = editor.slice(editor.indexOf("async function exportFullPdf"));
     expect(exportFn).toContain("officialWaitYield");
-    expect(exportFn).toContain("gridToFalseColorPngDataUrlAsync");
+    expect(exportFn).toContain("gridToFalseColorJpegDataUrlAsync");
     expect(exportFn).toContain("collectOfficialIsoluxSnapshotsAsync");
     expect(exportFn).toContain("captureOfficialReport3dViewsAsync");
     expect(exportFn).toContain("renderAllReport3dViewsAsync");
@@ -133,5 +133,7 @@ describe("Full PDF export stays responsive", () => {
     expect(guide).toMatch(/page stays responsive/);
     expect(guide).toMatch(/Exporting PDF report…/);
     expect(guide).toMatch(/正在匯出 PDF 報告…/);
+    expect(guide).toMatch(/報告中的圖片會壓縮，讓 Full PDF 檔案維持在較小體積/);
+    expect(guide).toMatch(/Report images are compressed so the Full PDF file stays small/);
   });
 });

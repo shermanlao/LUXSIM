@@ -4,8 +4,8 @@ import { luxToRgb } from "./isolux-map";
 import type { RoomV2 } from "./types";
 
 /**
- * Workplane cell colour for the official report PNG.
- * Uses the same absolute DIALux ramp as `drawLuxLegend` / `legendStopsForRange`.
+ * Workplane cell colour for the official report figure.
+ * Uses the same absolute colour ramp as `drawLuxLegend` / `legendStopsForRange`.
  */
 export function workplaneFalseColorRgb(lux: number): [number, number, number] {
   return luxToRgb(lux);
@@ -16,28 +16,60 @@ export type OfficialYield = () => Promise<void>;
 const defaultYield: OfficialYield = () => Promise.resolve();
 
 /**
- * Longest edge of the official report false-colour PNG, in pixels.
- * Fine enough for smooth colour; small enough for a Full PDF export.
+ * Longest edge of the official report false-colour JPEG, in pixels.
+ * Fine enough for a smooth A4 workplane panel; small enough for a Full PDF.
  */
-export const FALSE_COLOR_PNG_MAX_EDGE = 1600;
+export const FALSE_COLOR_JPEG_MAX_EDGE = 1100;
+
+/** Browser canvas JPEG quality (0–1) for official false-colour figures. */
+export const FALSE_COLOR_JPEG_QUALITY = 0.75;
+
+/** @alias FALSE_COLOR_JPEG_MAX_EDGE */
+export const FALSE_COLOR_PNG_MAX_EDGE = FALSE_COLOR_JPEG_MAX_EDGE;
 
 /** Minimum interpolated samples across one workplane cell (then capped by max edge). */
-export const FALSE_COLOR_PNG_MIN_SAMPLES = 12;
+export const FALSE_COLOR_JPEG_MIN_SAMPLES = 12;
 
-/** Output rows between event-loop yields while drawing a report PNG. */
-export const FALSE_COLOR_PNG_YIELD_ROWS = 24;
+/** @alias FALSE_COLOR_JPEG_MIN_SAMPLES */
+export const FALSE_COLOR_PNG_MIN_SAMPLES = FALSE_COLOR_JPEG_MIN_SAMPLES;
+
+/** Output rows between event-loop yields while drawing a report figure. */
+export const FALSE_COLOR_JPEG_YIELD_ROWS = 24;
+
+/** @alias FALSE_COLOR_JPEG_YIELD_ROWS */
+export const FALSE_COLOR_PNG_YIELD_ROWS = FALSE_COLOR_JPEG_YIELD_ROWS;
+
+export type OfficialFalseColorCanvas = {
+  width: number;
+  height: number;
+  getContext: (id: "2d") => CanvasRenderingContext2D | null;
+  toDataURL: (type?: string, quality?: number) => string;
+};
+
+export type OfficialFalseColorCanvasFactory = (
+  width: number,
+  height: number
+) => OfficialFalseColorCanvas | null;
+
+function browserCanvas(width: number, height: number): OfficialFalseColorCanvas | null {
+  if (typeof document === "undefined") return null;
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  return canvas;
+}
 
 const PAD = 4;
 const BG: [number, number, number] = [26, 38, 48];
 const OUTSIDE: [number, number, number] = [36, 48, 56];
 
-export function falseColorPngPixelSize(
+export function falseColorJpegPixelSize(
   nx: number,
   ny: number,
   opts?: { scale?: number; maxEdge?: number; minSamples?: number }
 ): { width: number; height: number; samples: number } {
-  const minSamples = opts?.minSamples ?? FALSE_COLOR_PNG_MIN_SAMPLES;
-  const maxEdge = opts?.maxEdge ?? FALSE_COLOR_PNG_MAX_EDGE;
+  const minSamples = opts?.minSamples ?? FALSE_COLOR_JPEG_MIN_SAMPLES;
+  const maxEdge = opts?.maxEdge ?? FALSE_COLOR_JPEG_MAX_EDGE;
   const requested = opts?.scale ?? minSamples;
   const longest = Math.max(nx, ny, 1);
   const cap = Math.max(1, Math.floor((maxEdge - PAD * 2) / longest));
@@ -48,6 +80,9 @@ export function falseColorPngPixelSize(
     samples,
   };
 }
+
+/** @alias falseColorJpegPixelSize */
+export const falseColorPngPixelSize = falseColorJpegPixelSize;
 
 function gridValue(grid: CalcResults["grid"], i: number, j: number): number | null {
   if (i < 0 || j < 0 || i >= grid.nx || j >= grid.ny) return null;
@@ -141,44 +176,61 @@ function paintFalseColor(
   ctx.putImageData(image, 0, 0);
 }
 
-/**
- * Render a false-color workplane grid to a PNG data URL (browser only).
- * Colour is bilinear-sampled so adjacent cells blend, instead of 8-bit-looking blocks.
- */
-export function gridToFalseColorPngDataUrl(
-  room: RoomV2,
-  results: CalcResults,
-  opts?: { scale?: number; maxEdge?: number }
-): string | null {
-  if (typeof document === "undefined") return null;
-  const { grid } = results;
-  const { width, height, samples } = falseColorPngPixelSize(grid.nx, grid.ny, opts);
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
-  const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
-  paintFalseColor(ctx, room, results, samples, width, height);
-  return canvas.toDataURL("image/png");
+export type FalseColorSnapshotOpts = {
+  scale?: number;
+  maxEdge?: number;
+  quality?: number;
+  format?: "jpeg" | "png";
+  createCanvas?: OfficialFalseColorCanvasFactory;
+};
+
+function encodeFalseColor(
+  canvas: OfficialFalseColorCanvas,
+  opts?: FalseColorSnapshotOpts
+): string {
+  const format = opts?.format ?? "jpeg";
+  if (format === "png") return canvas.toDataURL("image/png");
+  return canvas.toDataURL("image/jpeg", opts?.quality ?? FALSE_COLOR_JPEG_QUALITY);
 }
 
 /**
- * Same PNG as `gridToFalseColorPngDataUrl`, but yields periodically so a large
- * room grid does not freeze the page during Full PDF export.
+ * Render a false-color workplane grid to a JPEG data URL (browser only, unless
+ * `createCanvas` is supplied). Colour is bilinear-sampled so adjacent cells blend,
+ * instead of 8-bit-looking blocks.
  */
-export async function gridToFalseColorPngDataUrlAsync(
+export function gridToFalseColorJpegDataUrl(
   room: RoomV2,
   results: CalcResults,
-  opts?: { scale?: number; maxEdge?: number; yieldTo?: OfficialYield; yieldEveryRows?: number }
-): Promise<string | null> {
-  if (typeof document === "undefined") return null;
+  opts?: FalseColorSnapshotOpts
+): string | null {
   const { grid } = results;
-  const { width, height, samples } = falseColorPngPixelSize(grid.nx, grid.ny, opts);
+  const { width, height, samples } = falseColorJpegPixelSize(grid.nx, grid.ny, opts);
+  const canvas = (opts?.createCanvas ?? browserCanvas)(width, height);
+  if (!canvas) return null;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+  paintFalseColor(ctx, room, results, samples, width, height);
+  return encodeFalseColor(canvas, opts);
+}
+
+/** @alias gridToFalseColorJpegDataUrl */
+export const gridToFalseColorPngDataUrl = gridToFalseColorJpegDataUrl;
+
+/**
+ * Same JPEG as `gridToFalseColorJpegDataUrl`, but yields periodically so a large
+ * room grid does not freeze the page during Full PDF export.
+ */
+export async function gridToFalseColorJpegDataUrlAsync(
+  room: RoomV2,
+  results: CalcResults,
+  opts?: FalseColorSnapshotOpts & { yieldTo?: OfficialYield; yieldEveryRows?: number }
+): Promise<string | null> {
+  const { grid } = results;
+  const { width, height, samples } = falseColorJpegPixelSize(grid.nx, grid.ny, opts);
   const yieldTo = opts?.yieldTo ?? defaultYield;
-  const yieldEveryRows = opts?.yieldEveryRows ?? FALSE_COLOR_PNG_YIELD_ROWS;
-  const canvas = document.createElement("canvas");
-  canvas.width = width;
-  canvas.height = height;
+  const yieldEveryRows = opts?.yieldEveryRows ?? FALSE_COLOR_JPEG_YIELD_ROWS;
+  const canvas = (opts?.createCanvas ?? browserCanvas)(width, height);
+  if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
@@ -226,5 +278,8 @@ export async function gridToFalseColorPngDataUrlAsync(
     }
   }
   ctx.putImageData(image, 0, 0);
-  return canvas.toDataURL("image/png");
+  return encodeFalseColor(canvas, opts);
 }
+
+/** @alias gridToFalseColorJpegDataUrlAsync */
+export const gridToFalseColorPngDataUrlAsync = gridToFalseColorJpegDataUrlAsync;
