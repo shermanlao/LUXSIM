@@ -3,6 +3,7 @@ import path from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import {
   buildFullReportPdf,
+  reportPdfPlainText,
   buildIsoluxModel,
   collectOfficialIsoluxSnapshots,
   formatPointLux,
@@ -131,7 +132,7 @@ function fieldAlphaAt(model: IsoluxModel, x: number, y: number): number {
 }
 
 function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-  return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+  return reportPdfPlainText(doc);
 }
 
 describe("plan isolux control state", () => {
@@ -317,7 +318,7 @@ describe("official isolux snapshot generation and PDF wiring", () => {
     const text = pdfText(doc);
     expect(text).toMatch(/Working plane .{1,3}isolux diagram/);
     expect(text).toContain("isolux diagram");
-    expect(text).toMatch(/Working plane \\\(Office\\\)/);
+    expect(text).toContain("Working plane (Office)");
     expect(text).toContain("6. Per-room summary and working plane");
     expect(text).not.toContain("3D views");
     expect(isoluxSnapshots[room.id]).toBe(TINY_JPEG);

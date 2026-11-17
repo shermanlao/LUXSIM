@@ -237,6 +237,7 @@ import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
+import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
 import { OFFICIAL_WAIT_COPY, officialWaitYield } from "@/lib/official-wait-dialog";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
@@ -314,6 +315,12 @@ type Props = {
   initialScene: ProjectSceneV2;
   initialResults: ResultsV2;
   initialAssets?: AssetRow[];
+  initialLibrary?: LumRow[];
+  initialPhotometry?: Record<string, PhotometricData>;
+  /** When set, the editor is browse-only: no save, calc, or scene edits. */
+  readOnly?: boolean;
+  /** Prefix for underlay/asset fetches, e.g. /api/share/<token>. */
+  shareBasePath?: string;
 };
 
 export function BuildingEditor({
@@ -322,13 +329,17 @@ export function BuildingEditor({
   initialScene,
   initialResults,
   initialAssets = [],
+  initialLibrary = [],
+  initialPhotometry = {},
+  readOnly = false,
+  shareBasePath,
 }: Props) {
   const [name, setName] = useState(initialName);
   const [scene, setScene] = useState<ProjectSceneV2>(initialScene);
   const [results, setResults] = useState<ResultsV2>(initialResults);
-  const [library, setLibrary] = useState<LumRow[]>([]);
+  const [library, setLibrary] = useState<LumRow[]>(initialLibrary);
   const [assets, setAssets] = useState<AssetRow[]>(initialAssets);
-  const [photoCache, setPhotoCache] = useState<Record<string, PhotometricData>>({});
+  const [photoCache, setPhotoCache] = useState<Record<string, PhotometricData>>(initialPhotometry);
   const [sourceCache, setSourceCache] = useState<
     Record<string, { filename: string; text: string }>
   >({});
@@ -455,8 +466,9 @@ export function BuildingEditor({
     underlay && isDisplayableRasterUnderlay(underlay)
       ? (underlay.pageRasterAssetId ?? underlay.assetId)
       : null;
+  const assetApiBase = shareBasePath ?? `/api/projects/${projectId}`;
   const underlayUrl = underlayDisplayAssetId
-    ? `/api/projects/${projectId}/assets/${underlayDisplayAssetId}/file`
+    ? `${assetApiBase}/assets/${underlayDisplayAssetId}/file`
     : null;
   const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
 
@@ -476,9 +488,13 @@ export function BuildingEditor({
   }, [underlay, scene.ui.tool]);
 
   const loadLibrary = useCallback(async () => {
+    if (readOnly) {
+      if (initialLibrary.length) setLibrary(initialLibrary);
+      return;
+    }
     const res = await fetch("/api/luminaires");
     if (res.ok) setLibrary(await res.json());
-  }, []);
+  }, [readOnly, initialLibrary]);
 
   useEffect(() => {
     void loadLibrary();
@@ -754,6 +770,7 @@ export function BuildingEditor({
 
 
   async function save(nextScene = scene, nextResults = results, nextName = name) {
+    if (readOnly) return;
     if (saveInFlight.current) {
       saveQueued.current = true;
       return;
@@ -790,6 +807,7 @@ export function BuildingEditor({
   }
 
   useEffect(() => {
+    if (readOnly) return;
     if (!accountLoaded) return;
     const toSave = sceneWithView(scene);
     const current = snapshotProject(name, toSave, results);
@@ -1935,6 +1953,7 @@ export function BuildingEditor({
   );
 
   async function runCalc(all: boolean) {
+    if (readOnly) return;
     const plan = planCalcRooms(scene, all);
     if (!plan.ok) {
       setStatus(formatCalcEmptyError(plan));
@@ -2321,6 +2340,21 @@ export function BuildingEditor({
     } catch {
       // Export still succeeds if the public site info cannot be loaded.
     }
+    let shareUrl: string | undefined;
+    if (!readOnly) {
+      try {
+        const shareRes = await fetch(`/api/projects/${projectId}/share`);
+        if (shareRes.ok) {
+          const share = (await shareRes.json()) as { public?: boolean; url?: string | null };
+          if (share.public && share.url) {
+            const url = new URL(share.url, window.location.origin);
+            shareUrl = url.toString();
+          }
+        }
+      } catch {
+        // Cover QR is omitted when the share link cannot be loaded.
+      }
+    }
     const doc = await buildFullReportPdfAsync(
       {
         projectName: name,
@@ -2336,6 +2370,7 @@ export function BuildingEditor({
         persp3dFalseColor,
         luxsimVersion: "0.1.0",
         website,
+        shareUrl,
       },
       officialWaitYield
     );
@@ -2793,7 +2828,9 @@ export function BuildingEditor({
           id="projectName"
           className="cad-project-input"
           value={name}
+          readOnly={readOnly}
           onChange={(e) => {
+            if (readOnly) return;
             beginCoalesce("name");
             setName(e.target.value);
           }}
@@ -2821,6 +2858,10 @@ export function BuildingEditor({
         ))}
         <span className="cad-ribbon__hint">{workflowMeta.hint}</span>
         <div className="cad-ribbon__actions">
+          {readOnly ? (
+            <span className="text-xs text-[#8fa3ad]">View only</span>
+          ) : (
+            <>
           <button type="button" className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
@@ -2840,6 +2881,8 @@ export function BuildingEditor({
           >
             {calculating && calcTarget !== "room" ? "Calculating…" : "Calc all"}
           </button>
+            </>
+          )}
           {status && (
             <span
               className={`cad-file-bar__status${calcStatusTone(status, calculating) ? ` is-${calcStatusTone(status, calculating)}` : ""}`}
@@ -2852,6 +2895,12 @@ export function BuildingEditor({
         </div>
       </nav>
       </div>
+
+      {readOnly && (
+        <p className="view-only-banner" role="status">
+          View only — you can browse this project, but you cannot edit it.
+        </p>
+      )}
 
       {workflow === "light" && !activeRoom && (
         <p className="workflow-banner">Select a room in the building tree — luminaires need a closed space.</p>
@@ -3888,6 +3937,11 @@ export function BuildingEditor({
             }`}
           >
             <p className="cad-section-title">Documentation &amp; export</p>
+            {!readOnly && (
+              <ProjectSharePanel projectId={projectId} />
+            )}
+            {!readOnly && (
+            <>
             <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
               Full PDF report
             </button>
@@ -3907,6 +3961,8 @@ export function BuildingEditor({
             <p className="text-[10px] text-[var(--muted)]">
               Multi-room geometry, IES/LDT, DXF, and results CSV for an independent cross-check.
             </p>
+            </>
+            )}
           </div>
         </aside>
       </div>

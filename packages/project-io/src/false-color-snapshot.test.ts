@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
-import { workplaneFalseColorRgb } from "./false-color-snapshot";
+import {
+  workplaneFalseColorRgb,
+  sampleWorkplaneLuxBilinear,
+  falseColorPngPixelSize,
+  FALSE_COLOR_PNG_MIN_SAMPLES,
+} from "./false-color-snapshot";
 import {
   DIALUX_LUX_STOPS,
   legendStopsForRange,
@@ -38,5 +43,42 @@ describe("workplaneFalseColorRgb", () => {
     const atEnd = luxToRgb(2500);
     expect(dist(at250, at240)).toBeLessThan(dist(at250, atEnd));
     expect(rgbCss(at250)).not.toBe(rgbCss(atEnd));
+  });
+});
+
+describe("sampleWorkplaneLuxBilinear", () => {
+  const grid = {
+    originX: 0,
+    originY: 0,
+    spacing: 1,
+    nx: 2,
+    ny: 2,
+    z: 0.75,
+    lux: [100, 200, 300, 400],
+  };
+
+  it("returns a cell value at an integer index", () => {
+    expect(sampleWorkplaneLuxBilinear(grid, 0, 0)).toBe(100);
+    expect(sampleWorkplaneLuxBilinear(grid, 1, 0)).toBe(200);
+  });
+
+  it("blends neighbouring cells instead of jumping in blocks", () => {
+    const mid = sampleWorkplaneLuxBilinear(grid, 0.5, 0);
+    expect(mid).toBeCloseTo(150, 6);
+    const mid2 = sampleWorkplaneLuxBilinear(grid, 0.5, 0.5);
+    expect(mid2).toBeCloseTo(250, 6);
+  });
+
+  it("ignores empty neighbours so edges do not smear to zero", () => {
+    const sparse = { ...grid, lux: [100, 0, 0, 0] };
+    expect(sampleWorkplaneLuxBilinear(sparse, 0.25, 0)).toBeCloseTo(100, 6);
+  });
+});
+
+describe("falseColorPngPixelSize", () => {
+  it("uses more than one sample per cell so colour can be smooth", () => {
+    const size = falseColorPngPixelSize(10, 8);
+    expect(size.samples).toBeGreaterThanOrEqual(FALSE_COLOR_PNG_MIN_SAMPLES);
+    expect(size.width).toBeGreaterThan(10 * 2);
   });
 });

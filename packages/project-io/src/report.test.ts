@@ -5,6 +5,7 @@ import { parseIes } from "../../photometry/src/index";
 import { calculate } from "../../solver/src/calculate";
 import { roomAreaM2, rectPolygon } from "./geometry";
 import { buildFullReportPdf } from "./report";
+import { reportPdfPlainText, reportPdfPageText } from "./report-text-log";
 import {
   aggregateProjectLuminaires,
   enrichSummaryWithPolygonArea,
@@ -215,7 +216,7 @@ describe("Lighting Plan section", () => {
   }
 
   function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+    return reportPdfPlainText(doc);
   }
 
   it("includes a Lighting Plan section after Calculation objects", () => {
@@ -233,7 +234,7 @@ describe("Lighting Plan section", () => {
     expect(text).not.toContain("3D views");
     expect(text).toContain("6. Per-room summary and working plane");
     expect(text).toContain("7. Product sheets");
-    expect(text).toContain("8. Luminaire schedule appendix");
+    expect(text).toContain("8. Luminaire schedule");
     expect(text).toContain("Lighting Plan");
     expect(text).toContain("Scale 1:");
     expect(text).toContain("Legend");
@@ -301,7 +302,7 @@ describe("3D views section", () => {
   }
 
   function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+    return reportPdfPlainText(doc);
   }
 
   it("adds a 3D views section and labelled per-room pair when both images are provided", () => {
@@ -344,7 +345,7 @@ describe("3D views section", () => {
     expect(text).toContain("5. Lighting Plan");
     expect(text).toContain("6. Per-room summary and working plane");
     expect(text).toContain("7. Product sheets");
-    expect(text).toContain("8. Luminaire schedule appendix");
+    expect(text).toContain("8. Luminaire schedule");
     expect(text).toContain("Lighting Plan");
     const pages =
       (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal?.getNumberOfPages?.() ?? 0;
@@ -397,7 +398,7 @@ describe("room Summary maintenance factor and maintained Em", () => {
   }
 
   function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+    return reportPdfPlainText(doc);
   }
 
   it("prints the room MF 0.80 and maintained Em, not a hardcoded 1.00 (fixed)", () => {
@@ -483,7 +484,7 @@ describe("wall calculation surfaces in the report", () => {
   }
 
   function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-    return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+    return reportPdfPlainText(doc);
   }
 
   it("lists wall surfaces on Calculation objects and the per-room Summary", () => {
@@ -554,9 +555,7 @@ describe("report PDF website footer", () => {
   }
 
   function pageText(doc: ReturnType<typeof buildFullReportPdf>, pageNum: number): string {
-    const pages = (doc as unknown as { internal?: { pages?: unknown[] } }).internal?.pages;
-    const page = pages?.[pageNum];
-    return Array.isArray(page) ? page.join("\n") : "";
+    return reportPdfPageText(doc, pageNum);
   }
 
   function pageSize(doc: ReturnType<typeof buildFullReportPdf>, pageNum: number): { w: number; h: number } {

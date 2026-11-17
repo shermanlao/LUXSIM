@@ -2,14 +2,16 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useSession } from "next-auth/react";
-import { DEFAULT_AUTOSAVE_MS, parseAutosaveMs } from "@/lib/account-settings";
+import { DEFAULT_AUTOSAVE_MS, DEFAULT_SHARE_LINKS_ENABLED, parseAutosaveMs, parseShareLinksEnabled } from "@/lib/account-settings";
 
 type AccountSettingsValue = {
   email: string | null;
   name: string | null;
   autosaveMs: number;
+  shareLinksEnabled: boolean;
   loaded: boolean;
   saveAutosaveMs: (ms: number) => Promise<boolean>;
+  saveShareLinksEnabled: (enabled: boolean) => Promise<boolean>;
   refresh: () => Promise<void>;
 };
 
@@ -20,6 +22,7 @@ export function AccountSettingsProvider({ children }: { children: React.ReactNod
   const [email, setEmail] = useState<string | null>(null);
   const [name, setName] = useState<string | null>(null);
   const [autosaveMs, setAutosaveMs] = useState(DEFAULT_AUTOSAVE_MS);
+  const [shareLinksEnabled, setShareLinksEnabled] = useState(DEFAULT_SHARE_LINKS_ENABLED);
   const [loaded, setLoaded] = useState(false);
 
   const refresh = useCallback(async () => {
@@ -36,10 +39,12 @@ export function AccountSettingsProvider({ children }: { children: React.ReactNod
       email?: string | null;
       name?: string | null;
       autosaveMs?: unknown;
+      shareLinksEnabled?: unknown;
     };
     setEmail(data.email ?? null);
     setName(data.name ?? null);
     setAutosaveMs(parseAutosaveMs(data.autosaveMs) ?? DEFAULT_AUTOSAVE_MS);
+    setShareLinksEnabled(parseShareLinksEnabled(data.shareLinksEnabled) ?? DEFAULT_SHARE_LINKS_ENABLED);
     setLoaded(true);
   }, [status]);
 
@@ -60,9 +65,20 @@ export function AccountSettingsProvider({ children }: { children: React.ReactNod
     return true;
   }, []);
 
+  const saveShareLinksEnabled = useCallback(async (enabled: boolean) => {
+    const res = await fetch("/api/account", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ shareLinksEnabled: enabled }),
+    });
+    if (!res.ok) return false;
+    setShareLinksEnabled(enabled);
+    return true;
+  }, []);
+
   const value = useMemo(
-    () => ({ email, name, autosaveMs, loaded, saveAutosaveMs, refresh }),
-    [email, name, autosaveMs, loaded, saveAutosaveMs, refresh]
+    () => ({ email, name, autosaveMs, shareLinksEnabled, loaded, saveAutosaveMs, saveShareLinksEnabled, refresh }),
+    [email, name, autosaveMs, shareLinksEnabled, loaded, saveAutosaveMs, saveShareLinksEnabled, refresh]
   );
 
   return (
@@ -77,8 +93,10 @@ export function useAccountSettings(): AccountSettingsValue {
       email: null,
       name: null,
       autosaveMs: DEFAULT_AUTOSAVE_MS,
+      shareLinksEnabled: DEFAULT_SHARE_LINKS_ENABLED,
       loaded: false,
       saveAutosaveMs: async () => false,
+      saveShareLinksEnabled: async () => false,
       refresh: async () => {},
     };
   }

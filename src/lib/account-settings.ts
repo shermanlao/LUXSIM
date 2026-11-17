@@ -1,3 +1,7 @@
+import { DEFAULT_SHARE_LINKS_ENABLED, parseShareLinksEnabled } from "./project-share";
+
+export { DEFAULT_SHARE_LINKS_ENABLED, parseShareLinksEnabled };
+
 /** Official default save-reminder interval (15 minutes). Stored as User.autosaveMs. */
 export const DEFAULT_AUTOSAVE_MS = 900_000;
 
@@ -19,12 +23,17 @@ export function parseAutosaveMs(value: unknown): AutosaveMs | null {
   return n as AutosaveMs;
 }
 
+type AccountPatchData = {
+  autosaveMs?: AutosaveMs;
+  shareLinksEnabled?: boolean;
+};
+
 /** PATCH /api/account writes only the session user — never a client-supplied id. */
 export function accountPatchForSessionUser(
   sessionUserId: string | undefined,
   body: unknown
 ):
-  | { ok: true; where: { id: string }; data: { autosaveMs: AutosaveMs } }
+  | { ok: true; where: { id: string }; data: AccountPatchData }
   | { ok: false; status: 401 | 400; error: string } {
   if (!sessionUserId) {
     return { ok: false, status: 401, error: "Unauthorized" };
@@ -33,13 +42,29 @@ export function accountPatchForSessionUser(
     body && typeof body === "object" && !Array.isArray(body)
       ? (body as Record<string, unknown>)
       : null;
-  const parsed = parseAutosaveMs(raw?.autosaveMs);
-  if (parsed == null) {
-    return { ok: false, status: 400, error: "Invalid save reminder interval" };
+  const hasAutosave = raw != null && "autosaveMs" in raw;
+  const hasShare = raw != null && "shareLinksEnabled" in raw;
+  if (!hasAutosave && !hasShare) {
+    return { ok: false, status: 400, error: "No account settings to update" };
+  }
+  const data: AccountPatchData = {};
+  if (hasAutosave) {
+    const parsed = parseAutosaveMs(raw?.autosaveMs);
+    if (parsed == null) {
+      return { ok: false, status: 400, error: "Invalid save reminder interval" };
+    }
+    data.autosaveMs = parsed;
+  }
+  if (hasShare) {
+    const parsed = parseShareLinksEnabled(raw?.shareLinksEnabled);
+    if (parsed == null) {
+      return { ok: false, status: 400, error: "Invalid view-only link setting" };
+    }
+    data.shareLinksEnabled = parsed;
   }
   return {
     ok: true,
     where: { id: sessionUserId },
-    data: { autosaveMs: parsed },
+    data,
   };
 }

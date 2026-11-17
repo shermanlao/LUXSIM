@@ -47,6 +47,7 @@ export function NavAuth() {
 
   const email = session.user.email ?? "Account";
   const autosaveMs = account.autosaveMs;
+  const shareLinksEnabled = account.shareLinksEnabled;
   const minutes = autosaveMs / 60_000;
 
   return (
@@ -114,6 +115,20 @@ export function NavAuth() {
               {autosaveMs === 0
                 ? "No reminder. You can still click Save in the editor."
                 : `Reminds you to save every ${minutes} min when there are unsaved changes.`}
+            </p>
+            <label className="account-popover__label account-popover__check" htmlFor="share-links-enabled">
+              <input
+                id="share-links-enabled"
+                type="checkbox"
+                checked={shareLinksEnabled}
+                onChange={(e) => {
+                  void account.saveShareLinksEnabled(e.target.checked);
+                }}
+              />
+              View-only project links
+            </label>
+            <p className="account-popover__hint">
+              When on, each project can have a link and QR code that lets visitors browse but not edit. You can still turn a single project off in Documentation.
             </p>
             <button
               type="button"

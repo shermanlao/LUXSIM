@@ -12,7 +12,7 @@ LUXSIM’s full PDF export (`buildFullReportPdf` in `@luxsim/project-io`) is str
 6. **Calculation objects** — all workplanes: type, height, wall zone, Ē, Emin, Emax, Uo, g2.
 7. **Per room** — Summary (properties + optional plan/3D images and isolux diagram with isolines and value labels), Summary results, Working plane (false-color + coordinate schedule).
 8. **Product sheets** — polar curve when available; flux shown honestly for absolute IES (-1 lm) files.
-9. **Luminaire schedule appendix** — global coordinates.
+9. **Luminaire schedule** — global coordinates.
 
 ## Area and LPD
 

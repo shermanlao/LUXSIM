@@ -32,6 +32,23 @@ import {
   wallZoneM,
   workplaneHeightM,
 } from "./report-model";
+import {
+  TYPE,
+  INK,
+  ACCENT,
+  MUTED,
+  RULE,
+  TABLE_HEAD,
+  TABLE_ALT,
+  HEADER_LINE,
+  loadReportFonts,
+  loadReportFontsSync,
+  registerReportFonts,
+  reportFontFamily,
+  setReportRgb,
+} from "./report-style";
+import { attachReportTextLog } from "./report-text-log";
+import { drawQrCode } from "./qr-code";
 
 export interface ReportInput {
   projectName: string;
@@ -60,6 +77,8 @@ export interface ReportInput {
   persp3dSnapshots?: Record<string, string>;
   /** Plain-text site address for the report footer. Omitted when missing or blank. */
   website?: string;
+  /** View-only project URL. When set, the cover shows a QR code and this link. */
+  shareUrl?: string;
 }
 
 const MARGIN = 20;
@@ -67,6 +86,21 @@ const PAGE_W = 210;
 const PAGE_H = 297;
 const FOOTER_Y = 290;
 const CONTENT_W = PAGE_W - MARGIN * 2;
+
+/** Product-sheet table and plan-symbol boxes: the symbol never overlaps the table. */
+export function officialProductSheetColumns(contentWidth = CONTENT_W): {
+  tableX: number;
+  tableW: number;
+  symbolX: number;
+  symbolW: number;
+  gap: number;
+} {
+  const gap = 8;
+  const symbolW = 48;
+  const tableW = contentWidth - symbolW - gap;
+  return { tableX: MARGIN, tableW, symbolX: MARGIN + tableW + gap, symbolW, gap };
+}
+
 
 /** Visible footer label: trimmed, trailing slashes stripped. Blank input is omitted. */
 export function formatReportWebsite(raw?: string | null): string | undefined {
@@ -122,10 +156,23 @@ class ReportPdfBuilder {
   readonly doc: jsPDF;
   readonly input: ReportInput;
   page = 0;
+  private fontName = "helvetica";
 
   constructor(input: ReportInput) {
     this.doc = new jsPDF();
+    attachReportTextLog(this.doc);
     this.input = input;
+  }
+
+  private applyFonts(fonts: Parameters<typeof registerReportFonts>[1]) {
+    const ok = registerReportFonts(this.doc, fonts);
+    this.fontName = reportFontFamily(ok);
+    this.font("normal");
+  }
+
+  private font(style: "normal" | "bold" = "normal", size?: number) {
+    this.doc.setFont(this.fontName, style);
+    if (size != null) this.doc.setFontSize(size);
   }
 
   private pageWidth(): number {
@@ -148,6 +195,7 @@ class ReportPdfBuilder {
 
   private addReportPage(orientation: "portrait" | "landscape" = "portrait") {
     this.doc.addPage("a4", orientation);
+    this.font("normal");
   }
 
   /** Draw an image fitted inside a box, preserving aspect ratio. Returns the bottom y. */
@@ -180,8 +228,8 @@ class ReportPdfBuilder {
     }
     this.doc.setDrawColor(180);
     this.doc.rect(MARGIN, y, barW, barH, "S");
-    this.doc.setFontSize(7);
-    this.doc.setTextColor(60);
+    this.font("normal", TYPE.caption);
+    setReportRgb(this.doc, "text", MUTED);
     stops.forEach((s, i) => {
       const label = i === stops.length - 1 ? `${s.lux} [lx]` : String(s.lux);
       this.doc.text(label, MARGIN + (i + 0.5) * cell, y + barH + 4, { align: "center" });
@@ -196,10 +244,11 @@ class ReportPdfBuilder {
     const footerY = this.footerY();
     const contentW = this.contentWidth();
     const website = formatReportWebsite(this.input.website);
-    doc.setDrawColor(200);
+    setReportRgb(doc, "draw", RULE);
+    doc.setLineWidth(0.25);
     doc.line(MARGIN, footerY - 6, pageW - MARGIN, footerY - 6);
-    doc.setFontSize(8);
-    doc.setTextColor(110);
+    this.font("normal", TYPE.footer);
+    setReportRgb(doc, "text", MUTED);
     if (contextLine) {
       doc.text(contextLine, MARGIN, footerY - 2, { maxWidth: contentW * 0.72 });
     }
@@ -212,23 +261,32 @@ class ReportPdfBuilder {
       // Plain visible text only — no link annotation that could hide the address.
       doc.text(website, pageW / 2, footerY + 8, { align: "center", maxWidth: contentW });
     }
-    doc.setTextColor(0);
+    setReportRgb(doc, "text", INK);
+    this.font("normal", TYPE.body);
   }
 
   private pageHeader(sectionTitle: string, contextLine?: string) {
     const { doc } = this;
     const contentW = this.contentWidth();
-    doc.setFontSize(9);
-    doc.setTextColor(90);
-    doc.text(this.input.projectName, MARGIN, 14);
+    const pageW = this.pageWidth();
+    this.font("normal", TYPE.headerMeta);
+    setReportRgb(doc, "text", MUTED);
+    doc.text(this.input.projectName, MARGIN, 12);
+    doc.text("LUXSIM", pageW - MARGIN, 12, { align: "right" });
     if (contextLine) {
-      doc.text(contextLine, MARGIN, 20, { maxWidth: contentW * 0.85 });
+      doc.text(contextLine, MARGIN, 17, { maxWidth: contentW * 0.85 });
     }
-    doc.setTextColor(40);
-    doc.setFontSize(15);
-    doc.text(sectionTitle, MARGIN, contextLine ? 32 : 26);
-    doc.setTextColor(0);
-    return contextLine ? 40 : 34;
+    const titleY = contextLine ? 28 : 23;
+    this.font("bold", TYPE.section);
+    setReportRgb(doc, "text", INK);
+    doc.text(sectionTitle, MARGIN, titleY);
+    setReportRgb(doc, "draw", HEADER_LINE);
+    doc.setLineWidth(0.6);
+    doc.line(MARGIN, titleY + 3, pageW - MARGIN, titleY + 3);
+    doc.setLineWidth(0.2);
+    setReportRgb(doc, "text", INK);
+    this.font("normal", TYPE.body);
+    return titleY + 10;
   }
 
   newPage(sectionTitle?: string, contextLine?: string): number {
@@ -243,8 +301,7 @@ class ReportPdfBuilder {
 
   ensureY(y: number, need: number, section: string, context?: string): number {
     if (y + need > this.footerY() - 14) {
-      this.newPage(section, context);
-      return 40;
+      return this.newPage(section, context);
     }
     return y;
   }
@@ -254,6 +311,7 @@ class ReportPdfBuilder {
   }
 
   async buildAsync(yieldTo: () => Promise<void> = () => Promise.resolve()): Promise<jsPDF> {
+    this.applyFonts(await loadReportFonts());
     this.cover();
     await yieldTo();
     this.contents();
@@ -284,6 +342,7 @@ class ReportPdfBuilder {
   }
 
   private buildSync(): jsPDF {
+    this.applyFonts(loadReportFontsSync());
     this.cover();
     this.contents();
     this.projectSummary();
@@ -306,38 +365,70 @@ class ReportPdfBuilder {
   private cover() {
     const { doc, input } = this;
     const date = new Date().toLocaleDateString();
-    doc.setFontSize(22);
-    doc.text("LUXSIM Lighting Report", MARGIN, 42);
-    doc.setFontSize(17);
-    doc.text(input.projectName, MARGIN, 58);
-    doc.setFontSize(11);
-  let y = 72;
+    const pageW = this.pageWidth();
+    setReportRgb(doc, "fill", ACCENT);
+    doc.rect(0, 0, pageW, 8, "F");
+    this.font("bold", TYPE.coverKicker);
+    setReportRgb(doc, "text", ACCENT);
+    doc.text("LUXSIM", MARGIN, 28);
+    this.font("bold", TYPE.coverTitle);
+    setReportRgb(doc, "text", INK);
+    doc.text("Lighting Report", MARGIN, 48);
+    this.font("normal", TYPE.coverProject);
+    doc.text(input.projectName, MARGIN, 64, { maxWidth: CONTENT_W });
+    setReportRgb(doc, "draw", HEADER_LINE);
+    doc.setLineWidth(0.6);
+    doc.line(MARGIN, 72, pageW - MARGIN, 72);
+    doc.setLineWidth(0.2);
+    this.font("normal", TYPE.body);
+    setReportRgb(doc, "text", INK);
+    let y = 86;
     if (input.orgName?.trim()) {
-      doc.text(`Organization: ${input.orgName.trim()}`, MARGIN, y);
-      y += 8;
+      doc.text(`Organization  ${input.orgName.trim()}`, MARGIN, y);
+      y += 7;
     }
-    doc.text(`Date: ${date}`, MARGIN, y);
-    y += 8;
+    doc.text(`Date  ${date}`, MARGIN, y);
+    y += 7;
     if (input.luxsimVersion) {
       doc.text(`Generated with LUXSIM ${input.luxsimVersion}`, MARGIN, y);
-      y += 8;
+      y += 7;
     } else {
       doc.text("Generated with LUXSIM", MARGIN, y);
-      y += 8;
+      y += 7;
     }
-    doc.setFontSize(9);
-    doc.setTextColor(120);
-    doc.text(DESIGN_ASSIST_DISCLAIMER, MARGIN, y + 6, { maxWidth: CONTENT_W });
-    doc.setTextColor(0);
+    const shareUrl = input.shareUrl?.trim();
+    if (shareUrl) {
+      y += 14;
+      const qrSize = 42;
+      drawQrCode(doc, shareUrl, MARGIN, y, qrSize);
+      this.font("bold", TYPE.body);
+      doc.text("View this project", MARGIN + qrSize + 8, y + 8);
+      this.font("normal", TYPE.caption);
+      setReportRgb(doc, "text", MUTED);
+      doc.text("Open the link or scan the QR code to browse. Editing is not allowed.", MARGIN + qrSize + 8, y + 16, {
+        maxWidth: CONTENT_W - qrSize - 8,
+      });
+      this.font("normal", TYPE.body);
+      setReportRgb(doc, "text", INK);
+      const urlLines = doc.splitTextToSize(shareUrl, CONTENT_W - qrSize - 8) as string[];
+      doc.text(urlLines, MARGIN + qrSize + 8, y + 26);
+      y += Math.max(qrSize, 26 + urlLines.length * 5) + 8;
+    }
+    this.font("normal", TYPE.caption);
+    setReportRgb(doc, "text", MUTED);
+    doc.text(DESIGN_ASSIST_DISCLAIMER, MARGIN, Math.max(y + 10, 200), { maxWidth: CONTENT_W });
+    setReportRgb(doc, "text", INK);
+    this.font("normal", TYPE.body);
     this.page = 1;
     this.finishPage("Cover");
   }
 
   private contents() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page = 2;
     let y = this.pageHeader("Contents");
-    this.doc.setFontSize(11);
+    this.font("normal", TYPE.body);
+    setReportRgb(this.doc, "text", INK);
     const items = [
       "Project summary",
       "Luminaire list",
@@ -347,16 +438,17 @@ class ReportPdfBuilder {
       ...(this.hasProject3dViews() ? (["3D views"] as const) : []),
       "Per-room summary and working plane",
       "Product sheets",
-      "Luminaire schedule appendix",
+      "Luminaire schedule",
     ];
-    items.forEach((t, i) => {
-      this.doc.text(`${i + 1}. ${t}`, MARGIN, y + i * 8);
+    items.forEach((label, i) => {
+      const rowY = y + i * 8;
+      this.doc.text(`${i + 1}. ${label}`, MARGIN, rowY);
     });
     this.finishPage("Contents");
   }
 
   private projectSummary() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader("Project summary");
     const { scene, photometry, wattsById } = this.input;
@@ -377,7 +469,7 @@ class ReportPdfBuilder {
         ? `Overall luminous efficacy: ${totals.efficacy.toFixed(1)} lm/W`
         : "Overall luminous efficacy: —",
     ];
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(TYPE.body);
     lines.forEach((t, i) => {
       this.doc.text(t, MARGIN, y + i * 7);
     });
@@ -385,13 +477,13 @@ class ReportPdfBuilder {
   }
 
   private luminaireList() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader("Luminaire list");
     const { scene, photometry, wattsById } = this.input;
     const rows = aggregateProjectLuminaires(scene, photometry, wattsById);
     const totals = projectTotals(rows);
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(TYPE.body);
     const boxes = [
       `Phi total: ${totals.totalFlux != null ? `${Math.round(totals.totalFlux)} lm` : "—"}`,
       `Ptotal: ${totals.totalWatts.toFixed(1)} W`,
@@ -402,7 +494,7 @@ class ReportPdfBuilder {
       this.doc.setDrawColor(210);
       this.doc.setFillColor(245, 245, 245);
       this.doc.rect(x, y, 54, 14, "FD");
-      this.doc.setFontSize(8);
+      this.doc.setFontSize(TYPE.table);
       this.doc.text(b, x + 3, y + 9, { maxWidth: 48 });
     });
     y += 22;
@@ -415,8 +507,8 @@ class ReportPdfBuilder {
       { key: "p", label: "P", w: 16 },
       { key: "eff", label: "lm/W", w: 16 },
     ] as const;
-    this.doc.setFontSize(8);
-    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(TYPE.table);
+    this.font("bold");
     let x = MARGIN;
     this.doc.setFillColor(236, 236, 236);
     this.doc.rect(MARGIN, y - 4, CONTENT_W, 7, "F");
@@ -424,7 +516,7 @@ class ReportPdfBuilder {
       this.doc.text(c.label, x + 1, y);
       x += c.w;
     }
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     y += 6;
     for (const row of rows) {
       const nameLines = this.doc.splitTextToSize(row.articleName || "—", cols[3].w - 2) as string[];
@@ -460,7 +552,7 @@ class ReportPdfBuilder {
   }
 
   private roomList() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader("Room list");
     const { scene, results, photometry, wattsById, projectName } = this.input;
@@ -471,12 +563,12 @@ class ReportPdfBuilder {
       const pTotal = roomInstalledWatts(room.id, scene, photometry, wattsById);
       const lpd = roomLpdFromPolygon(room, scene, photometry, wattsById);
       const eave = res?.summary.eave ?? 0;
-      this.doc.setFontSize(11);
-      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(TYPE.body);
+      this.font("bold");
       this.doc.text(room.name.toUpperCase(), MARGIN, y);
-      this.doc.setFont("helvetica", "normal");
+      this.font("normal");
       y += 7;
-      this.doc.setFontSize(9);
+      this.doc.setFontSize(TYPE.caption);
       const stats = [
         `Ptotal: ${pTotal.toFixed(1)} W`,
         `ARoom: ${formatAreaM2(area)}`,
@@ -514,18 +606,18 @@ class ReportPdfBuilder {
   }
 
   private calculationObjects() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader("Calculation objects", "Working planes and wall surfaces");
     const { scene, results } = this.input;
-    this.doc.setFontSize(9);
-    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(TYPE.caption);
+    this.font("bold");
     this.doc.text(
       "Workplane  Type  Height  Wall zone  Eavg  Emin  Emax  Uo (g1)  g2",
       MARGIN,
       y
     );
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     y += 6;
     for (const room of scene.rooms) {
       const res = results.byRoomId[room.id];
@@ -563,17 +655,17 @@ class ReportPdfBuilder {
     if (hasWalls) {
       y += 4;
       y = this.ensureY(y, 16, "Calculation objects");
-      this.doc.setFontSize(10);
-      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(TYPE.body);
+      this.font("bold");
       this.doc.text("Wall surfaces — vertical illuminance", MARGIN, y);
       y += 6;
       const wallCols = [MARGIN, 92, 108, 124, 138, 154, 170, 186];
       const wallHeads = ["Surface", "Width", "Height", "Inset", "Eavg", "Emin", "Emax", "Uo"];
       const paintWallHeader = (at: number) => {
-        this.doc.setFontSize(8);
-        this.doc.setFont("helvetica", "bold");
+        this.doc.setFontSize(TYPE.table);
+        this.font("bold");
         wallHeads.forEach((h, i) => this.doc.text(h, wallCols[i]!, at));
-        this.doc.setFont("helvetica", "normal");
+        this.font("normal");
         return at + 4.5;
       };
       y = paintWallHeader(y);
@@ -583,8 +675,8 @@ class ReportPdfBuilder {
           const pageBefore = this.page;
           y = this.ensureY(y, 5, "Calculation objects");
           if (this.page !== pageBefore) y = paintWallHeader(y);
-          this.doc.setFontSize(8);
-          this.doc.setFont("helvetica", "normal");
+          this.doc.setFontSize(TYPE.table);
+          this.font("normal");
           const name = w.name.length > 36 ? `${w.name.slice(0, 35)}…` : w.name;
           const cells = [
             name,
@@ -671,8 +763,8 @@ class ReportPdfBuilder {
     const legendH = 16;
     const labelH = 6;
     const imgMaxH = Math.max(40, footerTop - y - labelH - legendH - 8);
-    this.doc.setFontSize(10);
-    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(TYPE.body);
+    this.font("bold");
     let imgBottom = y + 3;
     if (grey) {
       this.doc.text("3D greyscale", MARGIN, y);
@@ -683,7 +775,7 @@ class ReportPdfBuilder {
       this.doc.text("3D false colour", x, y);
       imgBottom = Math.max(imgBottom, this.drawFittedImage(color, x, y + 3, colW, imgMaxH));
     }
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     this.drawLuxLegend(Math.min(imgBottom + 5, footerTop - legendH), emin, emax);
     this.finishPage("3D views");
   }
@@ -709,7 +801,7 @@ class ReportPdfBuilder {
     const mount = typicalMountingHeightM(room.id, this.input.scene);
     const mf = roomMaintenanceFactor(room);
     const res = this.input.results.byRoomId[room.id];
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(TYPE.body);
     const left = [
       `Ground area: ${formatAreaM2(area)}`,
       `Reflection factors — Ceiling: ${formatReflectancePct(room.reflectance.ceiling)} · Walls: ${formatReflectancePct(room.reflectance.walls)} · Floor: ${formatReflectancePct(room.reflectance.floor)}`,
@@ -745,7 +837,7 @@ class ReportPdfBuilder {
     const color = this.roomFalseColor(room.id);
     const has3d = Boolean(grey || color);
     if (isolux) {
-      this.doc.setFontSize(10);
+      this.doc.setFontSize(TYPE.body);
       this.doc.text("Working plane — isolux diagram", MARGIN, y);
       const isoluxH = has3d ? 92 : 150;
       y = this.drawFittedImage(isolux, MARGIN, y + 3, CONTENT_W, isoluxH) + 4;
@@ -753,8 +845,8 @@ class ReportPdfBuilder {
 
     if (has3d) {
       y = this.ensureY(y, 70, "Summary", ctx);
-      this.doc.setFontSize(10);
-      this.doc.setFont("helvetica", "bold");
+      this.doc.setFontSize(TYPE.body);
+      this.font("bold");
       const colW = 82;
       if (grey) {
         this.doc.text("3D greyscale", MARGIN, y);
@@ -764,14 +856,14 @@ class ReportPdfBuilder {
         this.doc.text("3D false colour", MARGIN + 90, y);
         this.drawFittedImage(color, MARGIN + 90, y + 3, colW, 56);
       }
-      this.doc.setFont("helvetica", "normal");
+      this.font("normal");
       y += 62;
     }
 
     const plan = this.input.planSnapshots?.[room.id];
     if (plan) {
       y = this.ensureY(y, 70, "Summary", ctx);
-      this.doc.setFontSize(10);
+      this.doc.setFontSize(TYPE.body);
       this.doc.text("Plan view", MARGIN, y);
       y = this.drawFittedImage(plan, MARGIN, y + 3, 80, 55) + 4;
     }
@@ -780,11 +872,11 @@ class ReportPdfBuilder {
 
   private roomSummaryResults(room: RoomV2) {
     const ctx = roomContextLabel(this.input.projectName, this.input.scene, room);
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader("Summary — Results", ctx);
     const res = this.input.results.byRoomId[room.id];
-    this.doc.setFontSize(10);
+    this.doc.setFontSize(TYPE.body);
     if (!res) {
       this.doc.text("Not calculated", MARGIN, y);
       this.finishPage("Summary — Results", ctx);
@@ -809,9 +901,9 @@ class ReportPdfBuilder {
     if (summary.ugr != null) {
       rows.push(`UGR: ${summary.ugr.toFixed(1)}`);
     }
-    this.doc.setFont("helvetica", "bold");
+    this.font("bold");
     this.doc.text("Results", MARGIN, y);
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     y += 8;
     rows.forEach((t, i) => {
       this.doc.text(t, MARGIN, y + i * 7);
@@ -820,17 +912,17 @@ class ReportPdfBuilder {
     const walls = this.input.results.wallsByRoomId?.[room.id] ?? [];
     if (walls.length) {
       y = this.ensureY(y, 16, "Summary — Results", ctx);
-      this.doc.setFont("helvetica", "bold");
-      this.doc.setFontSize(10);
+      this.font("bold");
+      this.doc.setFontSize(TYPE.body);
       this.doc.text("Wall surfaces — vertical illuminance", MARGIN, y);
       y += 6;
       const wallCols = [MARGIN, 88, 112, 132, 152, 172];
       const wallHeads = ["Surface", "Eavg", "Emin", "Emax", "Uo"];
       const paintWallHeader = (at: number) => {
-        this.doc.setFontSize(8);
-        this.doc.setFont("helvetica", "bold");
+        this.doc.setFontSize(TYPE.table);
+        this.font("bold");
         wallHeads.forEach((h, i) => this.doc.text(h, wallCols[i]!, at));
-        this.doc.setFont("helvetica", "normal");
+        this.font("normal");
         return at + 4.5;
       };
       y = paintWallHeader(y);
@@ -838,8 +930,8 @@ class ReportPdfBuilder {
         const pageBefore = this.page;
         y = this.ensureY(y, 5, "Summary — Results", ctx);
         if (this.page !== pageBefore) y = paintWallHeader(y);
-        this.doc.setFontSize(8);
-        this.doc.setFont("helvetica", "normal");
+        this.doc.setFontSize(TYPE.table);
+        this.font("normal");
         const label = w.name.replace(` (${room.name})`, "");
         const short = label.length > 34 ? `${label.slice(0, 33)}…` : label;
         const cells = [
@@ -854,12 +946,12 @@ class ReportPdfBuilder {
       }
       y += 4;
     }
-    this.doc.setFont("helvetica", "bold");
-    this.doc.setFontSize(10);
+    this.font("bold");
+    this.doc.setFontSize(TYPE.body);
     this.doc.text("Luminaire list", MARGIN, y);
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     y += 7;
-    this.doc.setFontSize(9);
+    this.doc.setFontSize(TYPE.caption);
     this.doc.text("pcs.  Manufacturer  Article name  Flux  P  Efficacy", MARGIN, y);
     y += 5;
     for (const row of luminairesInRoom(
@@ -883,7 +975,7 @@ class ReportPdfBuilder {
 
   private roomWorkingPlane(room: RoomV2) {
     const ctx = roomContextLabel(this.input.projectName, this.input.scene, room);
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
     let y = this.pageHeader(`Working plane (${room.name})`, ctx);
     const res = this.input.results.byRoomId[room.id];
@@ -906,10 +998,10 @@ class ReportPdfBuilder {
     }
     y = this.drawLuxLegend(y, summary.emin, summary.emax);
 
-    this.doc.setFontSize(10);
-    this.doc.setFont("helvetica", "bold");
+    this.doc.setFontSize(TYPE.body);
+    this.font("bold");
     this.doc.text("Properties", MARGIN, y);
-    this.doc.setFont("helvetica", "normal");
+    this.font("normal");
     y += 6;
     const colW = [0, 32, 32, 32, 28, 22];
     const headers = ["Eavg", "Emin", "Emax", "Uo (g1)", "g2"];
@@ -921,7 +1013,7 @@ class ReportPdfBuilder {
       g2.toFixed(2),
     ];
     const startX = MARGIN + 8;
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(TYPE.table);
     this.doc.setTextColor(80);
     let x = startX;
     headers.forEach((label, i) => {
@@ -933,14 +1025,14 @@ class ReportPdfBuilder {
     this.doc.setDrawColor(40);
     this.doc.line(MARGIN, y, PAGE_W - MARGIN, y);
     y += 6;
-    this.doc.setFontSize(9);
+    this.doc.setFontSize(TYPE.caption);
     x = startX;
     values.forEach((v, i) => {
       this.doc.text(v, x, y);
       x += colW[i + 1] ?? 28;
     });
     y += 6;
-    this.doc.setFontSize(8);
+    this.doc.setFontSize(TYPE.table);
     this.doc.setTextColor(90);
     this.doc.text(
       `${REPORT_CALC_TYPE}    Height: ${room.workplaneHeightM.toFixed(3)} m, Wall zone: ${wallZoneM(room).toFixed(3)} m`,
@@ -956,8 +1048,9 @@ class ReportPdfBuilder {
     for (const lid of usedIds.length ? usedIds : this.input.scene.fixtureLibraryIds) {
       const photo = this.input.photometry[lid];
       if (!photo) continue;
-      this.doc.addPage();
+      this.addReportPage();
       this.page += 1;
+      this.font("normal");
       let y = this.pageHeader("Product sheet");
       const body = luminaireBody(photo);
       const flux = resolvedFlux(photo);
@@ -965,11 +1058,12 @@ class ReportPdfBuilder {
       const efficacy = flux != null && watts != null && watts > 0 ? flux / watts : null;
       const cct = formatCct(photo);
 
-      this.doc.setFont("helvetica", "bold");
-      this.doc.setFontSize(12);
       const title = photo.description || photo.catalogNumber || lid;
-      this.doc.text(this.doc.splitTextToSize(title, CONTENT_W) as string[], MARGIN, y);
-      y += 10;
+      const titleLines = this.doc.splitTextToSize(title, this.contentWidth()) as string[];
+      this.font("bold", TYPE.subhead);
+      setReportRgb(this.doc, "text", INK);
+      this.doc.text(titleLines, MARGIN, y);
+      y += Math.max(8, titleLines.length * 5.5) + 4;
 
       const props: [string, string][] = [
         ["Manufacturer", photo.manufacturer || "—"],
@@ -984,62 +1078,112 @@ class ReportPdfBuilder {
         props.push(["Catalog flux", `${Math.round(photo.catalogFluxLm)} lm`]);
       }
 
-      const tableW = 108;
-      const rowH = 6.6;
-      this.doc.setFontSize(8);
-      this.doc.setDrawColor(210);
+      const { gap, symbolW, tableW } = officialProductSheetColumns(this.contentWidth());
+      const rowH = 7;
+      const tableH = props.length * rowH;
+      const symbolH = Math.max(tableH, 48);
+      const tableRight = MARGIN + tableW;
+      const symbolX = tableRight + gap;
+      const symbolY = y - 4;
+
+      this.font("normal", TYPE.table);
+      setReportRgb(this.doc, "draw", RULE);
       props.forEach(([k, v], i) => {
         const yy = y + i * rowH;
         if (i % 2 === 0) {
-          this.doc.setFillColor(246, 246, 246);
-          this.doc.rect(MARGIN, yy - 4.2, tableW, rowH, "F");
+          setReportRgb(this.doc, "fill", TABLE_ALT);
+          this.doc.rect(MARGIN, yy - 4.5, tableW, rowH, "F");
         }
-        this.doc.setDrawColor(220);
-        this.doc.rect(MARGIN, yy - 4.2, tableW, rowH);
-        this.doc.setFont("helvetica", "normal");
-        this.doc.setTextColor(90);
+        this.doc.rect(MARGIN, yy - 4.5, tableW, rowH);
+        this.font("normal", TYPE.table);
+        setReportRgb(this.doc, "text", MUTED);
         this.doc.text(k, MARGIN + 2, yy);
-        this.doc.setTextColor(0);
-        this.doc.setFont("helvetica", "bold");
-        this.doc.text(v, MARGIN + 58, yy, { maxWidth: tableW - 60 });
+        this.font("bold", TYPE.table);
+        setReportRgb(this.doc, "text", INK);
+        this.doc.text(v, MARGIN + 62, yy, { maxWidth: tableW - 66 });
       });
 
-      const symbolX = MARGIN + tableW + 18;
-      const symbolY = y + 4;
-      drawPlanSymbol(this.doc, body, symbolX + 22, symbolY + 18, 18);
-      this.doc.setFont("helvetica", "normal");
-      this.doc.setFontSize(7);
-      this.doc.setTextColor(90);
-      this.doc.text("Plan symbol  1:5", symbolX + 22, symbolY + 48, { align: "center" });
-      this.doc.setTextColor(0);
+      const scaleLabel = drawPlanSymbol(this.doc, body, symbolX, symbolY, symbolW, symbolH);
+      this.font("normal", TYPE.caption);
+      setReportRgb(this.doc, "text", MUTED);
+      this.doc.text(scaleLabel, symbolX + symbolW / 2, symbolY + symbolH - 3, { align: "center" });
+      setReportRgb(this.doc, "text", INK);
 
-      y += props.length * rowH + 10;
-      this.doc.setFont("helvetica", "bold");
-      this.doc.setFontSize(10);
+      y += symbolH + 10;
+      this.font("bold", TYPE.subhead);
       this.doc.text("Luminous intensity distribution", MARGIN, y);
-      y += 4;
-      drawPolar(this.doc, photo, MARGIN + (CONTENT_W - 120) / 2, y, 120);
+      y += 6;
+      drawPolar(this.doc, photo, MARGIN + (this.contentWidth() - 120) / 2, y, 120, this.fontName);
       this.finishPage("Product sheet");
     }
   }
 
   private scheduleAppendix() {
-    this.doc.addPage();
+    this.addReportPage();
     this.page += 1;
-    let y = this.pageHeader("Luminaire schedule appendix");
-    this.doc.setFontSize(9);
-    this.doc.text("#  Name  Storey  Room  X  Y  Z  Rot", MARGIN, y);
-    y += 6;
+    this.font("normal");
+    let y = this.pageHeader("Luminaire schedule");
+    const cols: { key: string; label: string; w: number; align?: "left" | "right" }[] = [
+      { key: "n", label: "#", w: 10, align: "right" },
+      { key: "name", label: "Name", w: 32 },
+      { key: "storey", label: "Storey", w: 26 },
+      { key: "room", label: "Room", w: 32 },
+      { key: "x", label: "X", w: 18, align: "right" },
+      { key: "y", label: "Y", w: 18, align: "right" },
+      { key: "z", label: "Z", w: 16, align: "right" },
+      { key: "rot", label: "Rot", w: 18, align: "right" },
+    ];
+    const tableW = cols.reduce((s, c) => s + c.w, 0);
+    const rowH = 6.4;
+    const drawHead = (top: number) => {
+      setReportRgb(this.doc, "fill", TABLE_HEAD);
+      setReportRgb(this.doc, "draw", RULE);
+      this.doc.rect(MARGIN, top - 4.4, tableW, rowH, "FD");
+      this.font("bold", TYPE.table);
+      setReportRgb(this.doc, "text", INK);
+      let x = MARGIN;
+      for (const c of cols) {
+        const tx = c.align === "right" ? x + c.w - 1.5 : x + 1.5;
+        this.doc.text(c.label, tx, top, { align: c.align === "right" ? "right" : "left" });
+        x += c.w;
+      }
+      return top + rowH;
+    };
+    y = drawHead(y);
     this.input.scene.instances.forEach((inst, idx) => {
-      y = this.ensureY(y, 6, "Luminaire schedule");
-      const storey = this.input.scene.storeys.find((s) => s.id === inst.storeyId)?.name ?? "";
+      const needed = rowH;
+      const before = y;
+      y = this.ensureY(y, needed + 2, "Luminaire schedule");
+      if (y !== before) y = drawHead(y);
+      const storey = this.input.scene.storeys.find((s) => s.id === inst.storeyId)?.name ?? "—";
       const room = this.input.scene.rooms.find((r) => r.id === inst.roomId)?.name ?? "—";
-      this.doc.text(
-        `${idx + 1}  ${inst.name.slice(0, 16)}  ${storey}  ${room}  ${inst.position.x.toFixed(2)}  ${inst.position.y.toFixed(2)}  ${inst.position.z.toFixed(2)}  ${inst.rotationDeg.toFixed(0)}`,
-        MARGIN,
-        y
-      );
-      y += 5;
+      const values = [
+        String(idx + 1),
+        inst.name || "—",
+        storey,
+        room,
+        inst.position.x.toFixed(2),
+        inst.position.y.toFixed(2),
+        inst.position.z.toFixed(2),
+        inst.rotationDeg.toFixed(0),
+      ];
+      if (idx % 2 === 0) {
+        setReportRgb(this.doc, "fill", TABLE_ALT);
+        this.doc.rect(MARGIN, y - 4.4, tableW, rowH, "F");
+      }
+      setReportRgb(this.doc, "draw", RULE);
+      this.doc.rect(MARGIN, y - 4.4, tableW, rowH);
+      this.font("normal", TYPE.table);
+      setReportRgb(this.doc, "text", INK);
+      let x = MARGIN;
+      values.forEach((value, i) => {
+        const c = cols[i]!;
+        const clipped = this.doc.splitTextToSize(value, c.w - 3) as string[];
+        const tx = c.align === "right" ? x + c.w - 1.5 : x + 1.5;
+        this.doc.text(clipped[0] ?? value, tx, y, { align: c.align === "right" ? "right" : "left" });
+        x += c.w;
+      });
+      y += rowH;
     });
   }
 }
@@ -1056,22 +1200,46 @@ export async function buildFullReportPdfAsync(
   return new ReportPdfBuilder(input).buildAsync(yieldTo);
 }
 
-function drawPlanSymbol(doc: jsPDF, body: ReturnType<typeof luminaireBody>, cx: number, cy: number, _rMax: number) {
-  // 1:5 so Ø 55 mm and Ø 244 mm stay in proportion on the sheet.
-  const paperMmPerM = 1000 / 5;
-  const rx = Math.max((body.widthM / 2) * paperMmPerM, 2);
-  const ry = Math.max((body.lengthM / 2) * paperMmPerM, 2);
+function drawPlanSymbol(
+  doc: jsPDF,
+  body: ReturnType<typeof luminaireBody>,
+  boxX: number,
+  boxY: number,
+  boxW: number,
+  boxH: number
+): string {
+  setReportRgb(doc, "fill", TABLE_ALT);
+  setReportRgb(doc, "draw", RULE);
+  doc.rect(boxX, boxY, boxW, boxH, "FD");
+  const captionH = 6;
+  const pad = 3;
+  const innerW = Math.max(boxW - pad * 2, 4);
+  const innerH = Math.max(boxH - pad * 2 - captionH, 4);
+  const widthM = Math.max(body.widthM, 0.001);
+  const lengthM = Math.max(body.lengthM, 0.001);
+  // Prefer 1:5 when the fixture fits; otherwise tighten the scale so the
+  // symbol stays inside this box and never overlays the product table.
+  const naturalW = widthM * (1000 / 5);
+  const naturalH = lengthM * (1000 / 5);
+  const fit = Math.min(innerW / naturalW, innerH / naturalH, 1);
+  const scaleDenom = fit >= 1 ? 5 : Math.max(6, Math.ceil(5 / Math.max(fit, 0.01)));
+  const paperMmPerM = 1000 / scaleDenom;
+  const rx = Math.min((widthM / 2) * paperMmPerM, innerW / 2);
+  const ry = Math.min((lengthM / 2) * paperMmPerM, innerH / 2);
+  const cx = boxX + boxW / 2;
+  const cy = boxY + pad + innerH / 2;
   const black = body.housing === "black";
   doc.setDrawColor(40);
   doc.setFillColor(black ? 45 : 230, black ? 45 : 228, black ? 48 : 222);
   if (body.isCircular) {
-    const r = Math.max(rx, ry);
+    const r = Math.min(Math.max(rx, ry), innerW / 2, innerH / 2);
     doc.circle(cx, cy, r, "FD");
     doc.setFillColor(243, 226, 176);
     doc.circle(cx, cy, r * 0.62, "F");
   } else {
     doc.rect(cx - rx, cy - ry, rx * 2, ry * 2, "FD");
   }
+  return `Plan symbol  1:${scaleDenom}`;
 }
 
 function strokeChain(doc: jsPDF, points: { x: number; y: number }[], dashed: boolean) {
@@ -1083,7 +1251,7 @@ function strokeChain(doc: jsPDF, points: { x: number; y: number }[], dashed: boo
   doc.setLineDashPattern([], 0);
 }
 
-function drawPolar(doc: jsPDF, photo: PhotometricData, x: number, y: number, size = 120) {
+function drawPolar(doc: jsPDF, photo: PhotometricData, x: number, y: number, size = 120, fontName = "helvetica") {
   const typeB = (photo.verticalAngles[0] ?? 0) < -1e-6;
   const c0 = polarPlane(photo, 0, 91);
   const c90 = polarPlane(photo, 90, 91);
@@ -1109,9 +1277,9 @@ function drawPolar(doc: jsPDF, photo: PhotometricData, x: number, y: number, siz
     const rad = (a * Math.PI) / 180;
     doc.line(cx, cy, cx + rMax * Math.sin(rad), cy + rMax * Math.cos(rad));
   }
-  doc.setFont("helvetica", "normal");
-  doc.setFontSize(6.5);
-  doc.setTextColor(90);
+  doc.setFont(fontName, "normal");
+  doc.setFontSize(TYPE.caption);
+  setReportRgb(doc, "text", MUTED);
   doc.text(`${Math.round(maxCd * 0.5)}`, cx + 1.2, cy - rMax * 0.5 + 2);
   doc.text(`${Math.round(maxCd)}`, cx + 1.2, cy - rMax + 2);
   doc.text("0°", cx, cy + rMax + 4, { align: "center" });
@@ -1138,7 +1306,7 @@ function drawPolar(doc: jsPDF, photo: PhotometricData, x: number, y: number, siz
   doc.setLineWidth(0.7);
   doc.setDrawColor(31, 78, 121);
   doc.line(x + 8, legendY, x + 20, legendY);
-  doc.setFontSize(7);
+  doc.setFontSize(TYPE.caption);
   doc.setTextColor(40);
   doc.text("C0–C180", x + 22, legendY + 1);
   doc.setDrawColor(196, 92, 38);

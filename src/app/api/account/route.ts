@@ -3,11 +3,12 @@ import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
 import { accountPatchForSessionUser } from "@/lib/account-settings";
 
-function accountJson(user: { email: string; name: string | null; autosaveMs: number }) {
+function accountJson(user: { email: string; name: string | null; autosaveMs: number; shareLinksEnabled: boolean }) {
   return {
     email: user.email,
     name: user.name,
     autosaveMs: user.autosaveMs,
+    shareLinksEnabled: user.shareLinksEnabled,
   };
 }
 
@@ -16,7 +17,7 @@ export async function GET() {
     const sessionUser = await requireUser();
     const user = await prisma.user.findUnique({
       where: { id: sessionUser.id },
-      select: { email: true, name: true, autosaveMs: true },
+      select: { email: true, name: true, autosaveMs: true, shareLinksEnabled: true },
     });
     if (!user) return NextResponse.json({ error: "Not found" }, { status: 404 });
     return NextResponse.json(accountJson(user));
@@ -40,7 +41,7 @@ export async function PATCH(req: Request) {
     const user = await prisma.user.update({
       where: planned.where,
       data: planned.data,
-      select: { email: true, name: true, autosaveMs: true },
+      select: { email: true, name: true, autosaveMs: true, shareLinksEnabled: true },
     });
     return NextResponse.json(accountJson(user));
   } catch (e) {

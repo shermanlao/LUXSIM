@@ -158,9 +158,12 @@ export type {
 } from "./official-dxf-closed-rooms";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
-export { buildFullReportPdf, buildFullReportPdfAsync } from "./report";
+export { buildFullReportPdf, buildFullReportPdfAsync, officialProductSheetColumns } from "./report";
+export { reportPdfPlainText, reportPdfPageText } from "./report-text-log";
+export { TYPE, REPORT_FONT, loadReportFontsSync, registerReportFonts, reportFontFamily } from "./report-style";
+export { qrMatrixForUrl, drawQrCode } from "./qr-code";
 export type { ReportInput } from "./report";
-export { gridToFalseColorPngDataUrl, gridToFalseColorPngDataUrlAsync, workplaneFalseColorRgb, FALSE_COLOR_PNG_YIELD_ROWS } from "./false-color-snapshot";
+export { gridToFalseColorPngDataUrl, gridToFalseColorPngDataUrlAsync, workplaneFalseColorRgb, FALSE_COLOR_PNG_YIELD_ROWS, FALSE_COLOR_PNG_MAX_EDGE, FALSE_COLOR_PNG_MIN_SAMPLES, sampleWorkplaneLuxBilinear, falseColorPngPixelSize } from "./false-color-snapshot";
 export {
   luxToRgb,
   luxToGrey,

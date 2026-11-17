@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { buildFullReportPdf, rectPolygon } from "@luxsim/project-io";
+import { buildFullReportPdf, rectPolygon, reportPdfPlainText } from "@luxsim/project-io";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "@luxsim/project-io";
 import {
   captureOfficialReport3dViews,
@@ -63,7 +63,7 @@ function officeScene(): { scene: ProjectSceneV2; results: ResultsV2 } {
 }
 
 function pdfText(doc: ReturnType<typeof buildFullReportPdf>): string {
-  return Buffer.from(doc.output("arraybuffer")).toString("latin1");
+  return reportPdfPlainText(doc);
 }
 
 function officialPdfFromCapture(
@@ -163,7 +163,7 @@ describe("official Full PDF report with 3D capture decision", () => {
     expect(text).toContain("5. Lighting Plan");
     expect(text).toContain("6. Per-room summary and working plane");
     expect(text).toContain("7. Product sheets");
-    expect(text).toContain("8. Luminaire schedule appendix");
+    expect(text).toContain("8. Luminaire schedule");
     expect(text).toContain("Lighting Plan");
   });
 

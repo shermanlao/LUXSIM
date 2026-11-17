@@ -937,6 +937,38 @@ body:has(.cad-editor-root) header nav {
   font: inherit;
   margin-bottom: 0.35rem;
 }
+.account-popover__check {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+.account-popover__check input {
+  margin-top: 0.15rem;
+}
+.view-only-banner {
+  margin: 0;
+  padding: 0.45rem 0.85rem;
+  background: color-mix(in srgb, var(--accent-2) 16%, white);
+  color: var(--ink);
+  font-size: 0.8rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--accent-2) 30%, white);
+}
+.share-link-box {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.share-link-box input[type="text"] {
+  width: 100%;
+  font-size: 11px;
+}
+.share-qr {
+  width: 128px;
+  height: 128px;
+  background: white;
+  padding: 4px;
+  align-self: center;
+}
 .account-popover__hint {
   margin: 0 0 0.75rem;
   font-size: 0.72rem;

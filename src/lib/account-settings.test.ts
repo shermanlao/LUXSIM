@@ -5,6 +5,7 @@ import {
   accountPatchForSessionUser,
   parseAutosaveMs,
 } from "./account-settings";
+import { DEFAULT_SHARE_LINKS_ENABLED } from "./project-share";
 
 describe("autosave intervals", () => {
   it("defaults to 15 minutes", () => {
@@ -55,6 +56,42 @@ describe("accountPatchForSessionUser", () => {
       ok: false,
       status: 400,
       error: "Invalid save reminder interval",
+    });
+  });
+});
+
+describe("view-only link account setting", () => {
+  it("is on by default", () => {
+    expect(DEFAULT_SHARE_LINKS_ENABLED).toBe(true);
+  });
+
+  it("can be patched on its own or together with the save reminder", () => {
+    expect(accountPatchForSessionUser("user_session", { shareLinksEnabled: false })).toEqual({
+      ok: true,
+      where: { id: "user_session" },
+      data: { shareLinksEnabled: false },
+    });
+    const both = accountPatchForSessionUser("user_session", {
+      autosaveMs: 0,
+      shareLinksEnabled: true,
+    });
+    expect(both).toEqual({
+      ok: true,
+      where: { id: "user_session" },
+      data: { autosaveMs: 0, shareLinksEnabled: true },
+    });
+  });
+
+  it("rejects an invalid toggle and an empty body", () => {
+    expect(accountPatchForSessionUser("user_session", { shareLinksEnabled: "yes" })).toEqual({
+      ok: false,
+      status: 400,
+      error: "Invalid view-only link setting",
+    });
+    expect(accountPatchForSessionUser("user_session", {})).toEqual({
+      ok: false,
+      status: 400,
+      error: "No account settings to update",
     });
   });
 });
