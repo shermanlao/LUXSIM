@@ -113,6 +113,15 @@ export {
   officialDxfSimpleLineLoopRings,
 } from "./official-dxf-line-loops";
 export {
+  officialDxfDropContainingRings,
+  officialDxfHasNetworkFace,
+  officialDxfNetworkFaceRings,
+  officialDxfNetworkSegments,
+  officialDxfPointOnSegment,
+  officialDxfRingFullyContains,
+  officialDxfRingsMatch,
+} from "./official-dxf-network-rooms";
+export {
   DXF_CLOSED_ROOM_MIN_AREA_M2,
   DXF_CLOSED_ROOMS_NEED_DXF_STATUS,
   DXF_CLOSED_ROOMS_NONE_STATUS,

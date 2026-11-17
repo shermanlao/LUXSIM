@@ -4,9 +4,10 @@ import path from "path";
 import { defaultSceneV2 } from "./migrate";
 import { officialImportedUnderlay } from "./underlay";
 import { officialNewRoom } from "./new-room-defaults";
-import { rectPolygon } from "./geometry";
+import { rectPolygon, roomAreaM2 } from "./geometry";
 import { DEFAULT_NEW_ROOM_HEIGHT_M } from "./official-room-height";
 import type { DxfEntity, ProjectSceneV2, RoomV2 } from "./types";
+import { officialDxfHasSimpleLineLoop } from "./official-dxf-line-loops";
 import {
   DXF_CLOSED_ROOM_MIN_AREA_M2,
   DXF_CLOSED_ROOMS_NEED_DXF_STATUS,
@@ -170,10 +171,10 @@ describe("officialAppendRoomsFromDxfClosedPolylines", () => {
       type: "polyline",
       closed: true,
       points: [
-        { x: 0, y: 0 },
-        { x: 0.05, y: 0 },
-        { x: 0.05, y: 0.05 },
-        { x: 0, y: 0.05 },
+        { x: 20, y: 20 },
+        { x: 20.05, y: 20 },
+        { x: 20.05, y: 20.05 },
+        { x: 20, y: 20.05 },
       ],
     };
     // 0.05 * 0.05 = 0.0025 m² < 0.01
@@ -182,8 +183,8 @@ describe("officialAppendRoomsFromDxfClosedPolylines", () => {
       type: "polyline",
       closed: true,
       points: [
-        { x: 0, y: 0 },
-        { x: 5, y: 0 },
+        { x: 30, y: 20 },
+        { x: 35, y: 20 },
       ],
     };
     const existingPoly = rectPolygon(0, 0, 4, 3);
@@ -344,7 +345,7 @@ describe("officialAppendRoomsFromDxfClosedPolylines line loops", () => {
     expect(ys).toEqual([-3, -3, 3, 3]);
   });
 
-  it("creates no loop room from a T-junction / degree-3 vertex", () => {
+  it("creates one room from a rectangle with an exterior dangling T-junction", () => {
     const scene = sceneWithDxf([
       line(0, 0, 4, 0),
       line(4, 0, 4, 1.5),
@@ -353,19 +354,18 @@ describe("officialAppendRoomsFromDxfClosedPolylines line loops", () => {
       line(0, 3, 0, 0),
       line(4, 1.5, 6, 1.5),
     ]);
-    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(false);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
     const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
       heightM: 2.8,
       nextId: ids().nextId,
     });
-    expect(out.created).toBe(0);
-    expect(out.skipped).toBe(0);
-    expect(out.scene).toBe(scene);
-    expect(out.scene.rooms).toEqual([]);
-    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(out.scene.rooms).toHaveLength(1);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
   });
 
-  it("creates no loop room from a figure-8 / degree-4 shared vertex", () => {
+  it("creates two rooms from a figure-8 / degree-4 shared vertex", () => {
     const scene = sceneWithDxf([
       line(0, 0, 2, 0),
       line(2, 0, 2, 2),
@@ -376,14 +376,16 @@ describe("officialAppendRoomsFromDxfClosedPolylines line loops", () => {
       line(4, 4, 2, 4),
       line(2, 4, 2, 2),
     ]);
-    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(false);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
     const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
       heightM: 2.8,
       nextId: ids().nextId,
     });
-    expect(out.created).toBe(0);
-    expect(out.scene.rooms).toEqual([]);
-    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+    expect(out.created).toBe(2);
+    expect(out.status).toBe("Created 2 rooms from DXF");
+    expect(out.scene.rooms).toHaveLength(2);
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas).toEqual([4, 4]);
   });
 
   it("does not double-create a closed polyline that is also a line loop", () => {
@@ -447,6 +449,207 @@ describe("officialAppendRoomsFromDxfClosedPolylines line loops", () => {
     expect(out.created).toBe(0);
     expect(out.scene.rooms).toEqual([]);
     expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+});
+
+
+describe("officialAppendRoomsFromDxfClosedPolylines wall networks", () => {
+  it("creates two rooms from two rectangles that share a wall, not a union", () => {
+    const scene = sceneWithDxf([
+      ...RECT_LINES,
+      line(4, 0, 8, 0),
+      line(8, 0, 8, 3),
+      line(8, 3, 4, 3),
+      line(4, 3, 4, 0),
+    ]);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(2);
+    expect(out.status).toBe("Created 2 rooms from DXF");
+    expect(out.scene.rooms).toHaveLength(2);
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas).toEqual([12, 12]);
+    expect(out.scene.rooms.every((room) => room.calc.maintenanceFactor === 0.8)).toBe(true);
+    expect(out.scene.rooms.every((room) => room.calc.en12464TemplateId === "")).toBe(true);
+  });
+
+  it("splits a T-junction mid-segment wall into two rooms", () => {
+    const tee = [
+      line(0, 0, 10, 0),
+      line(10, 0, 10, 4),
+      line(10, 4, 0, 4),
+      line(0, 4, 0, 0),
+      line(0, 2, 4, 2),
+      line(4, 2, 4, 0),
+    ];
+    const scene = sceneWithDxf(tee);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(2);
+    expect(out.status).toBe("Created 2 rooms from DXF");
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas).toEqual([8, 32]);
+  });
+
+  it("creates three rooms from a corridor T-junction network", () => {
+    const scene = sceneWithDxf([
+      line(0, 2, 4, 2),
+      line(4, 2, 4, 6),
+      line(4, 6, 0, 6),
+      line(0, 6, 0, 2),
+      line(6, 2, 10, 2),
+      line(10, 2, 10, 6),
+      line(10, 6, 6, 6),
+      line(6, 6, 6, 2),
+      line(4, 0, 6, 0),
+      line(6, 0, 6, 2),
+      line(4, 2, 4, 0),
+      line(4, 6, 6, 6),
+    ]);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(3);
+    expect(out.status).toBe("Created 3 rooms from DXF");
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas).toEqual([12, 16, 16]);
+  });
+
+  it("creates only the face rooms from a closed polyline with an interior T-wall", () => {
+    const closed: DxfEntity = {
+      type: "polyline",
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 8, y: 0 },
+        { x: 8, y: 4 },
+        { x: 0, y: 4 },
+      ],
+    };
+    const scene = sceneWithDxf([closed, line(4, 0, 4, 4)]);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(2);
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas).toEqual([16, 16]);
+    expect(out.scene.rooms.some((room) => roomAreaM2(room) === 32)).toBe(false);
+  });
+
+  it("keeps the inner of two nested disjoint rectangles and does not create the overlapping outer", () => {
+    const outer: DxfEntity = {
+      type: "polyline",
+      closed: true,
+      points: [
+        { x: 0, y: 0 },
+        { x: 10, y: 0 },
+        { x: 10, y: 10 },
+        { x: 0, y: 10 },
+      ],
+    };
+    const inner: DxfEntity = {
+      type: "polyline",
+      closed: true,
+      points: [
+        { x: 3, y: 3 },
+        { x: 7, y: 3 },
+        { x: 7, y: 7 },
+        { x: 3, y: 7 },
+      ],
+    };
+    const scene = sceneWithDxf([outer, inner]);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(out.scene.rooms).toHaveLength(1);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(16);
+  });
+
+  it("enables the command when only a T-junction network exists", () => {
+    const tee = [
+      line(0, 2, 4, 2),
+      line(4, 2, 4, 6),
+      line(4, 6, 0, 6),
+      line(0, 6, 0, 2),
+      line(6, 2, 10, 2),
+      line(10, 2, 10, 6),
+      line(10, 6, 6, 6),
+      line(6, 6, 6, 2),
+      line(4, 0, 6, 0),
+      line(6, 0, 6, 2),
+      line(4, 2, 4, 0),
+      line(4, 6, 6, 6),
+    ];
+    const scene = sceneWithDxf(tee);
+    expect(tee.every((entity) => entity.type === "line" && entity.closed !== true)).toBe(true);
+    expect(officialDxfHasSimpleLineLoop(tee)).toBe(false);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+  });
+
+  it("maps T-junction network rooms when metersPerUnit is not 1 and the origin is offset", () => {
+    const tee = [
+      line(0, 0, 10, 0),
+      line(10, 0, 10, 4),
+      line(10, 4, 0, 4),
+      line(0, 4, 0, 0),
+      line(0, 2, 4, 2),
+      line(4, 2, 4, 0),
+    ];
+    const scene = sceneWithDxf(tee, { metersPerUnit: 2, offsetX: 1, offsetY: -3 });
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(2);
+    const areas = out.scene.rooms.map((room) => roomAreaM2(room)).sort((a, b) => a - b);
+    expect(areas[0]).toBeCloseTo(32, 6);
+    expect(areas[1]).toBeCloseTo(128, 6);
+  });
+
+  it("skips a network face that already exists on the storey and does not rewrite it", () => {
+    const scene = sceneWithDxf([
+      ...RECT_LINES,
+      line(4, 0, 8, 0),
+      line(8, 0, 8, 3),
+      line(8, 3, 4, 3),
+    ]);
+    const existing = officialNewRoom({
+      id: "room-existing",
+      storeyId: scene.ui.activeStoreyId,
+      name: "Existing",
+      polygon: rectPolygon(0, 0, 4, 3),
+      heightM: 3,
+    });
+    existing.calc = {
+      ...existing.calc,
+      maintenanceFactor: 0.67,
+      en12464TemplateId: "office",
+    };
+    scene.rooms = [existing];
+    const before = structuredClone(existing);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    const created = out.scene.rooms.find((room) => room.id === "room-dxf-1");
+    expect(created).toBeDefined();
+    expect(roomAreaM2(created!)).toBe(12);
+    expect(created!.calc.maintenanceFactor).toBe(0.8);
+    expect(created!.calc.en12464TemplateId).toBe("");
+    expect(out.scene.rooms[0]).toEqual(before);
+    expect(scene.rooms).toEqual([before]);
   });
 });
 

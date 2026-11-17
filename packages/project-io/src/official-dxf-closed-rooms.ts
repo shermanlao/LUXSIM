@@ -9,6 +9,12 @@ import {
   officialDxfSimpleLineLoopRings,
 } from "./official-dxf-line-loops";
 import {
+  officialDxfDropContainingRings,
+  officialDxfHasNetworkFace,
+  officialDxfNetworkFaceRings,
+  officialDxfRingsMatch,
+} from "./official-dxf-network-rooms";
+import {
   DXF_CLOSED_VERTEX_EPS_M,
   officialDxfClosedRingVertices,
   officialDxfPointsCoincide,
@@ -20,7 +26,7 @@ import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "./types";
 export const DXF_CLOSED_ROOM_MIN_AREA_M2 = 0.01;
 
 export const DXF_CLOSED_ROOMS_NONE_STATUS =
-  "No valid closed DXF polylines or simple line loops to create as rooms. T-junction and shared-wall networks are not auto-traced. Degenerate outlines and rooms that already exist on this storey are skipped.";
+  "No valid closed DXF polylines, simple line loops, or wall-network rooms to create. Degenerate outlines, holed outer rings that would cover an inner room, and rooms that already exist on this storey are skipped.";
 
 export const DXF_CLOSED_ROOMS_NEED_DXF_STATUS =
   "Create rooms from DXF needs a DXF underlay on the current storey.";
@@ -47,8 +53,8 @@ export function officialDxfWorldEntitiesForRooms(
 
 /**
  * The official command is enabled when the current storey’s underlay is a
- * parsed DXF and at least one closed polyline or simple LINE / open-polyline
- * loop exists after world mapping.
+ * parsed DXF and at least one closed polyline, simple LINE / open-polyline
+ * loop, or planar wall-network face exists after world mapping.
  */
 export function officialCanCreateRoomsFromDxf(
   underlay: OfficialDxfRoomsUnderlay | null | undefined
@@ -56,7 +62,8 @@ export function officialCanCreateRoomsFromDxf(
   const world = officialDxfWorldEntitiesForRooms(underlay);
   return (
     world.some((entity) => officialDxfPolylineClosed(entity)) ||
-    officialDxfHasSimpleLineLoop(world)
+    officialDxfHasSimpleLineLoop(world) ||
+    officialDxfHasNetworkFace(world)
   );
 }
 
@@ -142,10 +149,13 @@ function considerRing(
 /**
  * Create official new rooms on the current storey from (a) each valid closed
  * DXF polyline, then (b) each valid simple loop of connected LINE / open
- * LWPOLYLINE segments. T-junction, figure-8, and shared-wall networks are
- * not auto-traced. Existing rooms are left unchanged. Degenerate rings and
- * outlines that already exist on the storey (including a loop that matches a
- * closed polyline just created) are skipped.
+ * LWPOLYLINE segments, then (c) each remaining minimal interior face of the
+ * planarized wall network (T-junctions, shared walls, and figure-8 vertices).
+ * If a closed polyline or simple loop fully contains a network face, that
+ * overlapping outer outline is skipped so a subdivided or nested room is not
+ * covered by a holed outer. Existing rooms are left unchanged. Degenerate
+ * rings and outlines that already exist on the storey (including a loop or
+ * face that matches a closed polyline just created) are skipped.
  */
 export function officialAppendRoomsFromDxfClosedPolylines(
   scene: ProjectSceneV2,
@@ -171,10 +181,32 @@ export function officialAppendRoomsFromDxfClosedPolylines(
   let created = 0;
   let skipped = 0;
 
+  const closedRings: Vec2[][] = [];
+  const failedClosed = { count: 0 };
   for (const entity of world) {
     if (!officialDxfPolylineClosed(entity)) continue;
     const ring = officialDxfClosedRingVertices(entity);
     if (!ring) {
+      failedClosed.count += 1;
+      continue;
+    }
+    closedRings.push(ring);
+  }
+  const loopRings = officialDxfSimpleLineLoopRings(world);
+  const networkRings = officialDxfNetworkFaceRings(world);
+  const kept = officialDxfDropContainingRings([
+    ...closedRings,
+    ...loopRings,
+    ...networkRings,
+  ]);
+
+  const isKept = (ring: Vec2[]) =>
+    kept.some((other) => officialDxfRingsMatch(ring, other, DXF_CLOSED_VERTEX_EPS_M));
+
+  skipped += failedClosed.count;
+
+  for (const ring of closedRings) {
+    if (!isKept(ring)) {
       skipped += 1;
       continue;
     }
@@ -184,12 +216,28 @@ export function officialAppendRoomsFromDxfClosedPolylines(
     else skipped += 1;
   }
 
-  for (const ring of officialDxfSimpleLineLoopRings(world)) {
+  for (const ring of loopRings) {
+    if (!isKept(ring)) {
+      skipped += 1;
+      continue;
+    }
     const out = considerRing(ring, existingRings, next, input);
     next = out.next;
     if (out.created) created += 1;
     else skipped += 1;
   }
+
+  for (const ring of networkRings) {
+    if (!isKept(ring)) continue;
+    const already = existingRings.some((other) =>
+      officialDxfRingsMatch(ring, other, DXF_CLOSED_VERTEX_EPS_M)
+    );
+    const out = considerRing(ring, existingRings, next, input);
+    next = out.next;
+    if (out.created) created += 1;
+    else if (!already) skipped += 1;
+  }
+
 
   if (created === 0) {
     return { scene, created: 0, skipped, status: DXF_CLOSED_ROOMS_NONE_STATUS };

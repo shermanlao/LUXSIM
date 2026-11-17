@@ -32,7 +32,7 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.createRoomsFromDxf",
     title: "Create rooms from DXF",
-    body: "With a DXF underlay on the current storey, this makes rooms from closed polylines and from simple closed loops of connected lines. It does not trace T-junctions or shared walls. New rooms use the official defaults (maintenance factor 0.80, no EN template) and the Building Room height. Scale follows the current Calibrate scale. Existing rooms are left unchanged.",
+    body: "With a DXF underlay on the current storey, this makes rooms from closed polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network. Official rooms are simple polygons without holes: if one room lies fully inside another with no connecting wall, only the inner room is kept. DWG is not parsed, and CIRCLE, ARC, and old POLYLINE entities are not traced. New rooms use the official defaults (maintenance factor 0.80, no EN template) and the Building Room height. Scale follows the current Calibrate scale. Existing rooms are left unchanged.",
   },
   {
     helpKey: "tool.unionRooms",
