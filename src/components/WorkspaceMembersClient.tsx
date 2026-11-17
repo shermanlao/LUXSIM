@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { parseWorkspaceName, WORKSPACE_NAME_MAX_LENGTH } from "@/lib/workspace-name";
 
 type Workspace = { id: string; name: string };
 type Member = {
@@ -24,6 +25,10 @@ export function WorkspaceMembersClient({ initialWorkspaces }: { initialWorkspace
   const [loading, setLoading] = useState(true);
   const [email, setEmail] = useState("");
   const [role, setRole] = useState<"owner" | "member">("member");
+  const [renaming, setRenaming] = useState(false);
+  const [draftName, setDraftName] = useState("");
+  const [renamingBusy, setRenamingBusy] = useState(false);
+  const currentName = workspaces.find((w) => w.id === orgId)?.name ?? "Workspace";
 
   const refresh = useCallback(async (id: string) => {
     setError(null);
@@ -43,6 +48,12 @@ export function WorkspaceMembersClient({ initialWorkspaces }: { initialWorkspace
   useEffect(() => {
     if (orgId) void refresh(orgId);
   }, [orgId, refresh]);
+
+  useEffect(() => {
+    setRenaming(false);
+    setDraftName("");
+    setRenamingBusy(false);
+  }, [orgId]);
 
   async function addMember(e: React.FormEvent) {
     e.preventDefault();
@@ -87,7 +98,43 @@ export function WorkspaceMembersClient({ initialWorkspaces }: { initialWorkspace
     await refresh(orgId);
   }
 
-  const currentName = workspaces.find((w) => w.id === orgId)?.name ?? "Workspace";
+  function startRename() {
+    setError(null);
+    setDraftName(currentName);
+    setRenaming(true);
+  }
+
+  function cancelRename() {
+    setRenaming(false);
+    setDraftName("");
+    setRenamingBusy(false);
+  }
+
+  async function saveRename(e: React.FormEvent) {
+    e.preventDefault();
+    setError(null);
+    const parsed = parseWorkspaceName(draftName);
+    if (!parsed.ok) {
+      setError(parsed.error);
+      return;
+    }
+    setRenamingBusy(true);
+    const res = await fetch("/api/workspace", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgId, name: parsed.name }),
+    });
+    if (!res.ok) {
+      setRenamingBusy(false);
+      setError(await readError(res, "Failed to rename workspace"));
+      return;
+    }
+    const data = (await res.json()) as { id: string; name: string };
+    setWorkspaces((prev) => prev.map((w) => (w.id === data.id ? { ...w, name: data.name } : w)));
+    setRenaming(false);
+    setDraftName("");
+    setRenamingBusy(false);
+  }
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
@@ -119,7 +166,41 @@ export function WorkspaceMembersClient({ initialWorkspaces }: { initialWorkspace
         </div>
       )}
 
-      {workspaces.length === 1 && <h2 className="display text-2xl mb-4">{currentName}</h2>}
+      {orgId && (
+        <div className="mb-4 flex flex-wrap items-center gap-3">
+          {renaming ? (
+            <form onSubmit={(e) => void saveRename(e)} className="flex flex-wrap items-end gap-3 flex-1">
+              <div className="flex-1 min-w-56 max-w-md">
+                <label className="label" htmlFor="workspace-name">
+                  Workspace name
+                </label>
+                <input
+                  id="workspace-name"
+                  className="input"
+                  value={draftName}
+                  onChange={(e) => setDraftName(e.target.value)}
+                  maxLength={WORKSPACE_NAME_MAX_LENGTH}
+                  autoFocus
+                  disabled={renamingBusy}
+                />
+              </div>
+              <button type="submit" className="btn btn-accent" disabled={renamingBusy}>
+                Save
+              </button>
+              <button type="button" className="btn btn-secondary" onClick={cancelRename} disabled={renamingBusy}>
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <>
+              <h2 className="display text-2xl">{currentName}</h2>
+              <button type="button" className="btn btn-secondary !py-1 !px-2 !text-xs" onClick={startRename}>
+                Rename
+              </button>
+            </>
+          )}
+        </div>
+      )}
       {error && <p className="text-sm text-red-700 mb-4">{error}</p>}
 
       <form onSubmit={(e) => void addMember(e)} className="panel p-5 mb-6 flex flex-wrap gap-3 items-end">

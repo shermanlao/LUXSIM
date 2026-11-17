@@ -104,6 +104,7 @@ describe("user guide", () => {
   it("parses the main headings", () => {
     const headings = blocks.filter((b) => b.type === "h1" || b.type === "h2").map((b) => b.text);
     expect(headings[0]).toMatch(/使用手冊 \/ User guide/);
+    expect(headings).toContain("工作區名稱 / Workspace name");
     expect(headings).toContain("平面圖視野 / Plan view");
     expect(headings).toContain("畫房 / Draw room");
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
@@ -114,6 +115,20 @@ describe("user guide", () => {
     expect(headings).toContain("房間屬性 / Room properties");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
+  });
+
+  it("documents that only a workspace Owner can rename the workspace", () => {
+    expect(guide).toMatch(/工作區的 Owner 可在 \[Workspace members\]\(\/workspace\/members\) 頁將工作區重新命名/);
+    expect(guide).toMatch(/按名稱旁的 \*\*Rename\*\*/);
+    expect(guide).toMatch(/Member 不能更改工作區名稱，也打不開此頁/);
+    expect(guide).toMatch(/The workspace Owner can rename the workspace on the \[Workspace members\]\(\/workspace\/members\) page/);
+    expect(guide).toMatch(/Members cannot rename the workspace, and they cannot open this page/);
+    expect(guide).not.toMatch(/\bHost\b/);
+
+    const admin = read("docs/ADMIN.md");
+    expect(admin).toMatch(/rename the workspace on the Workspace members page/);
+    expect(admin).toMatch(/They cannot rename the workspace/);
+    expect(admin).not.toMatch(/\bHost\b/);
   });
 
   it("is linked from the in-app docs home, guide route, and header nav", () => {

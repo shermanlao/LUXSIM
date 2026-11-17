@@ -21,6 +21,12 @@ When you open a project from [Projects](/projects), after **New project** or **O
 
 The editor does not silently autosave. When there are unsaved changes, a reminder dialog appears after the interval set in header **Account settings** (default 15 minutes; Off / 1 / 5 / 15 minutes). It asks you to save the file. **Save** runs the same official save as the toolbar, then closes the dialog and resets the timer. **Later**, Esc, or clicking the backdrop dismisses it without saving; if the project is still dirty, you are reminded again after another full interval. You can still click **Save** in the toolbar at any time. Off means no reminder; you can still click **Save**.
 
+## 工作區名稱 / Workspace name
+
+工作區的 Owner 可在 [Workspace members](/workspace/members) 頁將工作區重新命名。按名稱旁的 **Rename**，輸入新名稱後按 **Save**；按 **Cancel** 則不更改。名稱不能空白，亦不可超過 100 個字元。同一個工作區若有多於一位 Owner，任何一位現任 Owner 都可以改名。Member 不能更改工作區名稱，也打不開此頁。
+
+The workspace Owner can rename the workspace on the [Workspace members](/workspace/members) page. Click **Rename** next to the name, enter the new name, then **Save**. **Cancel** leaves the name unchanged. The name cannot be empty or longer than 100 characters. If a workspace has more than one Owner, any current Owner may rename it. Members cannot rename the workspace, and they cannot open this page.
+
 ## 平面圖視野 / Plan view
 
 ![平面視野控制 / Plan view controls](/docs/guide/plan-view-controls.svg)

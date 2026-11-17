@@ -109,6 +109,11 @@ export function canManageWorkspaceMembers(role: string | null | undefined, isSit
   return isSiteAdmin || role === "owner";
 }
 
+/** Rename a workspace: owners of that workspace, or a site admin (support access). */
+export function canRenameWorkspace(role: string | null | undefined, isSiteAdmin: boolean): boolean {
+  return canManageWorkspaceMembers(role, isSiteAdmin);
+}
+
 /** Header + /workspace/members: owners only (not the site-wide Admin area). */
 export function canSeeWorkspaceMembersPage(isOwnerOfAnyWorkspace: boolean): boolean {
   return isOwnerOfAnyWorkspace;

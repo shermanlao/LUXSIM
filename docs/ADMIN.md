@@ -7,8 +7,8 @@ This is LUXSIM’s own access model. It is not a licence or billing console.
 ## Roles
 
 - **Site admin** — sees an Admin link in the header and can use `/admin`. This is not the same as being a workspace owner. Support access lets a site admin open any project from the Admin workspaces page. A site admin who is not a member of a workspace does not see that workspace’s projects on the ordinary Projects list.
-- **Workspace owner** — add or remove people in that workspace, change Owner vs Member, manage that workspace, and open every project in it. Owners get a Members link to `/workspace/members`, not the site-wide Admin area.
-- **Workspace member** — create and edit projects in workspaces they belong to. They cannot manage users or site settings.
+- **Workspace owner** — add or remove people in that workspace, change Owner vs Member, rename the workspace on the Workspace members page, manage that workspace, and open every project in it. Owners get a Members link to `/workspace/members`, not the site-wide Admin area.
+- **Workspace member** — create and edit projects in workspaces they belong to. They cannot rename the workspace, and they cannot manage users or site settings.
 
 A user may belong to more than one workspace. The Projects list shows projects from every membership. New projects go into the first membership unless the user picks a workspace. Access to a given project or luminaire is checked against that item’s workspace, not only the first membership.
 

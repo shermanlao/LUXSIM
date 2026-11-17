@@ -7,6 +7,7 @@ import {
   canListOrgProjects,
   canManageWorkspaceMembers,
   canOpenProject,
+  canRenameWorkspace,
   canSeeWorkspaceMembersPage,
   credentialsAccess,
   isWorkspaceRole,
@@ -138,6 +139,15 @@ describe("member vs owner permissions", () => {
   it("shows the workspace members page only to owners", () => {
     expect(canSeeWorkspaceMembersPage(true)).toBe(true);
     expect(canSeeWorkspaceMembersPage(false)).toBe(false);
+  });
+
+  it("lets an owner or site admin rename a workspace, but not a member", () => {
+    expect(canRenameWorkspace("owner", false)).toBe(true);
+    expect(canRenameWorkspace("member", false)).toBe(false);
+    expect(canRenameWorkspace("member", true)).toBe(true);
+    expect(canRenameWorkspace(null, false)).toBe(false);
+    expect(canRenameWorkspace(null, true)).toBe(true);
+    expect(canRenameWorkspace("owner", true)).toBe(true);
   });
 
   it("accepts only owner or member as a workspace role", () => {
