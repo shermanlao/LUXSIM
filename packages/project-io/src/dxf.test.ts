@@ -5,8 +5,11 @@ import {
   parseDxfEntities,
   dxfBounds,
   DXF_CURVE_SEGMENTS_PER_TURN,
+  DXF_SPLINE_MAX_SEGMENTS,
   dxfCurveSegmentCount,
   dxfEllipseSweepRad,
+  dxfSplineSegmentCount,
+  evaluateDxfSpline,
   tessellateDxfBulgeIntermediates,
 } from "./dxf";
 import { importIfcText } from "./ifc-import";
@@ -514,6 +517,253 @@ describe("parseDxfEntities ELLIPSE", () => {
           ellipseEnt(0, 0, 2, 0, Number.POSITIVE_INFINITY) +
           ellipseEnt(0, 0, 0, 0, 0.5) +
           "  0\nELLIPSE\n  10\n0\n  20\n0\n  40\n0.5\n"
+      )
+    );
+    expect(skipped).toEqual([]);
+    expect(parseDxfEntities("")).toEqual([]);
+    expect(parseDxfEntities(dxfFile(""))).toEqual([]);
+  });
+});
+
+function splineEnt(opts: {
+  flags?: number;
+  degree: number;
+  knots: number[];
+  points: Array<{ x: number; y: number }>;
+  weights?: number[];
+  fitPoints?: Array<{ x: number; y: number }>;
+}): string {
+  const flags = opts.flags ?? 0;
+  let s =
+    `  0\nSPLINE\n  70\n${flags}\n  71\n${opts.degree}\n` +
+    `  72\n${opts.knots.length}\n  73\n${opts.points.length}\n`;
+  if (opts.fitPoints) s += `  74\n${opts.fitPoints.length}\n`;
+  for (const k of opts.knots) s += `  40\n${k}\n`;
+  if (opts.weights) {
+    for (const w of opts.weights) s += `  41\n${w}\n`;
+  }
+  for (const pt of opts.points) s += `  10\n${pt.x}\n  20\n${pt.y}\n  30\n0\n`;
+  if (opts.fitPoints) {
+    for (const pt of opts.fitPoints) s += `  11\n${pt.x}\n  21\n${pt.y}\n`;
+  }
+  return s;
+}
+
+describe("parseDxfEntities SPLINE", () => {
+  const cubicPts = [
+    { x: 0, y: 0 },
+    { x: 1, y: 2 },
+    { x: 3, y: 2 },
+    { x: 4, y: 0 },
+  ];
+  const cubicKnots = [0, 0, 0, 0, 1, 1, 1, 1];
+
+  it("evaluates a clamped cubic open spline through known De Boor points", () => {
+    const mid = evaluateDxfSpline(3, cubicPts, cubicKnots, 0.5);
+    // Cubic Bézier at t=0.5: 0.125 P0 + 0.375 P1 + 0.375 P2 + 0.125 P3 = (2, 1.5)
+    expect(mid?.x).toBeCloseTo(2, 10);
+    expect(mid?.y).toBeCloseTo(1.5, 10);
+    const start = evaluateDxfSpline(3, cubicPts, cubicKnots, 0);
+    expect(start?.x).toBeCloseTo(0, 10);
+    expect(start?.y).toBeCloseTo(0, 10);
+    const end = evaluateDxfSpline(3, cubicPts, cubicKnots, 1);
+    expect(end?.x).toBeCloseTo(4, 10);
+    expect(end?.y).toBeCloseTo(0, 10);
+
+    const entities = parseDxfEntities(dxfFile(splineEnt({
+      degree: 3,
+      knots: cubicKnots,
+      points: cubicPts,
+    })));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBeUndefined();
+    expect(entities[0]?.type).toBe("polyline");
+    // Open spline includes endpoints: 48 segments → 49 vertices.
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN + 1);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(0);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(0);
+    const midPt = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 2]!;
+    expect(midPt.x).toBeCloseTo(2, 10);
+    expect(midPt.y).toBeCloseTo(1.5, 10);
+    const last = entities[0]!.points[entities[0]!.points.length - 1]!;
+    expect(last.x).toBeCloseTo(4);
+    expect(last.y).toBeCloseTo(0);
+    // No invented closing chord back to the origin.
+    expect(
+      entities[0]!.points.some((p, i) => {
+        if (i === 0) return false;
+        return p.x < 0 || (p.x < 1e-9 && p.y < 1e-9);
+      })
+    ).toBe(false);
+  });
+
+  it("tessellates a rational quadratic quarter circle and does not close it with a chord", () => {
+    const w = Math.SQRT1_2;
+    const pts = [
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+    ];
+    const knots = [0, 0, 0, 1, 1, 1];
+    const mid = evaluateDxfSpline(2, pts, knots, 0.5, [1, w, 1]);
+    expect(mid?.x).toBeCloseTo(Math.SQRT1_2, 10);
+    expect(mid?.y).toBeCloseTo(Math.SQRT1_2, 10);
+
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          flags: 4,
+          degree: 2,
+          knots,
+          points: pts,
+          weights: [1, w, 1],
+        })
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBeUndefined();
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN + 1);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(1);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(0);
+    const midPt = entities[0]!.points[DXF_CURVE_SEGMENTS_PER_TURN / 2]!;
+    expect(midPt.x).toBeCloseTo(Math.SQRT1_2, 10);
+    expect(midPt.y).toBeCloseTo(Math.SQRT1_2, 10);
+    const last = entities[0]!.points[entities[0]!.points.length - 1]!;
+    expect(last.x).toBeCloseTo(0);
+    expect(last.y).toBeCloseTo(1);
+    // Quarter circle stays in the first quadrant — no invented chord through the interior.
+    expect(entities[0]!.points.some((p) => p.x < -1e-9 || p.y < -1e-9)).toBe(false);
+    for (const p of entities[0]!.points) {
+      expect(Math.hypot(p.x, p.y)).toBeCloseTo(1, 8);
+    }
+  });
+
+  it("parses a closed rational quadratic circle as a closed 48-vertex loop", () => {
+    const w = Math.SQRT1_2;
+    const pts = [
+      { x: 1, y: 0 },
+      { x: 1, y: 1 },
+      { x: 0, y: 1 },
+      { x: -1, y: 1 },
+      { x: -1, y: 0 },
+      { x: -1, y: -1 },
+      { x: 0, y: -1 },
+      { x: 1, y: -1 },
+      { x: 1, y: 0 },
+    ];
+    const knots = [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4];
+    const weights = [1, w, 1, w, 1, w, 1, w, 1];
+    const entities = parseDxfEntities(
+      dxfFile(splineEnt({ flags: 1 | 4, degree: 2, knots, points: pts, weights }))
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(1);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(0);
+    // No duplicate closing corner.
+    const last = entities[0]!.points[entities[0]!.points.length - 1]!;
+    expect(last.x).not.toBeCloseTo(1, 6);
+    for (const p of entities[0]!.points) {
+      expect(Math.hypot(p.x, p.y)).toBeCloseTo(1, 8);
+    }
+    const bounds = dxfBounds(entities)!;
+    expect(bounds.minX).toBeCloseTo(-1, 6);
+    expect(bounds.maxX).toBeCloseTo(1, 6);
+    expect(bounds.minY).toBeCloseTo(-1, 6);
+    expect(bounds.maxY).toBeCloseTo(1, 6);
+  });
+
+  it("parses a periodic closed quadratic spline and does not invent a chord", () => {
+    const pts = [
+      { x: 3, y: 3 },
+      { x: -3, y: 3 },
+      { x: -3, y: -3 },
+      { x: 3, y: -3 },
+    ];
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          flags: 1 | 2,
+          degree: 2,
+          knots: [0, 1, 2, 3, 4],
+          points: pts,
+        })
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points.length).toBeGreaterThanOrEqual(DXF_CURVE_SEGMENTS_PER_TURN);
+    const first = entities[0]!.points[0]!;
+    const last = entities[0]!.points[entities[0]!.points.length - 1]!;
+    // Closed without a duplicate closing corner.
+    expect(Math.hypot(first.x - last.x, first.y - last.y)).toBeGreaterThan(1e-3);
+    const bounds = dxfBounds(entities)!;
+    expect(bounds.minX).toBeGreaterThanOrEqual(-3 - 1e-9);
+    expect(bounds.maxX).toBeLessThanOrEqual(3 + 1e-9);
+    expect(bounds.minY).toBeGreaterThanOrEqual(-3 - 1e-9);
+    expect(bounds.maxY).toBeLessThanOrEqual(3 + 1e-9);
+  });
+
+  it("raises the sample count on a multi-span spline and caps at the documented maximum", () => {
+    // Degree 3, 20 control points, clamped: 17 non-empty spans → max(48, 4×17) = 68.
+    const n = 20;
+    const degree = 3;
+    const points = Array.from({ length: n }, (_, i) => ({ x: i, y: i % 3 === 1 ? 1 : 0 }));
+    const knots = [0, 0, 0, 0, ...Array.from({ length: n - degree - 1 }, (_, i) => i + 1), n - degree, n - degree, n - degree, n - degree];
+    expect(knots).toHaveLength(n + degree + 1);
+    expect(dxfSplineSegmentCount(17)).toBe(68);
+    const entities = parseDxfEntities(dxfFile(splineEnt({ degree, knots, points })));
+    expect(entities[0]?.points).toHaveLength(68 + 1);
+
+    // Many spans cap at 384 (open: 384 segments + endpoint).
+    const n2 = 120;
+    const points2 = Array.from({ length: n2 }, (_, i) => ({ x: i, y: 0 }));
+    const knots2 = [0, 0, 0, 0, ...Array.from({ length: n2 - degree - 1 }, (_, i) => i + 1), n2 - degree, n2 - degree, n2 - degree, n2 - degree];
+    expect(dxfSplineSegmentCount(n2 - degree)).toBe(DXF_SPLINE_MAX_SEGMENTS);
+    const many = parseDxfEntities(dxfFile(splineEnt({ degree, knots: knots2, points: points2 })));
+    expect(many[0]?.points).toHaveLength(DXF_SPLINE_MAX_SEGMENTS + 1);
+  });
+
+  it("skips degenerate, missing-knot, too-few-control, non-finite, and fit-point-only splines", () => {
+    const skipped = parseDxfEntities(
+      dxfFile(
+        splineEnt({ degree: 0, knots: [0, 1], points: cubicPts }) +
+          splineEnt({ degree: 3, knots: cubicKnots, points: cubicPts.slice(0, 3) }) +
+          splineEnt({ degree: 3, knots: [], points: cubicPts }) +
+          splineEnt({ degree: 3, knots: [0, 0, 0, 1, 1, 1], points: cubicPts }) +
+          splineEnt({
+            degree: 3,
+            knots: cubicKnots,
+            points: [
+              { x: Number.NaN, y: 0 },
+              { x: 1, y: 2 },
+              { x: 3, y: 2 },
+              { x: 4, y: 0 },
+            ],
+          }) +
+          splineEnt({
+            degree: 3,
+            knots: [0, 0, 0, 0, Number.POSITIVE_INFINITY, 1, 1, 1],
+            points: cubicPts,
+          }) +
+          splineEnt({
+            flags: 4,
+            degree: 3,
+            knots: cubicKnots,
+            points: cubicPts,
+            weights: [0, 0, 0, 0],
+          }) +
+          splineEnt({
+            degree: 3,
+            knots: [],
+            points: [],
+            fitPoints: [
+              { x: 0, y: 0 },
+              { x: 1, y: 1 },
+              { x: 2, y: 0 },
+            ],
+          })
       )
     );
     expect(skipped).toEqual([]);

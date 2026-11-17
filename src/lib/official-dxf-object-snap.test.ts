@@ -275,7 +275,7 @@ describe("official DXF object-snap wiring", () => {
   });
 });
 
-describe("object snap and bounds on tessellated CIRCLE, ARC, ELLIPSE, and POLYLINE bulges", () => {
+describe("object snap and bounds on tessellated CIRCLE, ARC, ELLIPSE, SPLINE, and POLYLINE bulges", () => {
   it("snaps to tessellated CIRCLE and ARC segments and includes them in bounds", () => {
     const circle = parseDxfEntities(
       "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  0\nENDSEC\n  0\nEOF\n"
@@ -412,6 +412,66 @@ describe("object snap and bounds on tessellated CIRCLE, ARC, ELLIPSE, and POLYLI
     const arcBounds = dxfBounds(quarter)!;
     expect(arcBounds.minX).toBeCloseTo(0);
     expect(arcBounds.maxX).toBeCloseTo(2);
+    expect(arcBounds.minY).toBeCloseTo(0);
+    expect(arcBounds.maxY).toBeCloseTo(1);
+  });
+
+
+  it("snaps to tessellated SPLINE segments and does not invent a chord on an open spline", () => {
+    const w = Math.SQRT1_2;
+    const full = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nSPLINE\n  70\n5\n  71\n2\n  72\n12\n  73\n9\n" +
+        "  40\n0\n  40\n0\n  40\n0\n  40\n1\n  40\n1\n  40\n2\n  40\n2\n  40\n3\n  40\n3\n  40\n4\n  40\n4\n  40\n4\n" +
+        "  41\n1\n  41\n" + `${w}\n  41\n1\n  41\n${w}\n  41\n1\n  41\n${w}\n  41\n1\n  41\n${w}\n  41\n1\n` +
+        "  10\n1\n  20\n0\n  10\n1\n  20\n1\n  10\n0\n  20\n1\n  10\n-1\n  20\n1\n" +
+        "  10\n-1\n  20\n0\n  10\n-1\n  20\n-1\n  10\n0\n  20\n-1\n  10\n1\n  20\n-1\n  10\n1\n  20\n0\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(full[0]?.closed).toBe(true);
+    expect(full[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const bounds = dxfBounds(full)!;
+    expect(bounds.minX).toBeCloseTo(-1, 6);
+    expect(bounds.maxX).toBeCloseTo(1, 6);
+    expect(bounds.minY).toBeCloseTo(-1, 6);
+    expect(bounds.maxY).toBeCloseTo(1, 6);
+
+    const end = pickDxfObjectSnap({ x: 1.02, y: 0 }, full, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point.x).toBeCloseTo(1);
+    expect(end?.point.y).toBeCloseTo(0);
+
+    const first = full[0]!.points[0]!;
+    const second = full[0]!.points[1]!;
+    const midPt = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+    const mid = pickDxfObjectSnap(midPt, full, 0.05);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point.x).toBeCloseTo(midPt.x);
+    expect(mid?.point.y).toBeCloseTo(midPt.y);
+    const nearest = pickDxfObjectSnap({ x: midPt.x, y: midPt.y + 0.02 }, full, 0.08);
+    expect(nearest?.kind).toBe("nearest");
+
+    const quarter = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nSPLINE\n  70\n4\n  71\n2\n  72\n6\n  73\n3\n" +
+        "  40\n0\n  40\n0\n  40\n0\n  40\n1\n  40\n1\n  40\n1\n" +
+        "  41\n1\n  41\n" + `${w}\n  41\n1\n` +
+        "  10\n1\n  20\n0\n  10\n1\n  20\n1\n  10\n0\n  20\n1\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(quarter[0]?.closed).toBeUndefined();
+    // Open spline must not invent a closing chord from (0,1) back to (1,0).
+    const invented = pickDxfObjectSnap({ x: 0.5, y: 0.5 }, quarter, 0.15);
+    expect(invented).toBeNull();
+    const arcEnd = pickDxfObjectSnap({ x: 0, y: 1.02 }, quarter, 0.1);
+    expect(arcEnd?.kind).toBe("endpoint");
+    expect(arcEnd?.point.x).toBeCloseTo(0);
+    expect(arcEnd?.point.y).toBeCloseTo(1);
+    const start = pickDxfObjectSnap({ x: 1.02, y: 0 }, quarter, 0.1);
+    expect(start?.kind).toBe("endpoint");
+    expect(start?.point.x).toBeCloseTo(1);
+    expect(start?.point.y).toBeCloseTo(0);
+    const arcBounds = dxfBounds(quarter)!;
+    expect(arcBounds.minX).toBeCloseTo(0);
+    expect(arcBounds.maxX).toBeCloseTo(1);
     expect(arcBounds.minY).toBeCloseTo(0);
     expect(arcBounds.maxY).toBeCloseTo(1);
   });

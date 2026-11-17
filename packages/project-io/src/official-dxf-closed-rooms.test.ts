@@ -961,3 +961,167 @@ describe("officialAppendRoomsFromDxfClosedPolylines ELLIPSE", () => {
     expect(emptyOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
   });
 });
+
+function splineEnt(opts: {
+  flags?: number;
+  degree: number;
+  knots: number[];
+  points: Array<{ x: number; y: number }>;
+  weights?: number[];
+}): string {
+  const flags = opts.flags ?? 0;
+  let s =
+    `  0\nSPLINE\n  70\n${flags}\n  71\n${opts.degree}\n` +
+    `  72\n${opts.knots.length}\n  73\n${opts.points.length}\n`;
+  for (const k of opts.knots) s += `  40\n${k}\n`;
+  if (opts.weights) {
+    for (const w of opts.weights) s += `  41\n${w}\n`;
+  }
+  for (const pt of opts.points) s += `  10\n${pt.x}\n  20\n${pt.y}\n`;
+  return s;
+}
+
+describe("officialAppendRoomsFromDxfClosedPolylines SPLINE", () => {
+  const circleW = Math.SQRT1_2;
+  const circlePts = [
+    { x: 1, y: 0 },
+    { x: 1, y: 1 },
+    { x: 0, y: 1 },
+    { x: -1, y: 1 },
+    { x: -1, y: 0 },
+    { x: -1, y: -1 },
+    { x: 0, y: -1 },
+    { x: 1, y: -1 },
+    { x: 1, y: 0 },
+  ];
+  const circleKnots = [0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 4];
+  const circleWeights = [1, circleW, 1, circleW, 1, circleW, 1, circleW, 1];
+
+  it("creates a room from a closed rational quadratic SPLINE circle", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          flags: 1 | 4,
+          degree: 2,
+          knots: circleKnots,
+          points: circlePts,
+          weights: circleWeights,
+        })
+      )
+    );
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(roomAreaM2(created)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+    // On the unit circle, a 48-gon area is a little under π.
+    expect(roomAreaM2(created)).toBeGreaterThan(3);
+    expect(roomAreaM2(created)).toBeLessThan(Math.PI + 1e-6);
+  });
+
+  it("creates a room from a periodic closed SPLINE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          flags: 1 | 2,
+          degree: 2,
+          knots: [0, 1, 2, 3, 4],
+          points: [
+            { x: 3, y: 3 },
+            { x: -3, y: 3 },
+            { x: -3, y: -3 },
+            { x: 3, y: -3 },
+          ],
+        })
+      )
+    );
+    expect(entities[0]?.closed).toBe(true);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.scene.rooms[0]!.polygon.length).toBeGreaterThanOrEqual(3);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+  });
+
+  it("creates a room from an open SPLINE plus a closing LINE", () => {
+    const w = Math.SQRT1_2;
+    const entities = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          flags: 4,
+          degree: 2,
+          knots: [0, 0, 0, 1, 1, 1],
+          points: [
+            { x: 1, y: 0 },
+            { x: 1, y: 1 },
+            { x: 0, y: 1 },
+          ],
+          weights: [1, w, 1],
+        }) + "  0\nLINE\n  10\n0\n  20\n1\n  11\n1\n  21\n0\n"
+      )
+    );
+    expect(entities).toHaveLength(2);
+    expect(entities[0]?.closed).toBeUndefined();
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon.length).toBeGreaterThanOrEqual(3);
+    expect(roomAreaM2(created)).toBeGreaterThan(DXF_CLOSED_ROOM_MIN_AREA_M2);
+  });
+
+  it("does not invent a room from an open SPLINE alone, or from an empty DXF", () => {
+    const open = parseDxfEntities(
+      dxfFile(
+        splineEnt({
+          degree: 3,
+          knots: [0, 0, 0, 0, 1, 1, 1, 1],
+          points: [
+            { x: 0, y: 0 },
+            { x: 1, y: 2 },
+            { x: 3, y: 2 },
+            { x: 4, y: 0 },
+          ],
+        })
+      )
+    );
+    expect(open).toHaveLength(1);
+    expect(open[0]?.closed).toBeUndefined();
+    const openScene = sceneWithDxf(open);
+    const openOut = officialAppendRoomsFromDxfClosedPolylines(openScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(openOut.created).toBe(0);
+    expect(openOut.scene.rooms).toEqual([]);
+    expect(openOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+
+    expect(parseDxfEntities("")).toEqual([]);
+    expect(parseDxfEntities(dxfFile(""))).toEqual([]);
+    const emptyScene = sceneWithDxf(parseDxfEntities(dxfFile("")));
+    expect(officialCanCreateRoomsFromDxf(emptyScene.underlays[0])).toBe(false);
+    const emptyOut = officialAppendRoomsFromDxfClosedPolylines(emptyScene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(emptyOut.created).toBe(0);
+    expect(emptyOut.scene.rooms).toEqual([]);
+    expect(emptyOut.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+});

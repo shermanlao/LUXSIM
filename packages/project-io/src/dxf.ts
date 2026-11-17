@@ -9,6 +9,14 @@ import { officialDxfPointsCoincide } from "./official-dxf-polyline";
  * accuracy holds whether the DXF is in metres or millimetres.
  * Sagitta is about 0.21% of radius (≈ 21 mm on a 10 m radius),
  * dense enough for lighting rooms without flooding Top/3D.
+ *
+ * A DXF SPLINE reuses the same 48-segment base (DXF_CURVE_SEGMENTS_PER_TURN)
+ * over its valid knot domain [knot[degree], knot[n]]. A closed (or otherwise
+ * full-domain) spline uses at least 48 segments. An open spline’s valid domain
+ * is already that full span (spanFraction = 1), so the base is
+ * max(2, round(48 × 1)) = 48, and both endpoints are included. In either case
+ * also use at least 4 samples per non-empty knot span so local wiggles are
+ * not lost, and cap at 384. Samples are uniform in parameter space.
  */
 export const DXF_CURVE_SEGMENTS_PER_TURN = 48;
 
@@ -180,6 +188,270 @@ function tessellateEllipticalArc(
   return pts;
 }
 
+/** Minimum segments per non-empty knot span when tessellating a DXF SPLINE. */
+export const DXF_SPLINE_MIN_SEGMENTS_PER_SPAN = 4;
+
+/** Cap on SPLINE tessellation segments (base budget is still 48). */
+export const DXF_SPLINE_MAX_SEGMENTS = 384;
+
+/**
+ * Segment count for a DXF SPLINE over its valid knot domain.
+ * Base budget is DXF_CURVE_SEGMENTS_PER_TURN (48) — a closed or full-domain
+ * spline uses at least 48 segments; an open spline’s valid domain is already
+ * that full span (spanFraction = 1), so the base is also
+ * max(2, round(48 × 1)) = 48. Also at least
+ * DXF_SPLINE_MIN_SEGMENTS_PER_SPAN (4) per non-empty knot span, capped at
+ * DXF_SPLINE_MAX_SEGMENTS (384).
+ */
+export function dxfSplineSegmentCount(spanCount: number): number {
+  if (!Number.isFinite(spanCount) || spanCount <= 0) return 0;
+  const bySpans = Math.round(spanCount * DXF_SPLINE_MIN_SEGMENTS_PER_SPAN);
+  const base = DXF_CURVE_SEGMENTS_PER_TURN;
+  return Math.max(2, Math.min(DXF_SPLINE_MAX_SEGMENTS, Math.max(base, bySpans)));
+}
+
+function knotSpanCount(knots: number[], degree: number, controlCount: number): number {
+  let spans = 0;
+  for (let i = degree; i < controlCount; i++) {
+    const a = knots[i];
+    const b = knots[i + 1];
+    if (a != null && b != null && Number.isFinite(a) && Number.isFinite(b) && b > a) {
+      spans += 1;
+    }
+  }
+  return spans;
+}
+
+function knotsAreNonDecreasing(knots: number[]): boolean {
+  if (knots.length === 0 || !Number.isFinite(knots[0]!)) return false;
+  for (let i = 1; i < knots.length; i++) {
+    const prev = knots[i - 1]!;
+    const cur = knots[i]!;
+    if (!Number.isFinite(prev) || !Number.isFinite(cur) || cur < prev) return false;
+  }
+  return true;
+}
+
+function findSplineSpan(controlCount: number, degree: number, u: number, knots: number[]): number {
+  const last = knots[controlCount]!;
+  if (u >= last) return controlCount - 1;
+  const first = knots[degree]!;
+  if (u <= first) return degree;
+  let low = degree;
+  let high = controlCount;
+  let mid = Math.floor((low + high) / 2);
+  while (u < knots[mid]! || u >= knots[mid + 1]!) {
+    if (u < knots[mid]!) high = mid;
+    else low = mid;
+    mid = Math.floor((low + high) / 2);
+  }
+  return mid;
+}
+
+/**
+ * Evaluate a standard (knots.length === n + degree + 1) B-spline / NURBS at
+ * parameter u in the valid span [knot[degree], knot[n]]. Uses De Boor, or
+ * rational (projective / homogeneous) De Boor when weights are present.
+ */
+export function evaluateDxfSpline(
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  u: number,
+  weights?: number[]
+): Vec2 | null {
+  const n = control.length;
+  const p = degree;
+  if (
+    !Number.isInteger(p) ||
+    p < 1 ||
+    n < p + 1 ||
+    knots.length !== n + p + 1 ||
+    !Number.isFinite(u) ||
+    !knotsAreNonDecreasing(knots)
+  ) {
+    return null;
+  }
+  if (weights && (weights.length !== n || weights.some((w) => !Number.isFinite(w)))) {
+    return null;
+  }
+  const u0 = knots[p]!;
+  const u1 = knots[n]!;
+  if (!(u1 > u0)) return null;
+  const uu = u <= u0 ? u0 : u >= u1 ? u1 : u;
+  const span = findSplineSpan(n, p, uu, knots);
+  const d: { x: number; y: number; w: number }[] = [];
+  for (let j = 0; j <= p; j++) {
+    const idx = span - p + j;
+    if (idx < 0 || idx >= n) return null;
+    const pt = control[idx]!;
+    if (!Number.isFinite(pt.x) || !Number.isFinite(pt.y)) return null;
+    const w = weights ? weights[idx]! : 1;
+    d.push({ x: pt.x * w, y: pt.y * w, w });
+  }
+  for (let r = 1; r <= p; r++) {
+    for (let j = p; j >= r; j--) {
+      const i = span - p + j;
+      const denom = knots[i + p - r + 1]! - knots[i]!;
+      const alpha = denom === 0 ? 0 : (uu - knots[i]!) / denom;
+      if (!Number.isFinite(alpha)) return null;
+      const a = d[j - 1]!;
+      const b = d[j]!;
+      d[j] = {
+        x: (1 - alpha) * a.x + alpha * b.x,
+        y: (1 - alpha) * a.y + alpha * b.y,
+        w: (1 - alpha) * a.w + alpha * b.w,
+      };
+    }
+  }
+  const out = d[p]!;
+  if (
+    !Number.isFinite(out.x) ||
+    !Number.isFinite(out.y) ||
+    !Number.isFinite(out.w) ||
+    !(Math.abs(out.w) > 0)
+  ) {
+    return null;
+  }
+  return { x: out.x / out.w, y: out.y / out.w };
+}
+
+/**
+ * Expand an AutoCAD periodic spline (knots.length === n + 1) to a standard
+ * B-spline with wrapped control points and a periodically padded knot vector.
+ */
+function expandPeriodicSpline(
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  weights: number[] | undefined
+): { control: Vec2[]; knots: number[]; weights?: number[] } | null {
+  const n = control.length;
+  const p = degree;
+  if (knots.length !== n + 1 || n < p + 1) return null;
+  if (!knotsAreNonDecreasing(knots)) return null;
+  const period = knots[n]! - knots[0]!;
+  if (!(period > 0) || !Number.isFinite(period)) return null;
+  const expandedKnots: number[] = [];
+  for (let k = p; k >= 1; k--) {
+    const val = knots[n - k]! - period;
+    if (!Number.isFinite(val)) return null;
+    expandedKnots.push(val);
+  }
+  expandedKnots.push(...knots);
+  for (let k = 1; k <= p; k++) {
+    const val = knots[k]! + period;
+    if (!Number.isFinite(val)) return null;
+    expandedKnots.push(val);
+  }
+  if (expandedKnots.length !== n + 2 * p + 1) return null;
+  if (!knotsAreNonDecreasing(expandedKnots)) return null;
+  return {
+    control: control.concat(control.slice(0, p)),
+    knots: expandedKnots,
+    weights: weights ? weights.concat(weights.slice(0, p)) : undefined,
+  };
+}
+
+function uniqueSplinePoints(points: Vec2[], closed: boolean): Vec2[] {
+  const out: Vec2[] = [];
+  for (const p of points) {
+    const prev = out[out.length - 1];
+    if (prev && officialDxfPointsCoincide(prev, p)) continue;
+    out.push(p);
+  }
+  if (
+    closed &&
+    out.length >= 2 &&
+    officialDxfPointsCoincide(out[0]!, out[out.length - 1]!)
+  ) {
+    out.pop();
+  }
+  return out;
+}
+
+function tessellateSpline(
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  weights: number[] | undefined,
+  closedHint: boolean
+): DxfEntity | null {
+  const nSeg = dxfSplineSegmentCount(knotSpanCount(knots, degree, control.length));
+  if (nSeg < 2) return null;
+  const u0 = knots[degree]!;
+  const u1 = knots[control.length]!;
+  const domain = u1 - u0;
+  if (!(domain > 0) || !Number.isFinite(domain)) return null;
+  const raw: Vec2[] = [];
+  for (let i = 0; i <= nSeg; i++) {
+    const u = i === 0 ? u0 : i === nSeg ? u1 : u0 + (domain * i) / nSeg;
+    const pt = evaluateDxfSpline(degree, control, knots, u, weights);
+    if (!pt) return null;
+    raw.push(pt);
+  }
+  if (raw.length < 2) return null;
+  const closed =
+    closedHint || officialDxfPointsCoincide(raw[0]!, raw[raw.length - 1]!);
+  const points = uniqueSplinePoints(raw, closed);
+  if (points.length < 2) return null;
+  return closed ? closedPolylineEntity(points) : openPolylineEntity(points);
+}
+
+function normalizeSplineWeights(count: number, weights: number[]): number[] | null {
+  if (weights.some((w) => !Number.isFinite(w))) return null;
+  const w = weights.slice(0, count);
+  while (w.length < count) w.push(1);
+  if (w.every((v) => v === 0)) return null;
+  return w;
+}
+
+function splineEntityFromParsed(
+  flags: number,
+  degree: number,
+  control: Vec2[],
+  knots: number[],
+  weightsIn: number[]
+): DxfEntity | null {
+  if (!Number.isInteger(degree) || degree < 1) return null;
+  const n = control.length;
+  if (n < degree + 1) return null;
+  if (control.some((p) => !Number.isFinite(p.x) || !Number.isFinite(p.y))) return null;
+  if (knots.some((k) => !Number.isFinite(k))) return null;
+
+  const periodic = (flags & 2) === 2;
+  const closedFlag = (flags & 1) === 1 || periodic;
+  const hasWeights = (flags & 4) === 4 || weightsIn.length > 0;
+  let weights: number[] | undefined;
+  if (hasWeights) {
+    const norm = normalizeSplineWeights(n, weightsIn);
+    if (!norm) return null;
+    weights = norm;
+  }
+
+  const standardLen = n + degree + 1;
+  const periodicLen = n + 1;
+  let prepared: { control: Vec2[]; knots: number[]; weights?: number[] };
+  if (knots.length === standardLen) {
+    if (!knotsAreNonDecreasing(knots)) return null;
+    prepared = { control, knots, weights };
+  } else if (periodic && knots.length === periodicLen) {
+    const expanded = expandPeriodicSpline(degree, control, knots, weights);
+    if (!expanded) return null;
+    prepared = expanded;
+  } else {
+    return null;
+  }
+
+  return tessellateSpline(
+    degree,
+    prepared.control,
+    prepared.knots,
+    prepared.weights,
+    closedFlag
+  );
+}
+
 
 /**
  * Intermediate vertices along a POLYLINE or LWPOLYLINE bulge (group 42).
@@ -247,15 +519,26 @@ function isFiniteNumber(value: number): boolean {
 
 /**
  * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
- * CIRCLE, ARC, ELLIPSE, and old-style POLYLINE (VERTEX + SEQEND, including the
- * closed flag and bulges). Curves are tessellated into official planar polyline
+ * CIRCLE, ARC, ELLIPSE, SPLINE, and old-style POLYLINE (VERTEX + SEQEND, including
+ * the closed flag and bulges). Curves are tessellated into official planar polyline
  * segments. ELLIPSE uses groups 10/20 (center), 11/21 (major-axis vector relative
  * to the center), 40 (radius ratio; the DXF spec gives no default, so a missing,
  * zero, or non-finite ratio is skipped rather than inventing 1.0), and 41/42
  * (start/end parameters in radians from the major axis; omitted values follow
  * the documented full-ellipse values 0 and 2π). A sweep within 1e-6 rad of 2π
  * is treated as a full closed ellipse so common decimal writings of 2π still
- * close. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
+ * close. SPLINE uses groups 70 (flags: bit 1 closed, bit 2 periodic, bit 4
+ * rational), 71 (degree), 72/73 (knot and control-point counts, informational),
+ * 40 (knots), 41 (weights when rational or present), and 10/20 control points
+ * (Z ignored). Evaluation is De Boor on the valid knot span, or rational /
+ * projective De Boor when weights are present. A periodic spline stored with
+ * knots = control points + 1 is expanded to a standard periodic B-spline;
+ * AutoCAD’s already-clamped form (knots = control points + degree + 1) is
+ * evaluated directly. Fit points (11/21), fit tangents, and tolerances are
+ * not used; a SPLINE with no usable control points is skipped rather than
+ * inventing a fit-point interpolant. A knot vector that is missing or the
+ * wrong length for a clamped, unclamped, or periodic B-spline of that degree
+ * is skipped. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
  * CIRCLE / ARC). Paperspace / 3D extrusion are not handled (same as the
  * previous parser). Polygon-mesh and polyface-mesh POLYLINE entities are skipped.
  */
@@ -454,6 +737,41 @@ export function parseDxfEntities(text: string): DxfEntity[] {
               );
           if (entity) entities.push(entity);
         }
+      }
+    } else if (type === "SPLINE") {
+      let flags = 0;
+      let degree = 0;
+      const knots: number[] = [];
+      const weights: number[] = [];
+      const control: Vec2[] = [];
+      let pending: { x?: number; y?: number } | null = null;
+      const flushControl = () => {
+        if (
+          pending &&
+          pending.x != null &&
+          pending.y != null &&
+          isFiniteNumber(pending.x) &&
+          isFiniteNumber(pending.y)
+        ) {
+          control.push({ x: pending.x, y: pending.y });
+        }
+        pending = null;
+      };
+      readGroups((code, value) => {
+        if (code === 70) flags = Number(value);
+        if (code === 71) degree = Number(value);
+        if (code === 40) knots.push(Number(value));
+        if (code === 41) weights.push(Number(value));
+        if (code === 10) {
+          flushControl();
+          pending = { x: Number(value), y: 0 };
+        }
+        if (code === 20 && pending) pending.y = Number(value);
+      });
+      flushControl();
+      if (Number.isFinite(flags) && Number.isFinite(degree)) {
+        const entity = splineEntityFromParsed(flags, degree, control, knots, weights);
+        if (entity) entities.push(entity);
       }
     } else if (type === "POLYLINE") {
       let flags = 0;
