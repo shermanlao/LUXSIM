@@ -213,4 +213,19 @@ describe("editor 3D camera orientation", () => {
     };
     expect(enforcePlanAlignedOrbit(fromSouth)).toEqual(fromSouth);
   });
+
+  it("leaves a close zoomed-in room orbit unchanged so middle-button pan still works", () => {
+    const close = {
+      position: [12.4, 1.15, 8.2] as [number, number, number],
+      target: [12.0, 0.75, 9.6] as [number, number, number],
+    };
+    expect(close.position[1] - close.target[1]).toBeLessThan(0.5);
+    expect(enforcePlanAlignedOrbit(close)).toEqual(close);
+
+    const panned = {
+      position: [13.4, 1.15, 8.2] as [number, number, number],
+      target: [13.0, 0.75, 9.6] as [number, number, number],
+    };
+    expect(enforcePlanAlignedOrbit(panned)).toEqual(panned);
+  });
 });

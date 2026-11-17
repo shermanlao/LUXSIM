@@ -96,12 +96,18 @@ describe("Front, Side, and 3D navigation wiring", () => {
 
   it("keeps 3D wheel zoom and pans with the middle button, not the left button", () => {
     const src = read("components/editor/BuildingScene3D.tsx");
+    const bridge = read("components/editor/OrbitViewBridge.tsx");
     expect(src).toContain("enableZoom");
     expect(src).toContain("enablePan");
+    expect(src).toContain("screenSpacePanning");
+    expect(src).toContain("minDistance={0.05}");
     expect(src).toMatch(/LEFT:\s*THREE\.MOUSE\.ROTATE/);
     expect(src).toMatch(/MIDDLE:\s*THREE\.MOUSE\.PAN/);
     expect(src).not.toMatch(/LEFT:\s*THREE\.MOUSE\.PAN/);
     expect(src).not.toMatch(/MIDDLE:\s*THREE\.MOUSE\.DOLLY/);
+    expect(bridge).toContain("e.button === 1");
+    expect(bridge).toContain("preventDefault");
+    expect(bridge).toContain("navigating.current");
   });
 });
 

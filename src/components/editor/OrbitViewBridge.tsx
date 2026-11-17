@@ -20,7 +20,9 @@ function sameView(a: Camera3dView, b: Camera3dView): boolean {
 
 /** Tracks orbit pose and restores a saved view once controls are ready.
  *  When frameKey changes (for example a different isolated room), the camera is reframed.
- *  Near-plan views are kept on the south side so the floor plate matches Top. */
+ *  Near-plan views are kept on the south side so the floor plate matches Top.
+ *  Alignment is not applied while the user is rotating, panning, or zooming,
+ *  so a close zoom into a room can still be dragged with the middle button. */
 export function OrbitViewBridge({
   viewRef,
   initialView,
@@ -30,9 +32,10 @@ export function OrbitViewBridge({
   initialView: Camera3dView | null;
   frameKey?: string;
 }) {
-  const { camera } = useThree();
+  const { camera, gl } = useThree();
   const controls = useThree((s) => s.controls) as OrbitControlsImpl | null;
   const appliedKey = useRef<string | undefined>(undefined);
+  const navigating = useRef(false);
 
   useLayoutEffect(() => {
     const raw = initialView ?? viewRef.current;
@@ -48,12 +51,41 @@ export function OrbitViewBridge({
     appliedKey.current = key;
   }, [camera, controls, initialView, viewRef, frameKey]);
 
+  useLayoutEffect(() => {
+    const el = gl.domElement;
+    const onDown = (e: PointerEvent | MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+      if (e.button === 0 || e.button === 1 || e.button === 2) {
+        navigating.current = true;
+      }
+    };
+    const onUp = () => {
+      navigating.current = false;
+    };
+    el.addEventListener("pointerdown", onDown, { capture: true });
+    el.addEventListener("mousedown", onDown, { capture: true });
+    el.addEventListener("auxclick", onDown, { capture: true });
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("mouseup", onUp);
+    return () => {
+      el.removeEventListener("pointerdown", onDown, { capture: true });
+      el.removeEventListener("mousedown", onDown, { capture: true });
+      el.removeEventListener("auxclick", onDown, { capture: true });
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("mouseup", onUp);
+    };
+  }, [gl]);
+
   useFrame(() => {
     if (!controls) return;
     const current: Camera3dView = {
       position: [camera.position.x, camera.position.y, camera.position.z],
       target: [controls.target.x, controls.target.y, controls.target.z],
     };
+    if (navigating.current) {
+      viewRef.current = current;
+      return;
+    }
     const aligned = enforcePlanAlignedOrbit(current);
     if (!sameView(current, aligned)) {
       camera.position.set(...aligned.position);

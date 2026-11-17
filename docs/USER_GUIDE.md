@@ -36,7 +36,7 @@ The workspace Owner can rename the workspace on the [Workspace members](/workspa
 在 **Top**、**Front**、**Side** 與 **3D** 視圖：
 
 - 在圖面上滾動滑鼠滾輪，會放大或縮小（平面與立面以游標位置為中心），不會捲動整頁。
-- 按住滑鼠中鍵（滾輪按鈕）並拖曳，可平移圖面。不要用左鍵平移：左鍵仍用於點選、畫房或移動燈具。房間不能整間拖移；選取房間後仍可拖動角點或在邊上插入角點來改形狀。
+- 按住滑鼠中鍵（滾輪按鈕）並拖曳，可平移圖面，放大靠近房間時同樣可以。不要用左鍵平移：左鍵仍用於點選、畫房或移動燈具。房間不能整間拖移；選取房間後仍可拖動角點或在邊上插入角點來改形狀。
 - 在 **Top** 雙擊圖面空白處，會回到預設的置中適合視野。
 - 切換樓層時，視野也會回到這個預設。
 - 畫房途中，自動套圖保持鎖定，點擊位置不會因為草稿而偏移；滾輪縮放與中鍵平移仍可使用。
@@ -49,7 +49,7 @@ The workspace Owner can rename the workspace on the [Workspace members](/workspa
 On the **Top**, **Front**, **Side**, and **3D** views:
 
 - Scroll the mouse wheel on the view to zoom (toward the cursor on the plan and elevation views). The page itself does not scroll.
-- Hold the middle mouse button (the scroll-wheel button) and drag to pan the view. Do not pan with the left button: left-click still selects, draws rooms, or moves a fixture. Rooms cannot be dragged as a whole; after a room is selected you can still drag a corner handle or insert a vertex on an edge.
+- Hold the middle mouse button (the scroll-wheel button) and drag to pan the view, including when you have zoomed in on a room. Do not pan with the left button: left-click still selects, draws rooms, or moves a fixture. Rooms cannot be dragged as a whole; after a room is selected you can still drag a corner handle or insert a vertex on an edge.
 - Double-click an empty area of the **Top** plan to return to the default centred fit.
 - Switching storeys also resets the view to that default fit.
 - While you are drawing a room, the automatic fit stays locked so click positions remain stable. Wheel zoom toward the cursor and middle-button pan still work.

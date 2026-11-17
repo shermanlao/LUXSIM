@@ -187,6 +187,8 @@ export function isInvertedPlanOrbit(view: Camera3dView): boolean {
  * Keep a near-plan 3D view aligned with Top: north toward the top, east to the right.
  * Reflects a north-side top-down pose to the south and pushes a vertical pose south.
  * Oblique views from the north (standing on that side) are left alone.
+ * Close zoomed-in room orbits (camera closer than 0.5 m to the target, looking
+ * across the floor) must be left unchanged so middle-button pan still works.
  */
 export function enforcePlanAlignedOrbit(view: Camera3dView): Camera3dView {
   const [px, py, pz] = view.position;
@@ -194,33 +196,33 @@ export function enforcePlanAlignedOrbit(view: Camera3dView): Camera3dView {
   let dx = px - tx;
   let dy = py - ty;
   let dz = pz - tz;
-  const height = Math.max(dy, 0.5);
   let horiz = Math.hypot(dx, dz);
-  const minHoriz = Math.tan(MIN_PLAN_POLAR) * height;
-  if (horiz < minHoriz) {
+  const polar = Math.atan2(horiz, Math.max(dy, 0));
+
+  // Only lift or push the camera when the pose is nearly straight-down and
+  // world-up would be unstable. Do not raise a close oblique zoom to 0.5 m.
+  if (horiz < 1e-9 || polar < MIN_PLAN_POLAR) {
+    const height = Math.max(dy, 0.5);
+    const minHoriz = Math.tan(MIN_PLAN_POLAR) * height;
     dx = horiz < 1e-9 ? 0 : (dx / horiz) * minHoriz;
     dz = horiz < 1e-9 ? -minHoriz : (dz / horiz) * minHoriz;
     if (dz >= 0) {
       dz = -Math.abs(dz) || -minHoriz;
     }
-    horiz = Math.hypot(dx, dz);
+    return {
+      position: [tx + dx, ty + height, tz + dz],
+      target: [tx, ty, tz],
+    };
   }
-  const polar = Math.atan2(horiz, height);
+
   if (polar < PLAN_ALIGN_POLAR && dz >= 0) {
-    dz = -Math.abs(dz) || -minHoriz;
+    dz = -Math.abs(dz);
+    return {
+      position: [tx + dx, py, tz + dz],
+      target: [tx, ty, tz],
+    };
   }
-  const next: Camera3dView = {
-    position: [tx + dx, ty + height, tz + dz],
-    target: [tx, ty, tz],
-  };
-  if (
-    next.position[0] === px &&
-    next.position[1] === py &&
-    next.position[2] === pz
-  ) {
-    return view;
-  }
-  return next;
+  return view;
 }
 
 export function resolveEditorCamera(
