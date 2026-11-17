@@ -105,7 +105,9 @@ describe("official vertex stretch wiring", () => {
     expect(gap).not.toMatch(/No vertex handles/);
     expect(gap).toMatch(/mid-edge handles insert/i);
     expect(gap).toMatch(/Delete or Backspace removes a hovered or click-selected corner vertex/i);
-    expect(gap).toMatch(/Fillet and full DIALux-style vertex modelling are not available/i);
+    expect(gap).toMatch(/Fillet-all-corners and full DIALux-style vertex modelling are not available/i);
+    expect(gap).toMatch(/\*\*Fillet corner\*\* rounds one selected corner/i);
+    expect(gap).not.toMatch(/Fillet and full DIALux-style vertex modelling are not available/);
     expect(gap).not.toMatch(/Delete-vertex, fillet, and full DIALux-style vertex modelling are not available/);
     expect(guide).not.toMatch(/full DIALux-style vertex modelling is done/i);
   });

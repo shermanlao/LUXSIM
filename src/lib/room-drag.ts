@@ -13,13 +13,14 @@ export type RoomDragBeginInput = {
   circlePickActive?: boolean;
   polygonPickActive?: boolean;
   unionPickActive?: boolean;
+  filletPickActive?: boolean;
   onMoveRoom?: MoveRoomHandler;
 };
 
 /**
  * Begin a room drag only with the official Select tool, a move handler, and
  * no active Draw room draft, calibrate click, Line-array pick, Circle-array pick,
- * Polygon-array path pick, or Union rooms pick.
+ * Polygon-array path pick, Union rooms pick, or Fillet corner pick.
  */
 export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
   return (
@@ -31,7 +32,8 @@ export function shouldBeginRoomDrag(input: RoomDragBeginInput = {}): boolean {
     !input.linePickActive &&
     !input.circlePickActive &&
     !input.polygonPickActive &&
-    !input.unionPickActive
+    !input.unionPickActive &&
+    !input.filletPickActive
   );
 }
 

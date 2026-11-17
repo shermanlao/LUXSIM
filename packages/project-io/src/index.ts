@@ -117,6 +117,8 @@ export {
   dxfCurveSegmentCount,
   dxfCcwSweepRad,
   tessellateDxfBulgeIntermediates,
+  tessellateCircularArc,
+  tessellateCircularArcIntermediates,
 } from "./dxf";
 export {
   DXF_CLOSED_VERTEX_EPS_M,
@@ -484,6 +486,33 @@ export type {
   OfficialDistributeRoomsResult,
   OfficialRoomDistributeAxis,
 } from "./official-room-distribute";
+
+
+export {
+  FILLET_CORNER_CANCELLED_STATUS,
+  FILLET_CORNER_PICK_CORNER_STATUS,
+  FILLET_CORNER_PICK_ROOM_STATUS,
+  FILLET_CORNER_REFUSE_AREA_STATUS,
+  FILLET_CORNER_REFUSE_CORNER_STATUS,
+  FILLET_CORNER_REFUSE_CROSS_STATUS,
+  FILLET_CORNER_REFUSE_INVALID_STATUS,
+  FILLET_CORNER_REFUSE_MISSING_STATUS,
+  FILLET_CORNER_REFUSE_RADIUS_STATUS,
+  FILLET_CORNER_REFUSE_STRAIGHT_STATUS,
+  FILLET_CORNER_REFUSE_STOREY_STATUS,
+  FILLET_CORNER_REFUSE_TOO_LARGE_STATUS,
+  FILLET_CORNER_REFUSE_VERTICES_STATUS,
+  FILLET_STRAIGHT_EPS_RAD,
+  filletOfficialRoomCorner,
+  formatFilletCornerSuccessStatus,
+  officialFilletRoomCorner,
+  officialShortSweepRad,
+} from "./official-room-fillet";
+export type {
+  OfficialFilletCornerReason,
+  OfficialFilletRoomCornerResult,
+  OfficialPolygonFilletResult,
+} from "./official-room-fillet";
 
 export {
   DEFAULT_STOREY_HEIGHT_M,

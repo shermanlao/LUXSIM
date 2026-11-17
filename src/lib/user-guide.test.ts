@@ -396,6 +396,28 @@ describe("user guide", () => {
     expect(tips).toMatch(/gaps between consecutive bounding boxes are equal/);
   });
 
+  it("documents Fillet corner for rounding one selected room corner", () => {
+    expect(guide).toMatch(/use \*\*Fillet corner\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Fillet corner\*\*/);
+    expect(guide).toMatch(/radius in millimetres/);
+    expect(guide).toMatch(/輸入半徑（毫米/);
+    expect(guide).toMatch(/click a corner handle of that room to fillet that corner/);
+    expect(guide).toMatch(/點該房的角點控制點即可修圓該角/);
+    expect(guide).toMatch(/A mid-edge insert handle is not a fillet target/);
+    expect(guide).toMatch(/邊上的插入控制點不是修圓目標/);
+    expect(guide).toMatch(/the radius is too large for the adjacent edges/);
+    expect(guide).toMatch(/半徑對相鄰兩邊過大/);
+    expect(guide).toMatch(/no longer lie in the filleted outline have their room assignment cleared/);
+    expect(guide).toMatch(/已不在修圓後輪廓內的燈具會取消房間歸屬/);
+    expect(guide).toMatch(/does not fillet every corner at once/);
+    expect(guide).toMatch(/不會一次修全部角/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.filletCorner"');
+    expect(tips).toMatch(/click a corner handle of a room on the current storey/);
+    expect(tips).toMatch(/A mid-edge insert handle is not a fillet target/);
+    expect(tips).toMatch(/Filleting every corner at once is not included/);
+  });
+
   it("documents Copy storey for duplicating the current storey in the same building", () => {
     expect(guide).toMatch(/use \*\*Copy storey\*\* in the \*\*Building\*\* panel/);
     expect(guide).toMatch(/可在左側 \*\*Building\*\* 按 \*\*Copy storey\*\*/);

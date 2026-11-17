@@ -14,6 +14,7 @@ export type StoreyDragBeginInput = {
   circlePickActive?: boolean;
   polygonPickActive?: boolean;
   unionPickActive?: boolean;
+  filletPickActive?: boolean;
   activeRoomId?: string | null;
   activeStoreyId?: string | null;
   hitRoomStoreyId?: string | null;
@@ -37,6 +38,7 @@ export function shouldBeginStoreyDrag(input: StoreyDragBeginInput = {}): boolean
     !input.circlePickActive &&
     !input.polygonPickActive &&
     !input.unionPickActive &&
+    !input.filletPickActive &&
     !input.activeRoomId &&
     !!input.activeStoreyId &&
     input.hitRoomStoreyId === input.activeStoreyId

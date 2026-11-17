@@ -132,6 +132,11 @@ type Props = {
   onUnionRoomPick?: (roomId: string) => void;
   onUnionPickCancel?: () => void;
   onDistributeApply?: () => void;
+  /** Official Fillet corner pick (Select idle): room, then a corner handle. */
+  filletPickActive?: boolean;
+  onFilletPickRoom?: (roomId: string) => void;
+  onFilletCornerPick?: (roomId: string, vertexIndex: number) => void;
+  onFilletPickCancel?: () => void;
   /** Calculation results for the plan isolux / value-label overlay. */
   results?: ResultsV2 | null;
   showFalseColor?: boolean;
@@ -183,6 +188,10 @@ export function TopView2D({
   onUnionRoomPick,
   onUnionPickCancel,
   onDistributeApply,
+  filletPickActive = false,
+  onFilletPickRoom,
+  onFilletCornerPick,
+  onFilletPickCancel,
   results = null,
   showFalseColor = true,
   showIsolines = false,
@@ -452,6 +461,7 @@ export function TopView2D({
           circlePickActive,
           polygonPickActive,
           unionPickActive,
+          filletPickActive,
           stretching: stretchingVertex != null,
         }) !== "delete"
       ) {
@@ -496,6 +506,7 @@ export function TopView2D({
     circlePickActive,
     polygonPickActive,
     unionPickActive,
+    filletPickActive,
     stretchingVertex,
     activeVertex,
     onSetRoomPolygon,
@@ -536,6 +547,19 @@ export function TopView2D({
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [unionPickActive, unionPickMode, drawing, onUnionPickCancel, onDistributeApply]);
+
+  useEffect(() => {
+    if (!filletPickActive || drawing) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (isTypingField(e.target)) return;
+      if (e.key !== "Escape") return;
+      e.preventDefault();
+      e.stopImmediatePropagation();
+      onFilletPickCancel?.();
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [filletPickActive, drawing, onFilletPickCancel]);
 
   useEffect(() => {
     if (!circlePickActive || !circlePick || drawing) return;
@@ -1011,6 +1035,20 @@ export function TopView2D({
                   }
                   return;
                 }
+                if (filletPickActive && (onFilletPickRoom || onFilletCornerPick)) {
+                  e.stopPropagation();
+                  const handleIndex = hitRoomVertexHandle(
+                    toWorld(e.clientX, e.clientY),
+                    room.polygon,
+                    vertexRadiusMAt(e.clientX, e.clientY)
+                  );
+                  if (handleIndex != null && onFilletCornerPick) {
+                    onFilletCornerPick(room.id, handleIndex);
+                    return;
+                  }
+                  onFilletPickRoom?.(room.id);
+                  return;
+                }
                 if (unionPickActive && onUnionRoomPick) {
                   e.stopPropagation();
                   onUnionRoomPick(room.id);
@@ -1032,6 +1070,7 @@ export function TopView2D({
                       circlePickActive,
                       polygonPickActive,
                       unionPickActive,
+                      filletPickActive,
                       handleIndex,
                       onSetRoomPolygon,
                     })
@@ -1056,6 +1095,7 @@ export function TopView2D({
                       circlePickActive,
                       polygonPickActive,
                       unionPickActive,
+                      filletPickActive,
                       edgeIndex: edgeHit?.edgeIndex,
                       onSetRoomPolygon,
                     })
@@ -1080,6 +1120,7 @@ export function TopView2D({
                     circlePickActive,
                     polygonPickActive,
                     unionPickActive,
+                    filletPickActive,
                     activeRoomId: scene.ui.activeRoomId,
                     activeStoreyId: scene.ui.activeStoreyId,
                     hitRoomStoreyId: room.storeyId,
@@ -1103,6 +1144,7 @@ export function TopView2D({
                     circlePickActive,
                     polygonPickActive,
                     unionPickActive,
+                    filletPickActive,
                     onMoveRoom,
                   })
                 ) {
@@ -1120,6 +1162,7 @@ export function TopView2D({
           !circlePickActive &&
           !polygonPickActive &&
           !unionPickActive &&
+          !filletPickActive &&
           rooms
             .filter((room) => room.id === scene.ui.activeRoomId)
             .map((room) => {
@@ -1149,7 +1192,7 @@ export function TopView2D({
                       if (e.button !== 0 || panningRef.current) return;
                       if (drawing) return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
-                      if (unionPickActive) return;
+                      if (unionPickActive || filletPickActive) return;
                       e.stopPropagation();
                       const pointer = toWorld(e.clientX, e.clientY);
                       const edgeHit =
@@ -1167,6 +1210,7 @@ export function TopView2D({
                           circlePickActive,
                           polygonPickActive,
                           unionPickActive,
+                          filletPickActive,
                           edgeIndex: edgeHit.edgeIndex,
                           onSetRoomPolygon,
                         })
@@ -1236,6 +1280,11 @@ export function TopView2D({
                       if (drawing) return;
                       if (linePickActive || circlePickActive || polygonPickActive) return;
                       if (unionPickActive) return;
+                      if (filletPickActive) {
+                        e.stopPropagation();
+                        onFilletCornerPick?.(room.id, index);
+                        return;
+                      }
                       e.stopPropagation();
                       if (
                         !shouldBeginVertexStretch({
@@ -1246,6 +1295,7 @@ export function TopView2D({
                           circlePickActive,
                           polygonPickActive,
                           unionPickActive,
+                          filletPickActive,
                           handleIndex: index,
                           onSetRoomPolygon,
                         })
@@ -1537,6 +1587,9 @@ export function TopView2D({
                   }
                   return;
                 }
+                if (filletPickActive) {
+                  return;
+                }
                 onSelect(inst.instanceId);
                 if (onBeginMoveInstance && !onBeginMoveInstance(inst.instanceId)) return;
                 beginMove(inst.instanceId, e.clientX, e.clientY, inst.position);
@@ -1620,6 +1673,12 @@ export function TopView2D({
         {planView.zoom !== 1 ? " · double-click empty area to reset" : ""}
         {" "}
         · drop fixtures into rooms · tool: {scene.ui.tool}
+        {filletPickActive && (
+          <>
+            {" "}
+            · click a corner handle to fillet · Esc cancels
+          </>
+        )}
         {unionPickActive && (
           <>
             {" "}

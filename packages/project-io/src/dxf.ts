@@ -50,7 +50,12 @@ function tessellateCircle(cx: number, cy: number, r: number, startRad = 0): Vec2
   return pts;
 }
 
-function tessellateOpenArc(
+/**
+ * Open circular arc, including the start and end points.
+ * Segment count follows dxfCurveSegmentCount (48 per full turn).
+ * `sweepRad` may be signed (positive = CCW).
+ */
+export function tessellateCircularArc(
   cx: number,
   cy: number,
   r: number,
@@ -58,11 +63,44 @@ function tessellateOpenArc(
   sweepRad: number
 ): Vec2[] {
   const n = dxfCurveSegmentCount(sweepRad);
+  if (
+    n < 2 ||
+    !(r > 0) ||
+    !Number.isFinite(cx) ||
+    !Number.isFinite(cy) ||
+    !Number.isFinite(startRad) ||
+    !Number.isFinite(sweepRad)
+  ) {
+    return [];
+  }
   const pts: Vec2[] = [];
   for (let i = 0; i <= n; i++) {
     pts.push(pointOnCircle(cx, cy, r, startRad + (sweepRad * i) / n));
   }
   return pts;
+}
+
+/** Interior vertices of an open circular arc (endpoints omitted). */
+export function tessellateCircularArcIntermediates(
+  cx: number,
+  cy: number,
+  r: number,
+  startRad: number,
+  sweepRad: number
+): Vec2[] {
+  const pts = tessellateCircularArc(cx, cy, r, startRad, sweepRad);
+  if (pts.length <= 2) return [];
+  return pts.slice(1, -1);
+}
+
+function tessellateOpenArc(
+  cx: number,
+  cy: number,
+  r: number,
+  startRad: number,
+  sweepRad: number
+): Vec2[] {
+  return tessellateCircularArc(cx, cy, r, startRad, sweepRad);
 }
 
 /**
