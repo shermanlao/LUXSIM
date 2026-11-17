@@ -288,7 +288,7 @@ export interface LuxsimEmbeddedAsset {
   metaJson?: string;
 }
 
-/** Library recognition fields for a luminaire stored in a .lux / .luxsim file. */
+/** Library recognition fields for a luminaire stored in a .lxm / .lux / .luxsim file. */
 export interface LuxsimLuminaireLibraryEntry {
   origin?: string;
   libraryFamily?: string | null;

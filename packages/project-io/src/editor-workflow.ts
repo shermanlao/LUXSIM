@@ -24,7 +24,7 @@ export const WORKFLOW_MODES: {
   {
     id: "export",
     label: "Documentation",
-    hint: "Reports, .lux, verification pack.",
+    hint: "Reports, .lxm, verification pack.",
   },
 ];
 

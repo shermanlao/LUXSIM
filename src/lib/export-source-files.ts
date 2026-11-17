@@ -40,7 +40,7 @@ export function officialExportLuminaireIds(scene: {
 }
 
 /**
- * Collect photometry and original IES/LDT text for official .lux / verification zip export.
+ * Collect photometry and original IES/LDT text for official .lxm / verification zip export.
  *
  * Already-cached sources are kept, so a later export after only scene fields change
  * does not drop them. If photometry is cached but the source file is not (stale or
@@ -95,5 +95,5 @@ export function missingExportSourceStatus(
   if (kind === "dialux") {
     return `Verification zip downloaded, but original IES/LDT files are missing for: ${labels}. The pack is incomplete.`;
   }
-  return `.lux downloaded, but original IES/LDT files are missing for: ${labels}. The file is incomplete.`;
+  return `.lxm downloaded, but original IES/LDT files are missing for: ${labels}. The file is incomplete.`;
 }

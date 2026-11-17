@@ -65,7 +65,7 @@ export function missingExportAssetStatus(
   names?: Record<string, string>
 ): string {
   const labels = missingIds.map((id) => names?.[id] || id).join(", ");
-  return `.lux downloaded, but plan drawings are missing for: ${labels}. The file is incomplete.`;
+  return `.lxm downloaded, but plan drawings are missing for: ${labels}. The file is incomplete.`;
 }
 
 export async function fetchProjectAssetMeta(projectId: string): Promise<ExportAssetMeta[]> {

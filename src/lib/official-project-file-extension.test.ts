@@ -49,61 +49,68 @@ describe("official project file extension in the app", () => {
     vi.mocked(downloadBlob).mockClear();
   });
 
-  it("saves the official project as ProjectName.lux without changing the JSON format", () => {
+  it("saves the official project as ProjectName.lxm without changing the JSON format", () => {
     const project = sampleProject();
     exportLuxsimFile(project);
-    expect(luxsimProjectDownloadName(project.name)).toBe("Sample_office.lux");
+    expect(luxsimProjectDownloadName(project.name)).toBe("Sample_office.lxm");
     expect(downloadBlob).toHaveBeenCalledOnce();
     const [filename, blob] = vi.mocked(downloadBlob).mock.calls[0]!;
-    expect(filename).toBe("Sample_office.lux");
+    expect(filename).toBe("Sample_office.lxm");
     expect(blob).toBeInstanceOf(Blob);
     expect(blob.type).toBe(LUXSIM_PROJECT_MIME);
     expect(blob.type).toBe("application/json");
     expect(JSON.parse(serializeLuxsim(project)).format).toBe("luxsim");
   });
 
-  it("opens the same project format from .lux and .luxsim files", () => {
+  it("opens the same project format from .lxm, .lux and .luxsim files", () => {
     const text = serializeLuxsim(sampleProject());
     const dir = mkdtempSync(path.join(os.tmpdir(), "luxsim-ext-"));
+    const lxmPath = path.join(dir, "Sample_office.lxm");
     const luxPath = path.join(dir, "Sample_office.lux");
     const legacyPath = path.join(dir, "Sample_office.luxsim");
+    writeFileSync(lxmPath, text);
     writeFileSync(luxPath, text);
     writeFileSync(legacyPath, text);
+    expect(isLuxsimProjectFilename(lxmPath)).toBe(true);
     expect(isLuxsimProjectFilename(luxPath)).toBe(true);
     expect(isLuxsimProjectFilename(legacyPath)).toBe(true);
+    expect(prepareLuxsimImport(readFileSync(lxmPath, "utf8"))).toEqual(
+      prepareLuxsimImport(readFileSync(legacyPath, "utf8"))
+    );
     expect(prepareLuxsimImport(readFileSync(luxPath, "utf8"))).toEqual(
       prepareLuxsimImport(readFileSync(legacyPath, "utf8"))
     );
   });
 
-  it("labels official save/open controls .lux and accepts legacy .luxsim files", () => {
+  it("labels official save/open controls .lxm and accepts legacy .lux and .luxsim files", () => {
     const editor = read("src/components/editor/BuildingEditor.tsx");
     const create = read("src/components/CreateProjectButton.tsx");
     const route = read("src/app/api/projects/import-luxsim/route.ts");
     const exportsClient = read("src/lib/exports-client.ts");
 
-    expect(editor).toContain("Save .lux");
+    expect(editor).toContain("Save .lxm");
     expect(editor).not.toContain("Save .luxsim");
-    expect(create).toContain("Open .lux");
+    expect(create).toContain("Open .lxm");
     expect(create).not.toContain("Open .luxsim");
     expect(create).toContain("LUXSIM_PROJECT_FILE_ACCEPT");
+    expect(LUXSIM_PROJECT_FILE_ACCEPT).toContain(".lxm");
     expect(LUXSIM_PROJECT_FILE_ACCEPT).toContain(".lux");
     expect(LUXSIM_PROJECT_FILE_ACCEPT).toContain(".luxsim");
     expect(LUXSIM_PROJECT_FILE_ACCEPT).toContain(".luxsim.json");
     expect(LUXSIM_PROJECT_FILE_ACCEPT).toContain("application/json");
     expect(exportsClient).toContain("luxsimProjectDownloadName");
     expect(exportsClient).not.toContain(".luxsim.json");
-    expect(route).toContain("A LUXSIM .lux or .luxsim file is required");
+    expect(route).toContain("A LUXSIM .lxm, .lux or .luxsim file is required");
     expect(route).not.toContain("A LUXSIM .luxsim.json file is required");
     expect(
       missingExportSourceStatus("luxsim", ["lum-a"], { "lum-a": "Downlight" })
     ).toBe(
-      ".lux downloaded, but original IES/LDT files are missing for: Downlight. The file is incomplete."
+      ".lxm downloaded, but original IES/LDT files are missing for: Downlight. The file is incomplete."
     );
     expect(
       missingExportAssetStatus(["asset-img"], { "asset-img": "plan.png" })
     ).toBe(
-      ".lux downloaded, but plan drawings are missing for: plan.png. The file is incomplete."
+      ".lxm downloaded, but plan drawings are missing for: plan.png. The file is incomplete."
     );
     expect(editor).toContain("saveOfficialLuxFile");
     expect(create).toContain("storeImportLuxsimWarnings");

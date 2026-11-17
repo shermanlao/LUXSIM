@@ -3774,7 +3774,7 @@ export function BuildingEditor({
               className="btn btn-secondary w-full"
               onClick={() => void saveOfficialLuxFile()}
             >
-              Save .lux
+              Save .lxm
             </button>
             <button
               className="btn btn-accent w-full"

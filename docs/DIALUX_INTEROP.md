@@ -9,14 +9,14 @@
 | DXF | Line/polyline underlay |
 | DWG | Stored; convert to DXF externally in this build |
 | IFC | Storeys + spaces (text parser); draw/edit rooms after |
-| `.lux` (also `.luxsim`, `.luxsim.json`) | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present, plus optional Generate LDT `origin` / `libraryFamily` / `libraryBeamDeg`). Invalid files are rejected. Older files without those library fields still import and are not given invented cone metadata. Official saves also embed the plan underlays the scene uses (image, PDF plus its page raster, DXF, IFC, and DWG) in an `assets` map keyed by the scene asset ids; binary files are stored as base64, DXF/IFC as text. Older files without that field still import. If the scene has underlay metadata but no embedded files, the project still opens and the missing plan is not invented. Website / report footer fields are ignored. |
+| `.lxm` (also `.lux`, `.luxsim`, `.luxsim.json`) | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present, plus optional Generate LDT `origin` / `libraryFamily` / `libraryBeamDeg`). Invalid files are rejected. Older files without those library fields still import and are not given invented cone metadata. Official saves also embed the plan underlays the scene uses (image, PDF plus its page raster, DXF, IFC, and DWG) in an `assets` map keyed by the scene asset ids; binary files are stored as base64, DXF/IFC as text. Older files without that field still import. If the scene has underlay metadata but no embedded files, the project still opens and the missing plan is not invented. Website / report footer fields are ignored. |
 
 ## Exports
 
 | Format | Support |
 |--------|---------|
 | Full PDF report | Cover, project summary, luminaire list, room list, calculation objects, per-room summary (properties + results + working plane / false-color), product polar sheets, coordinate schedule |
-| `.lux` | Official native project filename (same JSON format as older `.luxsim` / `.luxsim.json`; includes photometry `sourceFiles` and, when present, plan/underlay files in `assets`; optional `luminaireLibrary` map preserves Generate LDT cone origin / family / beam when present in the source library) |
+| `.lxm` | Official native project filename (same JSON format as older `.lux` / `.luxsim` / `.luxsim.json`; includes photometry `sourceFiles` and, when present, plan/underlay files in `assets`; optional `luminaireLibrary` map preserves Generate LDT cone origin / family / beam when present in the source library) |
 | DIALux verification zip | Multi-room `rooms.json`, `schedule.csv`, `luminaires/` (IES/LDT), `geometry.dxf` (walls + fixtures + grid points), `results-summary.csv`, optional `results-grid.csv` |
 
 ### DIALux verification zip (one click)

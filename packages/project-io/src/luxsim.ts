@@ -13,18 +13,18 @@ import {
 } from "./luxsim-assets";
 
 /** Official download extension. File contents stay JSON with format: "luxsim". */
-export const LUXSIM_PROJECT_EXTENSION = ".lux";
+export const LUXSIM_PROJECT_EXTENSION = ".lxm";
 
 /** Older official names that must still open. */
-export const LUXSIM_LEGACY_PROJECT_EXTENSIONS = [".luxsim", ".luxsim.json"] as const;
+export const LUXSIM_LEGACY_PROJECT_EXTENSIONS = [".lux", ".luxsim", ".luxsim.json"] as const;
 
-/** File-picker accept list: official .lux, legacy names, and JSON MIME. */
-export const LUXSIM_PROJECT_FILE_ACCEPT = ".lux,.luxsim,.luxsim.json,application/json";
+/** File-picker accept list: official .lxm, legacy names, and JSON MIME. */
+export const LUXSIM_PROJECT_FILE_ACCEPT = ".lxm,.lux,.luxsim,.luxsim.json,application/json";
 
 /** MIME type of the project file (pretty-printed JSON). */
 export const LUXSIM_PROJECT_MIME = "application/json";
 
-const LUXSIM_PROJECT_FILENAME_RE = /\.(lux|luxsim\.json|luxsim)$/i;
+const LUXSIM_PROJECT_FILENAME_RE = /\.(lxm|luxsim\.json|luxsim|lux)$/i;
 
 export function isLuxsimProjectFilename(filename: string): boolean {
   const base = filename.replace(/\\/g, "/").split("/").pop() || filename;

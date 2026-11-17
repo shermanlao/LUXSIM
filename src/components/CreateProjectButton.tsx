@@ -113,7 +113,7 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
           disabled={disabled}
           onClick={() => fileRef.current?.click()}
         >
-          {importing ? "Opening…" : "Open .lux"}
+          {importing ? "Opening…" : "Open .lxm"}
         </button>
         <input
           ref={fileRef}

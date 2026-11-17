@@ -67,7 +67,7 @@ export type ImportLuxsimResult = {
 };
 
 /**
- * Official open path: parse a valid `.lux` (or older `.luxsim` / `.luxsim.json`), restore photometry / source
+ * Official open path: parse a valid `.lxm` (or older `.lux` / `.luxsim` / `.luxsim.json`), restore photometry / source
  * files and plan underlays when present, and create a new project in the given workspace.
  * Invalid files throw before any write. Never updates an existing project.
  */

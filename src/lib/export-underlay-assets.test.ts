@@ -60,7 +60,7 @@ describe("collectOfficialExportAssets", () => {
     expect(Array.from(base64ToBytes(packed.assets["asset-img"]!.content))).toEqual(Array.from(png));
     expect(packed.missingAssetIds).toEqual(["asset-dxf"]);
     expect(missingExportAssetStatus(packed.missingAssetIds, { "asset-dxf": "plan.dxf" })).toBe(
-      ".lux downloaded, but plan drawings are missing for: plan.dxf. The file is incomplete."
+      ".lxm downloaded, but plan drawings are missing for: plan.dxf. The file is incomplete."
     );
   });
 });

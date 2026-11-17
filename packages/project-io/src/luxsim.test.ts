@@ -352,14 +352,16 @@ describe("prepareLuxsimImport", () => {
   });
 });
 
-describe("official .lux project filename", () => {
-  it("saves as .lux and still recognises older .luxsim names", () => {
-    expect(LUXSIM_PROJECT_EXTENSION).toBe(".lux");
+describe("official .lxm project filename", () => {
+  it("saves as .lxm and still recognises older .lux and .luxsim names", () => {
+    expect(LUXSIM_PROJECT_EXTENSION).toBe(".lxm");
     expect(LUXSIM_PROJECT_MIME).toBe("application/json");
-    expect(luxsimProjectDownloadName("Sample office")).toBe("Sample_office.lux");
-    expect(luxsimProjectDownloadName("")).toBe("luxsim-project.lux");
-    expect([...LUXSIM_LEGACY_PROJECT_EXTENSIONS]).toEqual([".luxsim", ".luxsim.json"]);
-    expect(LUXSIM_PROJECT_FILE_ACCEPT).toBe(".lux,.luxsim,.luxsim.json,application/json");
+    expect(luxsimProjectDownloadName("Sample office")).toBe("Sample_office.lxm");
+    expect(luxsimProjectDownloadName("")).toBe("luxsim-project.lxm");
+    expect([...LUXSIM_LEGACY_PROJECT_EXTENSIONS]).toEqual([".lux", ".luxsim", ".luxsim.json"]);
+    expect(LUXSIM_PROJECT_FILE_ACCEPT).toBe(".lxm,.lux,.luxsim,.luxsim.json,application/json");
+    expect(isLuxsimProjectFilename("Office.lxm")).toBe(true);
+    expect(isLuxsimProjectFilename("Office.LXM")).toBe(true);
     expect(isLuxsimProjectFilename("Office.lux")).toBe(true);
     expect(isLuxsimProjectFilename("Office.LUX")).toBe(true);
     expect(isLuxsimProjectFilename("Office.luxsim")).toBe(true);
@@ -368,12 +370,14 @@ describe("official .lux project filename", () => {
     expect(isLuxsimProjectFilename("Office.json")).toBe(false);
     expect(isLuxsimProjectFilename("Office.luxury")).toBe(false);
     expect(isLuxsimProjectFilename("Office.lux.bak")).toBe(false);
+    expect(isLuxsimProjectFilename("Office.lxmore")).toBe(false);
   });
 
-  it("opens the same JSON format from a .lux or a .luxsim filename", () => {
+  it("opens the same JSON format from a .lxm, .lux or .luxsim filename", () => {
     const text = serializeLuxsim(sampleFile());
     const fromLux = prepareLuxsimImport(text);
     const fromLegacy = prepareLuxsimImport(text);
+    expect(isLuxsimProjectFilename("Sample_office.lxm")).toBe(true);
     expect(isLuxsimProjectFilename("Sample_office.lux")).toBe(true);
     expect(isLuxsimProjectFilename("Sample_office.luxsim")).toBe(true);
     expect(fromLux.scene).toEqual(fromLegacy.scene);
@@ -397,7 +401,7 @@ function underlay(partial: Partial<Underlay> & Pick<Underlay, "id" | "assetId" |
   };
 }
 
-describe("official .lux underlay embedding", () => {
+describe("official .lxm underlay embedding", () => {
   const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]);
   const rasterBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01, 0x02, 0x03, 0x04]);
   const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3]);
