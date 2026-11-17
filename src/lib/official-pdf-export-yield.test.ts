@@ -57,7 +57,7 @@ describe("Full PDF export stays responsive", () => {
     expect(exportFn.indexOf("collectOfficialIsoluxSnapshotsAsync")).toBeLessThan(
       exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
-    expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("doc.save("));
+    expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("officialSaveBlob"));
 
     const hook = read("src/components/useOfficialWaitDialog.tsx");
     expect(hook).toContain("flushSync");

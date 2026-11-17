@@ -13,8 +13,9 @@ import {
 } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
 import type { PhotometricData } from "@luxsim/photometry";
+import { officialSaveBlob, OFFICIAL_SAVE_TYPES, type OfficialSaveHost } from "@/lib/official-save-file";
 
-export function exportPdfReport(opts: {
+export async function exportPdfReport(opts: {
   projectName: string;
   scene: SceneJson;
   results: CalcResults | null;
@@ -103,15 +104,21 @@ export function exportPdfReport(opts: {
     }
   }
 
-  doc.save(`${sanitize(projectName)}.pdf`);
+  const filename = `${sanitize(projectName)}.pdf`;
+  const blob = doc.output("blob");
+  return officialSaveBlob(blob, { suggestedName: filename, types: [OFFICIAL_SAVE_TYPES.pdf] });
 }
 
-export function exportLuxsimFile(project: LuxsimProjectFile) {
+
+export async function exportLuxsimFile(project: LuxsimProjectFile, host?: OfficialSaveHost) {
   const text = serializeLuxsim(project);
-  downloadBlob(
-    luxsimProjectDownloadName(project.name),
-    new Blob([text], { type: LUXSIM_PROJECT_MIME })
-  );
+  const filename = luxsimProjectDownloadName(project.name);
+  const blob = new Blob([text], { type: LUXSIM_PROJECT_MIME });
+  return officialSaveBlob(blob, {
+    suggestedName: filename,
+    types: [OFFICIAL_SAVE_TYPES.lxm],
+    host: host ?? { download: (file, name) => downloadBlob(name, file) },
+  });
 }
 
 export async function exportDialuxPack(opts: {
@@ -120,9 +127,15 @@ export async function exportDialuxPack(opts: {
   results: ResultsV2 | null;
   sourceFiles: Record<string, { filename: string; text: string }>;
   luminaireNames: Record<string, string>;
+  host?: OfficialSaveHost;
 }) {
   const blob = await buildDialuxPack(opts);
-  downloadBlob(`${sanitize(opts.projectName)}-verification-pack.zip`, blob);
+  const filename = `${sanitize(opts.projectName)}-verification-pack.zip`;
+  return officialSaveBlob(blob, {
+    suggestedName: filename,
+    types: [OFFICIAL_SAVE_TYPES.zip],
+    host: opts.host ?? { download: (file, name) => downloadBlob(name, file) },
+  });
 }
 
 export function buildLuxsimProject(opts: {

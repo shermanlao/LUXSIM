@@ -490,6 +490,41 @@ body:has(.cad-editor-root) header nav {
   font-family: var(--font-display);
 }
 
+
+.cad-file-bar .cad-project-name {
+  flex: 1;
+  min-width: 180px;
+  max-width: 420px;
+  padding: 0.4rem 0;
+  font-size: 1.05rem;
+  font-family: var(--font-display);
+  color: #fff;
+}
+
+.official-view-value {
+  display: inline-block;
+  min-height: 1.6em;
+  color: inherit;
+  font: inherit;
+  line-height: 1.45;
+  word-break: break-word;
+}
+
+.cad-props-card .official-view-value {
+  display: block;
+  width: 100%;
+  background: transparent;
+  border: none;
+  color: #f0f4f6;
+  padding: 0.2rem 0;
+}
+
+.cad-props-card .official-view-check {
+  display: block;
+  color: #9fb0bb;
+  font-size: 0.85rem;
+}
+
 .cad-file-bar .cad-disclaimer {
   font-size: 0.72rem;
   color: #8fa3ad;

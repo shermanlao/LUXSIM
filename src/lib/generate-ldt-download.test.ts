@@ -107,7 +107,7 @@ describe("buildGenerateLdtDownload", () => {
 });
 
 describe("triggerTextFileDownload", () => {
-  it("starts a blob download and does not navigate to a saved luminaire id", () => {
+  it("starts a blob download and does not navigate to a saved luminaire id", async () => {
     const anchor = {
       href: "",
       download: "",
@@ -129,7 +129,7 @@ describe("triggerTextFileDownload", () => {
       },
     };
 
-    triggerTextFileDownload("LDT-TEXT", "M4-CONE-36.ldt", host);
+    await triggerTextFileDownload("LDT-TEXT", "M4-CONE-36.ldt", host);
 
     expect(host.createObjectURL).toHaveBeenCalledTimes(1);
     const blob = (host.createObjectURL as ReturnType<typeof vi.fn>).mock.calls[0][0] as Blob;

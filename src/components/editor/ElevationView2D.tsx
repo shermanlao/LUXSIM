@@ -28,6 +28,7 @@ type Props = {
   onMoveInstance: (instanceId: string, a: number, z: number) => void;
   onBeginMoveInstance?: (instanceId: string) => boolean;
   photometry?: Record<string, PhotometricData>;
+  readOnly?: boolean;
 };
 
 /** Front: X–Z plane; Side: Y–Z plane */
@@ -40,6 +41,7 @@ export function ElevationView2D({
   onMoveInstance,
   onBeginMoveInstance,
   photometry,
+  readOnly = false,
 }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
@@ -122,6 +124,7 @@ export function ElevationView2D({
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
+        if (readOnly) return;
         const luminaireId = e.dataTransfer.getData("application/x-luxsim-luminaire");
         if (!luminaireId) return;
         const w = clientToWorld(e.clientX, e.clientY);
@@ -156,11 +159,12 @@ export function ElevationView2D({
           return (
             <g
               key={inst.instanceId}
-              style={{ cursor: "grab" }}
+              style={{ cursor: readOnly ? "pointer" : "grab" }}
               onMouseDown={(e) => {
                 if (e.button === PLAN_PAN_BUTTON || e.button !== 0 || panningRef.current) return;
                 e.stopPropagation();
                 onSelect(inst.instanceId);
+                if (readOnly) return;
                 if (onBeginMoveInstance && !onBeginMoveInstance(inst.instanceId)) return;
                 const w0 = clientToWorld(e.clientX, e.clientY);
                 grabOffset.current = { a: w0.a - a, z: w0.z - inst.position.z };

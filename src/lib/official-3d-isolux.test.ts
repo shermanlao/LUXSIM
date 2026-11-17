@@ -368,7 +368,7 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     expect(exportFn.indexOf("const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync")).toBeLessThan(
       exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
-    expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("doc.save("));
+    expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("officialSaveBlob"));
     expect(exportFn).not.toMatch(/3[Dd].*isoline chapter|isoluxSnapshots3d|collectOfficial3dIsolux/);
 
     const capture = readSrc("src/lib/render-scene-3d.ts");

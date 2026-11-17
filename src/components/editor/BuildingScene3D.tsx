@@ -184,6 +184,7 @@ export function BuildingScene3D({
   showIsolines = false,
   showWorkplane = true,
   onViewReady,
+  readOnly = false,
 }: {
   scene: ProjectSceneV2;
   results: ResultsV2 | null;
@@ -203,6 +204,7 @@ export function BuildingScene3D({
   showIsolines?: boolean;
   showWorkplane?: boolean;
   onViewReady?: () => void;
+  readOnly?: boolean;
 }) {
   const storeyId = scene.ui.activeStoreyId;
   const storey = scene.storeys.find((s) => s.id === storeyId);
@@ -237,6 +239,7 @@ export function BuildingScene3D({
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
+        if (readOnly) return;
         const luminaireId = e.dataTransfer.getData("application/x-luxsim-luminaire");
         if (!luminaireId) return;
         const room =

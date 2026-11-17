@@ -147,6 +147,8 @@ type Props = {
   showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
+  /** View-only: select is allowed, edit handles and moves are not. */
+  readOnly?: boolean;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -204,6 +206,7 @@ export function TopView2D({
   showIsolines = false,
   showValueLabels = false,
   falseColorScale,
+  readOnly = false,
 }: Props) {
   const anyFilletPickActive = filletPickActive || filletAllPickActive;
   const hostRef = useRef<HTMLDivElement>(null);
@@ -881,6 +884,7 @@ export function TopView2D({
       }}
       onDrop={(e) => {
         e.preventDefault();
+        if (readOnly) return;
         const luminaireId = e.dataTransfer.getData("application/x-luxsim-luminaire");
         if (!luminaireId) return;
         const snapped = snappedWorldAt(e.clientX, e.clientY);
@@ -1178,6 +1182,7 @@ export function TopView2D({
         })}
 
         {scene.ui.tool === "select" &&
+          !readOnly &&
           !drawing &&
           !linePickActive &&
           !circlePickActive &&
@@ -1274,6 +1279,7 @@ export function TopView2D({
             })}
 
         {scene.ui.tool === "select" &&
+          !readOnly &&
           !drawing &&
           !linePickActive &&
           !circlePickActive &&
@@ -1587,10 +1593,14 @@ export function TopView2D({
             <g
               key={inst.instanceId}
               transform={`translate(${s.x},${s.y})`}
-              style={{ cursor: movingId === inst.instanceId ? "grabbing" : "grab" }}
+              style={{ cursor: readOnly ? "pointer" : movingId === inst.instanceId ? "grabbing" : "grab" }}
               onMouseDown={(e) => {
                 if (e.button !== 0 || panningRef.current) return;
                 e.stopPropagation();
+                if (readOnly) {
+                  onSelect(inst.instanceId);
+                  return;
+                }
                 if (linePickActive && onLinePickChange) {
                   if (e.detail === 1) {
                     onLinePickChange(

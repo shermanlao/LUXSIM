@@ -1,4 +1,5 @@
 import { generateLibraryCone, type PhotometricFamily } from "@luxsim/photometry";
+import { officialSaveBlob, OFFICIAL_SAVE_TYPES } from "@/lib/official-save-file";
 
 /** Current Generate LDT form field values, including the compact editor path. */
 export type GenerateLdtFormValues = {
@@ -87,13 +88,7 @@ function defaultDownloadHost(): TextFileDownloadHost {
   };
 }
 
-/** Trigger a browser file download from generated text. Does not save to the library. */
-export function triggerTextFileDownload(
-  text: string,
-  filename: string,
-  host: TextFileDownloadHost = defaultDownloadHost(),
-): void {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+function downloadWithHost(blob: Blob, filename: string, host: TextFileDownloadHost): void {
   const url = host.createObjectURL(blob);
   try {
     const a = host.document.createElement("a");
@@ -107,4 +102,18 @@ export function triggerTextFileDownload(
   } finally {
     host.revokeObjectURL(url);
   }
+}
+
+/** Save generated text with a path dialog when available. Does not save to the library. */
+export async function triggerTextFileDownload(
+  text: string,
+  filename: string,
+  host: TextFileDownloadHost = defaultDownloadHost(),
+) {
+  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+  return officialSaveBlob(blob, {
+    suggestedName: filename,
+    types: [OFFICIAL_SAVE_TYPES.ldt],
+    host: { download: (file, name) => downloadWithHost(file, name, host) },
+  });
 }

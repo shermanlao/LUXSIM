@@ -240,6 +240,8 @@ import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
 import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitYield } from "@/lib/official-wait-dialog";
+import { officialSaveBlob, OFFICIAL_SAVE_TYPES } from "@/lib/official-save-file";
+import { OfficialMaybeInput, OfficialMaybeSelect } from "@/components/editor/OfficialViewField";
 import { officialViewSwitchReady, shouldWaitForOfficialViewSwitch } from "@/lib/official-view-switch";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
@@ -745,6 +747,7 @@ export function BuildingEditor({
   }
 
   function undoEdit() {
+    if (readOnly) return;
     const next = undoStackRef.current.undo(snapshotNow());
     if (!next) return;
     coalesceRef.current = null;
@@ -753,6 +756,7 @@ export function BuildingEditor({
   }
 
   function redoEdit() {
+    if (readOnly) return;
     const next = undoStackRef.current.redo(snapshotNow());
     if (!next) return;
     coalesceRef.current = null;
@@ -853,8 +857,9 @@ export function BuildingEditor({
 
   function patchScene(
     updater: (s: ProjectSceneV2) => ProjectSceneV2,
-    opts?: { recordUndo?: boolean; coalesce?: string }
+    opts?: { recordUndo?: boolean; coalesce?: string; viewOnlySafe?: boolean }
   ) {
+    if (readOnly && !opts?.viewOnlySafe) return;
     if (opts?.recordUndo !== false) {
       if (opts?.coalesce) beginCoalesce(opts.coalesce);
       else if (coalesceRef.current !== "drag") {
@@ -866,16 +871,18 @@ export function BuildingEditor({
   }
 
   function patchSceneUi(updater: (s: ProjectSceneV2) => ProjectSceneV2) {
-    patchScene(updater, { recordUndo: false });
+    patchScene(updater, { recordUndo: false, viewOnlySafe: true });
   }
 
 
   function addStorey() {
+    if (readOnly) return;
     const id = nid("storey");
     patchScene((s) => officialAppendStorey(s, { id }));
   }
 
   function copyStorey() {
+    if (readOnly) return;
     endCoalesce();
     const result = officialCopyStorey(scene, {
       storeyId: nid("storey"),
@@ -889,12 +896,14 @@ export function BuildingEditor({
   }
 
   function applyStoreyMetrics(patch: { elevationM?: number; heightM?: number }) {
+    if (readOnly) return;
     const storeyId = activeStorey?.id;
     if (!storeyId) return;
     patchScene((s) => applyOfficialStoreyMetrics(s, storeyId, patch));
   }
 
   function applyRoomHeightMm(raw: string) {
+    if (readOnly) return;
     setRoomHeightMm(raw);
     const selectedId = activeRoom?.id ?? null;
     if (!selectedId) return;
@@ -917,6 +926,7 @@ export function BuildingEditor({
   }
 
   function selectEditorTool(tool: ProjectSceneV2["ui"]["tool"]) {
+    if (readOnly && tool !== "select") return;
     if (tool === "drawRoom" && refuseUncalibratedDrawRoom()) return;
     if (booleanPick.active && tool !== "select") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
@@ -946,6 +956,7 @@ export function BuildingEditor({
   }
 
   function createRectRoom() {
+    if (readOnly) return;
     if (refuseUncalibratedDrawRoom()) return;
     const lengthM = parseLengthToM(rectLenMm);
     const widthM = parseLengthToM(rectWidMm);
@@ -1513,6 +1524,7 @@ export function BuildingEditor({
   }
 
   function addFromLibrary(luminaireId: string) {
+    if (readOnly) return;
     if (!luminaireId) return;
     patchScene((s) => ({
       ...s,
@@ -1525,6 +1537,7 @@ export function BuildingEditor({
   }
 
   function placeAt(luminaireId: string, x: number, y: number, z?: number) {
+    if (readOnly) return;
     const room = findRoomAt(scene.rooms, scene.ui.activeStoreyId, { x, y });
     if (!room) {
       setStatus("Drop inside a room outline");
@@ -1581,6 +1594,7 @@ export function BuildingEditor({
   }
 
   function requestFixtureWrite(roomIds: string[], apply: () => void) {
+    if (readOnly) return;
     const decision = decideFixtureChange(latestRef.current.results, roomIds);
     if (decision.action === "apply") {
       apply();
@@ -1591,6 +1605,7 @@ export function BuildingEditor({
   }
 
   function confirmDiscardResults() {
+    if (readOnly) return;
     const roomIds = pendingDiscardRoomIds;
     const apply = pendingFixtureApplyRef.current;
     pendingFixtureApplyRef.current = null;
@@ -1606,6 +1621,7 @@ export function BuildingEditor({
   }
 
   function beginMoveInstance(instanceId: string): boolean {
+    if (readOnly) return false;
     const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
     const roomIds = inst?.roomId ? [inst.roomId] : [];
     const decision = decideFixtureChange(latestRef.current.results, roomIds);
@@ -1616,6 +1632,7 @@ export function BuildingEditor({
   }
 
   function updateInstanceRotation(instanceId: string, rotationDeg: number) {
+    if (readOnly) return;
     const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
     requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
       patchScene((s) => ({
@@ -1628,6 +1645,7 @@ export function BuildingEditor({
   }
 
   function updateInstancePosition(instanceId: string, axis: "x" | "y" | "z", value: number) {
+    if (readOnly) return;
     const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
     requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
       patchScene((s) => ({
@@ -1642,6 +1660,7 @@ export function BuildingEditor({
   }
 
   function removeInstance(instanceId: string) {
+    if (readOnly) return;
     const inst = latestRef.current.scene.instances.find((i) => i.instanceId === instanceId);
     requestFixtureWrite(inst?.roomId ? [inst.roomId] : [], () => {
       patchScene((s) => ({
@@ -1653,6 +1672,7 @@ export function BuildingEditor({
   }
 
   function moveRoom(roomId: string, dx: number, dy: number) {
+    if (readOnly) return;
     if (dx === 0 && dy === 0) return;
     if (coalesceRef.current !== "drag") {
       beginCoalesce("drag");
@@ -1687,6 +1707,7 @@ export function BuildingEditor({
   }
 
   function moveStorey(storeyId: string, dx: number, dy: number) {
+    if (readOnly) return;
     if (dx === 0 && dy === 0) return;
     if (coalesceRef.current !== "drag") {
       beginCoalesce("drag");
@@ -1700,6 +1721,7 @@ export function BuildingEditor({
   }
 
   function moveInstance(instanceId: string, x: number, y: number, z?: number) {
+    if (readOnly) return;
     if (coalesceRef.current !== "drag") {
       beginCoalesce("drag");
       const end = () => {
@@ -2377,7 +2399,11 @@ export function BuildingEditor({
       officialWaitYield
     );
     await officialWaitYield();
-    doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
+    const reportName = `${name.replace(/[^\w\-]+/g, "_")}-report.pdf`;
+    await officialSaveBlob(doc.output("blob"), {
+      suggestedName: reportName,
+      types: [OFFICIAL_SAVE_TYPES.pdf],
+    });
     });
   }
 
@@ -2703,6 +2729,7 @@ export function BuildingEditor({
       <div className="relative flex-1 min-h-0 bg-[#0a1218]">
       {(viewMode === "top") && (
         <TopView2D
+          readOnly={readOnly}
           scene={scene}
           variant="top"
           results={results}
@@ -2760,6 +2787,7 @@ export function BuildingEditor({
       )}
       {viewMode === "front" && (
         <ElevationView2D
+          readOnly={readOnly}
           scene={scene}
           mode="front"
           selectedId={selectedId}
@@ -2785,6 +2813,7 @@ export function BuildingEditor({
       )}
       {viewMode === "side" && (
         <ElevationView2D
+          readOnly={readOnly}
           scene={scene}
           mode="side"
           selectedId={selectedId}
@@ -2808,6 +2837,7 @@ export function BuildingEditor({
       )}
       {viewMode === "persp3d" && (
         <BuildingScene3D
+          readOnly={readOnly}
           scene={scene}
           results={results}
           display3d={display3d}
@@ -2852,13 +2882,12 @@ export function BuildingEditor({
       <div className="cad-chrome">
       <header className="cad-file-bar">
         <span className="text-[10px] uppercase tracking-widest text-[#8fa3ad] shrink-0">Project</span>
-        <input
+        <OfficialMaybeInput
           id="projectName"
-          className="cad-project-input"
+          className={readOnly ? "cad-project-name official-view-value" : "cad-project-input"}
           value={name}
           readOnly={readOnly}
           onChange={(e) => {
-            if (readOnly) return;
             beginCoalesce("name");
             setName(e.target.value);
           }}
@@ -2937,20 +2966,24 @@ export function BuildingEditor({
       <div className="cad-body">
         <aside className="cad-left space-y-1">
           <p className="cad-section-title">Building</p>
-          <button type="button" className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
-            Add storey
-          </button>
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              data-help-key="tool.copyStorey"
-              className="btn btn-secondary w-full !text-xs"
-              onClick={copyStorey}
-            >
-              Copy storey
-            </button>
-            <HelpTip helpKey="tool.copyStorey" />
-          </div>
+          {!readOnly && (
+            <>
+              <button type="button" className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
+                Add storey
+              </button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  data-help-key="tool.copyStorey"
+                  className="btn btn-secondary w-full !text-xs"
+                  onClick={copyStorey}
+                >
+                  Copy storey
+                </button>
+                <HelpTip helpKey="tool.copyStorey" />
+              </div>
+            </>
+          )}
           <ul className="space-y-0.5">
             {scene.storeys.map((st) => (
               <li key={st.id}>
@@ -3005,7 +3038,8 @@ export function BuildingEditor({
               <label className="label" htmlFor="storeyElevationM">
                 Elevation (m)
               </label>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 id="storeyElevationM"
                 className="input"
                 type="number"
@@ -3016,14 +3050,15 @@ export function BuildingEditor({
                   if (!Number.isFinite(next)) return;
                   applyStoreyMetrics({ elevationM: next });
                 }}
-              />
+               />
               <div className="flex items-center justify-between">
                 <label className="label mb-0" htmlFor="storeyHeightM">
                   Storey height (m)
                 </label>
                 <HelpTip helpKey="tool.storeyHeight" />
               </div>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 id="storeyHeightM"
                 className="input"
                 type="number"
@@ -3035,7 +3070,7 @@ export function BuildingEditor({
                   if (!(next >= 0.5)) return;
                   applyStoreyMetrics({ heightM: next });
                 }}
-              />
+               />
               <p className="text-[10px] text-[var(--muted)] leading-snug">
                 {STOREY_METRICS_EXPLANATION}
               </p>
@@ -3049,7 +3084,8 @@ export function BuildingEditor({
               </label>
               <HelpTip helpKey="tool.roomHeight" />
             </div>
-            <input
+            <OfficialMaybeInput
+                  readOnly={readOnly}
               id="buildingRoomHeightMm"
               className="input"
               type="number"
@@ -3058,7 +3094,7 @@ export function BuildingEditor({
               data-help-key="tool.roomHeight"
               value={roomHeightMm}
               onChange={(e) => applyRoomHeightMm(e.target.value)}
-            />
+             />
             <p className="text-[10px] text-[var(--muted)] leading-snug">
               Used for the next room you draw or create (default 2800 mm). If a room is
               selected, this also updates that room’s ceiling. Other rooms are left
@@ -3068,7 +3104,7 @@ export function BuildingEditor({
 
           <div
             className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "construction" ? "cad-panel-hidden" : ""
+              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
             }`}
           >
             <h3 className="font-semibold text-sm text-white/95">Tools</h3>
@@ -3108,11 +3144,12 @@ export function BuildingEditor({
             {scene.ui.tool === "calibrate" && (
               <div>
                 <label className="label">Real distance (m)</label>
-                <input
+                <OfficialMaybeInput
+                  readOnly={readOnly}
                   className="input"
                   value={calibDist}
                   onChange={(e) => setCalibDist(e.target.value)}
-                />
+                 />
                 <p className="text-[10px] text-[var(--muted)] mt-1">
                   Click two points on the plan after setting distance.
                 </p>
@@ -3124,17 +3161,19 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.drawRect" />
               </div>
               <label className="label">Length (mm)</label>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 value={rectLenMm}
                 onChange={(e) => setRectLenMm(e.target.value)}
-              />
+               />
               <label className="label">Width (mm)</label>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 value={rectWidMm}
                 onChange={(e) => setRectWidMm(e.target.value)}
-              />
+               />
               <button
                 type="button"
                 data-help-key="tool.drawRect"
@@ -3324,11 +3363,12 @@ export function BuildingEditor({
                 <HelpTip helpKey="tool.filletAllCorners" />
               </div>
               <label className="label">Radius (mm)</label>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 value={filletRadiusMm}
                 onChange={(e) => setFilletRadiusMm(e.target.value)}
-              />
+               />
               <p className="text-[10px] text-[var(--muted)]">
                 Shared radius for Fillet corner and Fillet all corners, in millimetres. Fillet corner rounds one selected corner (pick the room if none is selected, then click a corner handle). Fillet all corners rounds every remaining sharp corner of one room; if a room is already selected it applies immediately, otherwise click the room. A mid-edge handle is not a target. Esc cancels the pick.
               </p>
@@ -3337,7 +3377,7 @@ export function BuildingEditor({
 
           <div
             className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "construction" ? "cad-panel-hidden" : ""
+              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
             }`}
           >
             <p className="cad-section-title">Import plan</p>
@@ -3377,18 +3417,18 @@ export function BuildingEditor({
             {underlay?.kind === "pdf" && (underlay.pdfPageCount ?? 0) > 1 && (
               <div>
                 <label className="label">PDF page</label>
-                <select
+                <OfficialMaybeSelect
+                  readOnly={readOnly}
                   className="select !text-xs"
                   value={underlay.pageIndex ?? 0}
                   disabled={uploading}
-                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}
-                >
+                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}>
                   {Array.from({ length: underlay.pdfPageCount ?? 1 }, (_, i) => (
                     <option key={i} value={i}>
                       Page {i + 1}
                     </option>
                   ))}
-                </select>
+                </OfficialMaybeSelect>
               </div>
             )}
             {underlay?.kind === "pdf" && underlay.rasterDpi && (
@@ -3441,16 +3481,18 @@ export function BuildingEditor({
                         {inst.position.z.toFixed(1)}
                       </td>
                       <td className="text-right">
-                        <button
-                          type="button"
-                          className="text-xs text-[#f5a5a5]"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeInstance(inst.instanceId);
-                          }}
-                        >
-                          Remove
-                        </button>
+                        {!readOnly && (
+                          <button
+                            type="button"
+                            className="text-xs text-[#f5a5a5]"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              removeInstance(inst.instanceId);
+                            }}
+                          >
+                            Remove
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
@@ -3458,7 +3500,7 @@ export function BuildingEditor({
                 {!scene.instances.length && (
                   <tr>
                     <td colSpan={5} className="text-[#8fa3ad] py-2">
-                      Drag fixtures from the library onto a room.
+                      {readOnly ? "No fixtures in this project." : "Drag fixtures from the library onto a room."}
                     </td>
                   </tr>
                 )}
@@ -3482,7 +3524,8 @@ export function BuildingEditor({
                 </label>
                 <HelpTip helpKey="tool.roomHeight" />
               </div>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 id="roomHeightMm"
                 className="input"
                 type="number"
@@ -3491,7 +3534,7 @@ export function BuildingEditor({
                 data-help-key="tool.roomHeight"
                 value={roomHeightMm}
                 onChange={(e) => applyRoomHeightMm(e.target.value)}
-              />
+               />
               <p className="label mb-0">Area</p>
               <p className="text-sm tabular-nums">{formatAreaM2(roomAreaM2(activeRoom))}</p>
               <p className="label mb-0">Origin (first corner)</p>
@@ -3521,7 +3564,8 @@ export function BuildingEditor({
                   Show
                 </label>
               </div>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 type="number"
                 step={0.05}
@@ -3539,11 +3583,12 @@ export function BuildingEditor({
                     ),
                   }));
                 }}
-              />
+               />
               {(["floor", "ceiling", "walls"] as const).map((face) => (
                 <div key={face}>
                   <label className="label">ρ {face}</label>
-                  <input
+                  <OfficialMaybeInput
+                  readOnly={readOnly}
                     className="input"
                     type="number"
                     step={0.05}
@@ -3566,11 +3611,12 @@ export function BuildingEditor({
                         ),
                       }));
                     }}
-                  />
+                   />
                 </div>
               ))}
               <label className="label">Grid spacing (m)</label>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 type="number"
                 step={0.1}
@@ -3590,7 +3636,7 @@ export function BuildingEditor({
                     ),
                   }));
                 }}
-              />
+               />
               <div className="flex items-center justify-between gap-1">
                 <label className="label mb-0">Maintenance factor (CIE 97)</label>
                 <HelpTip helpKey="room.maintenanceFactor" />
@@ -3610,7 +3656,8 @@ export function BuildingEditor({
               ).map(([key, lbl]) => (
                 <div key={key}>
                   <label className="label">{lbl}</label>
-                  <input
+                  <OfficialMaybeInput
+                  readOnly={readOnly}
                     className="input"
                     type="number"
                     step={0.01}
@@ -3630,7 +3677,7 @@ export function BuildingEditor({
                         ),
                       }));
                     }}
-                  />
+                   />
                 </div>
               ))}
               <p className="text-[10px] text-[var(--muted)]">
@@ -3643,7 +3690,8 @@ export function BuildingEditor({
               </p>
               <details className="text-xs">
                 <summary className="cursor-pointer text-[var(--muted)]">Override overall MF</summary>
-                <input
+                <OfficialMaybeInput
+                  readOnly={readOnly}
                   className="input mt-1"
                   type="number"
                   step={0.05}
@@ -3663,13 +3711,14 @@ export function BuildingEditor({
                       ),
                     }));
                   }}
-                />
+                 />
               </details>
               <div className="flex items-center justify-between gap-1">
                 <label className="label mb-0">EN 12464-1 assist</label>
                 <HelpTip helpKey="room.en12464" />
               </div>
-              <select
+              <OfficialMaybeSelect
+                  readOnly={readOnly}
                 className="select"
                 data-help-key="room.en12464"
                 value={activeRoom.calc.en12464TemplateId ?? ""}
@@ -3683,14 +3732,13 @@ export function BuildingEditor({
                         : r
                     ),
                   }));
-                }}
-              >
+                }}>
                 {EN12464_TEMPLATES.map((t) => (
                   <option key={t.id || "none"} value={t.id}>
                     {t.label}
                   </option>
                 ))}
-              </select>
+              </OfficialMaybeSelect>
               {en12464Check && (
                 <div className="text-xs space-y-1 pt-1 border-t border-[var(--line)]">
                   <p className="text-[var(--muted)]">Maintained Ēm {en12464Check.maintainedEave.toFixed(0)} lx</p>
@@ -3715,7 +3763,8 @@ export function BuildingEditor({
               data-fixture-properties=""
             >
               <p className="text-xs uppercase text-[var(--muted)]">Selected fixture</p>
-              <input
+              <OfficialMaybeInput
+                  readOnly={readOnly}
                 className="input"
                 value={selected.name}
                 onChange={(e) =>
@@ -3728,11 +3777,12 @@ export function BuildingEditor({
                     ),
                   }))
                 }
-              />
+               />
               {(["x", "y", "z"] as const).map((axis) => (
                 <div key={axis}>
                   <label className="label">{axis.toUpperCase()} (m)</label>
-                  <input
+                  <OfficialMaybeInput
+                  readOnly={readOnly}
                     className="input"
                     type="number"
                     step={0.1}
@@ -3744,13 +3794,14 @@ export function BuildingEditor({
                         Number(e.target.value)
                       )
                     }
-                  />
+                   />
                 </div>
               ))}
               <div>
                 <label className="label">Rotation (°)</label>
                 <div className="flex gap-2">
-                  <input
+                  <OfficialMaybeInput
+                  readOnly={readOnly}
                     className="input flex-1"
                     type="number"
                     step={1}
@@ -3760,25 +3811,29 @@ export function BuildingEditor({
                       if (!Number.isFinite(v)) return;
                       updateInstanceRotation(selected.instanceId, v);
                     }}
-                  />
-                  <button
-                    type="button"
-                    className="btn btn-secondary !px-2 !text-xs"
-                    onClick={() =>
-                      updateInstanceRotation(selected.instanceId, selected.rotationDeg - 90)
-                    }
-                  >
-                    −90°
-                  </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary !px-2 !text-xs"
-                    onClick={() =>
-                      updateInstanceRotation(selected.instanceId, selected.rotationDeg + 90)
-                    }
-                  >
-                    +90°
-                  </button>
+                   />
+                  {!readOnly && (
+                    <>
+                      <button
+                        type="button"
+                        className="btn btn-secondary !px-2 !text-xs"
+                        onClick={() =>
+                          updateInstanceRotation(selected.instanceId, selected.rotationDeg - 90)
+                        }
+                      >
+                        −90°
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-secondary !px-2 !text-xs"
+                        onClick={() =>
+                          updateInstanceRotation(selected.instanceId, selected.rotationDeg + 90)
+                        }
+                      >
+                        +90°
+                      </button>
+                    </>
+                  )}
                 </div>
                 <p className="text-[10px] text-[var(--muted)] mt-1">
                   Arrow on Top view shows photometric rotation (IES C0 = +X at 0°).
@@ -3873,6 +3928,8 @@ export function BuildingEditor({
             }`}
           >
             <p className="cad-section-title">Fixture library</p>
+{!readOnly && (
+            <>
           <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
             <label className="label">Upload IES / LDT</label>
             <input
@@ -3908,39 +3965,45 @@ export function BuildingEditor({
 
           <div>
             <label className="label">Add from org library</label>
-            <select
+            <OfficialMaybeSelect
+                  readOnly={readOnly}
               className="select"
               defaultValue=""
               onChange={(e) => {
                 addFromLibrary(e.target.value);
                 e.target.value = "";
-              }}
-            >
+              }}>
               <option value="">Select…</option>
               {library.map((l) => (
                 <option key={l.id} value={l.id}>
                   {luminaireListLabel(l.name, l)}
                 </option>
               ))}
-            </select>
+            </OfficialMaybeSelect>
           </div>
 
+            </>
+          )}
           <ul className="space-y-2">
             {projectFixtures.map((lum) => (
               <li
                 key={lum.id}
-                draggable
+                draggable={!readOnly}
                 onDragStart={(e) => {
+                  if (readOnly) {
+                    e.preventDefault();
+                    return;
+                  }
                   e.dataTransfer.setData("application/x-luxsim-luminaire", lum.id);
                   e.dataTransfer.effectAllowed = "copy";
                 }}
-                className="border border-[#3d5563] p-2 bg-[#243540] cursor-grab active:cursor-grabbing rounded-sm"
+                className={`border border-[#3d5563] p-2 bg-[#243540] rounded-sm${readOnly ? "" : " cursor-grab active:cursor-grabbing"}`}
               >
                 <div className="text-sm font-medium">{lum.name}</div>
                 <div className="text-[10px] text-[var(--muted)] mb-1">
                   {libraryConeLabel(lum) ? `${libraryConeLabel(lum)} · ` : ""}
                   {lum.lumens ? Math.round(lum.lumens) : "—"} lm ·{" "}
-                  {lum.watts ? Math.round(lum.watts) : "—"} W · drag to plan
+                  {lum.watts ? Math.round(lum.watts) : "—"} W{readOnly ? "" : " · drag to plan"}
                 </div>
                 {photoCache[lum.id] && (
                   <>
@@ -4011,13 +4074,13 @@ export function BuildingEditor({
       />
 
       <div className="cad-status-bar">
-        {status || "Click Save to keep your work · Ctrl+Z undo · Top view: drop fixtures into rooms"}
+        {status || (readOnly ? "View only · browse this project — editing is not allowed" : "Click Save to keep your work · Ctrl+Z undo · Top view: drop fixtures into rooms")}
         {assets.length > 0 && (
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}
       </div>
       <DiscardResultsDialog
-        open={pendingDiscardRoomIds != null}
+        open={pendingDiscardRoomIds != null && !readOnly}
         onConfirm={confirmDiscardResults}
         onCancel={cancelDiscardResults}
       />

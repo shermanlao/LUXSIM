@@ -380,7 +380,7 @@ describe("official editor and export path wiring", () => {
       exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
     expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(
-      exportFn.indexOf("doc.save(")
+      exportFn.indexOf("officialSaveBlob")
     );
     expect(editor).toContain("falseColorSnapshots,");
     expect(editor).toContain("Display3dToggle");
