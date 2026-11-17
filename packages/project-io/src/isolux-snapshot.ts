@@ -259,3 +259,31 @@ export function collectOfficialIsoluxSnapshots(
   }
   return out;
 }
+
+/**
+ * Same isolux PNGs as `collectOfficialIsoluxSnapshots`, yielding after each
+ * room so Full PDF export does not freeze the page on a large project.
+ */
+export async function collectOfficialIsoluxSnapshotsAsync(
+  scene: ProjectSceneV2,
+  results: ResultsV2,
+  render: (
+    model: IsoluxModel,
+    opts: OfficialIsoluxRenderOpts
+  ) => string | null = (model, opts) => renderIsoluxModelPngDataUrl(model, opts),
+  yieldTo: () => Promise<void> = () => Promise.resolve()
+): Promise<Record<string, string>> {
+  const out: Record<string, string> = {};
+  for (const room of scene.rooms) {
+    const model = officialIsoluxModelForRoom(room, results.byRoomId[room.id], {
+      mode: "isolines",
+      fixtures: scene.instances.filter((i) => i.roomId === room.id),
+    });
+    if (model) {
+      const url = render(model, OFFICIAL_PDF_ISOLUX_RENDER);
+      if (url) out[room.id] = url;
+    }
+    await yieldTo();
+  }
+  return out;
+}

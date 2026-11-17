@@ -361,19 +361,19 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     expect(editor).toContain("showValueLabels={planValueLabels}");
     expect(editor).toContain("planValueLabels: show");
     expect(editor).toContain("showValueLabels={planValueLabels}");
-    expect(editor).toContain("collectOfficialIsoluxSnapshots(scene, results)");
+    expect(editor).toContain("collectOfficialIsoluxSnapshotsAsync");
     expect(editor).toContain("isoluxSnapshots,");
     const exportFn = editor.slice(editor.indexOf("async function exportFullPdf"));
-    expect(exportFn).toContain("const isoluxSnapshots = collectOfficialIsoluxSnapshots(scene, results)");
-    expect(exportFn.indexOf("const isoluxSnapshots = collectOfficialIsoluxSnapshots")).toBeLessThan(
-      exportFn.indexOf("captureOfficialReport3dViews")
+    expect(exportFn).toContain("const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync");
+    expect(exportFn.indexOf("const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync")).toBeLessThan(
+      exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
     expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("doc.save("));
     expect(exportFn).not.toMatch(/3[Dd].*isoline chapter|isoluxSnapshots3d|collectOfficial3dIsolux/);
 
     const capture = readSrc("src/lib/render-scene-3d.ts");
-    expect(capture).toContain('greyscale: renderMode(opts, "greyscale", camera)');
-    expect(capture).toContain('falsecolor: renderMode(opts, "falsecolor", camera)');
+    expect(capture).toContain('greyscale: renderMode(opts, "greyscale", camera, opts.renderer)');
+    expect(capture).toContain('falsecolor: renderMode(opts, "falsecolor", camera, opts.renderer)');
     expect(capture).not.toMatch(/renderMode\(opts, "isolines"/);
 
     const { results } = officeScene();

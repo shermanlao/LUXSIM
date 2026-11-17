@@ -27,6 +27,58 @@ export function webglCaptureAvailable(): boolean {
   }
 }
 
+export type OfficialReportRenderer = {
+  renderToJpeg: (opts: {
+    scene: THREE.Scene;
+    camera: Camera3dView;
+    width: number;
+    height: number;
+    fov?: number;
+    quality?: number;
+  }) => string;
+  dispose: () => void;
+};
+
+/** One offscreen WebGL renderer reused for every official report still. */
+export function createOffscreenReportRenderer(): OfficialReportRenderer {
+  if (typeof document === "undefined") {
+    throw new Error("WebGL 3D capture requires a browser document");
+  }
+  const renderer = new THREE.WebGLRenderer({
+    antialias: true,
+    preserveDrawingBuffer: true,
+    alpha: false,
+    powerPreference: "high-performance",
+  });
+  renderer.setPixelRatio(1);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  setMirroredFrontFace(renderer);
+  return {
+    renderToJpeg(opts) {
+      const width = Math.max(16, Math.round(opts.width));
+      const height = Math.max(16, Math.round(opts.height));
+      renderer.setSize(width, height, false);
+      const cam = new THREE.PerspectiveCamera(opts.fov ?? 45, width / height, 0.05, 800);
+      cam.position.set(opts.camera.position[0], opts.camera.position[1], opts.camera.position[2]);
+      const up = opts.camera.up ?? [0, 1, 0];
+      cam.up.set(up[0], up[1], up[2]);
+      cam.lookAt(opts.camera.target[0], opts.camera.target[1], opts.camera.target[2]);
+      cam.updateProjectionMatrix();
+      renderer.render(opts.scene, cam);
+      return renderer.domElement.toDataURL("image/jpeg", opts.quality ?? 0.85);
+    },
+    dispose() {
+      renderer.dispose();
+      const gl = renderer.getContext();
+      const ext = gl.getExtension("WEBGL_lose_context");
+      ext?.loseContext();
+      renderer.domElement.width = 0;
+      renderer.domElement.height = 0;
+      renderer.domElement.remove();
+    },
+  };
+}
+
 export function renderThreeSceneToJpeg(opts: {
   scene: THREE.Scene;
   camera: Camera3dView;
@@ -35,39 +87,11 @@ export function renderThreeSceneToJpeg(opts: {
   fov?: number;
   quality?: number;
 }): string {
-  if (typeof document === "undefined") {
-    throw new Error("WebGL 3D capture requires a browser document");
-  }
-  const width = Math.max(16, Math.round(opts.width));
-  const height = Math.max(16, Math.round(opts.height));
-  const renderer = new THREE.WebGLRenderer({
-    antialias: true,
-    preserveDrawingBuffer: true,
-    alpha: false,
-    powerPreference: "high-performance",
-  });
-  renderer.setPixelRatio(1);
-  renderer.setSize(width, height, false);
-  renderer.outputColorSpace = THREE.SRGBColorSpace;
-  setMirroredFrontFace(renderer);
-  const cam = new THREE.PerspectiveCamera(opts.fov ?? 45, width / height, 0.05, 800);
-  cam.position.set(opts.camera.position[0], opts.camera.position[1], opts.camera.position[2]);
-  const up = opts.camera.up ?? [0, 1, 0];
-  cam.up.set(up[0], up[1], up[2]);
-  cam.lookAt(opts.camera.target[0], opts.camera.target[1], opts.camera.target[2]);
-  cam.updateProjectionMatrix();
+  const renderer = createOffscreenReportRenderer();
   try {
-    renderer.render(opts.scene, cam);
-    const quality = opts.quality ?? 0.85;
-    return renderer.domElement.toDataURL("image/jpeg", quality);
+    return renderer.renderToJpeg(opts);
   } finally {
     renderer.dispose();
-    const gl = renderer.getContext();
-    const ext = gl.getExtension("WEBGL_lose_context");
-    ext?.loseContext();
-    renderer.domElement.width = 0;
-    renderer.domElement.height = 0;
-    renderer.domElement.remove();
   }
 }
 
@@ -84,7 +108,12 @@ export interface RenderBuilding3dOpts {
   quality?: number;
 }
 
-function renderMode(opts: RenderBuilding3dOpts, mode: Display3dMode, camera: Camera3dView): string {
+function renderMode(
+  opts: RenderBuilding3dOpts,
+  mode: Display3dMode,
+  camera: Camera3dView,
+  renderer?: OfficialReportRenderer
+): string {
   const built = buildBuildingThreeScene({
     scene: opts.scene,
     results: opts.results,
@@ -96,33 +125,36 @@ function renderMode(opts: RenderBuilding3dOpts, mode: Display3dMode, camera: Cam
     highlightRoomId: opts.highlightRoomId ?? null,
   });
   try {
-    return renderThreeSceneToJpeg({
+    const jpegOpts = {
       scene: built.scene,
       camera,
       width: opts.width ?? 1800,
       height: opts.height ?? 1400,
       quality: opts.quality ?? 0.85,
-    });
+    };
+    return renderer ? renderer.renderToJpeg(jpegOpts) : renderThreeSceneToJpeg(jpegOpts);
   } finally {
     built.dispose();
   }
 }
 
-export function renderBuilding3dPair(opts: RenderBuilding3dOpts): {
+export function renderBuilding3dPair(
+  opts: RenderBuilding3dOpts & { renderer?: OfficialReportRenderer }
+): {
   greyscale: string;
   falsecolor: string;
   camera: Camera3dView;
 } {
   const camera = opts.camera ?? fitOverviewCamera(opts.scene, opts.storeyId);
   return {
-    greyscale: renderMode(opts, "greyscale", camera),
-    falsecolor: renderMode(opts, "falsecolor", camera),
+    greyscale: renderMode(opts, "greyscale", camera, opts.renderer),
+    falsecolor: renderMode(opts, "falsecolor", camera, opts.renderer),
     camera,
   };
 }
 
 export function renderRoom3dPair(
-  opts: RenderBuilding3dOpts & { room: RoomV2; elevationM?: number }
+  opts: RenderBuilding3dOpts & { room: RoomV2; elevationM?: number; renderer?: OfficialReportRenderer }
 ): { greyscale: string; falsecolor: string; camera: Camera3dView } {
   const camera = opts.camera ?? fitRoomCamera(opts.room, opts.elevationM ?? 0);
   const shared = {
@@ -135,8 +167,8 @@ export function renderRoom3dPair(
     height: opts.height ?? 900,
   };
   return {
-    greyscale: renderMode(shared, "greyscale", camera),
-    falsecolor: renderMode(shared, "falsecolor", camera),
+    greyscale: renderMode(shared, "greyscale", camera, opts.renderer),
+    falsecolor: renderMode(shared, "falsecolor", camera, opts.renderer),
     camera,
   };
 }
@@ -189,4 +221,70 @@ export function renderAllReport3dViews(opts: {
     roomGreyscale,
     roomFalseColor,
   };
+}
+
+/** Same stills as `renderAllReport3dViews`, reusing one WebGL renderer and yielding between views. */
+export async function renderAllReport3dViewsAsync(
+  opts: {
+    scene: ProjectSceneV2;
+    results?: ResultsV2 | null;
+    photometry?: Record<string, PhotometricData>;
+    overviewCamera?: Camera3dView | null;
+    overviewWidth?: number;
+    overviewHeight?: number;
+    roomWidth?: number;
+    roomHeight?: number;
+  },
+  yieldTo: () => Promise<void> = () => Promise.resolve()
+): Promise<{
+  projectGreyscale: string;
+  projectFalseColor: string;
+  roomGreyscale: Record<string, string>;
+  roomFalseColor: Record<string, string>;
+}> {
+  const storeyId = opts.scene.ui.activeStoreyId ?? opts.scene.storeys[0]?.id;
+  const renderer = createOffscreenReportRenderer();
+  try {
+    await yieldTo();
+    const overview = renderBuilding3dPair({
+      scene: opts.scene,
+      results: opts.results,
+      photometry: opts.photometry,
+      camera: opts.overviewCamera ?? fitOverviewCamera(opts.scene, storeyId),
+      storeyId,
+      width: opts.overviewWidth ?? 1920,
+      height: opts.overviewHeight ?? 1080,
+      renderer,
+    });
+    const roomGreyscale: Record<string, string> = {};
+    const roomFalseColor: Record<string, string> = {};
+    for (const room of opts.scene.rooms) {
+      await yieldTo();
+      const storey = opts.scene.storeys.find((s) => s.id === room.storeyId);
+      const camera = fitRoomCamera(room, storey?.elevationM ?? 0);
+      const shared = {
+        scene: opts.scene,
+        results: opts.results,
+        photometry: opts.photometry,
+        isolateRoomId: room.id,
+        highlightRoomId: null as string | null,
+        storeyId: room.storeyId,
+        camera,
+        width: opts.roomWidth ?? 1400,
+        height: opts.roomHeight ?? 1100,
+        renderer,
+      };
+      roomGreyscale[room.id] = renderMode(shared, "greyscale", camera, renderer);
+      await yieldTo();
+      roomFalseColor[room.id] = renderMode(shared, "falsecolor", camera, renderer);
+    }
+    return {
+      projectGreyscale: overview.greyscale,
+      projectFalseColor: overview.falsecolor,
+      roomGreyscale,
+      roomFalseColor,
+    };
+  } finally {
+    renderer.dispose();
+  }
 }

@@ -4,9 +4,9 @@ import dynamic from "next/dynamic";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactElement } from "react";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
-  buildFullReportPdf,
-  gridToFalseColorPngDataUrl,
-  collectOfficialIsoluxSnapshots,
+  buildFullReportPdfAsync,
+  gridToFalseColorPngDataUrlAsync,
+  collectOfficialIsoluxSnapshotsAsync,
   defaultDisplay3d,
   findRoomAt,
   fitOverviewCamera,
@@ -225,8 +225,8 @@ import {
   planShowIsolinesFromUi,
 } from "@/lib/plan-isolux-display";
 import { showWorkplaneFromUi } from "@/lib/workplane-display";
-import { captureOfficialReport3dViews } from "@/lib/official-pdf-3d-capture";
-import { renderAllReport3dViews, webglCaptureAvailable } from "@/lib/render-scene-3d";
+import { captureOfficialReport3dViewsAsync } from "@/lib/official-pdf-3d-capture";
+import { renderAllReport3dViewsAsync, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
 import { ElevationView2D } from "./ElevationView2D";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
@@ -237,7 +237,7 @@ import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
 import { GenerateLdtForm } from "@/components/GenerateLdtForm";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
-import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
+import { OFFICIAL_WAIT_COPY, officialWaitYield } from "@/lib/official-wait-dialog";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
@@ -2278,19 +2278,30 @@ export function BuildingEditor({
     for (const room of scene.rooms) {
       const res = results.byRoomId[room.id];
       if (!res) continue;
-      const snap = gridToFalseColorPngDataUrl(room, res);
+      const snap = await gridToFalseColorPngDataUrlAsync(room, res, {
+        yieldTo: officialWaitYield,
+      });
       if (snap) falseColorSnapshots[room.id] = snap;
+      await officialWaitYield();
     }
-    const isoluxSnapshots = collectOfficialIsoluxSnapshots(scene, results);
-    const captured3d = captureOfficialReport3dViews({
+    const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync(
+      scene,
+      results,
+      undefined,
+      officialWaitYield
+    );
+    const captured3d = await captureOfficialReport3dViewsAsync({
       captureAvailable: webglCaptureAvailable,
       render: () =>
-        renderAllReport3dViews({
-          scene,
-          results,
-          photometry,
-          overviewCamera: fitOverviewCamera(scene),
-        }),
+        renderAllReport3dViewsAsync(
+          {
+            scene,
+            results,
+            photometry,
+            overviewCamera: fitOverviewCamera(scene),
+          },
+          officialWaitYield
+        ),
     });
     if (captured3d.status) setStatus(captured3d.status);
     const {
@@ -2310,21 +2321,25 @@ export function BuildingEditor({
     } catch {
       // Export still succeeds if the public site info cannot be loaded.
     }
-    const doc = buildFullReportPdf({
-      projectName: name,
-      scene,
-      results,
-      photometry,
-      wattsById,
-      falseColorSnapshots,
-      isoluxSnapshots,
-      projectPerspectiveGreyscale,
-      projectPerspectiveFalseColor,
-      persp3dGreyscale,
-      persp3dFalseColor,
-      luxsimVersion: "0.1.0",
-      website,
-    });
+    const doc = await buildFullReportPdfAsync(
+      {
+        projectName: name,
+        scene,
+        results,
+        photometry,
+        wattsById,
+        falseColorSnapshots,
+        isoluxSnapshots,
+        projectPerspectiveGreyscale,
+        projectPerspectiveFalseColor,
+        persp3dGreyscale,
+        persp3dFalseColor,
+        luxsimVersion: "0.1.0",
+        website,
+      },
+      officialWaitYield
+    );
+    await officialWaitYield();
     doc.save(`${name.replace(/[^\w\-]+/g, "_")}-report.pdf`);
     });
   }

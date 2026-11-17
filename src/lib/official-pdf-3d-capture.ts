@@ -82,3 +82,28 @@ export function captureOfficialReport3dViews(opts: {
     return omitted("capture-failed");
   }
 }
+
+/** Same official 3D-capture decision, allowing an async render that can yield between views. */
+export async function captureOfficialReport3dViewsAsync(opts: {
+  captureAvailable: () => boolean;
+  render: () => OfficialReport3dRender | Promise<OfficialReport3dRender>;
+}): Promise<OfficialPdf3dCaptureResult> {
+  try {
+    if (!opts.captureAvailable()) {
+      return omitted("unavailable");
+    }
+    const views = mapViews(await opts.render());
+    if (!hasOfficialProject3dStills(views)) {
+      return omitted("capture-failed");
+    }
+    return {
+      views,
+      status: null,
+      omitted: false,
+      reason: "included",
+    };
+  } catch (err) {
+    console.warn("3D report capture failed", err);
+    return omitted("capture-failed");
+  }
+}

@@ -158,9 +158,9 @@ export type {
 } from "./official-dxf-closed-rooms";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
-export { buildFullReportPdf } from "./report";
+export { buildFullReportPdf, buildFullReportPdfAsync } from "./report";
 export type { ReportInput } from "./report";
-export { gridToFalseColorPngDataUrl, workplaneFalseColorRgb } from "./false-color-snapshot";
+export { gridToFalseColorPngDataUrl, gridToFalseColorPngDataUrlAsync, workplaneFalseColorRgb, FALSE_COLOR_PNG_YIELD_ROWS } from "./false-color-snapshot";
 export {
   luxToRgb,
   luxToGrey,
@@ -191,6 +191,7 @@ export {
   renderIsoluxModelPngDataUrl,
   isoluxFieldPngDataUrl,
   collectOfficialIsoluxSnapshots,
+  collectOfficialIsoluxSnapshotsAsync,
   OFFICIAL_PDF_ISOLUX_RENDER,
 } from "./isolux-snapshot";
 export type { OfficialIsoluxRenderOpts } from "./isolux-snapshot";

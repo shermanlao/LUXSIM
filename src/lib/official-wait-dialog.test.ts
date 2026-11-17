@@ -6,6 +6,8 @@ import {
   PROJECT_LOADING_TITLE_EN,
   PROJECT_LOADING_TITLE_ZH,
   officialWaitAfterPaint,
+  officialWaitBeforeWork,
+  officialWaitYield,
 } from "./official-wait-dialog";
 
 const root = path.resolve(__dirname, "../..");
@@ -50,7 +52,21 @@ describe("official reusable wait dialog", () => {
     const hook = read("src/components/useOfficialWaitDialog.tsx");
     expect(hook).toContain("export function useOfficialWaitDialog");
     expect(hook).toContain("officialWaitAfterPaint");
+    expect(hook).toContain("officialWaitBeforeWork");
+    expect(hook).toContain("flushSync");
     expect(hook).toContain("OfficialWaitDialog");
     expect(typeof officialWaitAfterPaint).toBe("function");
+    expect(typeof officialWaitBeforeWork).toBe("function");
+    expect(typeof officialWaitYield).toBe("function");
+  });
+
+  it("yields to the event loop so heavy work can keep the page responsive", async () => {
+    let released = false;
+    const pending = officialWaitYield().then(() => {
+      released = true;
+    });
+    expect(released).toBe(false);
+    await pending;
+    expect(released).toBe(true);
   });
 });

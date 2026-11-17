@@ -250,6 +250,40 @@ class ReportPdfBuilder {
   }
 
   build(): jsPDF {
+    return this.buildSync();
+  }
+
+  async buildAsync(yieldTo: () => Promise<void> = () => Promise.resolve()): Promise<jsPDF> {
+    this.cover();
+    await yieldTo();
+    this.contents();
+    await yieldTo();
+    this.projectSummary();
+    await yieldTo();
+    this.luminaireList();
+    await yieldTo();
+    this.roomList();
+    await yieldTo();
+    this.calculationObjects();
+    await yieldTo();
+    this.lightingPlan();
+    await yieldTo();
+    this.threeDViews();
+    await yieldTo();
+    for (const room of this.input.scene.rooms) {
+      this.roomSummaryProperties(room);
+      this.roomSummaryResults(room);
+      this.roomWorkingPlane(room);
+      await yieldTo();
+    }
+    this.productSheets();
+    await yieldTo();
+    this.scheduleAppendix();
+    this.finishPage("Luminaire schedule");
+    return this.doc;
+  }
+
+  private buildSync(): jsPDF {
     this.cover();
     this.contents();
     this.projectSummary();
@@ -1012,6 +1046,14 @@ class ReportPdfBuilder {
 
 export function buildFullReportPdf(input: ReportInput): jsPDF {
   return new ReportPdfBuilder(input).build();
+}
+
+/** Same official report as `buildFullReportPdf`, yielding between chapters and rooms. */
+export async function buildFullReportPdfAsync(
+  input: ReportInput,
+  yieldTo: () => Promise<void> = () => Promise.resolve()
+): Promise<jsPDF> {
+  return new ReportPdfBuilder(input).buildAsync(yieldTo);
 }
 
 function drawPlanSymbol(doc: jsPDF, body: ReturnType<typeof luminaireBody>, cx: number, cy: number, _rMax: number) {

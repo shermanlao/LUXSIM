@@ -101,3 +101,18 @@ export function officialWaitAfterPaint(): Promise<void> {
     });
   });
 }
+
+/** Yield to the event loop so the page can paint and stay responsive. */
+export function officialWaitYield(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0);
+  });
+}
+
+/**
+ * After the wait dialog is shown, let React commit and the browser paint
+ * before starting heavy work, so the dialog is visible and the tab stays responsive.
+ */
+export function officialWaitBeforeWork(): Promise<void> {
+  return officialWaitYield().then(() => officialWaitAfterPaint());
+}

@@ -366,7 +366,7 @@ describe("official editor and export path wiring", () => {
     const toggle = readSrc("src/components/editor/PlanIsoluxToggle.tsx");
     const overlay = readSrc("src/components/editor/PlanIsoluxOverlay.tsx");
 
-    expect(editor).toContain("collectOfficialIsoluxSnapshots(scene, results)");
+    expect(editor).toContain("collectOfficialIsoluxSnapshotsAsync");
     expect(editor).toContain("isoluxSnapshots,");
     expect(editor).toContain("PlanIsoluxToggle");
     expect(editor).toContain("viewMode === \"top\"");
@@ -374,9 +374,9 @@ describe("official editor and export path wiring", () => {
     expect(editor).toContain("showFalseColor={planShowFalseColor}");
     expect(editor).toContain("showValueLabels={planValueLabels}");
     const exportFn = editor.slice(editor.indexOf("async function exportFullPdf"));
-    expect(exportFn).toContain("const isoluxSnapshots = collectOfficialIsoluxSnapshots(scene, results)");
-    expect(exportFn.indexOf("const isoluxSnapshots = collectOfficialIsoluxSnapshots")).toBeLessThan(
-      exportFn.indexOf("captureOfficialReport3dViews")
+    expect(exportFn).toContain("const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync");
+    expect(exportFn.indexOf("const isoluxSnapshots = await collectOfficialIsoluxSnapshotsAsync")).toBeLessThan(
+      exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
     expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(
       exportFn.indexOf("doc.save(")

@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { OfficialWaitDialog, type OfficialWaitCopy } from "@/components/OfficialWaitDialog";
-import { officialWaitAfterPaint } from "@/lib/official-wait-dialog";
+import { officialWaitAfterPaint, officialWaitBeforeWork } from "@/lib/official-wait-dialog";
 
 /**
  * Show or hide the official wait dialog from an editor or page.
- * `run` shows the dialog for the duration of `work` and hides it after paint.
+ * `run` shows the dialog, waits for it to paint, runs `work`, then hides it after paint.
  */
 export function useOfficialWaitDialog() {
   const [copy, setCopy] = useState<OfficialWaitCopy | null>(null);
@@ -25,7 +26,10 @@ export function useOfficialWaitDialog() {
 
   const run = useCallback(async <T,>(next: OfficialWaitCopy, work: () => Promise<T> | T): Promise<T> => {
     const generation = ++generationRef.current;
-    setCopy(next);
+    flushSync(() => {
+      setCopy(next);
+    });
+    await officialWaitBeforeWork();
     try {
       const result = await work();
       await officialWaitAfterPaint();
