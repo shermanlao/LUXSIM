@@ -46,8 +46,12 @@ import {
   officialRoomAlignAxisLabel,
   type OfficialRoomAlignAxis,
   officialDistributeRooms,
+  officialFilletRoomAllCorners,
   officialFilletRoomCorner,
   DISTRIBUTE_ROOMS_CANCELLED_STATUS,
+  FILLET_ALL_CORNERS_CANCELLED_STATUS,
+  FILLET_ALL_CORNERS_PICK_ROOM_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_RADIUS_STATUS,
   FILLET_CORNER_CANCELLED_STATUS,
   FILLET_CORNER_REFUSE_RADIUS_STATUS,
   DEFAULT_OFFICIAL_ROOM_DISTRIBUTE_AXIS,
@@ -149,11 +153,16 @@ import {
   type RoomDistributePickState,
 } from "@/lib/room-distribute-pick";
 import {
+  EMPTY_ROOM_FILLET_ALL_PICK,
   EMPTY_ROOM_FILLET_PICK,
+  applyOfficialRoomFilletAllPick,
   applyOfficialRoomFilletCornerPick,
   applyOfficialRoomFilletPick,
+  filletAllCornersPickHint,
   filletCornerPickHint,
+  startOfficialRoomFilletAllPick,
   startOfficialRoomFilletPick,
+  type RoomFilletAllPickState,
   type RoomFilletPickState,
 } from "@/lib/room-fillet-pick";
 import {
@@ -369,6 +378,7 @@ export function BuildingEditor({
     DEFAULT_OFFICIAL_ROOM_DISTRIBUTE_AXIS
   );
   const [filletPick, setFilletPick] = useState<RoomFilletPickState>(EMPTY_ROOM_FILLET_PICK);
+  const [filletAllPick, setFilletAllPick] = useState<RoomFilletAllPickState>(EMPTY_ROOM_FILLET_ALL_PICK);
   const [filletRadiusMm, setFilletRadiusMm] = useState("500");
   const [scheduleRows, setScheduleRows] = useState<ScheduleImportRow[]>([]);
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
@@ -897,6 +907,9 @@ export function BuildingEditor({
     if (filletPick.active && tool !== "select") {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
     }
+    if (filletAllPick.active && tool !== "select") {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+    }
     patchSceneUi((s) => ({ ...s, ui: { ...s.ui, tool } }));
   }
 
@@ -949,6 +962,9 @@ export function BuildingEditor({
     if (filletPick.active) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
     }
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "union") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(UNION_ROOMS_CANCELLED_STATUS);
@@ -968,6 +984,9 @@ export function BuildingEditor({
     }
     if (filletPick.active) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
+    }
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
     }
     if (booleanPick.active && booleanPick.kind === "subtract") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
@@ -989,6 +1008,9 @@ export function BuildingEditor({
     if (filletPick.active) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
     }
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "intersect") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(INTERSECT_ROOMS_CANCELLED_STATUS);
@@ -1009,6 +1031,9 @@ export function BuildingEditor({
     if (filletPick.active) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
     }
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+    }
     if (booleanPick.active && booleanPick.kind === "xor") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
       setStatus(XOR_ROOMS_CANCELLED_STATUS);
@@ -1028,6 +1053,9 @@ export function BuildingEditor({
     }
     if (filletPick.active) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
+    }
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
     }
     if (booleanPick.active && booleanPick.kind === "align") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
@@ -1051,6 +1079,7 @@ export function BuildingEditor({
     selectEditorTool("select");
     setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     setFilletPick(EMPTY_ROOM_FILLET_PICK);
+    setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
     const next = startOfficialRoomDistributePick(scene.ui.activeRoomId, currentStoreyRoomIds());
     setDistributePick(next);
     setStatus(distributeRoomsPickHint(next));
@@ -1065,9 +1094,29 @@ export function BuildingEditor({
     selectEditorTool("select");
     setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
     const next = startOfficialRoomFilletPick(scene.ui.activeRoomId, currentStoreyRoomIds());
     setFilletPick(next);
     setStatus(filletCornerPickHint(next));
+  }
+
+  function startFilletAllCorners() {
+    if (filletAllPick.active) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+      setStatus(FILLET_ALL_CORNERS_CANCELLED_STATUS);
+      return;
+    }
+    selectEditorTool("select");
+    setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
+    setDistributePick(EMPTY_ROOM_DISTRIBUTE_PICK);
+    setFilletPick(EMPTY_ROOM_FILLET_PICK);
+    const started = startOfficialRoomFilletAllPick(scene.ui.activeRoomId, currentStoreyRoomIds());
+    if (started.kind === "apply") {
+      applyFilletAllCorners(started.roomId);
+      return;
+    }
+    setFilletAllPick(started.state);
+    setStatus(started.status);
   }
 
   function booleanPickCancelledStatus(kind: OfficialTwoRoomPickKind): string {
@@ -1117,6 +1166,31 @@ export function BuildingEditor({
     if (!filletPick.active) return;
     setFilletPick(EMPTY_ROOM_FILLET_PICK);
     setStatus(FILLET_CORNER_CANCELLED_STATUS);
+  }
+
+  function cancelFilletAllCornersPick() {
+    if (!filletAllPick.active) return;
+    setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
+    setStatus(FILLET_ALL_CORNERS_CANCELLED_STATUS);
+  }
+
+  function onFilletAllPickRoom(roomId: string) {
+    const room = scene.rooms.find((r) => r.id === roomId);
+    if (!room) {
+      setStatus(filletAllCornersPickHint(filletAllPick) || FILLET_ALL_CORNERS_PICK_ROOM_STATUS);
+      return;
+    }
+    const picked = applyOfficialRoomFilletAllPick(
+      filletAllPick,
+      room.id,
+      room.storeyId,
+      scene.ui.activeStoreyId
+    );
+    if (picked.kind !== "apply") {
+      setStatus(picked.status);
+      return;
+    }
+    applyFilletAllCorners(picked.roomId);
   }
 
   function onFilletPickRoom(roomId: string) {
@@ -1197,6 +1271,21 @@ export function BuildingEditor({
     setStatus(result.status);
     if (result.ok) {
       setFilletPick(EMPTY_ROOM_FILLET_PICK);
+      patchScene(() => result.scene);
+    }
+  }
+
+  function applyFilletAllCorners(roomId: string) {
+    const radiusM = parseLengthToM(filletRadiusMm);
+    if (!(radiusM && radiusM > 0)) {
+      setStatus(FILLET_ALL_CORNERS_REFUSE_RADIUS_STATUS);
+      return;
+    }
+    endCoalesce();
+    const result = officialFilletRoomAllCorners(scene, roomId, radiusM);
+    setStatus(result.status);
+    if (result.ok) {
+      setFilletAllPick(EMPTY_ROOM_FILLET_ALL_PICK);
       patchScene(() => result.scene);
     }
   }
@@ -2584,6 +2673,9 @@ export function BuildingEditor({
           onFilletPickRoom={onFilletPickRoom}
           onFilletCornerPick={onFilletCornerPick}
           onFilletPickCancel={cancelFilletCornerPick}
+          filletAllPickActive={filletAllPick.active}
+          onFilletAllPickRoom={onFilletAllPickRoom}
+          onFilletAllPickCancel={cancelFilletAllCornersPick}
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
@@ -3125,6 +3217,20 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.filletCorner" />
               </div>
+              <div className="flex items-center gap-1 pt-1">
+                <button
+                  type="button"
+                  data-help-key="tool.filletAllCorners"
+                  className={`btn w-full !text-xs justify-start ${
+                    filletAllPick.active ? "btn-accent" : "btn-secondary"
+                  }`}
+                  onClick={startFilletAllCorners}
+                >
+                  <IconDrawRoom className="w-4 h-4 shrink-0 opacity-90" />
+                  Fillet all corners
+                </button>
+                <HelpTip helpKey="tool.filletAllCorners" />
+              </div>
               <label className="label">Radius (mm)</label>
               <input
                 className="input"
@@ -3132,7 +3238,7 @@ export function BuildingEditor({
                 onChange={(e) => setFilletRadiusMm(e.target.value)}
               />
               <p className="text-[10px] text-[var(--muted)]">
-                Rounds one selected corner of a room on this storey. Enter the radius in millimetres, pick the room if none is selected, then click a corner handle. A mid-edge handle is not a target. Esc cancels the pick.
+                Shared radius for Fillet corner and Fillet all corners, in millimetres. Fillet corner rounds one selected corner (pick the room if none is selected, then click a corner handle). Fillet all corners rounds every remaining sharp corner of one room; if a room is already selected it applies immediately, otherwise click the room. A mid-edge handle is not a target. Esc cancels the pick.
               </p>
             </div>
           </div>

@@ -104,3 +104,28 @@ describe("Front, Side, and 3D navigation wiring", () => {
     expect(src).not.toMatch(/MIDDLE:\s*THREE\.MOUSE\.DOLLY/);
   });
 });
+
+describe("official Fillet all corners control", () => {
+  it("shows Fillet all corners next to Fillet corner and shares the radius field", () => {
+    const editor = read("components/editor/BuildingEditor.tsx");
+    const tips = read("lib/ui-tips.ts");
+    expect(editor).toContain("Fillet corner");
+    expect(editor).toContain("Fillet all corners");
+    expect(editor).toContain('data-help-key="tool.filletCorner"');
+    expect(editor).toContain('data-help-key="tool.filletAllCorners"');
+    expect(editor).toContain("startFilletAllCorners");
+    expect(editor).toContain("officialFilletRoomAllCorners");
+    expect(editor).toContain("officialFilletRoomCorner");
+    const allIdx = editor.indexOf("Fillet all corners");
+    const cornerIdx = editor.indexOf("Fillet corner");
+    const radiusIdx = editor.indexOf("Radius (mm)");
+    expect(cornerIdx).toBeGreaterThan(0);
+    expect(allIdx).toBeGreaterThan(cornerIdx);
+    expect(radiusIdx).toBeGreaterThan(allIdx);
+    expect(editor).not.toMatch(/Filleting every corner at once is not included/);
+    expect(tips).toContain('helpKey: "tool.filletAllCorners"');
+    expect(tips).toContain('title: "Fillet all corners"');
+    expect(tips).not.toMatch(/Filleting every corner at once is not included/);
+  });
+});
+

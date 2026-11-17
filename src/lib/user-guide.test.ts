@@ -446,13 +446,33 @@ describe("user guide", () => {
     expect(guide).toMatch(/半徑對相鄰兩邊過大/);
     expect(guide).toMatch(/no longer lie in the filleted outline have their room assignment cleared/);
     expect(guide).toMatch(/已不在修圓後輪廓內的燈具會取消房間歸屬/);
-    expect(guide).toMatch(/does not fillet every corner at once/);
-    expect(guide).toMatch(/不會一次修全部角/);
+    expect(guide).not.toMatch(/does not fillet every corner at once/);
+    expect(guide).not.toMatch(/不會一次修全部角/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "tool.filletCorner"');
     expect(tips).toMatch(/click a corner handle of a room on the current storey/);
     expect(tips).toMatch(/A mid-edge insert handle is not a fillet target/);
-    expect(tips).toMatch(/Filleting every corner at once is not included/);
+    expect(tips).not.toMatch(/Filleting every corner at once is not included/);
+  });
+
+  it("documents Fillet all corners for rounding every remaining sharp corner in one command", () => {
+    expect(guide).toMatch(/use \*\*Fillet all corners\*\* in Construction tools/);
+    expect(guide).toMatch(/可在 Construction tools 按 \*\*Fillet all corners\*\*/);
+    expect(guide).toMatch(/same field used by \*\*Fillet corner\*\*/);
+    expect(guide).toMatch(/與 \*\*Fillet corner\*\* 相同的半徑欄/);
+    expect(guide).toMatch(/clicking the button applies immediately/);
+    expect(guide).toMatch(/按按鈕即立即套用，不必再點角點控制點/);
+    expect(guide).toMatch(/Already-straight or already-filleted corners are skipped/);
+    expect(guide).toMatch(/已接近直線或已修圓的角會被略過/);
+    expect(guide).toMatch(/two fillets would overlap on the same edge/);
+    expect(guide).toMatch(/同一邊上兩個圓角的修剪段會重疊/);
+    expect(guide).toMatch(/no partial fillet/);
+    expect(guide).toMatch(/不套用部分圓角/);
+    const tips = read("src/lib/ui-tips.ts");
+    expect(tips).toContain('helpKey: "tool.filletAllCorners"');
+    expect(tips).toMatch(/applies immediately; you do not pick a corner handle/);
+    expect(tips).toMatch(/two fillets would overlap on the same edge/);
+    expect(tips).toMatch(/every remaining corner is already straight \(no sharp corner to fillet\)/);
   });
 
   it("documents Copy storey for duplicating the current storey in the same building", () => {

@@ -489,6 +489,17 @@ export type {
 
 
 export {
+  FILLET_ALL_CORNERS_CANCELLED_STATUS,
+  FILLET_ALL_CORNERS_PICK_ROOM_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_AREA_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_CROSS_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_INVALID_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_MISSING_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_RADIUS_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_STRAIGHT_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_STOREY_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_TOO_LARGE_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_VERTICES_STATUS,
   FILLET_CORNER_CANCELLED_STATUS,
   FILLET_CORNER_PICK_CORNER_STATUS,
   FILLET_CORNER_PICK_ROOM_STATUS,
@@ -503,14 +514,20 @@ export {
   FILLET_CORNER_REFUSE_TOO_LARGE_STATUS,
   FILLET_CORNER_REFUSE_VERTICES_STATUS,
   FILLET_STRAIGHT_EPS_RAD,
+  filletOfficialRoomAllCorners,
   filletOfficialRoomCorner,
+  formatFilletAllCornersSuccessStatus,
   formatFilletCornerSuccessStatus,
+  officialFilletRoomAllCorners,
   officialFilletRoomCorner,
   officialShortSweepRad,
 } from "./official-room-fillet";
 export type {
+  OfficialFilletAllCornersReason,
   OfficialFilletCornerReason,
+  OfficialFilletRoomAllCornersResult,
   OfficialFilletRoomCornerResult,
+  OfficialPolygonFilletAllResult,
   OfficialPolygonFilletResult,
 } from "./official-room-fillet";
 

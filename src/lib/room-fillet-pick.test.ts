@@ -1,16 +1,23 @@
 import { describe, expect, it } from "vitest";
 import {
+  FILLET_ALL_CORNERS_PICK_ROOM_STATUS,
+  FILLET_ALL_CORNERS_REFUSE_STOREY_STATUS,
   FILLET_CORNER_PICK_CORNER_STATUS,
   FILLET_CORNER_PICK_ROOM_STATUS,
   FILLET_CORNER_REFUSE_CORNER_STATUS,
   FILLET_CORNER_REFUSE_STOREY_STATUS,
 } from "@luxsim/project-io";
 import {
+  EMPTY_ROOM_FILLET_ALL_PICK,
   EMPTY_ROOM_FILLET_PICK,
+  applyOfficialRoomFilletAllPick,
   applyOfficialRoomFilletCornerPick,
   applyOfficialRoomFilletPick,
+  filletAllCornersPickHint,
   filletCornerPickHint,
+  roomFilletAllPickEscapeAction,
   roomFilletPickEscapeAction,
+  startOfficialRoomFilletAllPick,
   startOfficialRoomFilletPick,
 } from "./room-fillet-pick";
 
@@ -88,3 +95,59 @@ describe("official Fillet corner pick", () => {
     });
   });
 });
+
+describe("official Fillet all corners pick", () => {
+  it("applies immediately when a room on the current storey is already selected", () => {
+    const started = startOfficialRoomFilletAllPick("keep", ["keep", "other"]);
+    expect(started).toEqual({ kind: "apply", roomId: "keep" });
+    expect(filletAllCornersPickHint(EMPTY_ROOM_FILLET_ALL_PICK)).toBe("");
+    expect(roomFilletAllPickEscapeAction(EMPTY_ROOM_FILLET_ALL_PICK)).toBe("pass");
+  });
+
+  it("starts a room-pick when nothing on this storey is selected", () => {
+    const started = startOfficialRoomFilletAllPick("other", ["keep"]);
+    expect(started).toEqual({
+      kind: "pick",
+      state: { active: true },
+      status: FILLET_ALL_CORNERS_PICK_ROOM_STATUS,
+    });
+    if (started.kind !== "pick") return;
+    expect(filletAllCornersPickHint(started.state)).toBe(FILLET_ALL_CORNERS_PICK_ROOM_STATUS);
+    expect(roomFilletAllPickEscapeAction(started.state)).toBe("cancel-in-progress");
+  });
+
+  it("applies on a room click, refuses another storey, and does not require a corner handle", () => {
+    const applied = applyOfficialRoomFilletAllPick(
+      { active: true },
+      "a",
+      "s1",
+      "s1"
+    );
+    expect(applied).toEqual({ kind: "apply", roomId: "a" });
+
+    const storey = applyOfficialRoomFilletAllPick(
+      { active: true },
+      "b",
+      "s2",
+      "s1"
+    );
+    expect(storey).toEqual({
+      kind: "status",
+      state: { active: true },
+      status: FILLET_ALL_CORNERS_REFUSE_STOREY_STATUS,
+    });
+
+    const idle = applyOfficialRoomFilletAllPick(
+      { active: false },
+      "a",
+      "s1",
+      "s1"
+    );
+    expect(idle).toEqual({
+      kind: "status",
+      state: { active: false },
+      status: FILLET_ALL_CORNERS_PICK_ROOM_STATUS,
+    });
+  });
+});
+
