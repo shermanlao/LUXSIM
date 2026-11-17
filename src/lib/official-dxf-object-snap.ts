@@ -44,7 +44,7 @@ export function dxfObjectSnapRadiusM(metresPerCssPx: number): number {
 }
 
 /**
- * Only a parsed DXF underlay with LINE, LWPOLYLINE, CIRCLE, ARC, or old POLYLINE entities (curves tessellated to segments) is snappable.
+ * Only a parsed DXF underlay with LINE, LWPOLYLINE (including bulges), CIRCLE, ARC, or old POLYLINE entities (curves tessellated to segments) is snappable.
  * DWG, rasters, empty entity lists, and missing underlays yield [].
  */
 export function officialDxfSnapEntities(

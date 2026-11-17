@@ -44,10 +44,20 @@ describe("importIfcText", () => {
   });
 });
 
-function lwpoly(points: { x: number; y: number }[], flags?: number, repeatClose = false): string {
+function lwpoly(
+  points: Array<{ x: number; y: number; bulge?: number }>,
+  flags?: number,
+  repeatClose = false
+): string {
   const pts = repeatClose && points[0] ? [...points, points[0]] : points;
   const flagBlock = flags == null ? "" : `  70\n${flags}\n`;
-  const verts = pts.map((pt) => `  10\n${pt.x}\n  20\n${pt.y}\n`).join("");
+  const verts = pts
+    .map((pt) => {
+      let s = `  10\n${pt.x}\n  20\n${pt.y}\n`;
+      if (pt.bulge != null) s += `  42\n${pt.bulge}\n`;
+      return s;
+    })
+    .join("");
   return (
     "  0\nSECTION\n  2\nENTITIES\n  0\nLWPOLYLINE\n" +
     flagBlock +
@@ -295,5 +305,98 @@ describe("parseDxfEntities CIRCLE, ARC, and old POLYLINE", () => {
       )
     );
     expect(empty).toEqual([]);
+  });
+});
+
+describe("parseDxfEntities LWPOLYLINE bulges", () => {
+  it("tessellates a closed LWPOLYLINE with a non-zero bulge, not a straight chord", () => {
+    const entities = parseDxfEntities(
+      lwpoly(
+        [
+          { x: 1, y: 0, bulge: 1 },
+          { x: -1, y: 0, bulge: 1 },
+        ],
+        1
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.type).toBe("polyline");
+    expect(entities[0]?.closed).toBe(true);
+    // Two 180° bulges → 24 + 24 segments, 48 unique vertices (no closing chord).
+    expect(entities[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    expect(entities[0]!.points[0]).toEqual({ x: 1, y: 0 });
+    const apex = entities[0]!.points[12]!;
+    expect(apex.x).toBeCloseTo(0);
+    expect(apex.y).toBeCloseTo(1);
+    const south = entities[0]!.points[36]!;
+    expect(south.x).toBeCloseTo(0);
+    expect(south.y).toBeCloseTo(-1);
+    for (const p of entities[0]!.points) {
+      expect(Math.hypot(p.x, p.y)).toBeCloseTo(1, 9);
+    }
+    const b = dxfBounds(entities)!;
+    expect(b.minX).toBeCloseTo(-1);
+    expect(b.maxX).toBeCloseTo(1);
+    expect(b.minY).toBeCloseTo(-1);
+    expect(b.maxY).toBeCloseTo(1);
+  });
+
+  it("keeps a bulge of 0 or an omitted bulge as a straight edge", () => {
+    const rect = [
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ];
+    const omitted = parseDxfEntities(lwpoly(rect, 1));
+    expect(omitted[0]?.closed).toBe(true);
+    expect(omitted[0]?.points).toEqual(rect);
+
+    const zero = parseDxfEntities(
+      lwpoly(
+        rect.map((pt, i) => (i === 0 ? { ...pt, bulge: 0 } : pt)),
+        1
+      )
+    );
+    expect(zero[0]?.closed).toBe(true);
+    expect(zero[0]?.points).toEqual(rect);
+  });
+
+  it("does not invent a closing chord on an open LWPOLYLINE, even with a last-vertex bulge", () => {
+    const entities = parseDxfEntities(
+      lwpoly(
+        [
+          { x: 1, y: 0, bulge: 1 },
+          { x: -1, y: 0, bulge: 1 },
+        ],
+        0
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBeUndefined();
+    // 180° bulge only on the first-to-last segment; last bulge is unused because it is open.
+    expect(entities[0]?.points).toHaveLength(25);
+    expect(entities[0]!.points[0]).toEqual({ x: 1, y: 0 });
+    expect(entities[0]!.points[entities[0]!.points.length - 1]).toEqual({
+      x: -1,
+      y: 0,
+    });
+    const apex = entities[0]!.points[12]!;
+    expect(apex.x).toBeCloseTo(0);
+    expect(apex.y).toBeCloseTo(1);
+    expect(entities[0]!.points.some((p) => p.y < -1e-9)).toBe(false);
+  });
+
+  it("applies group 42 even when it is written between group 10 and 20", () => {
+    const body =
+      "  0\nSECTION\n  2\nENTITIES\n  0\nLWPOLYLINE\n  70\n0\n" +
+      "  10\n1\n  42\n1\n  20\n0\n" +
+      "  10\n-1\n  20\n0\n" +
+      "  0\nENDSEC\n  0\nEOF\n";
+    const entities = parseDxfEntities(body);
+    expect(entities[0]?.points).toHaveLength(25);
+    const apex = entities[0]!.points[12]!;
+    expect(apex.x).toBeCloseTo(0);
+    expect(apex.y).toBeCloseTo(1);
   });
 });

@@ -822,3 +822,56 @@ describe("officialAppendRoomsFromDxfClosedPolylines CIRCLE, ARC, and old POLYLIN
     expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
   });
 });
+
+describe("officialAppendRoomsFromDxfClosedPolylines LWPOLYLINE bulges", () => {
+  it("creates a room from an open LWPOLYLINE bulge plus a closing LINE", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nLWPOLYLINE\n  70\n0\n  90\n2\n" +
+          "  10\n2\n  20\n0\n  42\n1\n" +
+          "  10\n-2\n  20\n0\n" +
+          "  0\nLINE\n  10\n-2\n  20\n0\n  11\n2\n  21\n0\n"
+      )
+    );
+    expect(entities).toHaveLength(2);
+    expect(entities[0]?.closed).toBeUndefined();
+    expect(entities[0]?.points.length).toBe(25);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon.length).toBeGreaterThanOrEqual(24);
+    const expected = 0.5 * 24 * 2 * 2 * Math.sin(Math.PI / 24);
+    expect(roomAreaM2(created)).toBeCloseTo(expected, 5);
+  });
+
+  it("creates one official room from a closed two-bulge capsule LWPOLYLINE", () => {
+    // 4×2 rectangle with semicircular caps of radius 1 on the short sides.
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nLWPOLYLINE\n  70\n1\n  90\n4\n" +
+          "  10\n0\n  20\n0\n" +
+          "  10\n4\n  20\n0\n  42\n1\n" +
+          "  10\n4\n  20\n2\n" +
+          "  10\n0\n  20\n2\n  42\n1\n"
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    expect(entities[0]?.points.length).toBeGreaterThan(4);
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    const created = out.scene.rooms[0]!;
+    expect(created.polygon.length).toBeGreaterThan(4);
+    const caps = 24 * Math.sin(Math.PI / 24);
+    expect(roomAreaM2(created)).toBeCloseTo(8 + caps, 5);
+  });
+});

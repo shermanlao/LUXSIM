@@ -2,7 +2,7 @@ import type { DxfEntity, Vec2 } from "./types";
 import { officialDxfPointsCoincide } from "./official-dxf-polyline";
 
 /**
- * Tessellation rule for CIRCLE, ARC, and old-POLYLINE bulge arcs:
+ * Tessellation rule for CIRCLE, ARC, and POLYLINE / LWPOLYLINE bulge arcs:
  * 48 segments per full turn (2π). An open arc or bulge uses
  * max(2, round(48 × |sweep| / 2π)), capped at 48.
  * The count is angle-based (not radius-based) so the same angular
@@ -66,7 +66,7 @@ function tessellateOpenArc(
 }
 
 /**
- * Intermediate vertices along a POLYLINE bulge (group 42).
+ * Intermediate vertices along a POLYLINE or LWPOLYLINE bulge (group 42).
  * Bulge = tan(included angle / 4); positive is CCW, negative is CW.
  * Endpoints are omitted — the caller already has the VERTEX points.
  */
@@ -130,9 +130,9 @@ function isFiniteNumber(value: number): boolean {
 }
 
 /**
- * Minimal ASCII DXF extractor for LINE, LWPOLYLINE, CIRCLE, ARC, and
- * old-style POLYLINE (VERTEX + SEQEND, including the closed flag and bulges).
- * Curves are tessellated into official planar polyline segments.
+ * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
+ * CIRCLE, ARC, and old-style POLYLINE (VERTEX + SEQEND, including the closed
+ * flag and bulges). Curves are tessellated into official planar polyline segments.
  * Paperspace / 3D extrusion are not handled (same as the previous parser).
  * Polygon-mesh and polyface-mesh POLYLINE entities are skipped.
  */
@@ -204,27 +204,41 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         ],
       });
     } else if (type === "LWPOLYLINE") {
-      const pts: Vec2[] = [];
-      let x: number | null = null;
+      const verts: PolyVertex[] = [];
+      let pending: { x?: number; y?: number; bulge: number } | null = null;
       let flags = 0;
+      const flushPending = () => {
+        if (
+          pending &&
+          pending.x != null &&
+          pending.y != null &&
+          isFiniteNumber(pending.x) &&
+          isFiniteNumber(pending.y)
+        ) {
+          verts.push({
+            x: pending.x,
+            y: pending.y,
+            bulge: isFiniteNumber(pending.bulge) ? pending.bulge : 0,
+          });
+        }
+        pending = null;
+      };
       readGroups((code, value) => {
         if (code === 70) flags = Number(value);
-        if (code === 10) x = Number(value);
-        if (code === 20 && x != null) {
-          pts.push({ x, y: Number(value) });
-          x = null;
+        if (code === 10) {
+          flushPending();
+          pending = { x: Number(value), bulge: 0 };
+        }
+        if (code === 20 && pending) pending.y = Number(value);
+        if (code === 42) {
+          const bulge = Number(value);
+          if (pending) pending.bulge = isFiniteNumber(bulge) ? bulge : 0;
         }
       });
-      if (pts.length >= 2) {
-        const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
-        const closedByCoincide = officialDxfPointsCoincide(pts[0]!, pts[pts.length - 1]!);
-        const points = closedByCoincide ? pts.slice(0, -1) : pts;
-        if (points.length >= 2) {
-          const entity: DxfEntity = { type: "polyline", points };
-          if (closedByFlag || closedByCoincide) entity.closed = true;
-          entities.push(entity);
-        }
-      }
+      flushPending();
+      const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
+      const entity = polylineFromVertices(verts, closedByFlag);
+      if (entity) entities.push(entity);
     } else if (type === "CIRCLE") {
       let cx = 0,
         cy = 0,

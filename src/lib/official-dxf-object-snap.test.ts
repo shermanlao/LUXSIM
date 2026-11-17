@@ -275,7 +275,7 @@ describe("official DXF object-snap wiring", () => {
   });
 });
 
-describe("object snap and bounds on tessellated CIRCLE, ARC, and old POLYLINE", () => {
+describe("object snap and bounds on tessellated CIRCLE, ARC, and POLYLINE bulges", () => {
   it("snaps to tessellated CIRCLE and ARC segments and includes them in bounds", () => {
     const circle = parseDxfEntities(
       "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  0\nENDSEC\n  0\nEOF\n"
@@ -335,6 +335,33 @@ describe("object snap and bounds on tessellated CIRCLE, ARC, and old POLYLINE", 
     expect(apex?.kind).toBe("endpoint");
     expect(apex?.point.x).toBeCloseTo(0);
     expect(apex?.point.y).toBeCloseTo(1);
+    const bounds = dxfBounds(entities)!;
+    expect(bounds.minX).toBeCloseTo(-1);
+    expect(bounds.maxX).toBeCloseTo(1);
+    expect(bounds.maxY).toBeCloseTo(1);
+    expect(bounds.minY).toBeCloseTo(0);
+  });
+
+  it("snaps to a tessellated LWPOLYLINE bulge and includes it in bounds", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nLWPOLYLINE\n  70\n0\n  90\n2\n" +
+        "  10\n1\n  20\n0\n  42\n1\n" +
+        "  10\n-1\n  20\n0\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    const apex = pickDxfObjectSnap({ x: 0, y: 1.02 }, entities, 0.1);
+    expect(apex?.kind).toBe("endpoint");
+    expect(apex?.point.x).toBeCloseTo(0);
+    expect(apex?.point.y).toBeCloseTo(1);
+    const first = entities[0]!.points[0]!;
+    const second = entities[0]!.points[1]!;
+    const midPt = { x: (first.x + second.x) / 2, y: (first.y + second.y) / 2 };
+    const mid = pickDxfObjectSnap(midPt, entities, 0.05);
+    expect(mid?.kind).toBe("midpoint");
+    expect(mid?.point.x).toBeCloseTo(midPt.x);
+    expect(mid?.point.y).toBeCloseTo(midPt.y);
+    const nearest = pickDxfObjectSnap({ x: midPt.x, y: midPt.y + 0.02 }, entities, 0.08);
+    expect(nearest?.kind).toBe("nearest");
     const bounds = dxfBounds(entities)!;
     expect(bounds.minX).toBeCloseTo(-1);
     expect(bounds.maxX).toBeCloseTo(1);
