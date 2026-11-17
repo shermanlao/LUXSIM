@@ -2,6 +2,7 @@ export type {
   SceneJson,
   SceneLuminaire,
   LuxsimProjectFile,
+  LuxsimEmbeddedAsset,
   LuxsimLuminaireLibraryEntry,
   ProjectSceneV2,
   ResultsV2,
@@ -44,6 +45,17 @@ export {
   LuxsimImportError,
 } from "./luxsim";
 export type { PreparedLuxsimImport } from "./luxsim";
+export {
+  base64ToBytes,
+  bytesToBase64,
+  collectReferencedAssetIds,
+  decodeLuxsimAssetContent,
+  embedLuxsimAsset,
+  luxsimAssetUsesTextEncoding,
+  missingLuxsimAssetWarning,
+  remapSceneAssetIds,
+  unrestoredLuxsimAssetWarning,
+} from "./luxsim-assets";
 export {
   EN12464_TEMPLATES,
   enAssistPendingStatus,

@@ -6,8 +6,12 @@ import {
   LUXSIM_PROJECT_FILE_ACCEPT,
   LUXSIM_PROJECT_MIME,
   LuxsimImportError,
+  base64ToBytes,
+  bytesToBase64,
+  embedLuxsimAsset,
   isLuxsimProjectFilename,
   luxsimProjectDownloadName,
+  missingLuxsimAssetWarning,
   parseLuxsim,
   prepareLuxsimImport,
   rectPolygon,
@@ -15,6 +19,7 @@ import {
   type LuxsimProjectFile,
   type ProjectSceneV2,
   type ResultsV2,
+  type Underlay,
 } from "./index";
 
 function stubPhoto(catalog: string): PhotometricData {
@@ -310,6 +315,7 @@ describe("prepareLuxsimImport", () => {
       ["empty object scene", JSON.stringify({ format: "luxsim", version: 2, name: "x", scene: {} })],
       ["unsupported version", JSON.stringify({ format: "luxsim", version: 3, name: "x", scene: sampleScene() })],
       ["photometry array", JSON.stringify({ ...sampleFile(), photometry: [] })],
+      ["assets array", JSON.stringify({ ...sampleFile(), assets: [] })],
       ["luminaireLibrary array", JSON.stringify({ ...sampleFile(), luminaireLibrary: [] })],
       [
         "invalid libraryBeamDeg",
@@ -377,3 +383,152 @@ describe("official .lux project filename", () => {
   });
 });
 
+
+function underlay(partial: Partial<Underlay> & Pick<Underlay, "id" | "assetId" | "kind">): Underlay {
+  return {
+    storeyId: "s1",
+    opacity: 0.85,
+    metersPerUnit: 1,
+    scaleCalibrated: true,
+    offsetX: 0,
+    offsetY: 0,
+    rotationDeg: 0,
+    ...partial,
+  };
+}
+
+describe("official .lux underlay embedding", () => {
+  const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0xff]);
+  const rasterBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x01, 0x02, 0x03, 0x04]);
+  const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a, 0x25, 0xe2, 0xe3]);
+  const dwgBytes = new Uint8Array([0x41, 0x43, 0x31, 0x30, 0x31, 0x34, 0x00, 0xff, 0xfe]);
+  const dxfText = "0\nSECTION\n2\nHEADER\n0\nENDSEC\n0\nEOF\n";
+
+  const underlays: Underlay[] = [
+    underlay({
+      id: "u-img",
+      assetId: "asset-img",
+      kind: "image",
+      opacity: 0.7,
+      metersPerUnit: 0.02,
+      scaleCalibrated: true,
+      offsetX: 1.5,
+      offsetY: -0.25,
+      rotationDeg: 15,
+      sourceWidthPx: 200,
+      sourceHeightPx: 100,
+      flipY: true,
+    }),
+    underlay({
+      id: "u-pdf",
+      assetId: "asset-pdf",
+      kind: "pdf",
+      pageIndex: 2,
+      pageRasterAssetId: "asset-raster",
+      rasterDpi: 72,
+      pdfPageCount: 4,
+      metersPerUnit: 0.005,
+      scaleCalibrated: true,
+      offsetX: 3,
+      offsetY: 4,
+      sourceWidthPx: 800,
+      sourceHeightPx: 600,
+    }),
+    underlay({
+      id: "u-dxf",
+      assetId: "asset-dxf",
+      kind: "dxf",
+      metersPerUnit: 0.001,
+      scaleCalibrated: true,
+      offsetX: 10,
+      offsetY: 20,
+      dxfEntities: [{ type: "line", points: [{ x: 0, y: 0 }, { x: 1, y: 1 }] }],
+    }),
+    underlay({
+      id: "u-dwg",
+      assetId: "asset-dwg",
+      kind: "dwg",
+      scaleCalibrated: false,
+    }),
+  ];
+
+  const packedAssets = {
+    "asset-img": embedLuxsimAsset({ fileName: "plan.png", kind: "image", bytes: pngBytes, metaJson: '{"widthPx":200}' })!,
+    "asset-pdf": embedLuxsimAsset({ fileName: "plan.pdf", kind: "pdf", bytes: pdfBytes })!,
+    "asset-raster": embedLuxsimAsset({ fileName: "plan-page-2.png", kind: "image", bytes: rasterBytes })!,
+    "asset-dxf": embedLuxsimAsset({ fileName: "plan.dxf", kind: "dxf", text: dxfText, metaJson: '{"entities":[]}' })!,
+    "asset-dwg": embedLuxsimAsset({ fileName: "plan.dwg", kind: "dwg", bytes: dwgBytes })!,
+  };
+
+  it("serializes image, PDF plus raster, DXF text, and DWG binary underlay files", () => {
+    const built = sampleFile({
+      scene: sampleScene({ underlays }),
+      assets: packedAssets,
+    });
+    const text = serializeLuxsim(built);
+    const parsed = JSON.parse(text) as LuxsimProjectFile;
+    expect(parsed.format).toBe("luxsim");
+    expect(parsed.assets?.["asset-img"]?.encoding).toBe("base64");
+    expect(parsed.assets?.["asset-pdf"]?.encoding).toBe("base64");
+    expect(parsed.assets?.["asset-raster"]?.encoding).toBe("base64");
+    expect(parsed.assets?.["asset-dxf"]?.encoding).toBe("text");
+    expect(parsed.assets?.["asset-dxf"]?.content).toBe(dxfText);
+    expect(parsed.assets?.["asset-dwg"]?.encoding).toBe("base64");
+    expect(Array.from(base64ToBytes(parsed.assets!["asset-img"]!.content))).toEqual(Array.from(pngBytes));
+    expect(Array.from(base64ToBytes(parsed.assets!["asset-pdf"]!.content))).toEqual(Array.from(pdfBytes));
+    expect(Array.from(base64ToBytes(parsed.assets!["asset-raster"]!.content))).toEqual(Array.from(rasterBytes));
+    expect(Array.from(base64ToBytes(parsed.assets!["asset-dwg"]!.content))).toEqual(Array.from(dwgBytes));
+    expect(parsed.sourceFiles?.["lum-a"]?.text).toContain("SOURCE A");
+  });
+
+  it("exposes embedded underlay files from prepareLuxsimImport without changing photometry sourceFiles", () => {
+    const prepared = prepareLuxsimImport(
+      serializeLuxsim(sampleFile({ scene: sampleScene({ underlays }), assets: packedAssets }))
+    );
+    expect(prepared.assets["asset-img"]?.fileName).toBe("plan.png");
+    expect(prepared.assets["asset-img"]?.kind).toBe("image");
+    expect(prepared.assets["asset-pdf"]?.kind).toBe("pdf");
+    expect(prepared.assets["asset-raster"]?.fileName).toBe("plan-page-2.png");
+    expect(prepared.assets["asset-dxf"]?.encoding).toBe("text");
+    expect(prepared.assets["asset-dxf"]?.content).toBe(dxfText);
+    expect(prepared.assets["asset-dwg"]?.kind).toBe("dwg");
+    expect(prepared.scene.underlays[1]?.pageRasterAssetId).toBe("asset-raster");
+    expect(prepared.scene.underlays[0]?.metersPerUnit).toBe(0.02);
+    expect(prepared.scene.underlays[0]?.offsetX).toBe(1.5);
+    expect(prepared.sourceFiles["lum-a"]?.text).toContain("SOURCE A");
+    expect(prepared.photometry["lum-a"]?.catalogNumber).toBe("A");
+    expect(prepared.warnings).toEqual([]);
+  });
+
+  it("still parses a legacy .luxsim file that has no assets field", () => {
+    const built = sampleFile();
+    expect(built.assets).toBeUndefined();
+    const prepared = prepareLuxsimImport(serializeLuxsim(built));
+    expect(prepared.assets).toEqual({});
+    expect(prepared.scene.rooms).toHaveLength(2);
+    expect(prepared.sourceFiles["lum-a"]?.text).toContain("SOURCE A");
+    expect(prepared.warnings).toEqual([]);
+  });
+
+  it("does not throw when underlay metadata is present but files are not embedded, and warns instead", () => {
+    const prepared = prepareLuxsimImport(
+      serializeLuxsim(sampleFile({ scene: sampleScene({ underlays }), assets: undefined }))
+    );
+    expect(prepared.scene.underlays).toHaveLength(4);
+    expect(prepared.assets).toEqual({});
+    expect(prepared.warnings).toEqual([
+      missingLuxsimAssetWarning("asset-img"),
+      missingLuxsimAssetWarning("asset-pdf"),
+      missingLuxsimAssetWarning("asset-raster"),
+      missingLuxsimAssetWarning("asset-dxf"),
+      missingLuxsimAssetWarning("asset-dwg"),
+    ]);
+    expect(prepared.sourceFiles["lum-a"]?.text).toContain("SOURCE A");
+  });
+
+  it("round-trips raw bytes through the official base64 encoding", () => {
+    for (const bytes of [new Uint8Array(), new Uint8Array([0]), new Uint8Array([1, 2]), pngBytes, dwgBytes]) {
+      expect(Array.from(base64ToBytes(bytesToBase64(bytes)))).toEqual(Array.from(bytes));
+    }
+  });
+});

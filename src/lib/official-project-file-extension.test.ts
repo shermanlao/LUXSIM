@@ -20,6 +20,7 @@ import {
 } from "@luxsim/project-io";
 import { buildLuxsimProject, exportLuxsimFile } from "./exports-client";
 import { missingExportSourceStatus } from "./export-source-files";
+import { missingExportAssetStatus } from "./export-underlay-assets";
 
 const root = path.resolve(__dirname, "../..");
 
@@ -99,5 +100,12 @@ describe("official project file extension in the app", () => {
     ).toBe(
       ".lux downloaded, but original IES/LDT files are missing for: Downlight. The file is incomplete."
     );
+    expect(
+      missingExportAssetStatus(["asset-img"], { "asset-img": "plan.png" })
+    ).toBe(
+      ".lux downloaded, but plan drawings are missing for: plan.png. The file is incomplete."
+    );
+    expect(editor).toContain("saveOfficialLuxFile");
+    expect(create).toContain("storeImportLuxsimWarnings");
   });
 });

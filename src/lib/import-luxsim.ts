@@ -1,8 +1,11 @@
 import { randomUUID } from "crypto";
 import {
   collectReferencedLuminaireIds,
+  decodeLuxsimAssetContent,
   prepareLuxsimImport,
+  remapSceneAssetIds,
   remapSceneLuminaireIds,
+  unrestoredLuxsimAssetWarning,
   type PreparedLuxsimImport,
   type ProjectSceneV2,
   type ResultsV2,
@@ -33,12 +36,25 @@ export type ImportProjectRow = {
   resultsJson: string | null;
 };
 
+export type ImportAssetRow = {
+  id: string;
+  projectId: string;
+  kind: string;
+  fileKey: string;
+  fileName: string;
+  metaJson: string;
+};
+
 export type ImportLuxsimDeps = {
   findLuminaire: (id: string) => Promise<{ id: string; orgId: string } | null>;
   createLuminaire: (row: ImportLuminaireRow) => Promise<{ id: string }>;
   deleteLuminaire?: (id: string) => Promise<void>;
   createProject: (row: ImportProjectRow) => Promise<{ id: string; name: string; orgId: string }>;
+  deleteProject?: (id: string) => Promise<void>;
+  createAsset?: (row: ImportAssetRow) => Promise<{ id: string }>;
+  deleteAsset?: (id: string) => Promise<void>;
   saveTextFile: (category: string, filename: string, content: string) => Promise<string>;
+  saveBinaryFile?: (category: string, filename: string, data: Buffer) => Promise<string>;
   removeFile?: (fileKey: string) => Promise<void>;
 };
 
@@ -52,7 +68,7 @@ export type ImportLuxsimResult = {
 
 /**
  * Official open path: parse a valid `.lux` (or older `.luxsim` / `.luxsim.json`), restore photometry / source
- * files when present, and create a new project in the given workspace.
+ * files and plan underlays when present, and create a new project in the given workspace.
  * Invalid files throw before any write. Never updates an existing project.
  */
 export async function importLuxsimToWorkspace(opts: {
@@ -94,6 +110,8 @@ export async function applyPreparedLuxsimImport(opts: {
 
   const writtenKeys: string[] = [];
   const createdLuminaireIds: string[] = [];
+  const createdAssetIds: string[] = [];
+  let createdProjectId: string | null = null;
 
   try {
     for (const item of toCreate) {
@@ -135,7 +153,13 @@ export async function applyPreparedLuxsimImport(opts: {
       createdLuminaireIds.push(item.newId);
     }
 
-    const scene = remapSceneLuminaireIds(prepared.scene, idMap);
+    const assetIdMap: Record<string, string> = {};
+    const warnings = [...prepared.warnings];
+    for (const oldId of Object.keys(prepared.assets)) {
+      assetIdMap[oldId] = newAssetId();
+    }
+
+    const scene = remapSceneAssetIds(remapSceneLuminaireIds(prepared.scene, idMap), assetIdMap);
     const resultsJson = hasStoredResults(prepared.results)
       ? JSON.stringify(prepared.results)
       : null;
@@ -145,17 +169,61 @@ export async function applyPreparedLuxsimImport(opts: {
       sceneJson: JSON.stringify(scene),
       resultsJson,
     });
+    createdProjectId = project.id;
     if (project.id === GOLDEN_PROJECT_ID) {
       throw new Error("Refusing to write the golden project");
     }
+
+    for (const [oldId, asset] of Object.entries(prepared.assets)) {
+      const newId = assetIdMap[oldId]!;
+      const label = asset.fileName || oldId;
+      const canWriteText = asset.encoding === "text";
+      const canWriteBinary = Boolean(deps.saveBinaryFile);
+      if (!deps.createAsset || (!canWriteText && !canWriteBinary)) {
+        warnings.push(unrestoredLuxsimAssetWarning(label));
+        continue;
+      }
+      try {
+        const decoded = decodeLuxsimAssetContent(asset);
+        const filename = sanitizeFilename(asset.fileName || oldId);
+        let fileKey: string;
+        if (canWriteText && decoded.text != null) {
+          fileKey = await deps.saveTextFile("assets", filename, decoded.text);
+        } else if (deps.saveBinaryFile) {
+          fileKey = await deps.saveBinaryFile("assets", filename, Buffer.from(decoded.bytes));
+        } else {
+          warnings.push(unrestoredLuxsimAssetWarning(label));
+          continue;
+        }
+        writtenKeys.push(fileKey);
+        await deps.createAsset({
+          id: newId,
+          projectId: project.id,
+          kind: asset.kind,
+          fileKey,
+          fileName: asset.fileName || filename,
+          metaJson: asset.metaJson || "{}",
+        });
+        createdAssetIds.push(newId);
+      } catch {
+        warnings.push(unrestoredLuxsimAssetWarning(label));
+      }
+    }
+
     return {
       project,
       scene,
       results: prepared.results,
-      warnings: prepared.warnings,
+      warnings,
       luminaireIdMap: idMap,
     };
   } catch (error) {
+    for (const id of createdAssetIds) {
+      await deps.deleteAsset?.(id).catch(() => undefined);
+    }
+    if (createdProjectId) {
+      await deps.deleteProject?.(createdProjectId).catch(() => undefined);
+    }
     for (const id of createdLuminaireIds) {
       await deps.deleteLuminaire?.(id).catch(() => undefined);
     }
@@ -173,6 +241,10 @@ export function hasStoredResults(results: ResultsV2): boolean {
 
 function newLuminaireId(): string {
   return `imp_${randomUUID().replace(/-/g, "")}`;
+}
+
+function newAssetId(): string {
+  return `ast_${randomUUID().replace(/-/g, "")}`;
 }
 
 function sanitizeFilename(name: string): string {

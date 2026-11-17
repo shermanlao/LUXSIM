@@ -1,11 +1,16 @@
 import type { PhotometricData } from "../../photometry/src/types";
 import { isSceneV1, isSceneV2, normalizeResults, normalizeScene } from "./migrate";
 import type {
+  LuxsimEmbeddedAsset,
   LuxsimLuminaireLibraryEntry,
   LuxsimProjectFile,
   ProjectSceneV2,
   ResultsV2,
 } from "./types";
+import {
+  collectReferencedAssetIds,
+  missingLuxsimAssetWarning,
+} from "./luxsim-assets";
 
 /** Official download extension. File contents stay JSON with format: "luxsim". */
 export const LUXSIM_PROJECT_EXTENSION = ".lux";
@@ -59,6 +64,7 @@ export type PreparedLuxsimImport = {
   results: ResultsV2;
   photometry: Record<string, PhotometricData>;
   sourceFiles: Record<string, { filename: string; text: string }>;
+  assets: Record<string, LuxsimEmbeddedAsset>;
   luminaireLibrary: Record<string, LuxsimLuminaireLibraryEntry>;
   warnings: string[];
 };
@@ -99,6 +105,9 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
   }
   if (raw.sourceFiles != null && !isPlainObject(raw.sourceFiles)) {
     throw new LuxsimImportError("Not a valid LUXSIM project file: sourceFiles must be an object");
+  }
+  if (raw.assets != null && !isPlainObject(raw.assets)) {
+    throw new LuxsimImportError("Not a valid LUXSIM project file: assets must be an object");
   }
   if (raw.luminaireLibrary != null && !isPlainObject(raw.luminaireLibrary)) {
     throw new LuxsimImportError(
@@ -143,12 +152,30 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
     if (parsed) luminaireLibrary[id] = parsed;
   }
 
+  const assets: Record<string, LuxsimEmbeddedAsset> = {};
+  const omittedAssetIds = new Set<string>();
+  for (const [id, entry] of Object.entries(raw.assets ?? {})) {
+    const parsed = parseEmbeddedAsset(id, entry);
+    if (!parsed.content) {
+      omittedAssetIds.add(id);
+      warnings.push(missingLuxsimAssetWarning(parsed.fileName || id));
+      continue;
+    }
+    assets[id] = parsed;
+  }
+
   const name = raw.name.trim().slice(0, 120) || "Imported project";
   const scene = normalizeScene(raw.scene);
   const results =
     raw.results == null
       ? { version: 2 as const, byRoomId: {} }
       : normalizeResults(raw.results, scene);
+
+  for (const id of collectReferencedAssetIds(scene)) {
+    if (!assets[id] && !omittedAssetIds.has(id)) {
+      warnings.push(missingLuxsimAssetWarning(id));
+    }
+  }
 
   const referencedIds = collectReferencedLuminaireIds(scene);
   for (const id of referencedIds) {
@@ -171,7 +198,7 @@ export function prepareLuxsimImport(text: string): PreparedLuxsimImport {
     }
   }
 
-  return { name, scene, results, photometry, sourceFiles, luminaireLibrary, warnings };
+  return { name, scene, results, photometry, sourceFiles, assets, luminaireLibrary, warnings };
 }
 
 export function collectReferencedLuminaireIds(scene: ProjectSceneV2): string[] {
@@ -306,6 +333,33 @@ function parseLuminaireLibraryEntry(
           ? value.libraryBeamDeg
           : undefined,
   });
+}
+
+function parseEmbeddedAsset(id: string, value: unknown): LuxsimEmbeddedAsset {
+  if (
+    !isPlainObject(value) ||
+    typeof value.fileName !== "string" ||
+    typeof value.kind !== "string" ||
+    (value.encoding !== "text" && value.encoding !== "base64") ||
+    typeof value.content !== "string"
+  ) {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: asset "${id}" is invalid`
+    );
+  }
+  if (value.metaJson !== undefined && typeof value.metaJson !== "string") {
+    throw new LuxsimImportError(
+      `Not a valid LUXSIM project file: asset "${id}" has invalid metaJson`
+    );
+  }
+  const asset: LuxsimEmbeddedAsset = {
+    fileName: value.fileName,
+    kind: value.kind,
+    encoding: value.encoding,
+    content: value.content,
+  };
+  if (typeof value.metaJson === "string") asset.metaJson = value.metaJson;
+  return asset;
 }
 
 function stripBom(text: string): string {

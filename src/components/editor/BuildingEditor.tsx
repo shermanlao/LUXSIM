@@ -68,6 +68,7 @@ import {
   roomAreaM2,
   roomBounds,
   underlayWorldSize,
+  collectReferencedAssetIds,
   type Camera3dView,
   type Display3dMode,
   type DxfEntity,
@@ -106,6 +107,14 @@ import {
   officialExportLuminaireIds,
   type LuminaireExportPayload,
 } from "@/lib/export-source-files";
+import {
+  collectOfficialExportAssets,
+  fetchProjectAssetFile,
+  fetchProjectAssetMeta,
+  missingExportAssetStatus,
+  type ExportAssetMeta,
+} from "@/lib/export-underlay-assets";
+import { takeImportLuxsimWarnings } from "@/lib/import-luxsim-warnings";
 import { runSolverClient } from "@/lib/run-solver";
 import { prefixedId } from "@/lib/random-id";
 import { planFixtureArray } from "@/lib/arrange-array";
@@ -429,6 +438,11 @@ export function BuildingEditor({
   const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
 
   useEffect(() => {
+    const warnings = takeImportLuxsimWarnings(projectId);
+    if (warnings.length) setStatus(warnings.join(" "));
+  }, [projectId]);
+
+  useEffect(() => {
     if (scene.ui.tool !== "drawRoom") return;
     const blocked = officialDrawRoomBlockedReason(underlay);
     if (!blocked) return;
@@ -552,6 +566,63 @@ export function BuildingEditor({
     if (photoCacheRef.current[id]) return photoCacheRef.current[id]!;
     const loaded = await fetchLuminaireExport(id);
     return loaded.photometric;
+  }
+
+  async function loadOfficialExportAssetMeta(ids: string[]): Promise<ExportAssetMeta[]> {
+    const byId = new Map<string, ExportAssetMeta>();
+    for (const row of assets) {
+      byId.set(row.id, {
+        id: row.id,
+        fileName: row.fileName,
+        kind: row.kind,
+        metaJson: row.metaJson,
+      });
+    }
+    if (ids.some((id) => !byId.has(id))) {
+      for (const row of await fetchProjectAssetMeta(projectId)) {
+        byId.set(row.id, row);
+      }
+    }
+    return ids.map((id) => byId.get(id)).filter((row): row is ExportAssetMeta => Boolean(row));
+  }
+
+  async function saveOfficialLuxFile() {
+    await officialWait.run(OFFICIAL_WAIT_COPY.savingProjectFile, async () => {
+      const toExport = sceneWithView(scene);
+      const names: Record<string, string> = {};
+      for (const l of library) names[l.id] = l.name;
+      const collected = await collectSourcesForOfficialExport(
+        officialExportLuminaireIds(toExport)
+      );
+      const assetIds = collectReferencedAssetIds(toExport);
+      const assetMeta = await loadOfficialExportAssetMeta(assetIds);
+      const assetNames: Record<string, string> = {};
+      for (const row of assetMeta) assetNames[row.id] = row.fileName;
+      const packedAssets = await collectOfficialExportAssets({
+        assetIds,
+        assetMeta,
+        loadAssetFile: (id, meta) => fetchProjectAssetFile(projectId, id, meta?.kind),
+      });
+      exportLuxsimFile(
+        buildLuxsimProject({
+          name,
+          scene: toExport as never,
+          results: results as never,
+          photometry: collected.photometry,
+          sourceFiles: collected.sourceFiles,
+          assets: packedAssets.assets,
+          luminaireLibrary: collected.luminaireLibrary,
+        })
+      );
+      const messages: string[] = [];
+      if (collected.missingSourceIds.length) {
+        messages.push(missingExportSourceStatus("luxsim", collected.missingSourceIds, names));
+      }
+      if (packedAssets.missingAssetIds.length) {
+        messages.push(missingExportAssetStatus(packedAssets.missingAssetIds, assetNames));
+      }
+      if (messages.length) setStatus(messages.join(" "));
+    });
   }
 
   async function collectSourcesForOfficialExport(ids: string[]) {
@@ -3540,27 +3611,7 @@ export function BuildingEditor({
             </button>
             <button
               className="btn btn-secondary w-full"
-              onClick={async () => {
-                const toExport = sceneWithView(scene);
-                const names: Record<string, string> = {};
-                for (const l of library) names[l.id] = l.name;
-                const collected = await collectSourcesForOfficialExport(
-                  officialExportLuminaireIds(toExport)
-                );
-                exportLuxsimFile(
-                  buildLuxsimProject({
-                    name,
-                    scene: toExport as never,
-                    results: results as never,
-                    photometry: collected.photometry,
-                    sourceFiles: collected.sourceFiles,
-                    luminaireLibrary: collected.luminaireLibrary,
-                  })
-                );
-                if (collected.missingSourceIds.length) {
-                  setStatus(missingExportSourceStatus("luxsim", collected.missingSourceIds, names));
-                }
-              }}
+              onClick={() => void saveOfficialLuxFile()}
             >
               Save .lux
             </button>

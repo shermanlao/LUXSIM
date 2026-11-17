@@ -8,7 +8,7 @@ import {
 } from "@/lib/import-luxsim";
 import { prisma } from "@/lib/prisma";
 import { requireOrgContext } from "@/lib/session";
-import { absolutePath, saveTextFile } from "@/lib/storage";
+import { absolutePath, saveBinaryFile, saveTextFile } from "@/lib/storage";
 
 async function readImportRequest(req: Request): Promise<{ text: string; orgId?: string }> {
   const contentType = req.headers.get("content-type") ?? "";
@@ -58,7 +58,19 @@ function prismaImportDeps(): ImportLuxsimDeps {
         data: row,
         select: { id: true, name: true, orgId: true },
       }),
+    deleteProject: async (id) => {
+      await prisma.project.delete({ where: { id } });
+    },
+    createAsset: async (row) =>
+      prisma.projectAsset.create({
+        data: row,
+        select: { id: true },
+      }),
+    deleteAsset: async (id) => {
+      await prisma.projectAsset.delete({ where: { id } });
+    },
     saveTextFile,
+    saveBinaryFile,
     removeFile: async (fileKey) => {
       await fs.unlink(absolutePath(fileKey)).catch(() => undefined);
     },

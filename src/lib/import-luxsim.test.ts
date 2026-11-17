@@ -2,16 +2,20 @@ import { describe, expect, it } from "vitest";
 import type { PhotometricData } from "@luxsim/photometry";
 import {
   LuxsimImportError,
+  embedLuxsimAsset,
+  missingLuxsimAssetWarning,
   parseLuxsim,
   rectPolygon,
   serializeLuxsim,
   type ProjectSceneV2,
   type ResultsV2,
+  type Underlay,
 } from "@luxsim/project-io";
 import { buildLuxsimProject } from "./exports-client";
 import {
   GOLDEN_PROJECT_ID,
   importLuxsimToWorkspace,
+  type ImportAssetRow,
   type ImportLuxsimDeps,
   type ImportLuminaireRow,
   type ImportProjectRow,
@@ -142,6 +146,8 @@ type Memory = {
   deps: ImportLuxsimDeps;
   luminaires: ImportLuminaireRow[];
   files: Record<string, string>;
+  binaryFiles: Record<string, Buffer>;
+  assets: ImportAssetRow[];
   projects: Array<ImportProjectRow & { id: string }>;
   failProject?: Error;
 };
@@ -162,11 +168,15 @@ function memoryDeps(
     lumens: null,
   }));
   const files: Record<string, string> = {};
+  const binaryFiles: Record<string, Buffer> = {};
+  const assets: ImportAssetRow[] = [];
   const projects: Array<ImportProjectRow & { id: string }> = [];
   let n = 0;
   const mem: Memory = {
     luminaires,
     files,
+    binaryFiles,
+    assets,
     projects,
     failProject: options.failProject,
     deps: {
@@ -195,13 +205,34 @@ function memoryDeps(
         projects.push(project);
         return { id: project.id, name: project.name, orgId: project.orgId };
       },
-      saveTextFile: async (_category, filename, content) => {
-        const key = `luminaires/mem-${filename}`;
+      saveTextFile: async (category, filename, content) => {
+        const key = category === "assets" ? `assets/mem-${filename}` : `luminaires/mem-${filename}`;
         files[key] = content;
         return key;
       },
+      saveBinaryFile: async (category, filename, data) => {
+        const key = `${category}/mem-${filename}`;
+        binaryFiles[key] = Buffer.from(data);
+        return key;
+      },
+      createAsset: async (row) => {
+        assets.push(row);
+        return { id: row.id };
+      },
+      deleteAsset: async (id) => {
+        const index = assets.findIndex((row) => row.id === id);
+        if (index >= 0) assets.splice(index, 1);
+      },
+      deleteProject: async (id) => {
+        const index = projects.findIndex((row) => row.id === id);
+        if (index >= 0) projects.splice(index, 1);
+        for (let i = assets.length - 1; i >= 0; i--) {
+          if (assets[i]?.projectId === id) assets.splice(i, 1);
+        }
+      },
       removeFile: async (fileKey) => {
         delete files[fileKey];
+        delete binaryFiles[fileKey];
       },
     },
   };
@@ -393,5 +424,152 @@ describe("importLuxsimToWorkspace", () => {
     expect(mem.luminaires[0]?.origin).toBeUndefined();
     expect(mem.luminaires[0]?.libraryFamily).toBeUndefined();
     expect(mem.luminaires[0]?.libraryBeamDeg).toBeUndefined();
+  });
+
+  it("restores underlay files, calibration, and placement into a clean workspace and remaps asset ids", async () => {
+    const pngBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0a, 0xff, 0x00, 0x11]);
+    const rasterBytes = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x22, 0x33]);
+    const pdfBytes = new Uint8Array([0x25, 0x50, 0x44, 0x46, 0x2d, 0x31, 0x2e, 0x34, 0x0a]);
+    const dxfText = "0\nSECTION\n0\nEOF\n";
+    const underlays: Underlay[] = [
+      {
+        id: "u-img",
+        storeyId: "s1",
+        assetId: "asset-img",
+        kind: "image",
+        opacity: 0.6,
+        metersPerUnit: 0.03,
+        scaleCalibrated: true,
+        offsetX: 2.5,
+        offsetY: -1.25,
+        rotationDeg: 30,
+        sourceWidthPx: 400,
+        sourceHeightPx: 200,
+        flipX: true,
+        flipY: false,
+      },
+      {
+        id: "u-pdf",
+        storeyId: "s1",
+        assetId: "asset-pdf",
+        kind: "pdf",
+        opacity: 0.8,
+        metersPerUnit: 0.01,
+        scaleCalibrated: true,
+        offsetX: 0.5,
+        offsetY: 0.75,
+        rotationDeg: 0,
+        sourceWidthPx: 800,
+        sourceHeightPx: 600,
+        pageIndex: 1,
+        pageRasterAssetId: "asset-raster",
+        rasterDpi: 96,
+        pdfPageCount: 3,
+      },
+      {
+        id: "u-dxf",
+        storeyId: "s1",
+        assetId: "asset-dxf",
+        kind: "dxf",
+        opacity: 0.9,
+        metersPerUnit: 0.001,
+        scaleCalibrated: true,
+        offsetX: 12,
+        offsetY: 8,
+        rotationDeg: 0,
+        dxfEntities: [{ type: "line", points: [{ x: 0, y: 0 }, { x: 2, y: 0 }] }],
+      },
+    ];
+    const text = exportedText({
+      scene: { ...scene, underlays },
+      assets: {
+        "asset-img": embedLuxsimAsset({ fileName: "plan.png", kind: "image", bytes: pngBytes, metaJson: '{"widthPx":400}' })!,
+        "asset-pdf": embedLuxsimAsset({ fileName: "plan.pdf", kind: "pdf", bytes: pdfBytes })!,
+        "asset-raster": embedLuxsimAsset({ fileName: "plan-page.png", kind: "image", bytes: rasterBytes })!,
+        "asset-dxf": embedLuxsimAsset({ fileName: "plan.dxf", kind: "dxf", text: dxfText })!,
+      },
+    });
+    const mem = memoryDeps();
+    const imported = await importLuxsimToWorkspace({
+      orgId: "org-1",
+      text,
+      deps: mem.deps,
+    });
+
+    expect(imported.warnings).toEqual([]);
+    expect(imported.project.id).not.toBe(GOLDEN_PROJECT_ID);
+    expect(mem.assets).toHaveLength(4);
+    expect(mem.luminaires).toHaveLength(1);
+    expect(mem.files["luminaires/mem-sample-downlight.ies"]).toBe(sourceA.text);
+
+    const image = imported.scene.underlays.find((row) => row.id === "u-img")!;
+    const pdf = imported.scene.underlays.find((row) => row.id === "u-pdf")!;
+    const dxf = imported.scene.underlays.find((row) => row.id === "u-dxf")!;
+    expect(image.kind).toBe("image");
+    expect(image.opacity).toBe(0.6);
+    expect(image.metersPerUnit).toBe(0.03);
+    expect(image.scaleCalibrated).toBe(true);
+    expect(image.offsetX).toBe(2.5);
+    expect(image.offsetY).toBe(-1.25);
+    expect(image.rotationDeg).toBe(30);
+    expect(image.flipX).toBe(true);
+    expect(image.sourceWidthPx).toBe(400);
+    expect(image.sourceHeightPx).toBe(200);
+    expect(image.assetId).not.toBe("asset-img");
+    expect(pdf.assetId).not.toBe("asset-pdf");
+    expect(pdf.pageRasterAssetId).not.toBe("asset-raster");
+    expect(pdf.pageRasterAssetId).toBe(
+      mem.assets.find((row) => row.fileName === "plan-page.png")?.id
+    );
+    expect(pdf.pageIndex).toBe(1);
+    expect(pdf.rasterDpi).toBe(96);
+    expect(dxf.dxfEntities?.[0]?.type).toBe("line");
+    expect(dxf.metersPerUnit).toBe(0.001);
+
+    const imgRow = mem.assets.find((row) => row.id === image.assetId);
+    const pdfRow = mem.assets.find((row) => row.id === pdf.assetId);
+    const rasterRow = mem.assets.find((row) => row.id === pdf.pageRasterAssetId);
+    const dxfRow = mem.assets.find((row) => row.id === dxf.assetId);
+    expect(imgRow?.kind).toBe("image");
+    expect(imgRow?.metaJson).toBe('{"widthPx":400}');
+    expect(pdfRow?.kind).toBe("pdf");
+    expect(rasterRow?.kind).toBe("image");
+    expect(dxfRow?.kind).toBe("dxf");
+    expect(Array.from(mem.binaryFiles[imgRow!.fileKey]!)).toEqual(Array.from(pngBytes));
+    expect(Array.from(mem.binaryFiles[pdfRow!.fileKey]!)).toEqual(Array.from(pdfBytes));
+    expect(Array.from(mem.binaryFiles[rasterRow!.fileKey]!)).toEqual(Array.from(rasterBytes));
+    expect(mem.files[dxfRow!.fileKey]).toBe(dxfText);
+  });
+
+  it("opens a scene with underlay metadata but no embedded files, warns, and does not invent a drawing", async () => {
+    const underlays: Underlay[] = [
+      {
+        id: "u-img",
+        storeyId: "s1",
+        assetId: "asset-img",
+        kind: "image",
+        opacity: 0.7,
+        metersPerUnit: 0.02,
+        scaleCalibrated: true,
+        offsetX: 1,
+        offsetY: 2,
+        rotationDeg: 0,
+        sourceWidthPx: 100,
+        sourceHeightPx: 80,
+      },
+    ];
+    const mem = memoryDeps();
+    const imported = await importLuxsimToWorkspace({
+      orgId: "org-1",
+      text: exportedText({ scene: { ...scene, underlays }, assets: undefined }),
+      deps: mem.deps,
+    });
+    expect(imported.warnings).toContain(missingLuxsimAssetWarning("asset-img"));
+    expect(imported.scene.underlays[0]?.assetId).toBe("asset-img");
+    expect(imported.scene.underlays[0]?.metersPerUnit).toBe(0.02);
+    expect(mem.assets).toEqual([]);
+    expect(Object.keys(mem.binaryFiles)).toEqual([]);
+    expect(mem.projects).toHaveLength(1);
+    expect(mem.files["luminaires/mem-sample-downlight.ies"]).toBe(sourceA.text);
   });
 });

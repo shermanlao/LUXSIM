@@ -6,6 +6,7 @@ import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { ProjectLoadingDialog } from "@/components/ProjectLoadingDialog";
 import { LUXSIM_PROJECT_FILE_ACCEPT } from "@luxsim/project-io";
 import { OFFICIAL_WAIT_COPY } from "@/lib/official-wait-dialog";
+import { storeImportLuxsimWarnings } from "@/lib/import-luxsim-warnings";
 
 type WorkspaceOption = { id: string; name: string };
 
@@ -58,11 +59,15 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
     const data = (await res.json().catch(() => ({}))) as {
       id?: string;
       error?: string;
+      warnings?: string[];
     };
     setImporting(false);
     if (!res.ok || !data.id) {
       setImportError(data.error || "Not a valid LUXSIM project file");
       return;
+    }
+    if (Array.isArray(data.warnings) && data.warnings.length) {
+      storeImportLuxsimWarnings(data.id, data.warnings);
     }
     setOpening(true);
     router.push(`/projects/${data.id}`);

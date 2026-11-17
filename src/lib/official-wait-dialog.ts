@@ -53,6 +53,10 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Saving…",
     titleZh: "正在儲存…",
   },
+  savingProjectFile: {
+    titleEn: "Saving project file…",
+    titleZh: "正在儲存專案檔…",
+  },
   detectingCodes: {
     titleEn: "Detecting fixture codes…",
     titleZh: "正在偵測燈具編號…",

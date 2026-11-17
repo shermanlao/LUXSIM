@@ -265,10 +265,25 @@ export interface LuxsimProjectFile {
   photometry: Record<string, PhotometricData>;
   sourceFiles?: Record<string, { filename: string; text: string }>;
   /**
+   * Plan / underlay source files keyed by the scene's asset ids.
+   * Absent on older files. Binary kinds use base64; DXF and IFC use text.
+   */
+  assets?: Record<string, LuxsimEmbeddedAsset>;
+  /**
    * Optional Generate LDT / library-origin metadata keyed by luminaire id.
    * Absent on older files. Importers must not invent these fields.
    */
   luminaireLibrary?: Record<string, LuxsimLuminaireLibraryEntry>;
+}
+
+/** One underlay / CAD file embedded in a .lux project. */
+export interface LuxsimEmbeddedAsset {
+  fileName: string;
+  kind: string;
+  encoding: "text" | "base64";
+  content: string;
+  /** Optional ProjectAsset.metaJson, recreated on import when present. */
+  metaJson?: string;
 }
 
 /** Library recognition fields for a luminaire stored in a .lux / .luxsim file. */
