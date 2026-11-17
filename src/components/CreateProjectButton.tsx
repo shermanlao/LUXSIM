@@ -124,7 +124,7 @@ export function ProjectsListActions({ workspaces = [] }: { workspaces?: Workspac
         />
       </div>
       {importError && (
-        <p className="text-sm text-red-400 max-w-md text-right">{importError}</p>
+        <p className="text-sm text-red-700 max-w-md text-right">{importError}</p>
       )}
     </div>
   );

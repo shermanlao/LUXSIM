@@ -358,7 +358,7 @@ describe("CAD editor page background", () => {
   });
 });
 
-describe("signed-in project list dark shell", () => {
+describe("signed-in project list uses the light site tone", () => {
   it("uses a list-only hook on /projects and never mounts the editor root there", () => {
     expect(projectsListSrc).toMatch(/className="[^"]*projects-list-shell/);
     expect(projectsListSrc).not.toMatch(/CadEditorRoot|cad-editor-root/);
@@ -371,13 +371,15 @@ describe("signed-in project list dark shell", () => {
     expect(projectsListSrc).toMatch(/No projects yet/);
   });
 
-  it("overrides the light office gradient on /projects without using .cad-editor-root", () => {
+  it("keeps the light office gradient on /projects and does not apply the dark CAD shell there", () => {
     const bodyBg = resolvedBackground("body", listChrome);
     const htmlBg = resolvedBackground("html", listChrome);
-    expect(isEditorShellFill(bodyBg), `body with list shell: ${bodyBg}`).toBe(true);
-    expect(isEditorShellFill(htmlBg), `html with list shell: ${htmlBg}`).toBe(true);
-    expect(isLightOfficeGradient(bodyBg)).toBe(false);
-    expect(isLightOfficeGradient(htmlBg)).toBe(false);
+    expect(isLightOfficeGradient(bodyBg), `body with list shell: ${bodyBg}`).toBe(true);
+    expect(isEditorShellFill(bodyBg), `body with list shell: ${bodyBg}`).toBe(false);
+    expect(htmlBg === undefined || !isEditorShellFill(htmlBg), `html with list shell: ${htmlBg}`).toBe(
+      true,
+    );
+    if (htmlBg) expect(isLightOfficeGradient(htmlBg) || !isEditorShellFill(htmlBg)).toBe(true);
   });
 
   it("keeps the LightX footer visible on /projects", () => {
@@ -422,13 +424,18 @@ describe("signed-in project list dark shell", () => {
     }
   });
 
-  it("reuses the official CAD palette for the list page, header, and cards", () => {
+  it("does not restyle the project list, header, or cards with the dark CAD palette", () => {
     const listPanel = parsedRules.find((rule) =>
       rule.selectors.includes(".projects-list-shell .panel"),
     );
-    expect(listPanel?.declarations.background?.toLowerCase()).toBe(PANEL_SHELL_BG);
-    expect(isHeaderShellFill(resolvedHeaderBackground(listChrome))).toBe(true);
+    expect(listPanel).toBeUndefined();
+    const listShell = parsedRules.find((rule) => rule.selectors.includes(".projects-list-shell"));
+    expect(listShell).toBeUndefined();
+    expect(isHeaderShellFill(resolvedHeaderBackground(listChrome))).toBe(false);
     expect(isHeaderShellFill(resolvedHeaderBackground(editorChrome))).toBe(true);
-    expect(resolvedBackground("body", listChrome)?.toLowerCase()).toBe(EDITOR_SHELL_BG);
+    expect(isLightOfficeGradient(resolvedBackground("body", listChrome))).toBe(true);
+    expect(isEditorShellFill(resolvedBackground("body", listChrome))).toBe(false);
+    expect(globalsCss).not.toMatch(/html:has\(\.projects-list-shell\)/);
+    expect(globalsCss).not.toMatch(/body:has\(\.projects-list-shell\)/);
   });
 });

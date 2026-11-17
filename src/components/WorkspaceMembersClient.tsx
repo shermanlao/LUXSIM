@@ -194,8 +194,22 @@ export function WorkspaceMembersClient({ initialWorkspaces }: { initialWorkspace
           ) : (
             <>
               <h2 className="display text-2xl">{currentName}</h2>
-              <button type="button" className="btn btn-secondary !py-1 !px-2 !text-xs" onClick={startRename}>
-                Rename
+              <button
+                type="button"
+                className="workspace-rename-btn"
+                onClick={startRename}
+                aria-label="Rename"
+                title="Rename"
+              >
+                <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <path
+                    d="M14.2 5.2l4.6 4.6M5 19l3.3-.7L19.2 7.4a1.5 1.5 0 0 0 0-2.1L18.7 4.8a1.5 1.5 0 0 0-2.1 0L5.7 15.7 5 19z"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
               </button>
             </>
           )}

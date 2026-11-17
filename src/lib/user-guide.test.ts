@@ -120,7 +120,8 @@ describe("user guide", () => {
 
   it("documents that only a workspace Owner can rename the workspace", () => {
     expect(guide).toMatch(/工作區的 Owner 可在 \[Workspace members\]\(\/workspace\/members\) 頁將工作區重新命名/);
-    expect(guide).toMatch(/按名稱旁的 \*\*Rename\*\*/);
+    expect(guide).toMatch(/按名稱旁的鉛筆圖示/);
+    expect(guide).toMatch(/Click the pencil icon next to the name/);
     expect(guide).toMatch(/Member 不能更改工作區名稱，也打不開此頁/);
     expect(guide).toMatch(/The workspace Owner can rename the workspace on the \[Workspace members\]\(\/workspace\/members\) page/);
     expect(guide).toMatch(/Members cannot rename the workspace, and they cannot open this page/);

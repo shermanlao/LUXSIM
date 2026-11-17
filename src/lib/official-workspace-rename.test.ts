@@ -27,14 +27,18 @@ describe("workspace rename wiring", () => {
     expect(session).toContain("canManageWorkspaceMembers");
   });
 
-  it("exposes Rename, Save, and Cancel on the Workspace members page and updates local names", () => {
+  it("exposes a pencil Rename control, Save, and Cancel on the Workspace members page and updates local names", () => {
     expect(page).toContain("canSeeWorkspaceMembersPage");
     expect(page).toContain("WorkspaceMembersClient");
     expect(ui).toContain('fetch("/api/workspace"');
     expect(ui).toContain('method: "PATCH"');
     expect(ui).toContain("parseWorkspaceName");
     expect(ui).toContain("WORKSPACE_NAME_MAX_LENGTH");
-    expect(ui).toMatch(/>\s*Rename\s*</);
+    expect(ui).toContain('aria-label="Rename"');
+    expect(ui).toContain('title="Rename"');
+    expect(ui).toContain('className="workspace-rename-btn"');
+    expect(ui).toContain("<svg");
+    expect(ui).not.toMatch(/>\s*Rename\s*</);
     expect(ui).toMatch(/>\s*Save\s*</);
     expect(ui).toMatch(/>\s*Cancel\s*</);
     expect(ui).toContain("setWorkspaces((prev) => prev.map((w) => (w.id === data.id ? { ...w, name: data.name } : w)))");
