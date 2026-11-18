@@ -59,6 +59,31 @@ export function isDisplayableRasterUnderlay(
   return underlay.kind === "image" || underlay.kind === "pdf";
 }
 
+/** A DWG underlay that has already been converted to official DXF entities. */
+export function officialDwgHasConvertedLinework(
+  underlay: { kind?: string; dxfEntities?: DxfEntity[] } | null | undefined
+): boolean {
+  return (
+    underlay?.kind === "dwg" &&
+    Array.isArray(underlay.dxfEntities) &&
+    underlay.dxfEntities.length > 0
+  );
+}
+
+/**
+ * Official parsed CAD linework: a DXF underlay, or a DWG underlay converted
+ * to a non-empty DXF entity list. Image, PDF, IFC, and unparsed DWG are not.
+ */
+export function officialHasParsedCadLinework<
+  T extends { kind?: string; dxfEntities?: DxfEntity[] },
+>(underlay: T | null | undefined): underlay is T {
+  if (!underlay) return false;
+  if (underlay.kind === "dxf") return true;
+  return officialDwgHasConvertedLinework(underlay);
+}
+
+export const OFFICIAL_DWG_IMPORTED_STATUS = "Plan imported from DWG.";
+
 export function underlayFlipX(underlay: Pick<Underlay, "flipX">): boolean {
   return Boolean(underlay.flipX);
 }
@@ -125,18 +150,25 @@ function isDefaultPreviewMetersPerUnit(
 
 /**
  * Official import scale: raster/PDF start uncalibrated (preview mpu only).
- * DXF entities are already in metres (`metersPerUnit = 1`).
+ * DXF entities, and a DWG converted to those entities, are already in metres (`metersPerUnit = 1`).
  */
 export function initialUnderlayScale(input: {
   kind: UnderlayKind;
   sourceWidthPx?: number;
   sourceHeightPx?: number;
+  dxfEntities?: DxfEntity[];
 }): { metersPerUnit: number; scaleCalibrated: boolean } {
   if (input.kind === "dxf" || input.kind === "ifc") {
     return { metersPerUnit: 1, scaleCalibrated: true };
   }
   if (input.kind === "dwg") {
-    return { metersPerUnit: 1, scaleCalibrated: false };
+    return {
+      metersPerUnit: 1,
+      scaleCalibrated: officialDwgHasConvertedLinework({
+        kind: "dwg",
+        dxfEntities: input.dxfEntities,
+      }),
+    };
   }
   const w = input.sourceWidthPx;
   const h = input.sourceHeightPx;
@@ -153,11 +185,12 @@ export function isUnderlayScaleCalibrated(
   underlay: Pick<
     Underlay,
     "kind" | "sourceWidthPx" | "sourceHeightPx" | "metersPerUnit" | "scaleCalibrated"
-  > & { kind?: UnderlayKind }
+  > & { kind?: UnderlayKind; dxfEntities?: DxfEntity[] }
 ): boolean {
   if (underlay.scaleCalibrated === true) return true;
-  if (underlay.scaleCalibrated === false) return false;
   if (underlay.kind === "dxf" || underlay.kind === "ifc") return true;
+  if (officialDwgHasConvertedLinework(underlay)) return true;
+  if (underlay.scaleCalibrated === false) return false;
   if (underlay.kind === "dwg") return false;
   const w = underlay.sourceWidthPx;
   const h = underlay.sourceHeightPx;
@@ -176,7 +209,7 @@ export function underlayCalibratedWorldSize(
     | "sourceHeightPx"
     | "metersPerUnit"
     | "scaleCalibrated"
-  > & { kind?: UnderlayKind }
+  > & { kind?: UnderlayKind; dxfEntities?: DxfEntity[] }
 ): { widthM: number; heightM: number } | null {
   if (!isUnderlayScaleCalibrated(underlay)) return null;
   return underlayWorldSize(underlay);
@@ -201,6 +234,7 @@ export function officialImportedUnderlay(input: {
     kind,
     sourceWidthPx: input.sourceWidthPx,
     sourceHeightPx: input.sourceHeightPx,
+    dxfEntities: input.dxfEntities,
   });
   return {
     id: input.id,
@@ -245,12 +279,12 @@ export function applyUnderlayCalibration<
 export type OfficialUnderlayScaleFields = Pick<
   Underlay,
   "kind" | "sourceWidthPx" | "sourceHeightPx" | "metersPerUnit" | "scaleCalibrated"
-> & { kind?: UnderlayKind };
+> & { kind?: UnderlayKind; dxfEntities?: DxfEntity[] };
 
 /**
  * Official editor may create rooms unless the active underlay is a
  * displayable image/PDF that has not been officially calibrated.
- * No underlay, DXF (already metres), DWG (not a tracing raster), and
+ * No underlay, DXF (already metres), DWG (converted linework or not a tracing raster), and
  * already-calibrated rasters are allowed. Uses isUnderlayScaleCalibrated
  * — do not invent a second notion of “calibrated”.
  */

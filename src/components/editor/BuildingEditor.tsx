@@ -14,6 +14,7 @@ import {
   applyUnderlayCalibration,
   isDisplayableRasterUnderlay,
   officialImportedUnderlay,
+  OFFICIAL_DWG_IMPORTED_STATUS,
   officialDrawRoomAllowed,
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
@@ -1841,7 +1842,7 @@ export function BuildingEditor({
         ],
       }));
       if (asset.kind === "dwg") {
-        setStatus(data.warnings?.[0] || "DWG stored — upload DXF for linework");
+        setStatus(OFFICIAL_DWG_IMPORTED_STATUS);
       } else if (asset.kind === "pdf") {
         const tip = data.warnings?.includes("PDF rasterized for display")
           ? "PDF rasterized for display — use calibrate tool for scale"
@@ -2965,6 +2966,70 @@ export function BuildingEditor({
 
       <div className="cad-body">
         <aside className="cad-left space-y-1">
+          <div
+            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
+              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
+            }`}
+          >
+            <p className="cad-section-title">Import plan</p>
+            <input
+              ref={planRef}
+              className="input text-xs"
+              type="file"
+              accept=".png,.jpg,.jpeg,.webp,.pdf,.dxf,.dwg,.ifc"
+              disabled={uploading}
+              onChange={(e) => void importPlan(e.target.files?.[0] ?? null)}
+            />
+            <p className="text-[10px] text-[var(--muted)]">
+              Image / PDF / DXF / DWG / IFC
+            </p>
+            {underlay && (
+              <div>
+                <label className="label">Underlay opacity</label>
+                <input
+                  type="range"
+                  min={0.1}
+                  max={1}
+                  step={0.05}
+                  value={underlay.opacity}
+                  onChange={(e) =>
+                    patchScene((s) => ({
+                      ...s,
+                      underlays: s.underlays.map((u) =>
+                        u.id === underlay.id
+                          ? { ...u, opacity: Number(e.target.value) }
+                          : u
+                      ),
+                    }))
+                  }
+                />
+              </div>
+            )}
+            {underlay?.kind === "pdf" && (underlay.pdfPageCount ?? 0) > 1 && (
+              <div>
+                <label className="label">PDF page</label>
+                <OfficialMaybeSelect
+                  readOnly={readOnly}
+                  className="select !text-xs"
+                  value={underlay.pageIndex ?? 0}
+                  disabled={uploading}
+                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}>
+                  {Array.from({ length: underlay.pdfPageCount ?? 1 }, (_, i) => (
+                    <option key={i} value={i}>
+                      Page {i + 1}
+                    </option>
+                  ))}
+                </OfficialMaybeSelect>
+              </div>
+            )}
+            {underlay?.kind === "pdf" && underlay.rasterDpi && (
+              <p className="text-[10px] text-[#8fa3ad]">
+                Raster {underlay.sourceWidthPx}×{underlay.sourceHeightPx}px @{" "}
+                {underlay.rasterDpi} DPI
+              </p>
+            )}
+          </div>
+
           <p className="cad-section-title">Building</p>
           {!readOnly && (
             <>
@@ -3373,70 +3438,6 @@ export function BuildingEditor({
                 Shared radius for Fillet corner and Fillet all corners, in millimetres. Fillet corner rounds one selected corner (pick the room if none is selected, then click a corner handle). Fillet all corners rounds every remaining sharp corner of one room; if a room is already selected it applies immediately, otherwise click the room. A mid-edge handle is not a target. Esc cancels the pick.
               </p>
             </div>
-          </div>
-
-          <div
-            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
-            }`}
-          >
-            <p className="cad-section-title">Import plan</p>
-            <input
-              ref={planRef}
-              className="input text-xs"
-              type="file"
-              accept=".png,.jpg,.jpeg,.webp,.pdf,.dxf,.dwg,.ifc"
-              disabled={uploading}
-              onChange={(e) => void importPlan(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-[10px] text-[var(--muted)]">
-              Image / PDF / DXF / DWG / IFC
-            </p>
-            {underlay && (
-              <div>
-                <label className="label">Underlay opacity</label>
-                <input
-                  type="range"
-                  min={0.1}
-                  max={1}
-                  step={0.05}
-                  value={underlay.opacity}
-                  onChange={(e) =>
-                    patchScene((s) => ({
-                      ...s,
-                      underlays: s.underlays.map((u) =>
-                        u.id === underlay.id
-                          ? { ...u, opacity: Number(e.target.value) }
-                          : u
-                      ),
-                    }))
-                  }
-                />
-              </div>
-            )}
-            {underlay?.kind === "pdf" && (underlay.pdfPageCount ?? 0) > 1 && (
-              <div>
-                <label className="label">PDF page</label>
-                <OfficialMaybeSelect
-                  readOnly={readOnly}
-                  className="select !text-xs"
-                  value={underlay.pageIndex ?? 0}
-                  disabled={uploading}
-                  onChange={(e) => void setPdfUnderlayPage(Number(e.target.value))}>
-                  {Array.from({ length: underlay.pdfPageCount ?? 1 }, (_, i) => (
-                    <option key={i} value={i}>
-                      Page {i + 1}
-                    </option>
-                  ))}
-                </OfficialMaybeSelect>
-              </div>
-            )}
-            {underlay?.kind === "pdf" && underlay.rasterDpi && (
-              <p className="text-[10px] text-[#8fa3ad]">
-                Raster {underlay.sourceWidthPx}×{underlay.sourceHeightPx}px @{" "}
-                {underlay.rasterDpi} DPI
-              </p>
-            )}
           </div>
 
         </aside>

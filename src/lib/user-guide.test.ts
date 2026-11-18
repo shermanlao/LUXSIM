@@ -30,6 +30,20 @@ describe("user guide", () => {
     expect(guide).not.toMatch(/parseLengthToM/);
   });
 
+
+  it("documents DWG conversion and Import plan at the top of the left panel", () => {
+    expect(guide).toMatch(/Import plan\*\* is at the top of the left panel/);
+    expect(guide).toMatch(/左側面板最上方是 \*\*Import plan\*\*/);
+    expect(guide).toMatch(/In view-only, Import plan stays hidden/);
+    expect(guide).toMatch(/唯讀檢視時，\*\*Import plan\*\* 會隱藏/);
+    expect(guide).toMatch(/A DWG import is converted and then works like a DXF underlay/);
+    expect(guide).toMatch(/匯入 DWG 後會轉換成與 DXF 相同的描線/);
+    expect(guide).not.toMatch(/DWG is not parsed/);
+    expect(guide).not.toMatch(/不會解析 DWG/);
+    expect(guide).not.toMatch(/DIALux/);
+    expect(guide).not.toMatch(/conversion is not available in this build/);
+  });
+
   it("documents wheel zoom, reset, Backspace, and Esc", () => {
     expect(guide).toMatch(/zoom \(toward the cursor on the plan and elevation views\)/i);
     expect(guide).toMatch(/以游標位置為中心/);
@@ -250,9 +264,12 @@ describe("user guide", () => {
     expect(guide).toMatch(/若一間房完全落在另一間之內且沒有連牆，只保留內房/);
     expect(guide).toMatch(/Image and PDF underlays do not get raster snap/);
     expect(guide).toMatch(/圖像或 PDF 底圖不會做像素吸附/);
-    expect(guide).toMatch(/DWG is not parsed and is not snappable/);
+    expect(guide).toMatch(/A DWG import is converted and then works like a DXF underlay/);
+    expect(guide).toMatch(/匯入的 DWG 會先轉換成與 DXF 相同的描線，之後可顯示、吸附/);
+    expect(guide).not.toMatch(/DWG is not parsed/);
+    expect(guide).not.toMatch(/不會解析 DWG/);
     const tips = read("src/lib/ui-tips.ts");
-    expect(tips).toMatch(/With a DXF underlay, official Top picks snap to endpoints/);
+    expect(tips).toMatch(/With a DXF underlay, or a converted DWG underlay, official Top picks snap to endpoints/);
   });
 
   it("documents official Calibrate scale on a DXF underlay", () => {
@@ -289,7 +306,9 @@ describe("user guide", () => {
     expect(guide).toMatch(/圖紙空間實體（群組碼 67 = 1）不會顯示、吸附、計入範圍，也不會用來建立房間/);
     expect(guide).toMatch(/Polygon-mesh and polyface-mesh POLYLINE entities are skipped/);
     expect(guide).toMatch(/多邊形網格與多面網格 POLYLINE 會被跳過/);
-    expect(guide).toMatch(/DWG is not parsed/);
+    expect(guide).toMatch(/or a DWG that has been converted to the same linework/);
+    expect(guide).toMatch(/或是已轉換並含描線的 DWG/);
+    expect(guide).not.toMatch(/DWG is not parsed/);
     expect(guide).not.toMatch(/CIRCLE, ARC, and old POLYLINE entities are not traced/);
     expect(tips).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE \(including a spline that has only fit points\), old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
     expect(tips).toMatch(/A non-mesh 3D POLYLINE is traced in plan \(Z is ignored\)/);

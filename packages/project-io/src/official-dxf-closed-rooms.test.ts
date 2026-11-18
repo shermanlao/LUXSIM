@@ -109,6 +109,27 @@ describe("officialCanCreateRoomsFromDxf", () => {
   });
 });
 
+
+describe("officialCanCreateRoomsFromDxf for a converted DWG underlay", () => {
+  it("is enabled when a DWG underlay has parsed closed-polyline entities", () => {
+    const scene = defaultSceneV2();
+    const underlay = officialImportedUnderlay({
+      id: "u-dwg",
+      storeyId: scene.ui.activeStoreyId,
+      assetId: "a-dwg",
+      assetKind: "dwg",
+      dxfEntities: [CLOSED_4X3],
+    });
+    expect(officialCanCreateRoomsFromDxf(underlay)).toBe(true);
+    expect(officialCanCreateRoomsFromDxf(officialImportedUnderlay({
+      id: "u-dwg-empty",
+      storeyId: scene.ui.activeStoreyId,
+      assetId: "a-dwg",
+      assetKind: "dwg",
+    }))).toBe(false);
+  });
+});
+
 describe("officialAppendRoomsFromDxfClosedPolylines", () => {
   it("creates world-mapped rooms when metersPerUnit is not 1 and the origin is offset", () => {
     const raw: DxfEntity = {
@@ -236,6 +257,46 @@ describe("officialAppendRoomsFromDxfClosedPolylines", () => {
       sourceHeightPx: 600,
     });
     scene.underlays = [{ ...image, dxfEntities: [CLOSED_4X3] }];
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(0);
+    expect(out.scene.rooms).toEqual([]);
+    expect(out.status).toBe(DXF_CLOSED_ROOMS_NEED_DXF_STATUS);
+  });
+
+
+  it("creates rooms from a converted DWG underlay that has parsed entities", () => {
+    const scene = defaultSceneV2();
+    const underlay = officialImportedUnderlay({
+      id: "u-dwg",
+      storeyId: scene.ui.activeStoreyId,
+      assetId: "a-dwg",
+      assetKind: "dwg",
+      dxfEntities: [CLOSED_4X3],
+    });
+    scene.underlays = [underlay];
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(out.scene.rooms).toHaveLength(1);
+    expect(out.scene.rooms[0]!.polygon).toEqual(CLOSED_4X3.points);
+  });
+
+  it("does not create rooms from an unconverted DWG underlay", () => {
+    const scene = defaultSceneV2();
+    scene.underlays = [
+      officialImportedUnderlay({
+        id: "u-dwg",
+        storeyId: scene.ui.activeStoreyId,
+        assetId: "a-dwg",
+        assetKind: "dwg",
+      }),
+    ];
     const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
       heightM: 2.8,
       nextId: ids().nextId,

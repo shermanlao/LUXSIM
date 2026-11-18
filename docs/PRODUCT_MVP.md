@@ -6,7 +6,7 @@ DIALux-like **multi-storey** lighting design assist:
 
 - Storeys + multiple rooms
 - **BuildingEditor workspace**: left tools, centre Top / Front / Side / 3D viewport, right properties
-- Plan underlays (image / PDF / DXF; DWG stored with DXF fallback message)
+- Plan underlays (image / PDF / DXF; DWG converted to official DXF linework)
 - Lightweight IFC storey/space import
 - Project fixture library + **drag-and-drop** placement (no auto-place)
 - Client-side per-room lux / interreflection / UGR

@@ -6,8 +6,10 @@ import {
   initialMetersPerPixel,
   isDisplayableRasterUnderlay,
   isUnderlayScaleCalibrated,
-  legacyScaleToMetersPerPixel,
+  officialDwgHasConvertedLinework,
+  officialHasParsedCadLinework,
   officialImportedUnderlay,
+  legacyScaleToMetersPerPixel,
   projectAssetKindAllowed,
   underlayCalibratedWorldSize,
   underlayKindFromAssetKind,
@@ -61,6 +63,48 @@ describe("official underlay import kind and uncalibrated scale", () => {
     expect(isUnderlayScaleCalibrated(underlay)).toBe(false);
     expect(underlayCalibratedWorldSize(underlay)).toBeNull();
     expect(underlayWorldSize(underlay)).toBeNull();
+    expect(officialHasParsedCadLinework(underlay)).toBe(false);
+    expect(officialDwgHasConvertedLinework(underlay)).toBe(false);
+  });
+
+  it("treats a converted DWG with parsed entities as calibrated like DXF", () => {
+    const entities = [
+      {
+        type: "line" as const,
+        points: [
+          { x: 0, y: 0 },
+          { x: 4, y: 0 },
+        ],
+      },
+    ];
+    const underlay = officialImportedUnderlay({
+      id: "u-dwg-converted",
+      storeyId: "s1",
+      assetId: "a-dwg",
+      assetKind: "dwg",
+      dxfEntities: entities,
+    });
+    expect(underlay.kind).toBe("dwg");
+    expect(underlay.metersPerUnit).toBe(1);
+    expect(underlay.scaleCalibrated).toBe(true);
+    expect(isUnderlayScaleCalibrated(underlay)).toBe(true);
+    expect(officialHasParsedCadLinework(underlay)).toBe(true);
+    expect(officialDwgHasConvertedLinework(underlay)).toBe(true);
+    expect(isDisplayableRasterUnderlay(underlay)).toBe(false);
+
+    const unparsed = officialImportedUnderlay({
+      id: "u-dwg-legacy",
+      storeyId: "s1",
+      assetId: "a-dwg",
+      assetKind: "dwg",
+    });
+    expect(isUnderlayScaleCalibrated({ ...unparsed, dxfEntities: entities })).toBe(
+      true
+    );
+    expect(officialHasParsedCadLinework({ kind: "image", dxfEntities: entities })).toBe(
+      false
+    );
+    expect(officialHasParsedCadLinework({ kind: "dxf", dxfEntities: [] })).toBe(true);
   });
 
   it("rejects off-list image formats that cannot become a usable underlay", () => {

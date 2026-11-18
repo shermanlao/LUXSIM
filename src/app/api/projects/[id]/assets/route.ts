@@ -6,6 +6,10 @@ import {
   importIfcText,
   projectAssetKindAllowed,
 } from "@luxsim/project-io";
+import {
+  DwgConversionError,
+  officialParseDwgPlan,
+} from "@/lib/official-dwg-convert";
 import { prisma } from "@/lib/prisma";
 import { apiErrorResponse } from "@/lib/api-error";
 import { requireProjectAccess } from "@/lib/session";
@@ -93,11 +97,20 @@ export async function POST(req: Request, { params }: Params) {
       }
     } else if (kind === "dwg") {
       const buf = Buffer.from(await file.arrayBuffer());
+      let parsed;
+      try {
+        parsed = await officialParseDwgPlan(buf);
+      } catch (e) {
+        const message =
+          e instanceof DwgConversionError
+            ? e.message
+            : "Could not convert this DWG to a plan.";
+        return NextResponse.json({ error: message }, { status: 400 });
+      }
       fileKey = await saveBinaryFile("assets", file.name, buf);
-      meta.conversion = "unsupported";
-      warnings = [
-        "DWG binary conversion is not available in this build. Please export DXF from your CAD software and re-upload.",
-      ];
+      meta.entities = parsed.entities;
+      meta.bounds = parsed.bounds;
+      meta.conversion = "dxf";
     } else {
       const buf = Buffer.from(await file.arrayBuffer());
       fileKey = await saveBinaryFile("assets", file.name, buf);

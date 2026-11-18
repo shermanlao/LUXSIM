@@ -21,6 +21,7 @@ import {
   officialDxfPolylineClosed,
 } from "./official-dxf-polyline";
 import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "./types";
+import { officialHasParsedCadLinework } from "./underlay";
 
 /** Official skip threshold for a degenerate closed-polyline or line-loop room. */
 export const DXF_CLOSED_ROOM_MIN_AREA_M2 = 0.01;
@@ -43,17 +44,17 @@ export type OfficialDxfRoomsUnderlay = OfficialDxfWorldUnderlay & {
   dxfEntities?: DxfEntity[];
 };
 
-/** World-mapped entities for a parsed DXF underlay; otherwise []. */
+/** World-mapped entities for a parsed DXF or converted DWG underlay; otherwise []. */
 export function officialDxfWorldEntitiesForRooms(
   underlay: OfficialDxfRoomsUnderlay | null | undefined
 ): DxfEntity[] {
-  if (!underlay || underlay.kind !== "dxf") return [];
+  if (!officialHasParsedCadLinework(underlay) || !underlay) return [];
   return officialDxfEntitiesToWorld(underlay.dxfEntities ?? [], underlay);
 }
 
 /**
  * The official command is enabled when the current storey’s underlay is a
- * parsed DXF and at least one closed polyline, simple LINE / open-polyline
+ * parsed DXF, or a DWG converted to DXF linework, and at least one closed polyline, simple LINE / open-polyline
  * loop, or planar wall-network face exists after world mapping.
  */
 export function officialCanCreateRoomsFromDxf(
@@ -162,7 +163,7 @@ export function officialAppendRoomsFromDxfClosedPolylines(
   input: OfficialAppendDxfClosedRoomsInput
 ): OfficialAppendDxfClosedRoomsResult {
   const underlay = scene.underlays.find((u) => u.storeyId === scene.ui.activeStoreyId);
-  if (!underlay || underlay.kind !== "dxf") {
+  if (!underlay || !officialHasParsedCadLinework(underlay)) {
     return {
       scene,
       created: 0,

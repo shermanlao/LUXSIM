@@ -178,11 +178,13 @@ describe("pickDxfObjectSnap priority and empty input", () => {
 });
 
 describe("officialDxfSnapEntities", () => {
-  it("is inactive without a parsed DXF underlay or when entities are empty", () => {
+  it("is inactive without a parsed DXF or converted DWG underlay, or when entities are empty", () => {
     expect(officialDxfSnapEntities(null, [LINE])).toEqual([]);
     expect(officialDxfSnapEntities({ kind: "image", dxfEntities: [LINE] })).toEqual([]);
     expect(officialDxfSnapEntities({ kind: "pdf", dxfEntities: [LINE] })).toEqual([]);
-    expect(officialDxfSnapEntities({ kind: "dwg", dxfEntities: [LINE] })).toEqual([]);
+    expect(officialDxfSnapEntities({ kind: "dwg" })).toEqual([]);
+    expect(officialDxfSnapEntities({ kind: "dwg", dxfEntities: [] })).toEqual([]);
+    expect(officialDxfSnapEntities({ kind: "dwg", dxfEntities: [LINE] })).toEqual([LINE]);
     expect(officialDxfSnapEntities({ kind: "dxf", dxfEntities: [] })).toEqual([]);
     expect(officialDxfSnapEntities({ kind: "dxf" })).toEqual([]);
     expect(officialDxfSnapEntities({ kind: "dxf", dxfEntities: [L_POLY] })).toEqual([L_POLY]);

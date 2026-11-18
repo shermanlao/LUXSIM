@@ -1,5 +1,6 @@
 import {
   officialDxfEntitySegments,
+  officialHasParsedCadLinework,
   type DxfEntity,
   type Vec2,
 } from "@luxsim/project-io";
@@ -44,14 +45,14 @@ export function dxfObjectSnapRadiusM(metresPerCssPx: number): number {
 }
 
 /**
- * Only a parsed DXF underlay with LINE, LWPOLYLINE (including bulges), CIRCLE, ARC, or old POLYLINE entities (curves tessellated to segments) is snappable.
- * DWG, rasters, empty entity lists, and missing underlays yield [].
+ * Only a parsed DXF underlay, or a DWG underlay converted to DXF linework, with LINE, LWPOLYLINE (including bulges), CIRCLE, ARC, or old POLYLINE entities (curves tessellated to segments) is snappable.
+ * Rasters, unparsed DWG, empty entity lists, and missing underlays yield [].
  */
 export function officialDxfSnapEntities(
   underlay: { kind?: string; dxfEntities?: DxfEntity[] } | null | undefined,
   entities?: DxfEntity[] | null
 ): DxfEntity[] {
-  if (!underlay || underlay.kind !== "dxf") return [];
+  if (!officialHasParsedCadLinework(underlay)) return [];
   const list = entities ?? underlay.dxfEntities ?? [];
   return list.length > 0 ? list : [];
 }
