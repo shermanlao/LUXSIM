@@ -206,6 +206,37 @@ describe("official underlay import kind and uncalibrated scale", () => {
     expect(isDisplayableRasterUnderlay(underlay)).toBe(false);
   });
 
+  it("applies a declared $INSUNITS metres-per-unit on a DXF or converted DWG underlay", () => {
+    const dxf = officialImportedUnderlay({
+      id: "u-dxf-mm",
+      storeyId: "s1",
+      assetId: "a-dxf-mm",
+      assetKind: "dxf",
+      metersPerUnit: 0.001,
+    });
+    expect(dxf.metersPerUnit).toBe(0.001);
+    expect(dxf.scaleCalibrated).toBe(true);
+    const dwg = officialImportedUnderlay({
+      id: "u-dwg-mm",
+      storeyId: "s1",
+      assetId: "a-dwg-mm",
+      assetKind: "dwg",
+      dxfEntities: [
+        {
+          type: "line",
+          points: [
+            { x: 0, y: 0 },
+            { x: 1000, y: 0 },
+          ],
+        },
+      ],
+      metersPerUnit: 0.001,
+    });
+    expect(dwg.kind).toBe("dwg");
+    expect(dwg.metersPerUnit).toBe(0.001);
+    expect(dwg.scaleCalibrated).toBe(true);
+  });
+
   it("treats a legacy image still at the 12 m preview span as uncalibrated", () => {
     const legacy = {
       kind: "image" as const,

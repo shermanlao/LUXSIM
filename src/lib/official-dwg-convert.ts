@@ -1,7 +1,13 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
-import { dxfBounds, parseDxfEntities, type DxfEntity } from "@luxsim/project-io";
+import {
+  dxfBounds,
+  officialMetersPerUnitFromInsUnits,
+  parseDxfEntities,
+  parseDxfInsUnits,
+  type DxfEntity,
+} from "@luxsim/project-io";
 
 /** Official error when a DWG cannot be converted or parsed into linework. */
 export class DwgConversionError extends Error {
@@ -101,6 +107,8 @@ export type OfficialParsedDwgPlan = {
   dxfText: string;
   entities: DxfEntity[];
   bounds: ReturnType<typeof dxfBounds>;
+  insunits: number | null;
+  metersPerUnit: number;
 };
 
 /**
@@ -115,5 +123,12 @@ export async function officialParseDwgPlan(
   if (entities.length === 0) {
     throw new DwgConversionError("Could not read any linework from this DWG.");
   }
-  return { dxfText, entities, bounds: dxfBounds(entities) };
+  const insunits = parseDxfInsUnits(dxfText);
+  return {
+    dxfText,
+    entities,
+    bounds: dxfBounds(entities),
+    insunits,
+    metersPerUnit: officialMetersPerUnitFromInsUnits(insunits),
+  };
 }

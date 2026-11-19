@@ -16,6 +16,7 @@ import {
   officialPlanSvgToWorld,
   officialPlanToScreen,
   officialPlanWorldBounds,
+  officialRobustPlanPointsBounds,
   type OfficialPlanBoundsInput,
   type OfficialPlanWorldBounds,
 } from "./official-plan-world-bounds";
@@ -405,5 +406,80 @@ describe("TopView2D wiring", () => {
     expect(helper).not.toMatch(/for \(const p of input\.draft/);
     expect(helper).toContain("OFFICIAL_PLAN_EMPTY_MAX_X = 12");
     expect(helper).toContain("OFFICIAL_PLAN_EMPTY_MAX_Y = 10");
+  });
+});
+
+describe("officialRobustPlanPointsBounds", () => {
+  it("ignores a far outlier and keeps the tight cluster", () => {
+    const cluster = [
+      { x: 0, y: 0 },
+      { x: 10, y: 0 },
+      { x: 10, y: 8 },
+      { x: 0, y: 8 },
+      { x: 2, y: 2 },
+      { x: 4, y: 2 },
+      { x: 6, y: 3 },
+      { x: 8, y: 4 },
+      { x: 1, y: 6 },
+      { x: 9, y: 7 },
+    ];
+    const withOutlier = [...cluster, { x: 8000, y: -4000 }];
+    const box = officialRobustPlanPointsBounds(withOutlier)!;
+    expect(box.minX).toBeCloseTo(0);
+    expect(box.minY).toBeCloseTo(0);
+    expect(box.maxX).toBeCloseTo(10);
+    expect(box.maxY).toBeCloseTo(8);
+  });
+
+  it("fits official plan bounds to the cluster, not the outlier, for DXF linework", () => {
+    const dxfEntities = [
+      {
+        type: "line" as const,
+        points: [
+          { x: 0, y: 0 },
+          { x: 10, y: 0 },
+        ],
+      },
+      {
+        type: "line" as const,
+        points: [
+          { x: 10, y: 0 },
+          { x: 10, y: 8 },
+        ],
+      },
+      {
+        type: "line" as const,
+        points: [
+          { x: 10, y: 8 },
+          { x: 0, y: 8 },
+        ],
+      },
+      {
+        type: "line" as const,
+        points: [
+          { x: 0, y: 8 },
+          { x: 0, y: 0 },
+        ],
+      },
+      {
+        type: "line" as const,
+        points: [
+          { x: 2, y: 2 },
+          { x: 8, y: 6 },
+        ],
+      },
+      {
+        type: "line" as const,
+        points: [
+          { x: 8000, y: -4000 },
+          { x: 8001, y: -4000 },
+        ],
+      },
+    ];
+    const world = officialPlanWorldBounds({ dxfEntities });
+    expect(world.minX).toBeCloseTo(0 - OFFICIAL_PLAN_PAD_M);
+    expect(world.minY).toBeCloseTo(0 - OFFICIAL_PLAN_PAD_M);
+    expect(world.width).toBeCloseTo(10 + 2 * OFFICIAL_PLAN_PAD_M);
+    expect(world.depth).toBeCloseTo(8 + 2 * OFFICIAL_PLAN_PAD_M);
   });
 });

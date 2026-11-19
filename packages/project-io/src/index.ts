@@ -112,6 +112,10 @@ export { roomToCalcOptions, clipResultsToPolygon, roomSpecFromV2 } from "./room-
 export { ugrObserverPositionsInRoom, polygonCentroid, interiorTarget } from "./ugr-observers";
 export {
   parseDxfEntities,
+  parseDxfInsUnits,
+  officialMetersPerUnitFromInsUnits,
+  DXF_INSUNITS_METERS_PER_UNIT,
+  isDxfLayoutBlockName,
   dxfBounds,
   DXF_CURVE_SEGMENTS_PER_TURN,
   dxfCurveSegmentCount,

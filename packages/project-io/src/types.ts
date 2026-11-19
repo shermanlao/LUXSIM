@@ -93,7 +93,7 @@ export interface Underlay {
   metersPerUnit: number;
   /**
    * False until the user calibrates scale on a raster/PDF underlay.
-   * DXF linework already in metres is stored as true. DWG (no conversion) is false.
+   * DXF and a converted DWG are stored as true. An unconverted DWG is false.
    * When omitted (legacy scenes), an image/PDF still at the default preview span
    * is treated as uncalibrated.
    */

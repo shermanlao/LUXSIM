@@ -43,6 +43,7 @@ export default async function ProjectPage({ params }: Props) {
           kind: a.kind,
           fileName: a.fileName,
           metaJson: a.metaJson,
+          createdAt: a.createdAt.toISOString(),
         }))}
         />
       </ProjectEditorLoadGate>

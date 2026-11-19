@@ -53,9 +53,12 @@ describe("official DWG conversion of the Kam Tin sample", () => {
     const parsed = await officialParseDwgPlan(buf);
     expect(parsed.dxfText).toMatch(/SECTION/);
     expect(parsed.entities.length).toBeGreaterThan(0);
-    expect(parsed.entities.length).toBe(2488);
+    // INSERT explode produces more linework than the pre-explode count (2488).
+    expect(parsed.entities.length).toBeGreaterThan(2488);
     expect(parseDxfEntities(parsed.dxfText)).toHaveLength(parsed.entities.length);
     expect(parsed.bounds.maxX).toBeGreaterThan(parsed.bounds.minX);
     expect(parsed.bounds.maxY).toBeGreaterThan(parsed.bounds.minY);
+    expect(parsed.metersPerUnit).toBeGreaterThan(0);
+    expect([1, 0.001, 0.01, 0.0254, 0.3048]).toContain(parsed.metersPerUnit);
   }, 60_000);
 });

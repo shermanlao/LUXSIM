@@ -3,6 +3,8 @@ import { readFileSync } from "fs";
 import path from "path";
 import {
   parseDxfEntities,
+  parseDxfInsUnits,
+  officialMetersPerUnitFromInsUnits,
   dxfBounds,
   DXF_CURVE_SEGMENTS_PER_TURN,
   DXF_SPLINE_MAX_SEGMENTS,
@@ -1351,5 +1353,118 @@ describe("DXF 3D extrusion in plan", () => {
     expect(bounds.maxY).toBeCloseTo(0);
     expect(bounds.minX).toBeCloseTo(-2);
     expect(bounds.maxX).toBeCloseTo(2);
+  });
+});
+
+describe("parseDxfInsUnits and officialMetersPerUnitFromInsUnits", () => {
+  it("reads $INSUNITS and maps millimetres to 0.001 m per unit", () => {
+    const text =
+      "  0\nSECTION\n  2\nHEADER\n  9\n$INSUNITS\n  70\n4\n  0\nENDSEC\n  0\nEOF\n";
+    expect(parseDxfInsUnits(text)).toBe(4);
+    expect(officialMetersPerUnitFromInsUnits(4)).toBe(0.001);
+    expect(officialMetersPerUnitFromInsUnits(6)).toBe(1);
+    expect(officialMetersPerUnitFromInsUnits(1)).toBeCloseTo(0.0254);
+    expect(officialMetersPerUnitFromInsUnits(null)).toBe(1);
+    expect(officialMetersPerUnitFromInsUnits(undefined)).toBe(1);
+    expect(officialMetersPerUnitFromInsUnits(99)).toBe(1);
+    expect(parseDxfInsUnits("  0\nSECTION\n  2\nENTITIES\n  0\nENDSEC\n")).toBeNull();
+  });
+});
+
+describe("parseDxfEntities INSERT and BLOCKS", () => {
+  function wrapped(inner: string): string {
+    return `  0\nSECTION\n  2\nENTITIES\n${inner}  0\nENDSEC\n  0\nEOF\n`;
+  }
+
+  it("does not draw BLOCKS-table geometry at definition coordinates", () => {
+    const text =
+      "  0\nSECTION\n  2\nBLOCKS\n" +
+      "  0\nBLOCK\n  2\nSYMB\n  10\n0\n  20\n0\n" +
+      "  0\nLINE\n  10\n0\n  20\n0\n  11\n1\n  21\n0\n" +
+      "  0\nENDBLK\n" +
+      "  0\nENDSEC\n" +
+      wrapped("  0\nLINE\n  10\n10\n  20\n20\n  11\n11\n  21\n20\n");
+    const entities = parseDxfEntities(text);
+    expect(entities).toHaveLength(1);
+    expect(entities[0]!.points).toEqual([
+      { x: 10, y: 20 },
+      { x: 11, y: 20 },
+    ]);
+  });
+
+  it("explodes a model-space INSERT at the insertion point, scale, and rotation", () => {
+    const text =
+      "  0\nSECTION\n  2\nBLOCKS\n" +
+      "  0\nBLOCK\n  2\nLAMP\n  10\n0\n  20\n0\n" +
+      "  0\nLINE\n  10\n0\n  20\n0\n  11\n2\n  21\n0\n" +
+      "  0\nENDBLK\n" +
+      "  0\nENDSEC\n" +
+      "  0\nSECTION\n  2\nENTITIES\n" +
+      "  0\nINSERT\n  2\nLAMP\n  10\n100\n  20\n50\n  41\n3\n  42\n3\n  50\n90\n" +
+      "  0\nENDSEC\n  0\nEOF\n";
+    const entities = parseDxfEntities(text);
+    expect(entities).toHaveLength(1);
+    // 90° CCW, scale 3: (2,0) → (0,6), then + (100,50)
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(100);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(50);
+    expect(entities[0]!.points[1]!.x).toBeCloseTo(100);
+    expect(entities[0]!.points[1]!.y).toBeCloseTo(56);
+  });
+
+  it("applies the block base point and a 2×1 column array", () => {
+    const text =
+      "  0\nSECTION\n  2\nBLOCKS\n" +
+      "  0\nBLOCK\n  2\nMARK\n  10\n1\n  20\n0\n" +
+      "  0\nLINE\n  10\n1\n  20\n0\n  11\n1\n  21\n1\n" +
+      "  0\nENDBLK\n" +
+      "  0\nENDSEC\n" +
+      "  0\nSECTION\n  2\nENTITIES\n" +
+      "  0\nINSERT\n  2\nMARK\n  10\n10\n  20\n0\n  70\n2\n  44\n5\n" +
+      "  0\nENDSEC\n  0\nEOF\n";
+    const entities = parseDxfEntities(text);
+    expect(entities).toHaveLength(2);
+    const starts = entities.map((e) => e.points[0]!).sort((a, b) => a.x - b.x);
+    expect(starts[0]!.x).toBeCloseTo(10);
+    expect(starts[0]!.y).toBeCloseTo(0);
+    expect(starts[1]!.x).toBeCloseTo(15);
+    expect(starts[1]!.y).toBeCloseTo(0);
+  });
+
+  it("explodes a nested INSERT and ignores a cyclic block", () => {
+    const text =
+      "  0\nSECTION\n  2\nBLOCKS\n" +
+      "  0\nBLOCK\n  2\nINNER\n  10\n0\n  20\n0\n" +
+      "  0\nLINE\n  10\n0\n  20\n0\n  11\n1\n  21\n0\n" +
+      "  0\nENDBLK\n" +
+      "  0\nBLOCK\n  2\nOUTER\n  10\n0\n  20\n0\n" +
+      "  0\nINSERT\n  2\nINNER\n  10\n4\n  20\n0\n" +
+      "  0\nINSERT\n  2\nOUTER\n  10\n0\n  20\n0\n" +
+      "  0\nENDBLK\n" +
+      "  0\nENDSEC\n" +
+      "  0\nSECTION\n  2\nENTITIES\n" +
+      "  0\nINSERT\n  2\nOUTER\n  10\n20\n  20\n30\n" +
+      "  0\nENDSEC\n  0\nEOF\n";
+    const entities = parseDxfEntities(text);
+    expect(entities).toHaveLength(1);
+    expect(entities[0]!.points[0]!.x).toBeCloseTo(24);
+    expect(entities[0]!.points[0]!.y).toBeCloseTo(30);
+    expect(entities[0]!.points[1]!.x).toBeCloseTo(25);
+    expect(entities[0]!.points[1]!.y).toBeCloseTo(30);
+  });
+
+  it("does not treat *MODEL_SPACE contents as an insertable block definition", () => {
+    const text =
+      "  0\nSECTION\n  2\nBLOCKS\n" +
+      "  0\nBLOCK\n  2\n*MODEL_SPACE\n  10\n0\n  20\n0\n" +
+      "  0\nLINE\n  10\n0\n  20\n0\n  11\n999\n  21\n0\n" +
+      "  0\nENDBLK\n" +
+      "  0\nENDSEC\n" +
+      "  0\nSECTION\n  2\nENTITIES\n" +
+      "  0\nINSERT\n  2\n*MODEL_SPACE\n  10\n0\n  20\n0\n" +
+      "  0\nLINE\n  10\n5\n  20\n5\n  11\n6\n  21\n5\n" +
+      "  0\nENDSEC\n  0\nEOF\n";
+    const entities = parseDxfEntities(text);
+    expect(entities).toHaveLength(1);
+    expect(entities[0]!.points[0]).toEqual({ x: 5, y: 5 });
   });
 });

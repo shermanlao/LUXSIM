@@ -242,6 +242,7 @@ import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
 import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitYield } from "@/lib/official-wait-dialog";
 import { officialSaveBlob, OFFICIAL_SAVE_TYPES } from "@/lib/official-save-file";
+import { officialFormatPlanUploadAt } from "@/lib/official-plan-upload-label";
 import { OfficialMaybeInput, OfficialMaybeSelect } from "@/components/editor/OfficialViewField";
 import { officialViewSwitchReady, shouldWaitForOfficialViewSwitch } from "@/lib/official-view-switch";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
@@ -286,6 +287,7 @@ type AssetRow = {
   kind: string;
   fileName: string;
   metaJson: string;
+  createdAt?: string;
 };
 
 function nid(prefix: string) {
@@ -1833,6 +1835,7 @@ export function BuildingEditor({
         widthPx?: number;
         heightPx?: number;
         pageCount?: number;
+        metersPerUnit?: number;
       };
       const pixelSize =
         asset.kind === "image" ? await readImagePixelSize(file) : null;
@@ -1851,6 +1854,7 @@ export function BuildingEditor({
             sourceWidthPx,
             sourceHeightPx,
             dxfEntities: meta.entities,
+            metersPerUnit: meta.metersPerUnit,
             pageIndex: raster?.pageIndex ?? 0,
             pageRasterAssetId: rasterAsset?.id,
             rasterDpi: raster?.rasterDpi,
@@ -3000,6 +3004,20 @@ export function BuildingEditor({
             <p className="text-[10px] text-[var(--muted)]">
               Image / PDF / DXF / DWG / IFC
             </p>
+            {underlay &&
+              (() => {
+                const planAsset = assets.find((a) => a.id === underlay.assetId);
+                if (!planAsset) return null;
+                const uploaded = officialFormatPlanUploadAt(planAsset.createdAt);
+                return (
+                  <div className="text-[10px] text-[var(--muted)] leading-snug">
+                    <p className="truncate" title={planAsset.fileName}>
+                      {planAsset.fileName}
+                    </p>
+                    {uploaded ? <p>Uploaded {uploaded}</p> : null}
+                  </div>
+                );
+              })()}
             {underlay && (
               <div>
                 <label className="label">Underlay opacity</label>

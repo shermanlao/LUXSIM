@@ -48,6 +48,7 @@ export async function GET(_req: Request, { params }: Params) {
         kind: a.kind,
         fileName: a.fileName,
         metaJson: a.metaJson,
+        createdAt: a.createdAt,
       })),
       luminaires: luminaires.map((l) => {
         let photometric = null;

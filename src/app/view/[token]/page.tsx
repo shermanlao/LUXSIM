@@ -50,6 +50,7 @@ export default async function ViewProjectPage({ params }: Props) {
         kind: a.kind,
         fileName: a.fileName,
         metaJson: a.metaJson,
+        createdAt: a.createdAt.toISOString(),
       }))}
       luminaires={luminaires.map((l) => {
         let photometric = null;

@@ -38,13 +38,82 @@ export type OfficialPlanBoundsInput = {
 };
 
 /**
+ * Axis-aligned bounds of a point set. Null when empty.
+ */
+function minMaxBounds(points: Vec2[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} | null {
+  if (points.length === 0) return null;
+  let minX = points[0]!.x,
+    minY = points[0]!.y,
+    maxX = points[0]!.x,
+    maxY = points[0]!.y;
+  for (let i = 1; i < points.length; i++) {
+    const p = points[i]!;
+    if (p.x < minX) minX = p.x;
+    if (p.y < minY) minY = p.y;
+    if (p.x > maxX) maxX = p.x;
+    if (p.y > maxY) maxY = p.y;
+  }
+  return { minX, minY, maxX, maxY };
+}
+
+function percentileSorted(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0;
+  const i = (sorted.length - 1) * p;
+  const lo = Math.floor(i);
+  const hi = Math.ceil(i);
+  if (lo === hi) return sorted[lo]!;
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (i - lo);
+}
+
+/**
+ * Bounds of the main point cluster, ignoring far outliers that would shrink
+ * the official first view of a plan to a speck (stray points, a title block
+ * far from the floor, or leaked block-definition geometry).
+ * Uses a Tukey fence (1.5 × IQR) on X and Y; falls back to the full min/max
+ * when fewer than 8 points remain, or when the kept set is under half the
+ * points (so two similarly sized wings of a plan are not clipped).
+ */
+export function officialRobustPlanPointsBounds(points: Vec2[]): {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+} | null {
+  const full = minMaxBounds(points);
+  if (!full || points.length < 8) return full;
+  const xs = points.map((p) => p.x).sort((a, b) => a - b);
+  const ys = points.map((p) => p.y).sort((a, b) => a - b);
+  const x1 = percentileSorted(xs, 0.25);
+  const x3 = percentileSorted(xs, 0.75);
+  const y1 = percentileSorted(ys, 0.25);
+  const y3 = percentileSorted(ys, 0.75);
+  const xi = Math.max(x3 - x1, 1e-9);
+  const yi = Math.max(y3 - y1, 1e-9);
+  const loX = x1 - 1.5 * xi;
+  const hiX = x3 + 1.5 * xi;
+  const loY = y1 - 1.5 * yi;
+  const hiY = y3 + 1.5 * yi;
+  const kept = points.filter(
+    (p) => p.x >= loX && p.x <= hiX && p.y >= loY && p.y <= hiY
+  );
+  if (kept.length < Math.max(8, points.length * 0.5)) return full;
+  return minMaxBounds(kept);
+}
+
+/**
  * Official Top-plan auto-fit bounds from rooms, DXF entities, and underlay
  * size. DXF points use the official entity→world mapping (entity ×
  * metersPerUnit + origin offset). Room polygons stay in metres and are not
  * scaled. Same path as today's non-draft fit: 1 m pad and a 4 m minimum span.
  * Draft points are deliberately excluded so adding a corner cannot move the
  * camera; when the draft is cleared, callers simply use this helper again
- * (now including any newly closed room).
+ * (now including any newly closed room). DXF / DWG linework uses the main
+ * cluster bounds so a few far-away points do not zoom the first view out.
  */
 export function officialPlanWorldBounds(
   input: OfficialPlanBoundsInput = {}
@@ -70,19 +139,25 @@ export function officialPlanWorldBounds(
       maxY = Math.max(maxY, b.maxY);
     }
   }
+  const dxfWorld: Vec2[] = [];
   for (const e of input.dxfEntities ?? []) {
     for (const p of e.points) {
-      const w = officialDxfEntityToWorld(p, input.underlay);
-      if (!hasContent) {
-        minX = maxX = w.x;
-        minY = maxY = w.y;
-        hasContent = true;
-      } else {
-        minX = Math.min(minX, w.x);
-        minY = Math.min(minY, w.y);
-        maxX = Math.max(maxX, w.x);
-        maxY = Math.max(maxY, w.y);
-      }
+      dxfWorld.push(officialDxfEntityToWorld(p, input.underlay));
+    }
+  }
+  const dxfBox = officialRobustPlanPointsBounds(dxfWorld);
+  if (dxfBox) {
+    if (!hasContent) {
+      minX = dxfBox.minX;
+      minY = dxfBox.minY;
+      maxX = dxfBox.maxX;
+      maxY = dxfBox.maxY;
+      hasContent = true;
+    } else {
+      minX = Math.min(minX, dxfBox.minX);
+      minY = Math.min(minY, dxfBox.minY);
+      maxX = Math.max(maxX, dxfBox.maxX);
+      maxY = Math.max(maxY, dxfBox.maxY);
     }
   }
   if (input.underlay && input.underlaySize) {

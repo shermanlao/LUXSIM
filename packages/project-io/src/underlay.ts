@@ -150,20 +150,28 @@ function isDefaultPreviewMetersPerUnit(
 
 /**
  * Official import scale: raster/PDF start uncalibrated (preview mpu only).
- * DXF entities, and a DWG converted to those entities, are already in metres (`metersPerUnit = 1`).
+ * DXF entities, and a DWG converted to those entities, use $INSUNITS when present (`metersPerUnit = 1` if the header is missing, unitless, or already metres).
  */
 export function initialUnderlayScale(input: {
   kind: UnderlayKind;
   sourceWidthPx?: number;
   sourceHeightPx?: number;
   dxfEntities?: DxfEntity[];
+  /** When set (from DXF/DWG $INSUNITS), used instead of the 1 m / drawing-unit default. */
+  metersPerUnit?: number;
 }): { metersPerUnit: number; scaleCalibrated: boolean } {
+  const fromUnits =
+    typeof input.metersPerUnit === "number" &&
+    Number.isFinite(input.metersPerUnit) &&
+    input.metersPerUnit > 0
+      ? input.metersPerUnit
+      : null;
   if (input.kind === "dxf" || input.kind === "ifc") {
-    return { metersPerUnit: 1, scaleCalibrated: true };
+    return { metersPerUnit: fromUnits ?? 1, scaleCalibrated: true };
   }
   if (input.kind === "dwg") {
     return {
-      metersPerUnit: 1,
+      metersPerUnit: fromUnits ?? 1,
       scaleCalibrated: officialDwgHasConvertedLinework({
         kind: "dwg",
         dxfEntities: input.dxfEntities,
@@ -223,6 +231,7 @@ export function officialImportedUnderlay(input: {
   sourceWidthPx?: number;
   sourceHeightPx?: number;
   dxfEntities?: DxfEntity[];
+  metersPerUnit?: number;
   pageIndex?: number;
   pageRasterAssetId?: string;
   rasterDpi?: number;
@@ -235,6 +244,7 @@ export function officialImportedUnderlay(input: {
     sourceWidthPx: input.sourceWidthPx,
     sourceHeightPx: input.sourceHeightPx,
     dxfEntities: input.dxfEntities,
+    metersPerUnit: input.metersPerUnit,
   });
   return {
     id: input.id,

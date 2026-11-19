@@ -1204,6 +1204,156 @@ function mapOcsEntityToPlan(
 }
 
 /**
+ * DXF $INSUNITS (group 70) to metres per drawing unit.
+ * 0 (unitless) and a missing or unknown value keep the official default of 1
+ * (entities already treated as metres), so existing calibrated-metre drawings
+ * are unchanged. 4 is millimetres.
+ */
+export const DXF_INSUNITS_METERS_PER_UNIT: Record<number, number> = {
+  0: 1,
+  1: 0.0254,
+  2: 0.3048,
+  3: 1609.344,
+  4: 0.001,
+  5: 0.01,
+  6: 1,
+  7: 1000,
+  8: 2.54e-8,
+  9: 2.54e-5,
+  10: 0.9144,
+  11: 1e-10,
+  12: 1e-9,
+  13: 1e-6,
+  14: 0.1,
+  15: 10,
+  16: 100,
+  17: 1e9,
+  18: 149597870700,
+  19: 9.4607304725808e15,
+  20: 3.085677581491367e16,
+  21: 1200 / 3937,
+  22: 1 / 39.37,
+  23: (1200 / 3937) * 3,
+  24: (1200 / 3937) * 5280,
+};
+
+/** Read $INSUNITS from a DXF HEADER. Null when the variable is absent or not a number. */
+export function parseDxfInsUnits(text: string): number | null {
+  const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
+  for (let i = 0; i < lines.length - 1; i++) {
+    if (lines[i]!.trim() !== "9" || lines[i + 1]!.trim() !== "$INSUNITS") continue;
+    for (let j = i + 2; j < lines.length - 1; j++) {
+      const code = lines[j]!.trim();
+      if (code === "9" || code === "0") break;
+      if (code === "70") {
+        const n = Number(lines[j + 1]!.trim());
+        return Number.isFinite(n) ? n : null;
+      }
+    }
+  }
+  return null;
+}
+
+/** Official metres-per-drawing-unit from $INSUNITS. Unknown or omitted → 1.
+ * Named apart from officialDxfMetersPerUnit(underlay), which reads an already-stored underlay scale.
+ */
+export function officialMetersPerUnitFromInsUnits(
+  insunits: number | null | undefined
+): number {
+  if (insunits == null || !Number.isFinite(insunits)) return 1;
+  const mpu = DXF_INSUNITS_METERS_PER_UNIT[insunits];
+  return typeof mpu === "number" && mpu > 0 ? mpu : 1;
+}
+
+/** Model/paper space record names in the BLOCKS table — not insertable block defs. */
+export function isDxfLayoutBlockName(name: string): boolean {
+  const n = name.trim().toUpperCase();
+  return n === "*MODEL_SPACE" || n === "*PAPER_SPACE" || n.startsWith("*PAPER_SPACE");
+}
+
+type OfficialDxfInsert = {
+  name: string;
+  x: number;
+  y: number;
+  scaleX: number;
+  scaleY: number;
+  rotationDeg: number;
+  columns: number;
+  rows: number;
+  colSpacing: number;
+  rowSpacing: number;
+};
+
+type OfficialDxfBlockItem =
+  | { kind: "entity"; entity: DxfEntity }
+  | { kind: "insert"; insert: OfficialDxfInsert };
+
+type OfficialDxfBlockDef = {
+  name: string;
+  base: Vec2;
+  items: OfficialDxfBlockItem[];
+};
+
+function applyDxfInsertTransform(
+  point: Vec2,
+  insert: OfficialDxfInsert,
+  base: Vec2,
+  column: number,
+  row: number
+): Vec2 {
+  const dx = (point.x - base.x) * insert.scaleX;
+  const dy = (point.y - base.y) * insert.scaleY;
+  const rad = (insert.rotationDeg * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const ox =
+    insert.x + (column * insert.colSpacing) * cos - (row * insert.rowSpacing) * sin;
+  const oy =
+    insert.y + (column * insert.colSpacing) * sin + (row * insert.rowSpacing) * cos;
+  return { x: ox + dx * cos - dy * sin, y: oy + dx * sin + dy * cos };
+}
+
+function explodeDxfInserts(
+  inserts: OfficialDxfInsert[],
+  blocks: Map<string, OfficialDxfBlockDef>
+): DxfEntity[] {
+  const entitiesFromBlock = (name: string, stack: string[]): DxfEntity[] => {
+    const key = name.trim().toUpperCase();
+    if (!key || stack.includes(key)) return [];
+    const block = blocks.get(key);
+    if (!block) return [];
+    const next = [...stack, key];
+    const out: DxfEntity[] = [];
+    for (const item of block.items) {
+      if (item.kind === "entity") out.push(item.entity);
+      else out.push(...explodeOne(item.insert, next));
+    }
+    return out;
+  };
+  const explodeOne = (insert: OfficialDxfInsert, stack: string[]): DxfEntity[] => {
+    const locals = entitiesFromBlock(insert.name, stack);
+    const block = blocks.get(insert.name.trim().toUpperCase());
+    const base = block?.base ?? { x: 0, y: 0 };
+    const columns = Math.max(1, Math.floor(insert.columns) || 1);
+    const rows = Math.max(1, Math.floor(insert.rows) || 1);
+    if (columns * rows > 10_000) return [];
+    const out: DxfEntity[] = [];
+    for (let c = 0; c < columns; c++) {
+      for (let r = 0; r < rows; r++) {
+        for (const entity of locals) {
+          const points = entity.points.map((p) =>
+            applyDxfInsertTransform(p, insert, base, c, r)
+          );
+          if (points.length >= 2) out.push({ ...entity, points });
+        }
+      }
+    }
+    return out;
+  };
+  return inserts.flatMap((insert) => explodeOne(insert, []));
+}
+
+/**
  * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
  * CIRCLE, ARC, ELLIPSE, SPLINE, and old-style POLYLINE (VERTEX + SEQEND, including
  * the closed flag and bulges). Curves are tessellated into official planar polyline
@@ -1249,11 +1399,27 @@ function mapOcsEntityToPlan(
  * in M is flag bit 1, closed in N is flag bit 32. Polyface faces use VERTEX
  * groups 71–74 as 1-based vertex indices (a negative index still contributes
  * the edge). A mesh with no usable face, and a paperspace mesh, are skipped.
+ * When the file has an ENTITIES section, only that section is traced as the
+ * plan; geometry in the BLOCKS table is kept as block definitions and is not
+ * drawn at its definition coordinates. INSERT entities in model space are
+ * exploded through those definitions (insertion point, X/Y scale, rotation,
+ * and a rectangular column/row array). Nested INSERT is exploded with a
+ * cycle guard. *MODEL_SPACE and *PAPER_SPACE records are not treated as
+ * insertable blocks. A file with no ENTITIES section is still read as a
+ * bare entity list, so existing test snippets stay valid.
  */
 export function parseDxfEntities(text: string): DxfEntity[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
   const entities: DxfEntity[] = [];
+  const blocks = new Map<string, OfficialDxfBlockDef>();
+  const modelInserts: OfficialDxfInsert[] = [];
   let i = 0;
+  let section: string | null = null;
+  let currentBlock: OfficialDxfBlockDef | null = null;
+  const hasEntitiesSection = lines.some(
+    (line, idx) =>
+      line.trim() === "2" && (lines[idx + 1] ?? "").trim().toUpperCase() === "ENTITIES"
+  );
 
   const readPair = (): { code: number; value: string } | null => {
     if (i + 1 >= lines.length) return null;
@@ -1327,11 +1493,123 @@ export function parseDxfEntities(text: string): DxfEntity[] {
     }
   };
 
+  const inModelEntities = () =>
+    section === "ENTITIES" || (!hasEntitiesSection && section == null);
+
+  const emit = (entity: DxfEntity | null | undefined) => {
+    if (!entity) return;
+    if (currentBlock) {
+      currentBlock.items.push({ kind: "entity", entity });
+      return;
+    }
+    if (inModelEntities()) entities.push(entity);
+  };
+
+  const emitInsert = (insert: OfficialDxfInsert) => {
+    if (!insert.name) return;
+    if (currentBlock) {
+      currentBlock.items.push({ kind: "insert", insert });
+      return;
+    }
+    if (inModelEntities()) modelInserts.push(insert);
+  };
+
   while (i < lines.length) {
     const pair = readPair();
     if (!pair) break;
     if (pair.code !== 0) continue;
     const type = pair.value.toUpperCase();
+
+    if (type === "SECTION") {
+      let name = "";
+      readGroups((code, value) => {
+        if (code === 2) name = value;
+      });
+      section = name.toUpperCase() || null;
+      currentBlock = null;
+      continue;
+    }
+    if (type === "ENDSEC") {
+      readGroups(() => {});
+      section = null;
+      currentBlock = null;
+      continue;
+    }
+    if (type === "BLOCK") {
+      let name = "";
+      let x = 0;
+      let y = 0;
+      readGroups((code, value) => {
+        if (code === 2) name = value;
+        if (code === 10) x = Number(value);
+        if (code === 20) y = Number(value);
+      });
+      if (section === "BLOCKS" && name && !isDxfLayoutBlockName(name)) {
+        currentBlock = {
+          name,
+          base: {
+            x: isFiniteNumber(x) ? x : 0,
+            y: isFiniteNumber(y) ? y : 0,
+          },
+          items: [],
+        };
+        blocks.set(name.trim().toUpperCase(), currentBlock);
+      } else {
+        currentBlock = null;
+      }
+      continue;
+    }
+    if (type === "ENDBLK") {
+      readGroups(() => {});
+      currentBlock = null;
+      continue;
+    }
+    if (type === "INSERT") {
+      let name = "";
+      let x = 0;
+      let y = 0;
+      let scaleX = 1;
+      let scaleY = 1;
+      let hasScaleY = false;
+      let rotationDeg = 0;
+      let columns = 1;
+      let rows = 1;
+      let colSpacing = 0;
+      let rowSpacing = 0;
+      let attribsFollow = false;
+      const { paperspace } = readEntityGroups((code, value) => {
+        if (code === 2) name = value;
+        if (code === 10) x = Number(value);
+        if (code === 20) y = Number(value);
+        if (code === 41) scaleX = Number(value);
+        if (code === 42) {
+          scaleY = Number(value);
+          hasScaleY = true;
+        }
+        if (code === 50) rotationDeg = Number(value);
+        if (code === 70) columns = Number(value);
+        if (code === 71) rows = Number(value);
+        if (code === 44) colSpacing = Number(value);
+        if (code === 45) rowSpacing = Number(value);
+        if (code === 66 && Number(value) === 1) attribsFollow = true;
+      });
+      if (attribsFollow) skipUntilSeqend();
+      if (paperspace) continue;
+      const sx = isFiniteNumber(scaleX) && scaleX !== 0 ? scaleX : 1;
+      emitInsert({
+        name,
+        x: isFiniteNumber(x) ? x : 0,
+        y: isFiniteNumber(y) ? y : 0,
+        scaleX: sx,
+        scaleY: hasScaleY && isFiniteNumber(scaleY) && scaleY !== 0 ? scaleY : sx,
+        rotationDeg: isFiniteNumber(rotationDeg) ? rotationDeg : 0,
+        columns: Number.isFinite(columns) && columns >= 1 ? columns : 1,
+        rows: Number.isFinite(rows) && rows >= 1 ? rows : 1,
+        colSpacing: isFiniteNumber(colSpacing) ? colSpacing : 0,
+        rowSpacing: isFiniteNumber(rowSpacing) ? rowSpacing : 0,
+      });
+      continue;
+    }
 
     if (type === "LINE") {
       let x1 = 0,
@@ -1345,7 +1623,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         if (code === 21) y2 = Number(value);
       });
       if (paperspace) continue;
-      entities.push({
+      emit({
         type: "line",
         points: [
           { x: x1, y: y1 },
@@ -1395,7 +1673,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         extrusion,
         elev
       );
-      if (entity) entities.push(entity);
+      if (entity) emit(entity);
     } else if (type === "CIRCLE") {
       let cx = 0,
         cy = 0,
@@ -1415,7 +1693,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
           extrusion,
           elev
         );
-        if (entity) entities.push(entity);
+        if (entity) emit(entity);
       }
     } else if (type === "ARC") {
       let cx = 0,
@@ -1452,7 +1730,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
             extrusion,
             elev
           );
-          if (entity) entities.push(entity);
+          if (entity) emit(entity);
         }
       }
 
@@ -1514,7 +1792,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
               : openPolylineEntity(
                   tessellateEllipticalArc(cx, cy, major, minor, startRad, sweepRad)
                 );
-            if (entity) entities.push(entity);
+            if (entity) emit(entity);
           } else {
             const axes = dxfArbitraryAxes(extrusion);
             if (axes) {
@@ -1544,7 +1822,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
                   sweepRad === TAU
                     ? closedPolylineEntity(pts)
                     : openPolylineEntity(pts);
-                if (entity) entities.push(entity);
+                if (entity) emit(entity);
               }
             }
           }
@@ -1632,7 +1910,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         startTangent,
         endTangent
       );
-      if (entity) entities.push(entity);
+      if (entity) emit(entity);
     } else if (type === "POLYLINE") {
       let flags = 0;
       let meshM = NaN;
@@ -1691,7 +1969,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         const meshEntities = isPolyface
           ? entitiesFromPolyface(recs)
           : entitiesFromPolygonMesh(recs, meshM, meshN, flags);
-        entities.push(...meshEntities);
+        for (const meshEntity of meshEntities) emit(meshEntity);
         continue;
       }
       const verts: PolyVertex[] = [];
@@ -1729,10 +2007,11 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       const entity = is3dPoly
         ? polylineFromVertices(verts, closedByFlag)
         : mapOcsEntityToPlan(polylineFromVertices(verts, closedByFlag), extrusion, elev);
-      if (entity) entities.push(entity);
+      if (entity) emit(entity);
     }
   }
 
+  if (modelInserts.length) entities.push(...explodeDxfInserts(modelInserts, blocks));
   return entities;
 }
 
@@ -1742,12 +2021,20 @@ export function dxfBounds(entities: DxfEntity[]): {
   maxX: number;
   maxY: number;
 } | null {
-  const pts = entities.flatMap((e) => e.points);
-  if (!pts.length) return null;
-  return {
-    minX: Math.min(...pts.map((p) => p.x)),
-    minY: Math.min(...pts.map((p) => p.y)),
-    maxX: Math.max(...pts.map((p) => p.x)),
-    maxY: Math.max(...pts.map((p) => p.y)),
-  };
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  let any = false;
+  for (const e of entities) {
+    for (const p of e.points) {
+      any = true;
+      if (p.x < minX) minX = p.x;
+      if (p.y < minY) minY = p.y;
+      if (p.x > maxX) maxX = p.x;
+      if (p.y > maxY) maxY = p.y;
+    }
+  }
+  if (!any) return null;
+  return { minX, minY, maxX, maxY };
 }

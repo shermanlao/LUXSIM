@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import fs from "fs/promises";
 import {
   parseDxfEntities,
+  parseDxfInsUnits,
+  officialMetersPerUnitFromInsUnits,
   dxfBounds,
   importIfcText,
   projectAssetKindAllowed,
@@ -84,8 +86,11 @@ export async function POST(req: Request, { params }: Params) {
       const text = await file.text();
       if (kind === "dxf") {
         const entities = parseDxfEntities(text);
+        const insunits = parseDxfInsUnits(text);
         meta.entities = entities;
         meta.bounds = dxfBounds(entities);
+        meta.insunits = insunits;
+        meta.metersPerUnit = officialMetersPerUnitFromInsUnits(insunits);
         fileKey = await saveTextFile("assets", file.name, text);
       } else {
         const imported = importIfcText(text, project.name);
@@ -110,6 +115,8 @@ export async function POST(req: Request, { params }: Params) {
       fileKey = await saveBinaryFile("assets", file.name, buf);
       meta.entities = parsed.entities;
       meta.bounds = parsed.bounds;
+      meta.insunits = parsed.insunits;
+      meta.metersPerUnit = parsed.metersPerUnit;
       meta.conversion = "dxf";
     } else {
       const buf = Buffer.from(await file.arrayBuffer());

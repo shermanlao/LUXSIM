@@ -276,8 +276,10 @@ describe("user guide", () => {
   });
 
   it("documents official Calibrate scale on a DXF underlay", () => {
-    expect(guide).toMatch(/newly imported DXF starts at 1 metre per drawing unit/);
-    expect(guide).toMatch(/新匯入的 DXF 預設每個繪圖單位為 1 公尺/);
+    expect(guide).toMatch(/uses the drawing’s declared units \(for example millimetres\)/);
+    expect(guide).toMatch(/shows the file name and the upload date and time \(Hong Kong time\)/);
+    expect(guide).toMatch(/若圖紙標明單位（例如公釐），會自動換成公尺/);
+    expect(guide).toMatch(/顯示檔名和上傳日期時間（香港時間）/);
     expect(guide).toMatch(/resizes the DXF drawing and the snap points together/);
     expect(guide).toMatch(/DXF 描線與吸附點會一併按同一比例縮放/);
     expect(guide).toMatch(/Draw room stays allowed without a prior calibrate/);
