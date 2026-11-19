@@ -1011,6 +1011,101 @@ function isFiniteNumber(value: number): boolean {
   return Number.isFinite(value);
 }
 
+const MESH_FACE_AREA_EPS = 1e-12;
+
+type PolylineVertexRecord = {
+  x: number;
+  y: number;
+  flags: number;
+  /** Raw POLYLINE face indices from groups 71–74, omitting 0 / non-finite. */
+  faceIndices: number[];
+};
+
+function isPolyfaceFaceRecord(rec: PolylineVertexRecord): boolean {
+  return rec.faceIndices.length > 0;
+}
+
+/** Closed plan face from mesh corners; skips degenerate or zero-area rings. */
+function meshFaceEntity(corners: Vec2[]): DxfEntity | null {
+  const ring: Vec2[] = [];
+  for (const p of corners) {
+    const prev = ring[ring.length - 1];
+    if (prev && officialDxfPointsCoincide(prev, p)) continue;
+    ring.push({ x: p.x, y: p.y });
+  }
+  if (ring.length >= 2 && officialDxfPointsCoincide(ring[0]!, ring[ring.length - 1]!)) {
+    ring.pop();
+  }
+  if (ring.length < 3) return null;
+  let twiceArea = 0;
+  for (let i = 0; i < ring.length; i++) {
+    const p = ring[i]!;
+    const q = ring[(i + 1) % ring.length]!;
+    twiceArea += p.x * q.y - q.x * p.y;
+  }
+  if (!(Math.abs(twiceArea) > MESH_FACE_AREA_EPS)) return null;
+  return closedPolylineEntity(ring);
+}
+
+function entitiesFromPolygonMesh(
+  recs: PolylineVertexRecord[],
+  meshM: number,
+  meshN: number,
+  flags: number
+): DxfEntity[] {
+  const m = Number.isInteger(meshM) ? meshM : NaN;
+  const n = Number.isInteger(meshN) ? meshN : NaN;
+  if (!(m >= 2 && n >= 2)) return [];
+  const verts = recs.filter((r) => !isPolyfaceFaceRecord(r));
+  const closedM = (flags & 1) === 1;
+  const closedN = (flags & 32) === 32;
+  const at = (mi: number, ni: number): Vec2 | null => {
+    const v = verts[mi * n + ni];
+    return v ? { x: v.x, y: v.y } : null;
+  };
+  const out: DxfEntity[] = [];
+  const mFaces = closedM ? m : m - 1;
+  const nFaces = closedN ? n : n - 1;
+  for (let mi = 0; mi < mFaces; mi++) {
+    for (let ni = 0; ni < nFaces; ni++) {
+      const m1 = closedM ? (mi + 1) % m : mi + 1;
+      const n1 = closedN ? (ni + 1) % n : ni + 1;
+      const corners = [at(mi, ni), at(m1, ni), at(m1, n1), at(mi, n1)];
+      if (corners.some((c) => !c)) continue;
+      const entity = meshFaceEntity(corners as Vec2[]);
+      if (entity) out.push(entity);
+    }
+  }
+  return out;
+}
+
+function entitiesFromPolyface(recs: PolylineVertexRecord[]): DxfEntity[] {
+  const verts: PolylineVertexRecord[] = [];
+  const faces: PolylineVertexRecord[] = [];
+  for (const rec of recs) {
+    if (isPolyfaceFaceRecord(rec)) faces.push(rec);
+    else verts.push(rec);
+  }
+  const out: DxfEntity[] = [];
+  for (const face of faces) {
+    const corners: Vec2[] = [];
+    let valid = true;
+    for (const raw of face.faceIndices) {
+      const idx = Math.abs(raw);
+      if (!Number.isInteger(idx) || idx < 1 || idx > verts.length) {
+        valid = false;
+        break;
+      }
+      const v = verts[idx - 1]!;
+      corners.push({ x: v.x, y: v.y });
+    }
+    if (!valid) continue;
+    const entity = meshFaceEntity(corners);
+    if (entity) out.push(entity);
+  }
+  return out;
+}
+
 /**
  * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
  * CIRCLE, ARC, ELLIPSE, SPLINE, and old-style POLYLINE (VERTEX + SEQEND, including
@@ -1048,8 +1143,13 @@ function isFiniteNumber(value: number): boolean {
  * plan from VERTEX 10/20; Z (30) is ignored. An entity with group 67 = 1
  * is paperspace and is skipped — it is not displayed, snapped, bounded, or
  * used to create rooms. Group 67 omitted or 0 is model space and is kept.
- * 3D extrusion (210/220/230) is not applied. Polygon-mesh and polyface-mesh
- * POLYLINE entities are skipped.
+ * 3D extrusion (210/220/230) is not applied. Polygon-mesh (group 70 bit 16)
+ * and polyface-mesh (group 70 bit 64) POLYLINE entities are traced in plan:
+ * each mesh face is emitted as a closed polyline from VERTEX 10/20, and Z
+ * (30) is ignored. Polygon-mesh M and N counts are groups 71 and 72; closed
+ * in M is flag bit 1, closed in N is flag bit 32. Polyface faces use VERTEX
+ * groups 71–74 as 1-based vertex indices (a negative index still contributes
+ * the edge). A mesh with no usable face, and a paperspace mesh, are skipped.
  */
 export function parseDxfEntities(text: string): DxfEntity[] {
   const lines = text.replace(/\r\n/g, "\n").replace(/\r/g, "\n").split("\n");
@@ -1350,13 +1450,61 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       if (entity) entities.push(entity);
     } else if (type === "POLYLINE") {
       let flags = 0;
+      let meshM = NaN;
+      let meshN = NaN;
       const paperspace = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
+        if (code === 71) meshM = Number(value);
+        if (code === 72) meshN = Number(value);
       });
-      const isMesh = Number.isFinite(flags) && ((flags & 16) === 16 || (flags & 64) === 64);
       const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
-      if (isMesh || paperspace) {
+      const isPolyface = Number.isFinite(flags) && (flags & 64) === 64;
+      const isPolygonMesh = !isPolyface && Number.isFinite(flags) && (flags & 16) === 16;
+      if (paperspace) {
         skipUntilSeqend();
+        continue;
+      }
+      if (isPolyface || isPolygonMesh) {
+        const recs: PolylineVertexRecord[] = [];
+        while (i < lines.length) {
+          const p = readPair();
+          if (!p) break;
+          if (p.code !== 0) continue;
+          const t = p.value.toUpperCase();
+          if (t === "VERTEX") {
+            let x = 0,
+              y = 0,
+              vertFlags = 0;
+            const faceIndices: number[] = [];
+            readGroups((code, value) => {
+              if (code === 10) x = Number(value);
+              if (code === 20) y = Number(value);
+              if (code === 70) vertFlags = Number(value);
+              if (code === 71 || code === 72 || code === 73 || code === 74) {
+                const idx = Number(value);
+                if (Number.isFinite(idx) && idx !== 0) faceIndices.push(idx);
+              }
+            });
+            if (faceIndices.length > 0 || (isFiniteNumber(x) && isFiniteNumber(y))) {
+              recs.push({
+                x: isFiniteNumber(x) ? x : 0,
+                y: isFiniteNumber(y) ? y : 0,
+                flags: Number.isFinite(vertFlags) ? vertFlags : 0,
+                faceIndices,
+              });
+            }
+          } else if (t === "SEQEND") {
+            readGroups(() => {});
+            break;
+          } else {
+            unreadPair();
+            break;
+          }
+        }
+        const meshEntities = isPolyface
+          ? entitiesFromPolyface(recs)
+          : entitiesFromPolygonMesh(recs, meshM, meshN, flags);
+        entities.push(...meshEntities);
         continue;
       }
       const verts: PolyVertex[] = [];

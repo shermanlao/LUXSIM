@@ -1043,6 +1043,54 @@ describe("parseDxfEntities paperspace and 3D POLYLINE", () => {
     return s + "  0\nSEQEND\n";
   }
 
+  /** Row-major 2×2 polygon mesh of a 4×3 plan rectangle. */
+  const meshGrid = [
+    { x: 0, y: 0 },
+    { x: 4, y: 0 },
+    { x: 0, y: 3 },
+    { x: 4, y: 3 },
+  ];
+
+  function polygonMesh(
+    verts: Array<{ x: number; y: number; z?: number }>,
+    m: number,
+    n: number,
+    flags: number,
+    space?: number
+  ): string {
+    let s = "  0\nPOLYLINE\n";
+    s += spaceGroup(space);
+    s += `  70\n${flags}\n  71\n${m}\n  72\n${n}\n`;
+    for (const v of verts) {
+      s += `  0\nVERTEX\n  10\n${v.x}\n  20\n${v.y}\n`;
+      if (v.z != null) s += `  30\n${v.z}\n`;
+    }
+    return s + "  0\nSEQEND\n";
+  }
+
+  function polyfaceMesh(
+    verts: Array<{ x: number; y: number; z?: number }>,
+    faces: number[][],
+    flags: number = 64,
+    space?: number
+  ): string {
+    let s = "  0\nPOLYLINE\n";
+    s += spaceGroup(space);
+    s += `  70\n${flags}\n  71\n${verts.length}\n  72\n${faces.length}\n`;
+    for (const v of verts) {
+      s += "  0\nVERTEX\n  70\n192\n";
+      s += `  10\n${v.x}\n  20\n${v.y}\n`;
+      if (v.z != null) s += `  30\n${v.z}\n`;
+    }
+    for (const face of faces) {
+      s += "  0\nVERTEX\n  70\n128\n";
+      for (let i = 0; i < face.length; i++) {
+        s += `  ${71 + i}\n${face[i]}\n`;
+      }
+    }
+    return s + "  0\nSEQEND\n";
+  }
+
   it("keeps a model-space CIRCLE when group 67 is omitted or 0", () => {
     for (const space of [undefined, 0]) {
       const entities = parseDxfEntities(dxfFile(circleWithSpace(1, 2, 3, space)));
@@ -1112,7 +1160,7 @@ describe("parseDxfEntities paperspace and 3D POLYLINE", () => {
     expect(open[0]?.points).toEqual(rect);
   });
 
-  it("still skips polygon-mesh and polyface-mesh POLYLINE entities, including 3D meshes", () => {
+  it("does not invent linework from a mesh POLYLINE that has no usable faces", () => {
     const skipped = parseDxfEntities(
       dxfFile(
         oldPoly3d(rect, 16) +
@@ -1122,5 +1170,74 @@ describe("parseDxfEntities paperspace and 3D POLYLINE", () => {
       )
     );
     expect(skipped).toEqual([]);
+  });
+
+  it("traces a 2×2 polygon mesh as a closed plan quad and ignores Z", () => {
+    const raised = meshGrid.map((p) => ({ ...p, z: 5 }));
+    const entities = parseDxfEntities(dxfFile(polygonMesh(raised, 2, 2, 16)));
+    expect(entities).toHaveLength(1);
+    expect(entities[0]).toMatchObject({ type: "polyline", closed: true });
+    expect(entities[0]!.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 0, y: 3 },
+      { x: 4, y: 3 },
+      { x: 4, y: 0 },
+    ]);
+    expect(entities[0]!.points.every((p) => !("z" in p))).toBe(true);
+    expect(dxfBounds(entities)).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 3 });
+  });
+
+  it("traces a polyface mesh face, including a hidden-edge index, and ignores Z", () => {
+    const verts = [
+      { x: 0, y: 0, z: 5 },
+      { x: 4, y: 0, z: 5 },
+      { x: 4, y: 3, z: 5 },
+      { x: 0, y: 3, z: 5 },
+    ];
+    const one = parseDxfEntities(dxfFile(polyfaceMesh(verts, [[1, -2, 3, 4]])));
+    expect(one).toHaveLength(1);
+    expect(one[0]).toMatchObject({ type: "polyline", closed: true });
+    expect(one[0]!.points).toEqual([
+      { x: 0, y: 0 },
+      { x: 4, y: 0 },
+      { x: 4, y: 3 },
+      { x: 0, y: 3 },
+    ]);
+    expect(dxfBounds(one)).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 3 });
+
+    const two = parseDxfEntities(
+      dxfFile(
+        polyfaceMesh(
+          [
+            { x: 0, y: 0 },
+            { x: 4, y: 0 },
+            { x: 4, y: 3 },
+            { x: 0, y: 3 },
+            { x: 8, y: 0 },
+            { x: 8, y: 3 },
+          ],
+          [
+            [1, 2, 3, 4],
+            [2, 5, 6, 3],
+          ]
+        )
+      )
+    );
+    expect(two).toHaveLength(2);
+    expect(two.every((e) => e.closed === true)).toBe(true);
+  });
+
+  it("skips a paperspace mesh and an invalid or empty mesh", () => {
+    const paper = parseDxfEntities(dxfFile(polygonMesh(meshGrid, 2, 2, 16, 1)));
+    expect(paper).toEqual([]);
+    expect(dxfBounds(paper)).toBeNull();
+
+    const empty = parseDxfEntities(dxfFile(polygonMesh([], 2, 2, 16)));
+    expect(empty).toEqual([]);
+
+    const badFace = parseDxfEntities(
+      dxfFile(polyfaceMesh(meshGrid, [[1, 2, 99]]))
+    );
+    expect(badFace).toEqual([]);
   });
 });

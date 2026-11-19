@@ -1356,7 +1356,7 @@ describe("officialAppendRoomsFromDxfClosedPolylines paperspace and 3D POLYLINE",
     expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
   });
 
-  it("still skips a mesh POLYLINE and does not invent a room", () => {
+  it("does not invent a room from a mesh POLYLINE that has no usable faces", () => {
     const entities = parseDxfEntities(dxfFile(closedPoly(16) + closedPoly(64)));
     expect(entities).toEqual([]);
     const scene = sceneWithDxf(entities);
@@ -1368,5 +1368,52 @@ describe("officialAppendRoomsFromDxfClosedPolylines paperspace and 3D POLYLINE",
     expect(out.created).toBe(0);
     expect(out.scene.rooms).toEqual([]);
     expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+  });
+
+  it("creates a plan room from a 2×2 polygon mesh and ignores Z", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nPOLYLINE\n  70\n16\n  71\n2\n  72\n2\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n0\n  30\n5\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n0\n  30\n5\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n3\n  30\n5\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n3\n  30\n5\n" +
+          "  0\nSEQEND\n"
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
+  });
+
+  it("creates plan rooms from polyface mesh faces, including a hidden-edge index", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nPOLYLINE\n  70\n64\n  71\n4\n  72\n1\n" +
+          "  0\nVERTEX\n  70\n192\n  10\n0\n  20\n0\n" +
+          "  0\nVERTEX\n  70\n192\n  10\n4\n  20\n0\n" +
+          "  0\nVERTEX\n  70\n192\n  10\n4\n  20\n3\n" +
+          "  0\nVERTEX\n  70\n192\n  10\n0\n  20\n3\n" +
+          "  0\nVERTEX\n  70\n128\n  71\n1\n  72\n-2\n  73\n3\n  74\n4\n" +
+          "  0\nSEQEND\n"
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
   });
 });

@@ -531,4 +531,22 @@ describe("object snap and bounds skip paperspace and keep 3D POLYLINE in plan", 
     expect(mid?.kind).toBe("midpoint");
     expect(mid?.point).toEqual({ x: 2, y: 0 });
   });
+
+  it("snaps to a polygon-mesh POLYLINE face in plan and ignores Z", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nPOLYLINE\n  70\n16\n  71\n2\n  72\n2\n" +
+        "  0\nVERTEX\n  10\n0\n  20\n0\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n4\n  20\n0\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n0\n  20\n3\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n4\n  20\n3\n  30\n5\n" +
+        "  0\nSEQEND\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.closed).toBe(true);
+    const bounds = dxfBounds(entities)!;
+    expect(bounds).toEqual({ minX: 0, minY: 0, maxX: 4, maxY: 3 });
+    const end = pickDxfObjectSnap({ x: 0, y: -0.02 }, entities, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point).toEqual({ x: 0, y: 0 });
+  });
 });
