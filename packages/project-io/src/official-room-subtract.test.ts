@@ -265,7 +265,8 @@ describe("official editor Subtract rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.subtractRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("SUBTRACT_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("Alignment is not included");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("Alignment is not included");
     const unionBtn = src.indexOf("Union rooms");
     const subtractBtn = src.indexOf("Subtract rooms");
     expect(unionBtn).toBeGreaterThan(0);

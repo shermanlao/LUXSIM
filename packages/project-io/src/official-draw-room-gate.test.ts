@@ -335,16 +335,17 @@ describe("official editor create-room paths use the same helper", () => {
       src.indexOf("function selectEditorTool"),
       src.indexOf("function drawRoomPolygon")
     );
-    expect(selectFn).toMatch(/if \(tool === "drawRoom"/);
+    expect(selectFn).toMatch(/if \(\(tool === "drawRoom" \|\| tool === "drawStoreyContour"\)/);
   });
 
   it("uses the same helper for click/keyboard polygon close in Top view", () => {
     const src = topViewSrc();
     expect(src).toContain("officialDrawRoomAllowed");
     expect(src).toMatch(
-      /const drawing =\s*scene\.ui\.tool === "drawRoom" && officialDrawRoomAllowed\(underlay\);/
+      /const drawing =\s*\(scene\.ui\.tool === "drawRoom" \|\| drawingContour\) &&\s*officialDrawRoomAllowed\(underlay\);/
     );
-    expect(src).toContain("onDrawRoomPolygon(draft)");
+    expect(src).toContain("finishDraft(draft)");
+    expect(src).toContain("onDrawRoomPolygon");
     expect(src).toContain('if (e.key === "Enter")');
   });
 });

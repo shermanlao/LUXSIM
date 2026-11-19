@@ -257,7 +257,8 @@ describe("official editor Distribute rooms wiring", () => {
     expect(src).toContain("applyOfficialRoomDistributeCommit");
     expect(src).toContain("officialRoomDistributeAxisLabel");
     expect(src).toContain("OFFICIAL_ROOM_DISTRIBUTE_AXES");
-    expect(src).toContain("equal gaps between bounding boxes");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("gaps between consecutive bounding boxes are equal");
     const alignBtn = src.indexOf("Align rooms");
     const distributeBtn = src.indexOf("Distribute rooms");
     expect(alignBtn).toBeGreaterThan(0);

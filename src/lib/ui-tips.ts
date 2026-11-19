@@ -22,7 +22,12 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.drawRoom",
     title: "Draw room (CAD)",
-    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click the first point (or press Enter when near it) to close the room. Esc cancels; Backspace clears the typed length in one press, then removes the last corner. With a DXF underlay, or a converted DWG underlay, official Top picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels.",
+    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click near the first point (or press Enter when the pointer is within the close snap) to close the room. Closing uses the exact start point. Esc cancels; Backspace clears the typed length in one press, then removes the last corner. With a DXF underlay, or a converted DWG underlay, official Top picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels, except when the pointer is within the close snap of the first vertex.",
+  },
+  {
+    helpKey: "tool.drawStoreyContour",
+    title: "Draw storey contour",
+    body: "Draw the floor-plate outline of the current storey by clicking corners, the same way as Draw room: type a length in mm to lock the next point, Shift constrains to 90°, click near the first point (or press Enter when the pointer is within the close snap) to close, Esc cancels, and Backspace clears a typed length then the last corner. Closing a valid outline creates or replaces the storey contour as one step; it is not a room, so it does not appear in the room list, luminaire schedule, or calculation. Invalid outlines (fewer than 3 unique corners, self-crossing, or area below 0.01 m²) are refused. You can still draw rooms directly without a contour. Undo and Redo include contour edits.",
   },
   {
     helpKey: "tool.drawRect",

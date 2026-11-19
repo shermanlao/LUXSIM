@@ -31,6 +31,11 @@ export type OfficialPlanBoundsInput = {
   underlay?: { offsetX: number; offsetY: number; metersPerUnit?: number } | null;
   underlaySize?: { widthM: number; heightM: number } | null;
   /**
+   * Official storey floor-plate outlines already in world metres.
+   * Included in the first-view fit like rooms, and not scaled by metersPerUnit.
+   */
+  storeyOutlines?: Vec2[][];
+  /**
    * Accepted but ignored. A live draw-room draft (and its preview points)
    * must not expand or recentre the official auto-fit used for hit-testing.
    */
@@ -124,8 +129,9 @@ export function officialPlanWorldBounds(
   let maxY = OFFICIAL_PLAN_EMPTY_MAX_Y;
   let hasContent = false;
 
-  for (const r of input.rooms ?? []) {
-    const b = roomBounds(r as RoomV2);
+  const includePolygon = (polygon: Vec2[]) => {
+    if (polygon.length < 2) return;
+    const b = roomBounds({ polygon } as RoomV2);
     if (!hasContent) {
       minX = b.minX;
       minY = b.minY;
@@ -138,7 +144,9 @@ export function officialPlanWorldBounds(
       maxX = Math.max(maxX, b.maxX);
       maxY = Math.max(maxY, b.maxY);
     }
-  }
+  };
+  for (const r of input.rooms ?? []) includePolygon(r.polygon);
+  for (const outline of input.storeyOutlines ?? []) includePolygon(outline);
   const dxfWorld: Vec2[] = [];
   for (const e of input.dxfEntities ?? []) {
     for (const p of e.points) {

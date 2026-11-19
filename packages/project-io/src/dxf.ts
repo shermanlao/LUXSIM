@@ -1,5 +1,9 @@
 import type { DxfEntity, Vec2 } from "./types";
 import { officialDxfPointsCoincide } from "./official-dxf-polyline";
+import {
+  officialDxfLayerName,
+  officialInsertExplodedLayer,
+} from "./official-dxf-layers";
 
 /**
  * Tessellation rule for CIRCLE, ARC, ELLIPSE, and POLYLINE / LWPOLYLINE bulge arcs:
@@ -1282,6 +1286,7 @@ type OfficialDxfInsert = {
   rows: number;
   colSpacing: number;
   rowSpacing: number;
+  layer?: string;
 };
 
 type OfficialDxfBlockItem =
@@ -1344,7 +1349,10 @@ function explodeDxfInserts(
           const points = entity.points.map((p) =>
             applyDxfInsertTransform(p, insert, base, c, r)
           );
-          if (points.length >= 2) out.push({ ...entity, points });
+          if (points.length >= 2) {
+            const layer = officialInsertExplodedLayer(entity.layer, insert.layer);
+            out.push({ ...entity, points, layer });
+          }
         }
       }
     }
@@ -1458,7 +1466,9 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       ey = 0,
       ez = 1;
     let hasExtrusion = false;
+    lastEntityLayer = undefined;
     readGroups((code, value) => {
+      if (code === 8) lastEntityLayer = officialDxfLayerName(value);
       if (code === 67 && Number(value) === 1) paperspace = true;
       if (code === 210) {
         ex = Number(value);
@@ -1496,13 +1506,22 @@ export function parseDxfEntities(text: string): DxfEntity[] {
   const inModelEntities = () =>
     section === "ENTITIES" || (!hasEntitiesSection && section == null);
 
+  let lastEntityLayer: string | undefined;
+
+  const withLayer = (entity: DxfEntity): DxfEntity => {
+    if (entity.layer) return { ...entity, layer: officialDxfLayerName(entity.layer) };
+    if (lastEntityLayer) return { ...entity, layer: lastEntityLayer };
+    return entity;
+  };
+
   const emit = (entity: DxfEntity | null | undefined) => {
     if (!entity) return;
+    const named = withLayer(entity);
     if (currentBlock) {
-      currentBlock.items.push({ kind: "entity", entity });
+      currentBlock.items.push({ kind: "entity", entity: named });
       return;
     }
-    if (inModelEntities()) entities.push(entity);
+    if (inModelEntities()) entities.push(named);
   };
 
   const emitInsert = (insert: OfficialDxfInsert) => {
@@ -1519,6 +1538,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
     if (!pair) break;
     if (pair.code !== 0) continue;
     const type = pair.value.toUpperCase();
+    lastEntityLayer = undefined;
 
     if (type === "SECTION") {
       let name = "";
@@ -1579,6 +1599,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       let attribsFollow = false;
       const { paperspace } = readEntityGroups((code, value) => {
         if (code === 2) name = value;
+        if (code === 8) lastEntityLayer = officialDxfLayerName(value);
         if (code === 10) x = Number(value);
         if (code === 20) y = Number(value);
         if (code === 41) scaleX = Number(value);
@@ -1607,6 +1628,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         rows: Number.isFinite(rows) && rows >= 1 ? rows : 1,
         colSpacing: isFiniteNumber(colSpacing) ? colSpacing : 0,
         rowSpacing: isFiniteNumber(rowSpacing) ? rowSpacing : 0,
+        layer: lastEntityLayer,
       });
       continue;
     }

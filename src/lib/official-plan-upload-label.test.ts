@@ -42,6 +42,6 @@ describe("official Import plan upload record", () => {
     expect(window).toContain("planAsset.createdAt");
     expect(window).toMatch(/Uploaded /);
     expect(editor).toMatch(/createdAt\?: string/);
-    expect(editor).toContain("metersPerUnit: meta.metersPerUnit");
+    expect(editor).toContain("officialMetersPerUnitFromAssetMeta(meta) ?? meta.metersPerUnit");
   });
 });

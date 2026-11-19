@@ -266,7 +266,8 @@ describe("official editor Intersect rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.intersectRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("INTERSECT_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("Alignment is not included");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("Alignment is not included");
     const subtractBtn = src.indexOf("Subtract rooms");
     const intersectBtn = src.indexOf("Intersect rooms");
     expect(subtractBtn).toBeGreaterThan(0);

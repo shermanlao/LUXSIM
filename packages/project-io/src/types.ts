@@ -51,6 +51,13 @@ export interface Storey {
   name: string;
   elevationM: number;
   heightM: number;
+  /**
+   * Optional official floor-plate outline on this storey (simple polygon,
+   * no holes). Same validity rules as official rooms. This is not a room:
+   * it is not listed in the room tree, luminaire schedule, or calculation.
+   * Absent on legacy storeys.
+   */
+  outline?: Vec2[];
 }
 
 export interface RoomV2 {
@@ -111,8 +118,20 @@ export interface Underlay {
   flipY?: boolean;
   /** Internal: orientation defaults applied / legacy handedness undo done. */
   orientationMigrated?: boolean;
-  /** DXF entities cached for render */
+  /**
+   * Compressed visible CAD linework used for Top-view display and object snap.
+   * Hidden layers are omitted. The full uncompressed source stays on the
+   * project asset (`meta.entities`) so a later layer Apply can restore a layer.
+   */
   dxfEntities?: DxfEntity[];
+  /**
+   * Layer names hidden after the last official Apply. Omitted or empty means
+   * all layers are visible. Re-importing a plan clears this and shows every
+   * layer from the new file.
+   */
+  hiddenLayers?: string[];
+  /** LAYER table entries from the source file, when present. */
+  dxfLayers?: OfficialDxfLayer[];
   /** PDF source page (0-based) used for raster underlay */
   pageIndex?: number;
   /** Derived PNG/WebP asset for Top/3D display */
@@ -121,6 +140,14 @@ export interface Underlay {
   rasterDpi?: number;
   /** Total pages in linked PDF asset */
   pdfPageCount?: number;
+}
+
+export interface OfficialDxfLayer {
+  name: string;
+  /** False when the file had the layer turned off (group 62 color negative). */
+  on: boolean;
+  /** True when the file had the layer frozen (group 70 bit 0). */
+  frozen: boolean;
 }
 
 export interface DxfEntity {
@@ -133,6 +160,10 @@ export interface DxfEntity {
    * Omitted on open LINE, ARC, open ELLIPSE, open SPLINE, and open polyline entities.
    */
   closed?: boolean;
+  /**
+   * DXF group 8 layer name. Omitted or empty is treated as layer "0".
+   */
+  layer?: string;
 }
 
 export interface FixtureInstance {
@@ -193,7 +224,7 @@ export interface ProjectSceneV2 {
     activeStoreyId: string;
     activeRoomId: string | null;
     viewMode: ViewMode;
-    tool: "select" | "drawRoom" | "calibrate";
+    tool: "select" | "drawRoom" | "drawStoreyContour" | "calibrate";
     /** Workflow mode bar (Construction → Light → Calculation → Export) */
     workflowMode?: EditorWorkflowMode;
     /** Last 3D orbit pose; restored when opening / switching back to 3D */

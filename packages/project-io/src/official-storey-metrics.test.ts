@@ -136,13 +136,14 @@ describe("BuildingEditor and user-guide wiring", () => {
   const guide = userGuide();
   const tips = uiTips();
 
-  it("shows elevation, storey height, and the official explanation in Building", () => {
+  it("shows elevation, storey height, and the official help tip in Building", () => {
     const start = src.indexOf('<p className="cad-section-title">Building</p>');
     const tools = src.indexOf(">Tools</h3>");
     expect(start).toBeGreaterThan(-1);
     expect(tools).toBeGreaterThan(start);
     const building = src.slice(start, tools);
-    expect(building).toContain("STOREY_METRICS_EXPLANATION");
+    expect(building).toContain('helpKey="tool.storeyHeight"');
+    expect(building).not.toContain("STOREY_METRICS_EXPLANATION");
     expect(building).toContain('id="storeyElevationM"');
     expect(building).toContain("Elevation (m)");
     expect(building).toContain('id="storeyHeightM"');

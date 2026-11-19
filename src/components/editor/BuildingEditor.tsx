@@ -20,6 +20,7 @@ import {
   officialAppendDrawnRoom,
   officialAppendRoomsFromDxfClosedPolylines,
   officialCanCreateRoomsFromDxf,
+  officialHasParsedCadLinework,
   officialTranslateRoom,
   officialTranslateStorey,
   officialSetRoomPolygon,
@@ -64,8 +65,15 @@ import {
   resolveOfficialNewRoomHeightM,
   DEFAULT_NEW_ROOM_HEIGHT_M,
   DEFAULT_NEW_ROOM_HEIGHT_MM,
-  STOREY_METRICS_EXPLANATION,
   officialAppendStorey,
+  officialSetStoreyOutline,
+  officialValidateSimplePolygon,
+  officialCadLayerNames,
+  officialCompressCadEntities,
+  officialExtractVisibleCadEntities,
+  officialMetersPerUnitFromAssetMeta,
+  officialRecoverCadMetersPerUnit,
+  type OfficialDxfLayer,
   officialCopyStorey,
   applyOfficialStoreyMetrics,
   UNCALIBRATED_DRAW_ROOM_STATUS,
@@ -230,6 +238,7 @@ import { showWorkplaneFromUi } from "@/lib/workplane-display";
 import { captureOfficialReport3dViewsAsync } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViewsAsync, webglCaptureAvailable } from "@/lib/render-scene-3d";
 import { TopView2D } from "./TopView2D";
+import { PlanLayerPanel } from "./PlanLayerPanel";
 import { ElevationView2D } from "./ElevationView2D";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { SaveReminderDialog } from "./SaveReminderDialog";
@@ -431,7 +440,13 @@ export function BuildingEditor({
   const undoStackRef = useRef(
     createUndoStack<{ name: string; scene: ProjectSceneV2; results: ResultsV2 }>(50)
   );
+  const [undoRevision, setUndoRevision] = useState(0);
+  const bumpUndoUi = () => setUndoRevision((n) => n + 1);
+  const canUndo = !readOnly && undoStackRef.current.canUndo();
+  const canRedo = !readOnly && undoStackRef.current.canRedo();
+  void undoRevision;
   const coalesceRef = useRef<string | null>(null);
+  const [layerDraftHidden, setLayerDraftHidden] = useState<string[] | null>(null);
 
 
   const selected = scene.instances.find((l) => l.instanceId === selectedId) ?? null;
@@ -506,6 +521,29 @@ export function BuildingEditor({
   useEffect(() => {
     void loadLibrary();
   }, [loadLibrary]);
+
+  useEffect(() => {
+    if (!assets.length) return;
+    setScene((s) => {
+      let changed = false;
+      const underlays = s.underlays.map((u) => {
+        if (u.kind !== "dxf" && u.kind !== "dwg") return u;
+        const planAsset = assets.find((a) => a.id === u.assetId);
+        if (!planAsset) return u;
+        let meta: { metersPerUnit?: number; insunits?: number | null } = {};
+        try {
+          meta = JSON.parse(planAsset.metaJson || "{}") as typeof meta;
+        } catch {
+          return u;
+        }
+        const recovered = officialRecoverCadMetersPerUnit(u.metersPerUnit, meta);
+        if (recovered == null) return u;
+        changed = true;
+        return { ...u, metersPerUnit: recovered };
+      });
+      return changed ? { ...s, underlays } : s;
+    });
+  }, [assets]);
 
   // One-time: undo previous mistaken X-handedness pass if present.
   useEffect(() => {
@@ -736,6 +774,7 @@ export function BuildingEditor({
 
   function recordUndoFromLatest() {
     undoStackRef.current.push(snapshotNow());
+    bumpUndoUi();
   }
 
   function applyEditorSnapshot(snap: {
@@ -755,6 +794,7 @@ export function BuildingEditor({
     if (!next) return;
     coalesceRef.current = null;
     applyEditorSnapshot(next);
+    bumpUndoUi();
     setStatus("Undid");
   }
 
@@ -764,6 +804,7 @@ export function BuildingEditor({
     if (!next) return;
     coalesceRef.current = null;
     applyEditorSnapshot(next);
+    bumpUndoUi();
     setStatus("Redid");
   }
 
@@ -930,7 +971,7 @@ export function BuildingEditor({
 
   function selectEditorTool(tool: ProjectSceneV2["ui"]["tool"]) {
     if (readOnly && tool !== "select") return;
-    if (tool === "drawRoom" && refuseUncalibratedDrawRoom()) return;
+    if ((tool === "drawRoom" || tool === "drawStoreyContour") && refuseUncalibratedDrawRoom()) return;
     if (booleanPick.active && tool !== "select") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
     }
@@ -948,14 +989,31 @@ export function BuildingEditor({
 
   function drawRoomPolygon(points: Vec2[]) {
     if (refuseUncalibratedDrawRoom()) return;
-    if (points.length < 3) {
-      setStatus("Need at least 3 corners to close a room");
+    const valid = officialValidateSimplePolygon(points);
+    if (!valid.ok) {
+      setStatus(
+        valid.reason === "self-crossing"
+          ? "Room refused: the outline would cross itself."
+          : valid.reason === "area"
+            ? "Room refused: the area would be below 0.01 m²."
+            : "Need at least 3 unique corners to close a room"
+      );
       return;
     }
     const id = nid("room");
     const heightM = resolveNewRoomHeightM();
+    const preview = officialAppendDrawnRoom(scene, { id, polygon: points, heightM });
+    setStatus(preview.status);
+    if (!preview.created) return;
     patchScene((s) => officialAppendDrawnRoom(s, { id, polygon: points, heightM }).scene);
-    setStatus("Room created");
+  }
+
+  function drawStoreyContour(points: Vec2[]) {
+    if (refuseUncalibratedDrawRoom()) return;
+    const preview = officialSetStoreyOutline(scene, scene.ui.activeStoreyId, points);
+    setStatus(preview.status);
+    if (!preview.ok) return;
+    patchScene((s) => officialSetStoreyOutline(s, s.ui.activeStoreyId, points).scene);
   }
 
   function createRectRoom() {
@@ -1832,10 +1890,12 @@ export function BuildingEditor({
       ]);
       const meta = JSON.parse(asset.metaJson || "{}") as {
         entities?: DxfEntity[];
+        layers?: OfficialDxfLayer[];
         widthPx?: number;
         heightPx?: number;
         pageCount?: number;
         metersPerUnit?: number;
+        insunits?: number | null;
       };
       const pixelSize =
         asset.kind === "image" ? await readImagePixelSize(file) : null;
@@ -1853,8 +1913,14 @@ export function BuildingEditor({
             assetKind: asset.kind,
             sourceWidthPx,
             sourceHeightPx,
-            dxfEntities: meta.entities,
-            metersPerUnit: meta.metersPerUnit,
+            dxfEntities: meta.entities
+              ? officialCompressCadEntities(
+                  officialExtractVisibleCadEntities(meta.entities, [])
+                )
+              : meta.entities,
+            metersPerUnit: officialMetersPerUnitFromAssetMeta(meta) ?? meta.metersPerUnit,
+            hiddenLayers: [],
+            dxfLayers: meta.layers,
             pageIndex: raster?.pageIndex ?? 0,
             pageRasterAssetId: rasterAsset?.id,
             rasterDpi: raster?.rasterDpi,
@@ -1862,6 +1928,7 @@ export function BuildingEditor({
           }),
         ],
       }));
+      setLayerDraftHidden(null);
       if (asset.kind === "dwg") {
         setStatus(OFFICIAL_DWG_IMPORTED_STATUS);
       } else if (asset.kind === "pdf") {
@@ -1882,6 +1949,45 @@ export function BuildingEditor({
     } finally {
       setUploading(false);
       if (planRef.current) planRef.current.value = "";
+    }
+  }
+
+  function cadSourceEntities(target = underlay): DxfEntity[] {
+    if (!target) return [];
+    const planAsset = assets.find((a) => a.id === target.assetId);
+    if (planAsset) {
+      try {
+        const meta = JSON.parse(planAsset.metaJson || "{}") as { entities?: DxfEntity[] };
+        if (Array.isArray(meta.entities) && meta.entities.length) return meta.entities;
+      } catch {
+        /* use the live compressed list below */
+      }
+    }
+    return target.dxfEntities ?? [];
+  }
+
+  async function applyPlanLayers() {
+    if (readOnly || !underlay || !officialHasParsedCadLinework(underlay)) return;
+    const source = cadSourceEntities(underlay);
+    const hidden = layerDraftHidden ?? underlay.hiddenLayers ?? [];
+    setUploading(true);
+    try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.applyingPlanLayers, async () => {
+        const extracted = officialExtractVisibleCadEntities(source, hidden);
+        const compressed = officialCompressCadEntities(extracted);
+        patchScene((s) => ({
+          ...s,
+          underlays: s.underlays.map((u) =>
+            u.id === underlay.id
+              ? { ...u, dxfEntities: compressed, hiddenLayers: hidden }
+              : u
+          ),
+        }));
+        setLayerDraftHidden(null);
+        setStatus("Plan layers updated");
+      });
+    } finally {
+      setUploading(false);
     }
   }
 
@@ -2768,6 +2874,7 @@ export function BuildingEditor({
           onMoveInstance={(id, x, y) => moveInstance(id, x, y)}
           onBeginMoveInstance={beginMoveInstance}
           onDrawRoomPolygon={drawRoomPolygon}
+          onDrawStoreyContour={drawStoreyContour}
           onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}
           onSetRoomPolygon={(roomId, polygon, opts) => setRoomPolygon(roomId, polygon, opts)}
           onVertexStretchStatus={setStatus}
@@ -2941,6 +3048,22 @@ export function BuildingEditor({
             <span className="text-xs text-[#8fa3ad]">View only</span>
           ) : (
             <>
+          <button
+            type="button"
+            className="btn btn-secondary !text-xs"
+            disabled={!canUndo}
+            onClick={undoEdit}
+          >
+            Undo
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary !text-xs"
+            disabled={!canRedo}
+            onClick={redoEdit}
+          >
+            Redo
+          </button>
           <button type="button" className="btn btn-secondary !text-xs" disabled={saving} onClick={() => void save()}>
             {saving ? "Saving…" : "Save"}
           </button>
@@ -3063,7 +3186,27 @@ export function BuildingEditor({
                 {underlay.rasterDpi} DPI
               </p>
             )}
+            {underlay && officialHasParsedCadLinework(underlay) && (
+              <PlanLayerPanel
+                layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
+                hiddenLayers={layerDraftHidden ?? underlay.hiddenLayers ?? []}
+                disabled={uploading}
+                onHiddenLayersChange={setLayerDraftHidden}
+                onApply={() => void applyPlanLayers()}
+              />
+            )}
           </div>
+
+          {!readOnly || !officialHasParsedCadLinework(underlay) ? null : (
+            <div className="border-t border-[#3d5563] pt-2 space-y-2">
+              <PlanLayerPanel
+                layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
+                hiddenLayers={underlay?.hiddenLayers ?? []}
+                disabled
+                readOnlyList
+              />
+            </div>
+          )}
 
           <p className="cad-section-title">Building</p>
           {!readOnly && (
@@ -3171,9 +3314,6 @@ export function BuildingEditor({
                   applyStoreyMetrics({ heightM: next });
                 }}
                />
-              <p className="text-[10px] text-[var(--muted)] leading-snug">
-                {STOREY_METRICS_EXPLANATION}
-              </p>
             </div>
           )}
 
@@ -3195,11 +3335,6 @@ export function BuildingEditor({
               value={roomHeightMm}
               onChange={(e) => applyRoomHeightMm(e.target.value)}
              />
-            <p className="text-[10px] text-[var(--muted)] leading-snug">
-              Used for the next room you draw or create (default 2800 mm). If a room is
-              selected, this also updates that room’s ceiling. Other rooms are left
-              unchanged.
-            </p>
           </div>
 
           <div
@@ -3212,6 +3347,7 @@ export function BuildingEditor({
               [
                 ["select", "Select / move", null, IconSelect] as const,
                 ["drawRoom", "Draw room", "tool.drawRoom", IconDrawRoom] as const,
+                ["drawStoreyContour", "Draw storey contour", "tool.drawStoreyContour", IconDrawRoom] as const,
                 ["calibrate", "Calibrate scale", null, IconCalibrate] as const,
               ] as const
             ).map(([tool, label, helpKey, Icon]) => (
@@ -3233,12 +3369,6 @@ export function BuildingEditor({
             {!officialDrawRoomAllowed(underlay) && (
               <p className="text-[10px] text-[var(--muted)]">
                 {UNCALIBRATED_DRAW_ROOM_STATUS}
-              </p>
-            )}
-            {scene.ui.tool === "drawRoom" && (
-              <p className="text-[10px] text-[var(--muted)]">
-                Click corners — type mm to lock length — click the start point to close.
-                Uses the Building Room height above (default 2800 mm).
               </p>
             )}
             {scene.ui.tool === "calibrate" && (
@@ -3283,9 +3413,6 @@ export function BuildingEditor({
                 <IconRect className="w-4 h-4 shrink-0 opacity-90" />
                 Create rectangle
               </button>
-              <p className="text-[10px] text-[var(--muted)]">
-                Places a rectangle at 0, 0 using the Building Room height. After creation, select the room and use corner or mid-edge handles to change its shape. Rooms are not translated by dragging the fill. Hold the middle mouse button to pan the plan.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3299,9 +3426,6 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.createRoomsFromDxf" />
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Adds rooms from closed DXF polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network on this storey, using the Building Room height and official new-room defaults. Official rooms are simple polygons without holes: if one room lies fully inside another with no connecting wall, only the inner room is kept. Scale follows the current Calibrate scale.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3316,9 +3440,6 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.unionRooms" />
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Merges two overlapping or edge-adjacent rooms on this storey into the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. Alignment is not included. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3333,9 +3454,6 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.subtractRooms" />
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Cuts the first room on this storey by the second (the cutter). The first room keeps its name, maintenance factor, and other properties; the cutter stays in place. The result must be a single simple outline. Alignment is not included. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3350,9 +3468,6 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.intersectRooms" />
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Keeps the overlapping area of two rooms on this storey as the first room. The first room keeps its name, maintenance factor, and other properties; the second is removed. The rooms must overlap in area, and the result must be a single simple outline. Alignment is not included. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3367,9 +3482,6 @@ export function BuildingEditor({
                 </button>
                 <HelpTip helpKey="tool.xorRooms" />
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Keeps the exclusive parts of two rooms on this storey as the first room (first XOR second). The first room keeps its name, maintenance factor, and other properties; the second is removed. The rooms must overlap in area, and the result must be a single simple outline. A bite that shares the outer boundary can succeed; two remainders or a hole are refused. Alignment is not included. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3399,9 +3511,6 @@ export function BuildingEditor({
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Aligns a room on this storey to a reference along the selected edge or centre (Left is the default). The first room is the reference and stays put; the second room moves without changing shape. Both rooms are kept. Even spacing is not included. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3431,9 +3540,6 @@ export function BuildingEditor({
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-[var(--muted)]">
-                Spaces three or more rooms on this storey with equal gaps between bounding boxes along the selected axis (Horizontal is the default). The first and last rooms along that axis stay put; interiors move without changing shape. Press Enter to apply. Esc cancels the pick.
-              </p>
               <div className="flex items-center gap-1 pt-1">
                 <button
                   type="button"
@@ -3469,9 +3575,6 @@ export function BuildingEditor({
                 value={filletRadiusMm}
                 onChange={(e) => setFilletRadiusMm(e.target.value)}
                />
-              <p className="text-[10px] text-[var(--muted)]">
-                Shared radius for Fillet corner and Fillet all corners, in millimetres. Fillet corner rounds one selected corner (pick the room if none is selected, then click a corner handle). Fillet all corners rounds every remaining sharp corner of one room; if a room is already selected it applies immediately, otherwise click the room. A mid-edge handle is not a target. Esc cancels the pick.
-              </p>
             </div>
           </div>
 
@@ -4110,7 +4213,7 @@ export function BuildingEditor({
       />
 
       <div className="cad-status-bar">
-        {status || (readOnly ? "View only · browse this project — editing is not allowed" : "Click Save to keep your work · Ctrl+Z undo · Top view: drop fixtures into rooms")}
+        {status || (readOnly ? "View only · browse this project — editing is not allowed" : "Click Save to keep your work · Undo / Redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z) · Top view: drop fixtures into rooms")}
         {assets.length > 0 && (
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}

@@ -3,6 +3,7 @@ import fs from "fs/promises";
 import {
   parseDxfEntities,
   parseDxfInsUnits,
+  parseDxfLayers,
   officialMetersPerUnitFromInsUnits,
   dxfBounds,
   importIfcText,
@@ -91,6 +92,7 @@ export async function POST(req: Request, { params }: Params) {
         meta.bounds = dxfBounds(entities);
         meta.insunits = insunits;
         meta.metersPerUnit = officialMetersPerUnitFromInsUnits(insunits);
+        meta.layers = parseDxfLayers(text);
         fileKey = await saveTextFile("assets", file.name, text);
       } else {
         const imported = importIfcText(text, project.name);
@@ -117,6 +119,7 @@ export async function POST(req: Request, { params }: Params) {
       meta.bounds = parsed.bounds;
       meta.insunits = parsed.insunits;
       meta.metersPerUnit = parsed.metersPerUnit;
+      meta.layers = parsed.layers;
       meta.conversion = "dxf";
     } else {
       const buf = Buffer.from(await file.arrayBuffer());

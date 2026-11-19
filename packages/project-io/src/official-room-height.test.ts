@@ -166,7 +166,9 @@ describe("BuildingEditor Room height wiring", () => {
     expect(building).toContain("Room height (mm)");
     expect(building).toContain("applyRoomHeightMm");
     expect(building).not.toMatch(/activeRoom \?/);
-    expect(building).toMatch(/default 2800 mm/);
+    expect(building).toContain('helpKey="tool.roomHeight"');
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toMatch(/default 2800/);
     expect(src).toContain("DEFAULT_NEW_ROOM_HEIGHT_MM");
     expect(src).toMatch(/id="buildingRoomHeightMm"[\s\S]*value=\{roomHeightMm\}/);
   });

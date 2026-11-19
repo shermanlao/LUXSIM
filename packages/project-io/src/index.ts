@@ -18,6 +18,7 @@ export type {
   Display3dMode,
   Camera3dView,
   DxfEntity,
+  OfficialDxfLayer,
   AnyScene,
   Vec2,
   EditorWorkflowMode,
@@ -106,6 +107,9 @@ export {
   polarOrthoPoint,
   resolveDraftPoint,
   CLOSE_START_TOL_M,
+  DRAFT_CLOSE_SNAP_CSS_PX,
+  draftCloseSnapM,
+  pointerPrefersDraftClose,
 } from "./geometry";
 export { mmToM, mToMm, parseLengthToM } from "./units";
 export { roomToCalcOptions, clipResultsToPolygon, roomSpecFromV2 } from "./room-adapter";
@@ -551,6 +555,43 @@ export {
   officialNewStorey,
   officialNextStoreyElevationM,
 } from "./official-storey-metrics";
+
+export {
+  STOREY_OUTLINE_CREATED_STATUS,
+  STOREY_OUTLINE_REFUSE_AREA_STATUS,
+  STOREY_OUTLINE_REFUSE_CROSS_STATUS,
+  STOREY_OUTLINE_REFUSE_MISSING_STATUS,
+  STOREY_OUTLINE_REFUSE_VERTICES_STATUS,
+  STOREY_OUTLINE_REPLACED_STATUS,
+  officialSetStoreyOutline,
+  officialValidateSimplePolygon,
+} from "./official-storey-outline";
+export type {
+  OfficialSetStoreyOutlineResult,
+  OfficialStoreyOutlineReason,
+} from "./official-storey-outline";
+
+export {
+  OFFICIAL_DXF_DEFAULT_LAYER,
+  officialCadLayerNames,
+  officialDxfLayerName,
+  officialEntityLayer,
+  officialExtractVisibleCadEntities,
+  officialInsertExplodedLayer,
+  parseDxfLayers,
+} from "./official-dxf-layers";
+
+export {
+  OFFICIAL_CAD_COMPRESS_TOL_M,
+  officialCadEntityPointCount,
+  officialCompressCadEntities,
+} from "./official-cad-compress";
+
+export {
+  officialMetersPerUnitFromAssetMeta,
+  officialRecoverCadMetersPerUnit,
+} from "./official-underlay-units";
+export type { OfficialAssetUnitMeta } from "./official-underlay-units";
 
 export {
   COPY_STOREY_ELEVATION_EPS_M,

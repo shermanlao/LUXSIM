@@ -8,7 +8,7 @@ export type PlanZoom = {
 export const DEFAULT_PLAN_ZOOM: PlanZoom = { zoom: 1, panX: 0, panY: 0 };
 
 export const PLAN_ZOOM_MIN = 0.25;
-export const PLAN_ZOOM_MAX = 16;
+export const PLAN_ZOOM_MAX = 128;
 
 export function clampPlanZoom(zoom: number, min = PLAN_ZOOM_MIN, max = PLAN_ZOOM_MAX): number {
   if (!Number.isFinite(zoom)) return 1;

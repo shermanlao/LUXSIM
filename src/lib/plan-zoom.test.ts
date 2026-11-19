@@ -36,11 +36,12 @@ describe("plan zoom", () => {
   const fit = centeredFitOrigin(viewW, viewH, 7, 6, fitScale);
   const box = { viewW, viewH, fitOx: fit.ox, fitOy: fit.oy, fitScale };
 
-  it("clamps zoom to 0.25–16 and treats a zero wheel as no change", () => {
+  it("clamps zoom to 0.25–128 and treats a zero wheel as no change", () => {
     expect(PLAN_ZOOM_MIN).toBe(0.25);
-    expect(PLAN_ZOOM_MAX).toBe(16);
+    expect(PLAN_ZOOM_MAX).toBe(128);
     expect(clampPlanZoom(0.01)).toBe(0.25);
-    expect(clampPlanZoom(99)).toBe(16);
+    expect(clampPlanZoom(99)).toBe(99);
+    expect(clampPlanZoom(200)).toBe(128);
     expect(clampPlanZoom(Number.NaN)).toBe(1);
     expect(clampPlanZoom(Number.POSITIVE_INFINITY)).toBe(1);
     expect(wheelZoomFactor(0)).toBe(1);
@@ -91,7 +92,7 @@ describe("plan zoom", () => {
     expect((cursorY - after.oy) / after.scale).toBeCloseTo(worldY);
   });
 
-  it("keeps the cursor world point stable when zooming out, and clamps past 16 or 0.25", () => {
+  it("keeps the cursor world point stable when zooming out, and clamps past 128 or 0.25", () => {
     const cursorX = 400;
     const cursorY = 300;
     const zoomed = zoomPlanToward(DEFAULT_PLAN_ZOOM, { factor: 0.5, cursorX, cursorY, ...box });
@@ -105,8 +106,8 @@ describe("plan zoom", () => {
     expect((cursorX - after.ox) / after.scale).toBeCloseTo(worldX);
     expect((cursorY - after.oy) / after.scale).toBeCloseTo(worldY);
 
-    const atMax = zoomPlanToward(DEFAULT_PLAN_ZOOM, { factor: 32, cursorX, cursorY, ...box });
-    expect(atMax.zoom).toBe(16);
+    const atMax = zoomPlanToward(DEFAULT_PLAN_ZOOM, { factor: 256, cursorX, cursorY, ...box });
+    expect(atMax.zoom).toBe(128);
     expect(zoomPlanToward(atMax, { factor: 2, cursorX, cursorY, ...box })).toBe(atMax);
     const atMin = { zoom: 0.25, panX: 0, panY: 0 };
     expect(zoomPlanToward(atMin, { factor: 0.5, cursorX, cursorY, ...box })).toBe(atMin);
@@ -168,10 +169,10 @@ describe("TopView2D wheel-zoom wiring", () => {
     expect(src).toContain("officialPlanWorldBounds");
     expect(src).toContain("officialPlanFitTransform");
     expect(src).toMatch(
-      /officialPlanWorldBounds\(\{\s*rooms,\s*dxfEntities,\s*underlay,\s*underlaySize\s*\}\)/
+      /officialPlanWorldBounds\(\{\s*rooms,\s*dxfEntities,\s*underlay,\s*underlaySize,\s*storeyOutlines\s*\}\)/
     );
     expect(src).toMatch(
-      /\[rooms,\s*dxfEntities,\s*underlay,\s*underlaySize\]/
+      /\[rooms,\s*dxfEntities,\s*underlay,\s*underlaySize,\s*storeyOutlines\]/
     );
     expect(src).not.toMatch(/for \(const p of draft\)/);
     expect(src).not.toMatch(/underlaySize,\s*draft/);

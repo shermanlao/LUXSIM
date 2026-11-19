@@ -232,6 +232,8 @@ export function officialImportedUnderlay(input: {
   sourceHeightPx?: number;
   dxfEntities?: DxfEntity[];
   metersPerUnit?: number;
+  hiddenLayers?: string[];
+  dxfLayers?: Underlay["dxfLayers"];
   pageIndex?: number;
   pageRasterAssetId?: string;
   rasterDpi?: number;
@@ -260,6 +262,8 @@ export function officialImportedUnderlay(input: {
     sourceHeightPx: input.sourceHeightPx,
     orientationMigrated: true,
     dxfEntities: input.dxfEntities,
+    hiddenLayers: input.hiddenLayers,
+    dxfLayers: input.dxfLayers,
     pageIndex: input.pageIndex,
     pageRasterAssetId: input.pageRasterAssetId,
     rasterDpi: input.rasterDpi,

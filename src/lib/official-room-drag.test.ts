@@ -14,8 +14,9 @@ describe("official room drag wiring", () => {
     expect(editor).toContain('beginCoalesce("drag")');
     expect(editor).toContain("officialTranslateRoom(s, roomId, dx, dy)");
     expect(editor).toContain("onMoveRoom={(roomId, dx, dy) => moveRoom(roomId, dx, dy)}");
-    expect(editor).toMatch(/Rooms are not translated by dragging the fill/);
-    expect(editor).toMatch(/corner or mid-edge handles/);
+    const tips = readSrc("src/lib/ui-tips.ts");
+    expect(tips).toMatch(/Rooms and storeys are not translated by dragging the fill/);
+    expect(tips).toMatch(/mid-edge handle/);
   });
 
   it("starts a room drag only in Select mode, and fixture hits still move the fixture", () => {

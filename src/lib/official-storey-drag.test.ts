@@ -14,7 +14,8 @@ describe("official storey drag wiring", () => {
     expect(editor).toContain('beginCoalesce("drag")');
     expect(editor).toContain("officialTranslateStorey(s, storeyId, dx, dy)");
     expect(editor).toContain("onMoveStorey={(storeyId, dx, dy) => moveStorey(storeyId, dx, dy)}");
-    expect(editor).toMatch(/Rooms are not translated by dragging the fill/);
+    const tips = readSrc("src/lib/ui-tips.ts");
+    expect(tips).toMatch(/Rooms and storeys are not translated by dragging the fill/);
   });
 
   it("starts a storey drag only when the storey is selected, and defers room select until a click", () => {

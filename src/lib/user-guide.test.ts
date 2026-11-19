@@ -36,12 +36,26 @@ describe("user guide", () => {
     expect(guide).toMatch(/左側面板最上方是 \*\*Import plan\*\*/);
     expect(guide).toMatch(/In view-only, Import plan stays hidden/);
     expect(guide).toMatch(/唯讀檢視時，\*\*Import plan\*\* 會隱藏/);
+    expect(guide).toMatch(/Plan layers/);
+    expect(guide).toMatch(/1\.5 mm/);
+    expect(guide).toMatch(/128×/);
     expect(guide).toMatch(/A DWG import is converted and then works like a DXF underlay/);
     expect(guide).toMatch(/匯入 DWG 後會轉換成與 DXF 相同的描線/);
     expect(guide).not.toMatch(/DWG is not parsed/);
     expect(guide).not.toMatch(/不會解析 DWG/);
     expect(guide).not.toMatch(/DIALux/);
     expect(guide).not.toMatch(/conversion is not available in this build/);
+  });
+
+  it("documents Draw storey contour, Undo and Redo, and plan layer Apply", () => {
+    expect(guide).toMatch(/Draw storey contour/);
+    expect(guide).toMatch(/樓層輪廓/);
+    expect(guide).toMatch(/The contour is not a room/);
+    expect(guide).toMatch(/輪廓不是房間/);
+    expect(guide).toMatch(/\*\*Undo\*\* and \*\*Redo\*\* buttons/);
+    expect(guide).toMatch(/\*\*Undo\*\* 與 \*\*Redo\*\* 按鈕/);
+    expect(guide).toMatch(/12 CSS pixels/);
+    expect(guide).toMatch(/12 個 CSS 像素/);
   });
 
   it("documents wheel zoom, reset, Backspace, and Esc", () => {
@@ -121,6 +135,8 @@ describe("user guide", () => {
     expect(headings).toContain("工作區名稱 / Workspace name");
     expect(headings).toContain("平面圖視野 / Plan view");
     expect(headings).toContain("畫房 / Draw room");
+    expect(headings).toContain("樓層輪廓 / Draw storey contour");
+    expect(headings).toContain("復原與重做 / Undo and Redo");
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
     expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("圓形排列 / Circular array");

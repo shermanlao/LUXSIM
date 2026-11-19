@@ -369,10 +369,10 @@ describe("TopView2D wiring", () => {
     expect(src).toContain("OFFICIAL_PLAN_VIEW_W");
     expect(src).toContain("OFFICIAL_PLAN_VIEW_H");
     expect(src).toMatch(
-      /officialPlanWorldBounds\(\{\s*rooms,\s*dxfEntities,\s*underlay,\s*underlaySize\s*\}\)/
+      /officialPlanWorldBounds\(\{\s*rooms,\s*dxfEntities,\s*underlay,\s*underlaySize,\s*storeyOutlines\s*\}\)/
     );
     expect(src).toMatch(
-      /\[rooms,\s*dxfEntities,\s*underlay,\s*underlaySize\]/
+      /\[rooms,\s*dxfEntities,\s*underlay,\s*underlaySize,\s*storeyOutlines\]/
     );
     expect(src).not.toMatch(/for \(const p of draft\)/);
     expect(src).not.toMatch(/underlaySize,\s*draft/);
@@ -381,8 +381,9 @@ describe("TopView2D wiring", () => {
   it("still draws the draft, typed-length lock, close-to-start, and keyboard actions in the frozen view", () => {
     const src = topViewSrc();
     expect(src).toContain("resolveDraftPoint");
-    expect(src).toContain("isCloseToStart");
-    expect(src).toContain("onDrawRoomPolygon(draft)");
+    expect(src).toContain("pointerPrefersDraftClose");
+    expect(src).toContain("draftCloseSnapM");
+    expect(src).toContain("finishDraft(draft)");
     expect(src).toContain("officialDrawRoomAllowed");
     expect(src).toContain('strokeDasharray="4 3"');
     expect(src).toContain("setOrtho(true)");

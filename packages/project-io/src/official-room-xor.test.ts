@@ -259,7 +259,8 @@ describe("official editor XOR rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.xorRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("XOR_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("Alignment is not included");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("Alignment is not included");
     const intersectBtn = src.indexOf("Intersect rooms");
     const xorBtn = src.indexOf("XOR rooms");
     expect(intersectBtn).toBeGreaterThan(0);

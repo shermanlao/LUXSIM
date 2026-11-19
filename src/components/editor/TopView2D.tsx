@@ -8,10 +8,11 @@ import { PlanIsoluxOverlay } from "./PlanIsoluxOverlay";
 import { DxfSnapMarkerLayer, type DxfSnapMarkerApi } from "./DxfSnapMarkerLayer";
 import {
   findRoomAt,
-  isCloseToStart,
+  draftCloseSnapM,
   legacyScaleToMetersPerPixel,
   mToMm,
   parseLengthToM,
+  pointerPrefersDraftClose,
   resolveDraftPoint,
   isDisplayableRasterUnderlay,
   officialDrawRoomAllowed,
@@ -100,6 +101,7 @@ type Props = {
   onMoveInstance: (instanceId: string, x: number, y: number) => void;
   onBeginMoveInstance?: (instanceId: string) => boolean;
   onDrawRoomPolygon: (points: Vec2[]) => void;
+  onDrawStoreyContour?: (points: Vec2[]) => void;
   onMoveRoom?: (roomId: string, dx: number, dy: number) => void;
   onSetRoomPolygon?: (roomId: string, polygon: Vec2[], opts?: { discrete?: boolean }) => void;
   onVertexStretchStatus?: (status: string) => void;
@@ -168,6 +170,7 @@ export function TopView2D({
   onMoveInstance,
   onBeginMoveInstance,
   onDrawRoomPolygon,
+  onDrawStoreyContour,
   onMoveRoom,
   onSetRoomPolygon,
   onVertexStretchStatus,
@@ -256,8 +259,15 @@ export function TopView2D({
     [scene.instances, storeyId]
   );
   const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
+  const drawingContour = scene.ui.tool === "drawStoreyContour";
   const drawing =
-    scene.ui.tool === "drawRoom" && officialDrawRoomAllowed(underlay);
+    (scene.ui.tool === "drawRoom" || drawingContour) &&
+    officialDrawRoomAllowed(underlay);
+  const activeStorey = scene.storeys.find((s) => s.id === storeyId);
+  const storeyOutlines = useMemo(
+    () => (activeStorey?.outline ? [activeStorey.outline] : []),
+    [activeStorey?.outline]
+  );
 
   const sourceWidthPx = underlay?.sourceWidthPx ?? resolvedSource?.width;
   const sourceHeightPx = underlay?.sourceHeightPx ?? resolvedSource?.height;
@@ -330,8 +340,8 @@ export function TopView2D({
   }, [underlay, sourceWidthPx, sourceHeightPx]);
 
   const world = useMemo(
-    () => officialPlanWorldBounds({ rooms, dxfEntities, underlay, underlaySize }),
-    [rooms, dxfEntities, underlay, underlaySize]
+    () => officialPlanWorldBounds({ rooms, dxfEntities, underlay, underlaySize, storeyOutlines }),
+    [rooms, dxfEntities, underlay, underlaySize, storeyOutlines]
   );
 
   const { viewW, viewH } = useViewElementSize(
@@ -375,21 +385,41 @@ export function TopView2D({
 
   const radiusM = parseLengthToM(lengthBuf);
   const last = draft[draft.length - 1] ?? null;
-  const preview =
-    last && cursor
+  const lastPointer = lastPointerRef.current;
+  const closeSnapM = lastPointer
+    ? draftCloseSnapM(worldMetresPerCssPixel(toWorld, lastPointer.clientX, lastPointer.clientY))
+    : draftCloseSnapM(0);
+  const rawPointer = lastPointer?.world ?? cursor;
+  const prefersClose = pointerPrefersDraftClose(
+    rawPointer ?? { x: 0, y: 0 },
+    draft[0],
+    draft.length,
+    closeSnapM
+  );
+  const preview = prefersClose
+    ? draft[0]!
+    : last && cursor
       ? resolveDraftPoint(last, cursor, radiusM, ortho)
       : cursor;
 
-  const willClose =
-    Boolean(last && preview && draft[0] && draft.length >= 3 && isCloseToStart(preview, draft[0]));
+  const willClose = Boolean(drawing && prefersClose && draft[0] && last && preview);
+
+  function finishDraft(points: Vec2[]) {
+    if (drawingContour && onDrawStoreyContour) onDrawStoreyContour(points);
+    else onDrawRoomPolygon(points);
+    setDraft([]);
+    setCursor(null);
+    setLengthBuf("");
+  }
 
   function commitPoint(raw: Vec2) {
     const start = draft[0];
-    if (start && draft.length >= 3 && isCloseToStart(raw, start)) {
-      onDrawRoomPolygon(draft);
-      setDraft([]);
-      setCursor(null);
-      setLengthBuf("");
+    const pointer = rawPointer ?? raw;
+    if (
+      start &&
+      pointerPrefersDraftClose(pointer, start, draft.length, closeSnapM)
+    ) {
+      finishDraft(draft);
       return;
     }
     setDraft((pts) => [...pts, raw]);
@@ -422,6 +452,10 @@ export function TopView2D({
       }
       if (e.key === "Enter") {
         e.preventDefault();
+        if (willClose && draft.length >= 3) {
+          finishDraft(draft);
+          return;
+        }
         if (last && preview) commitPoint(preview);
         return;
       }
@@ -445,7 +479,7 @@ export function TopView2D({
       window.removeEventListener("keyup", onUp);
     };
     // commitPoint uses latest draft/preview via closure; lengthBuf + draft keep it current
-  }, [drawing, lengthBuf, last, preview, draft]);
+  }, [drawing, drawingContour, lengthBuf, last, preview, draft, willClose]);
 
   useEffect(() => {
     setActiveVertex((current) => {
@@ -910,6 +944,12 @@ export function TopView2D({
             return;
           }
           if (drawing) {
+            const raw = toWorld(e.clientX, e.clientY);
+            const snapM = draftCloseSnapM(worldMetresPerCssPixel(toWorld, e.clientX, e.clientY));
+            if (pointerPrefersDraftClose(raw, draft[0], draft.length, snapM)) {
+              finishDraft(draft);
+              return;
+            }
             if (draft.length === 0) {
               setDraft([w]);
               setCursor(w);
@@ -950,6 +990,12 @@ export function TopView2D({
             Boolean(stretchingVertex);
           if (!snapNeeded) {
             snapMarkerRef.current?.setHit(null);
+            return;
+          }
+          const closeM = draftCloseSnapM(worldMetresPerCssPixel(toWorld, e.clientX, e.clientY));
+          if (drawing && pointerPrefersDraftClose(raw, draft[0], draft.length, closeM)) {
+            snapMarkerRef.current?.setHit(null);
+            setCursor(draft[0]!);
             return;
           }
           const snapped = snappedWorldAt(e.clientX, e.clientY);
@@ -1388,11 +1434,27 @@ export function TopView2D({
           );
         })}
 
+        {activeStorey?.outline && activeStorey.outline.length >= 3 && (
+          <polygon
+            data-storey-contour=""
+            points={activeStorey.outline
+              .map((p) => {
+                const s = toScreen(p.x, p.y);
+                return `${s.x},${s.y}`;
+              })
+              .join(" ")}
+            fill="rgba(42,168,160,0.08)"
+            stroke="#2aa8a0"
+            strokeWidth={2}
+            strokeDasharray="8 4"
+            pointerEvents="none"
+          />
+        )}
 
         {draft.length > 0 && (
           <polyline
             fill="none"
-            stroke="#c45c26"
+            stroke={drawingContour ? "#2aa8a0" : "#c45c26"}
             strokeWidth={2}
             points={[...draft, preview ?? draft[draft.length - 1]!]
               .map((p) => {
@@ -1424,7 +1486,7 @@ export function TopView2D({
               cx={s.x}
               cy={s.y}
               r={start ? 5 : 3.5}
-              fill={start ? "#e8c27a" : "#c45c26"}
+              fill={start ? (drawingContour ? "#7ee0d8" : "#e8c27a") : (drawingContour ? "#2aa8a0" : "#c45c26")}
               stroke="#fff"
               strokeWidth={1}
             />
@@ -1436,8 +1498,8 @@ export function TopView2D({
             cx={toScreen(preview.x, preview.y).x}
             cy={toScreen(preview.x, preview.y).y}
             r={willClose ? 6 : 4}
-            fill={willClose ? "#e8c27a" : "#fff"}
-            stroke="#c45c26"
+            fill={willClose ? (drawingContour ? "#7ee0d8" : "#e8c27a") : "#fff"}
+            stroke={drawingContour ? "#2aa8a0" : "#c45c26"}
             strokeWidth={1.5}
           />
         )}
@@ -1772,6 +1834,7 @@ export function TopView2D({
           <>
             {" "}
             · click corners · type mm to lock length
+            {drawingContour ? " · storey contour" : ""}
             {lengthBuf ? ` · ${lengthBuf} mm` : ""}
             {liveMm != null ? ` · ${liveMm} mm` : ""}
             {ortho ? " · ortho" : ""}

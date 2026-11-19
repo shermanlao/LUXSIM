@@ -6,7 +6,9 @@ import {
   officialMetersPerUnitFromInsUnits,
   parseDxfEntities,
   parseDxfInsUnits,
+  parseDxfLayers,
   type DxfEntity,
+  type OfficialDxfLayer,
 } from "@luxsim/project-io";
 
 /** Official error when a DWG cannot be converted or parsed into linework. */
@@ -109,6 +111,7 @@ export type OfficialParsedDwgPlan = {
   bounds: ReturnType<typeof dxfBounds>;
   insunits: number | null;
   metersPerUnit: number;
+  layers: OfficialDxfLayer[];
 };
 
 /**
@@ -130,5 +133,6 @@ export async function officialParseDwgPlan(
     bounds: dxfBounds(entities),
     insunits,
     metersPerUnit: officialMetersPerUnitFromInsUnits(insunits),
+    layers: parseDxfLayers(dxfText),
   };
 }

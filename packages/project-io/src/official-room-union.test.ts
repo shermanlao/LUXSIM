@@ -317,7 +317,8 @@ describe("official editor Union rooms wiring", () => {
     expect(src).toContain("data-help-key=\"tool.unionRooms\"");
     expect(src).toContain("endCoalesce()");
     expect(src).toContain("UNION_ROOMS_PICK_SECOND_STATUS");
-    expect(src).toContain("Alignment is not included");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("Alignment is not included");
     const dxfBtn = src.indexOf("Create rooms from DXF");
     const unionBtn = src.indexOf("Union rooms");
     expect(dxfBtn).toBeGreaterThan(0);

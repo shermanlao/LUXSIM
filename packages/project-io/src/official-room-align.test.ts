@@ -277,7 +277,8 @@ describe("official editor Align rooms wiring", () => {
     expect(src).toContain("ALIGN_ROOMS_PICK_SECOND_STATUS");
     expect(src).toContain("officialRoomAlignAxisLabel");
     expect(src).toContain("OFFICIAL_ROOM_ALIGN_AXES");
-    expect(src).toContain("Even spacing is not included");
+    const tips = readFileSync(path.join(process.cwd(), "src/lib/ui-tips.ts"), "utf8");
+    expect(tips).toContain("Even spacing / distribute is not included");
     const alignSrc = readFileSync(
       path.join(process.cwd(), "packages/project-io/src/official-room-align.ts"),
       "utf8"

@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  DRAFT_CLOSE_SNAP_CSS_PX,
+  draftCloseSnapM,
   isCloseToStart,
   orthoPoint,
   pointOnCircle,
+  pointerPrefersDraftClose,
   polarOrthoPoint,
   resolveDraftPoint,
   translatePolygon,
@@ -31,6 +34,19 @@ describe("draw geometry", () => {
   it("closes when within tolerance of the start", () => {
     expect(isCloseToStart({ x: 0.1, y: 0 }, { x: 0, y: 0 })).toBe(true);
     expect(isCloseToStart({ x: 1, y: 0 }, { x: 0, y: 0 })).toBe(false);
+  });
+
+  it("uses a 12 CSS-pixel close snap for room and storey-contour drafts", () => {
+    expect(DRAFT_CLOSE_SNAP_CSS_PX).toBe(12);
+    expect(draftCloseSnapM(0.05)).toBeCloseTo(0.6, 9);
+    expect(draftCloseSnapM(0)).toBeCloseTo(0.001, 9);
+    expect(draftCloseSnapM(Number.NaN)).toBeCloseTo(0.001, 9);
+    const start = { x: 0, y: 0 };
+    const snapM = draftCloseSnapM(0.05);
+    expect(pointerPrefersDraftClose({ x: 0.5, y: 0 }, start, 3, snapM)).toBe(true);
+    expect(pointerPrefersDraftClose({ x: 0.7, y: 0 }, start, 3, snapM)).toBe(false);
+    expect(pointerPrefersDraftClose({ x: 0.1, y: 0 }, start, 2, snapM)).toBe(false);
+    expect(pointerPrefersDraftClose({ x: 0, y: 0 }, null, 3, snapM)).toBe(false);
   });
 
   it("translates a polygon", () => {
