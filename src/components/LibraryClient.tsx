@@ -306,17 +306,15 @@ export function LibraryClient() {
                   ? selectedLibraryConeDisclaimer(libraryConeLabel(selected) ?? "")
                   : `${selected.photometric.manufacturer || "Unknown manufacturer"} · ${selected.photometric.description}`}
               </p>
-              {libraryConeLabel(selected) && (
-                <p className="text-xs mb-3">
-                  <a className="underline" href={`/api/luminaires/${selected.id}/ldt`}>
-                    Download .ldt
-                  </a>
-                  <span className="text-zinc-500">·</span>
-                  <a className="underline" href={`/api/luminaires/${selected.id}/gldf`}>
-                    Download .gldf
-                  </a>
-                </p>
-              )}
+              <p className="text-xs mb-3">
+                <a className="underline" href={`/api/luminaires/${selected.id}/ldt`}>
+                  Download .ldt
+                </a>
+                <span className="text-zinc-500">·</span>
+                <a className="underline" href={`/api/luminaires/${selected.id}/gldf`}>
+                  Download .gldf
+                </a>
+              </p>
               <PolarPreview photo={selected.photometric} />
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <div>

@@ -149,6 +149,22 @@ describe("LibraryClient photometry upload layout", () => {
     expect(src).toContain("window.addEventListener(\"drop\"");
   });
 
+  it("offers Download .ldt and Download .gldf for any selected luminaire, not only generated cones", () => {
+    const start = src.indexOf("{selected ?");
+    const end = src.indexOf("<PolarPreview", start);
+    const detail = src.slice(start, end);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(detail).toContain("Download .ldt");
+    expect(detail).toContain("Download .gldf");
+    expect(detail).toContain("/api/luminaires/${selected.id}/ldt");
+    expect(detail).toContain("/api/luminaires/${selected.id}/gldf");
+    expect(detail).not.toMatch(/libraryConeLabel\(selected\)\s*&&/);
+    const disclaimer = detail.indexOf("selectedLibraryConeDisclaimer");
+    expect(disclaimer).toBeGreaterThan(-1);
+    expect(detail.slice(0, disclaimer)).toContain("libraryConeLabel(selected)");
+  });
+
   it("prompts for display names before upload and can cancel without uploading", () => {
     expect(src).toContain("LibraryImportNameDialog");
     expect(src).toContain("setPending");
