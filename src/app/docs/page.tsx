@@ -1,26 +1,21 @@
 import Link from "next/link";
-import { readFile } from "fs/promises";
-import path from "path";
 
-async function readDoc(name: string): Promise<string> {
-  try {
-    return await readFile(path.join(process.cwd(), "docs", name), "utf8");
-  } catch {
-    return `_Missing ${name}_`;
-  }
-}
-
-export default async function DocsPage() {
-  const index = await readDoc("MARKDOWN_INDEX.md");
-
+export default function DocsPage() {
   return (
-    <div className="mx-auto max-w-3xl px-4 py-10 prose-like">
+    <div className="mx-auto max-w-3xl px-4 py-10">
       <h1 className="display text-4xl mb-4">Documentation</h1>
       <p className="text-[var(--muted)] mb-8">
-        Guides live in <code>docs/</code>. Full markdown is also on disk for the agent/repo.
+        Start with the user guide for editor operations. Product and calculation notes are also here if you need them.
       </p>
-      <div className="panel p-6 whitespace-pre-wrap text-sm leading-relaxed">{index}</div>
-      <ul className="mt-6 space-y-2 text-sm">
+      <ul className="space-y-3 text-sm">
+        <li>
+          <Link className="text-[var(--accent-2)] underline text-base font-semibold" href="/docs/guide">
+            User guide / 使用手冊
+          </Link>
+          <p className="text-[var(--muted)] mt-1">
+            Plan zoom, drawing rooms, Backspace and Esc, and room properties.
+          </p>
+        </li>
         <li>
           <Link className="text-[var(--accent-2)] underline" href="/docs/product">
             Product MVP

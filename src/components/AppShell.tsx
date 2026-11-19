@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { NavAuth } from "@/components/NavAuth";
+import { SiteFooter } from "@/components/SiteFooter";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="app-shell min-h-screen flex flex-col">
       <header className="border-b border-[var(--line)] bg-[color-mix(in_srgb,white_70%,transparent)] backdrop-blur-md">
         <div className="w-full px-4 py-3 flex items-center justify-between gap-4">
           <Link href="/" className="display text-2xl tracking-tight">
@@ -15,12 +16,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
       <main className="flex-1">{children}</main>
-      <footer className="border-t border-[var(--line)] text-sm text-[var(--muted)]">
-        <div className="w-full px-4 py-4 flex flex-wrap gap-3 justify-between">
-          <span>LUXSIM — lightweight lighting design assist</span>
-          <span>Not tender-certified · Verify critical work in DIALux</span>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>
   );
 }

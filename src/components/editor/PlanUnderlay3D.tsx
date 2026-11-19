@@ -5,7 +5,10 @@ import { useEffect, useMemo, useState } from "react";
 import * as THREE from "three";
 import type { DxfEntity, Underlay } from "@luxsim/project-io";
 import {
+  isDisplayableRasterUnderlay,
   legacyScaleToMetersPerPixel,
+  officialDxfEntitiesToWorld,
+  officialDxfPolylineStrokePoints,
   underlayWorldSize,
 } from "@luxsim/project-io";
 
@@ -38,7 +41,7 @@ export function PlanUnderlay3D({
     setTexture(null);
     setResolvedPx(null);
 
-    if (underlay.kind !== "image" && underlay.kind !== "pdf") {
+    if (!isDisplayableRasterUnderlay(underlay)) {
       return;
     }
 
@@ -140,9 +143,10 @@ export function PlanUnderlay3D({
         </mesh>
       )}
 
-      {dxfEntities.map((ent, idx) => {
-        if (ent.points.length < 2) return null;
-        const points = ent.points.map(
+      {officialDxfEntitiesToWorld(dxfEntities, underlay).map((ent, idx) => {
+        const stroke = officialDxfPolylineStrokePoints(ent);
+        if (stroke.length < 2) return null;
+        const points = stroke.map(
           (p) => [p.x, floorY + 0.005, p.y] as [number, number, number]
         );
         return (

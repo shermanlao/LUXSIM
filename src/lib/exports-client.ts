@@ -2,15 +2,20 @@ import { jsPDF } from "jspdf";
 import {
   buildDialuxPack,
   downloadBlob,
+  LUXSIM_PROJECT_MIME,
+  luxsimProjectDownloadName,
   serializeLuxsim,
   type AnyScene,
   type LuxsimProjectFile,
+  type ProjectSceneV2,
+  type ResultsV2,
   type SceneJson,
 } from "@luxsim/project-io";
 import type { CalcResults } from "@luxsim/solver";
 import type { PhotometricData } from "@luxsim/photometry";
+import { officialSaveBlob, OFFICIAL_SAVE_TYPES, type OfficialSaveHost } from "@/lib/official-save-file";
 
-export function exportPdfReport(opts: {
+export async function exportPdfReport(opts: {
   projectName: string;
   scene: SceneJson;
   results: CalcResults | null;
@@ -25,7 +30,7 @@ export function exportPdfReport(opts: {
   doc.setFontSize(9);
   doc.setTextColor(120);
   doc.text(
-    "Design-assist only. Not tender-certified. Verify critical projects in DIALux.",
+    "Design-assist only. Not tender-certified. Verify critical projects in a certified lighting calculation tool.",
     14,
     36
   );
@@ -99,25 +104,38 @@ export function exportPdfReport(opts: {
     }
   }
 
-  doc.save(`${sanitize(projectName)}.pdf`);
+  const filename = `${sanitize(projectName)}.pdf`;
+  const blob = doc.output("blob");
+  return officialSaveBlob(blob, { suggestedName: filename, types: [OFFICIAL_SAVE_TYPES.pdf] });
 }
 
-export function exportLuxsimFile(project: LuxsimProjectFile) {
+
+export async function exportLuxsimFile(project: LuxsimProjectFile, host?: OfficialSaveHost) {
   const text = serializeLuxsim(project);
-  downloadBlob(
-    `${sanitize(project.name)}.luxsim.json`,
-    new Blob([text], { type: "application/json" })
-  );
+  const filename = luxsimProjectDownloadName(project.name);
+  const blob = new Blob([text], { type: LUXSIM_PROJECT_MIME });
+  return officialSaveBlob(blob, {
+    suggestedName: filename,
+    types: [OFFICIAL_SAVE_TYPES.lxm],
+    host: host ?? { download: (file, name) => downloadBlob(name, file) },
+  });
 }
 
 export async function exportDialuxPack(opts: {
   projectName: string;
-  scene: SceneJson;
+  scene: ProjectSceneV2;
+  results: ResultsV2 | null;
   sourceFiles: Record<string, { filename: string; text: string }>;
   luminaireNames: Record<string, string>;
+  host?: OfficialSaveHost;
 }) {
   const blob = await buildDialuxPack(opts);
-  downloadBlob(`${sanitize(opts.projectName)}-dialux-pack.zip`, blob);
+  const filename = `${sanitize(opts.projectName)}-verification-pack.zip`;
+  return officialSaveBlob(blob, {
+    suggestedName: filename,
+    types: [OFFICIAL_SAVE_TYPES.zip],
+    host: opts.host ?? { download: (file, name) => downloadBlob(name, file) },
+  });
 }
 
 export function buildLuxsimProject(opts: {
@@ -126,8 +144,15 @@ export function buildLuxsimProject(opts: {
   results: CalcResults | LuxsimProjectFile["results"];
   photometry: Record<string, PhotometricData>;
   sourceFiles?: Record<string, { filename: string; text: string }>;
+  assets?: LuxsimProjectFile["assets"];
+  luminaireLibrary?: LuxsimProjectFile["luminaireLibrary"];
 }): LuxsimProjectFile {
   const version = opts.scene.version === 2 ? 2 : 1;
+  const luminaireLibrary =
+    opts.luminaireLibrary && Object.keys(opts.luminaireLibrary).length
+      ? opts.luminaireLibrary
+      : undefined;
+  const assets = opts.assets && Object.keys(opts.assets).length ? opts.assets : undefined;
   return {
     format: "luxsim",
     version,
@@ -136,6 +161,8 @@ export function buildLuxsimProject(opts: {
     results: opts.results,
     photometry: opts.photometry,
     sourceFiles: opts.sourceFiles,
+    ...(assets ? { assets } : {}),
+    ...(luminaireLibrary ? { luminaireLibrary } : {}),
   };
 }
 

@@ -1,0 +1,3 @@
+instance_id,name,luminaire_w,position_x_m,position_y_m,position_z_m,rotation_deg,ies_file
+ab_inst_1,Sample downlight A,30,2.5,2.0,2.7,30,fixtures/sample-downlight.ies
+ab_inst_2,Sample downlight B,30,1.2,3.1,2.7,120,fixtures/sample-downlight.ies

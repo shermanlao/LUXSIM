@@ -47,29 +47,4 @@ export function totalDirectIlluminance(
 }
 
 /** Approximate emitted luminous flux from intensity table (lm) */
-export function estimateFlux(photo: PhotometricData): number {
-  if (photo.luminousFlux && photo.luminousFlux > 0) return photo.luminousFlux;
-  const { verticalAngles, horizontalAngles, intensities } = photo;
-  if (verticalAngles.length < 2 || horizontalAngles.length < 1) return 0;
-
-  let flux = 0;
-  for (let h = 0; h < horizontalAngles.length; h += 1) {
-    const h0 = horizontalAngles[h]!;
-    const h1 = horizontalAngles[(h + 1) % horizontalAngles.length]!;
-    let dPhi = degToRad(h1 - h0);
-    if (dPhi <= 0) dPhi = degToRad(360 / horizontalAngles.length);
-    for (let v = 0; v < verticalAngles.length - 1; v += 1) {
-      const t0 = degToRad(verticalAngles[v]!);
-      const t1 = degToRad(verticalAngles[v + 1]!);
-      const I = 0.25 * (
-        (intensities[h]?.[v] ?? 0) +
-        (intensities[h]?.[v + 1] ?? 0) +
-        (intensities[(h + 1) % intensities.length]?.[v] ?? 0) +
-        (intensities[(h + 1) % intensities.length]?.[v + 1] ?? 0)
-      );
-      const ring = Math.abs(Math.cos(t0) - Math.cos(t1));
-      flux += I * dPhi * ring;
-    }
-  }
-  return Math.max(0, flux);
-}
+export { estimateFlux } from "../../photometry/src/flux";

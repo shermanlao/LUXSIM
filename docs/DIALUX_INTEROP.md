@@ -9,18 +9,34 @@
 | DXF | Line/polyline underlay |
 | DWG | Stored; convert to DXF externally in this build |
 | IFC | Storeys + spaces (text parser); draw/edit rooms after |
+| `.lxm` (also `.lux`, `.luxsim`, `.luxsim.json`) | Open on the projects list; creates a new workspace project from a valid official export (scene, results, photometry / source files when present, plus optional Generate LDT `origin` / `libraryFamily` / `libraryBeamDeg`). Invalid files are rejected. Older files without those library fields still import and are not given invented cone metadata. Official saves also embed the plan underlays the scene uses (image, PDF plus its page raster, DXF, IFC, and DWG) in an `assets` map keyed by the scene asset ids; binary files are stored as base64, DXF/IFC as text. Older files without that field still import. If the scene has underlay metadata but no embedded files, the project still opens and the missing plan is not invented. Website / report footer fields are ignored. |
 
 ## Exports
 
 | Format | Support |
 |--------|---------|
-| Full PDF report | Cover, summary, per-room, product polar sheets, schedule |
-| `.luxsim.json` | Native project |
-| DIALux pack zip | IES/LDT + schedule + room.json |
+| Full PDF report | Cover, project summary, luminaire list, room list, calculation objects, per-room summary (properties + results + working plane / false-color), product polar sheets, coordinate schedule |
+| `.lxm` | Official native project filename (same JSON format as older `.lux` / `.luxsim` / `.luxsim.json`; includes photometry `sourceFiles` and, when present, plan/underlay files in `assets`; optional `luminaireLibrary` map preserves Generate LDT cone origin / family / beam when present in the source library) |
+| DIALux verification zip | Multi-room `rooms.json`, `schedule.csv`, `luminaires/` (IES/LDT), `geometry.dxf` (walls + fixtures + grid points), `results-summary.csv`, optional `results-grid.csv` |
 
-## `.evo`
+### DIALux verification zip (one click)
 
-Not supported (proprietary). Use DIALux pack bridge.
+In **BuildingEditor** → Properties → **DIALux verification (zip)** after you calculate at least one room (optional but recommended for CSV comparison).
+
+Pack contents:
+
+1. **rooms.json** — all storeys/rooms with floor polygons, heights, reflectances, workplane.
+2. **schedule.csv** — world-metre fixture positions with room/storey ids.
+3. **luminaires/** — IES/LDT text for fixtures used in the project.
+4. **geometry.dxf** — room outlines, fixture markers, non-zero calc grid points (layers `LUXSIM_*`).
+5. **results-summary.csv** — per-room Eave/Uo/UGR plus EN 12464-1 **assist** pass/fail when a template is set.
+6. **results-grid.csv** — grid point lux (when results exist).
+
+Workflow: recreate rooms in **desktop DIALux**, import photometry, place from schedule, compare to LUXSIM CSV/DXF. LUXSIM does not write proprietary native project files.
+
+## Native DIALux project files
+
+Not supported (proprietary). Use the verification zip bridge above.
 
 ## Report reference
 

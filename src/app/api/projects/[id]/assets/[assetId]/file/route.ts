@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { apiErrorResponse } from "@/lib/api-error";
+import { requireProjectAccess } from "@/lib/session";
 import { absolutePath } from "@/lib/storage";
 import fs from "fs/promises";
 import path from "path";
@@ -20,10 +21,8 @@ const MIME: Record<string, string> = {
 
 export async function GET(_req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id, assetId } = await params;
-    const project = await prisma.project.findFirst({ where: { id, orgId } });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project } = await requireProjectAccess(id);
     const asset = await prisma.projectAsset.findFirst({
       where: { id: assetId, projectId: id },
     });
@@ -39,9 +38,8 @@ export async function GET(_req: Request, { params }: Params) {
       },
     });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
+    const authRes = apiErrorResponse(e);
+    if (authRes.status !== 500) return authRes;
     return NextResponse.json({ error: "Failed" }, { status: 500 });
   }
 }

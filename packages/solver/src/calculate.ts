@@ -1,15 +1,16 @@
 import { estimateFlux, totalDirectIlluminance } from "./direct";
+import { WORKPLANE_CLEARANCE_M, clampGridSpacingM } from "./grid-spacing";
 import { interreflectedWorkplaneBoost } from "./interreflect";
 import { computeUgr } from "./ugr";
 import type { CalcOptions, CalcResults } from "./types";
 
 const DISCLAIMER =
-  "LUXSIM design-assist results. Not tender-certified. Verify critical projects in software such as DIALux.";
+  "LUXSIM design-assist results. Not tender-certified. Verify critical projects in a certified lighting calculation tool.";
 
 export function calculate(options: CalcOptions): CalcResults {
   const { room, luminaires, grid } = options;
-  const spacing = Math.max(0.25, Math.min(2, grid.spacing || 0.5));
-  const z = Math.min(room.workplaneHeight, room.height - 0.05);
+  const spacing = clampGridSpacingM(grid.spacing);
+  const z = Math.min(room.workplaneHeight, room.height - WORKPLANE_CLEARANCE_M);
   const margin = spacing / 2;
 
   const xs: number[] = [];

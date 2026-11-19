@@ -1,0 +1,293 @@
+import type { PhotometricData } from "../../photometry/src/types";
+import { resolvedFlux } from "../../photometry/src/flux";
+import { wallZoneFromSpacingM } from "../../solver/src/grid-spacing";
+import type { CalcResults } from "../../solver/src/types";
+import { roomAreaM2, roomBounds } from "./geometry";
+import { resolveMaintenanceFactor } from "./maintenance-factor";
+import type { FixtureInstance, ProjectSceneV2, RoomV2 } from "./types";
+
+export const REPORT_CALC_TYPE = "Perpendicular illuminance";
+
+/** Maintenance factor already stored on the room (breakdown, overall, or default). */
+export function roomMaintenanceFactor(room: RoomV2): number {
+  return resolveMaintenanceFactor({
+    maintenanceFactor: room.calc.maintenanceFactor,
+    mfBreakdown: room.calc.mfBreakdown,
+  }).mf;
+}
+
+/** Maintained average illuminance: Ēm × MF. */
+export function maintainedAverageLux(eave: number, maintenanceFactor: number): number {
+  return eave * maintenanceFactor;
+}
+export const DESIGN_ASSIST_DISCLAIMER =
+  "Design-assist only. Not tender-certified. Verify critical projects in a certified lighting calculation tool.";
+
+export function formatLux(value: number): string {
+  if (!Number.isFinite(value)) return "—";
+  return value >= 100 ? `${Math.round(value)} lx` : `${value.toFixed(1)} lx`;
+}
+
+export function formatAreaM2(value: number): string {
+  return `${value.toFixed(2)} m²`;
+}
+
+export function formatWatts(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(1)} W`;
+}
+
+export function formatLpd(value: number | null): string {
+  if (value == null || !Number.isFinite(value)) return "—";
+  return `${value.toFixed(2)} W/m²`;
+}
+
+export function formatLpdPer100Lx(lpd: number | null, eave: number): string {
+  if (lpd == null || eave < 1e-6) return "—";
+  return `${(lpd / (eave / 100)).toFixed(2)} W/m²/100 lx`;
+}
+
+/** LPD figures for the editor results strip: keep W/m², and show the official per-100-lx expression when both LPD and initial Ēm are usable. */
+export function resultsStripLpdMetric(
+  lpd: number | null | undefined,
+  eave: number | null | undefined
+): { value: string; per100Lx?: string } {
+  const value = lpd != null && Number.isFinite(lpd) ? formatLpd(lpd) : "—";
+  if (lpd == null || !Number.isFinite(lpd) || eave == null || !Number.isFinite(eave)) {
+    return { value };
+  }
+  const per100Lx = formatLpdPer100Lx(lpd, eave);
+  return per100Lx === "—" ? { value } : { value, per100Lx };
+}
+
+export function formatReflectancePct(r: number): string {
+  return `${(r * 100).toFixed(1)}%`;
+}
+
+/** Display flux from the file header or from integrating the intensity table. */
+export function formatLuminousFlux(photo: PhotometricData): string {
+  const f = resolvedFlux(photo);
+  if (f != null && f > 0) return `${Math.round(f)} lm`;
+  return "—";
+}
+
+export function efficacyLmPerW(
+  flux: number | null | undefined,
+  watts: number | null | undefined
+): number | null {
+  if (flux == null || watts == null || flux <= 0 || watts <= 0) return null;
+  return flux / watts;
+}
+
+export function formatEfficacy(flux: number | null, watts: number | null): string {
+  const e = efficacyLmPerW(flux, watts);
+  return e != null ? `${e.toFixed(1)} lm/W` : "—";
+}
+
+export function wattsForLuminaire(
+  luminaireId: string,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): number | null {
+  const w = wattsById?.[luminaireId] ?? photometry[luminaireId]?.watts;
+  return w != null && Number.isFinite(w) && w > 0 ? w : null;
+}
+
+export function fluxForLuminaire(
+  luminaireId: string,
+  photometry: Record<string, PhotometricData>
+): number | null {
+  const photo = photometry[luminaireId];
+  if (!photo) return null;
+  return resolvedFlux(photo);
+}
+
+export interface LuminaireAggregateRow {
+  luminaireId: string;
+  count: number;
+  manufacturer: string;
+  catalogNumber: string;
+  articleName: string;
+  watts: number | null;
+  flux: number | null;
+  efficacy: number | null;
+}
+
+export function aggregateProjectLuminaires(
+  scene: ProjectSceneV2,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): LuminaireAggregateRow[] {
+  const counts = new Map<string, number>();
+  for (const inst of scene.instances) {
+    counts.set(inst.luminaireId, (counts.get(inst.luminaireId) ?? 0) + 1);
+  }
+  const rows: LuminaireAggregateRow[] = [];
+  for (const [luminaireId, count] of counts) {
+    const photo = photometry[luminaireId];
+    const watts = wattsForLuminaire(luminaireId, photometry, wattsById);
+    const flux = photo ? fluxForLuminaire(luminaireId, photometry) : null;
+    rows.push({
+      luminaireId,
+      count,
+      manufacturer: photo?.manufacturer || "—",
+      catalogNumber: photo?.catalogNumber || "—",
+      articleName: photo?.description || luminaireId,
+      watts,
+      flux,
+      efficacy: efficacyLmPerW(flux, watts),
+    });
+  }
+  rows.sort((a, b) => a.articleName.localeCompare(b.articleName));
+  return rows;
+}
+
+export function projectTotals(
+  rows: LuminaireAggregateRow[]
+): { totalFlux: number | null; totalWatts: number; efficacy: number | null } {
+  let totalWatts = 0;
+  let totalFlux = 0;
+  let fluxKnown = true;
+  for (const row of rows) {
+    if (row.watts) totalWatts += row.watts * row.count;
+    if (row.flux) totalFlux += row.flux * row.count;
+    else fluxKnown = false;
+  }
+  return {
+    totalFlux: fluxKnown && totalFlux > 0 ? totalFlux : fluxKnown ? totalFlux : null,
+    totalWatts,
+    efficacy:
+      fluxKnown && totalWatts > 0 && totalFlux > 0 ? totalFlux / totalWatts : null,
+  };
+}
+
+export interface RoomLuminaireRow {
+  luminaireId: string;
+  count: number;
+  manufacturer: string;
+  catalogNumber: string;
+  articleName: string;
+  watts: number | null;
+  flux: number | null;
+  efficacy: number | null;
+}
+
+export function luminairesInRoom(
+  roomId: string,
+  scene: ProjectSceneV2,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): RoomLuminaireRow[] {
+  const counts = new Map<string, number>();
+  for (const inst of scene.instances) {
+    if (inst.roomId !== roomId) continue;
+    counts.set(inst.luminaireId, (counts.get(inst.luminaireId) ?? 0) + 1);
+  }
+  const rows: RoomLuminaireRow[] = [];
+  for (const [luminaireId, count] of counts) {
+    const photo = photometry[luminaireId];
+    const watts = wattsForLuminaire(luminaireId, photometry, wattsById);
+    const flux = photo ? fluxForLuminaire(luminaireId, photometry) : null;
+    rows.push({
+      luminaireId,
+      count,
+      manufacturer: photo?.manufacturer || "—",
+      catalogNumber: photo?.catalogNumber || "—",
+      articleName: photo?.description || luminaireId,
+      watts,
+      flux,
+      efficacy: efficacyLmPerW(flux, watts),
+    });
+  }
+  return rows;
+}
+
+export function roomInstalledWatts(
+  roomId: string,
+  scene: ProjectSceneV2,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): number {
+  let total = 0;
+  for (const row of luminairesInRoom(roomId, scene, photometry, wattsById)) {
+    if (row.watts) total += row.watts * row.count;
+  }
+  return total;
+}
+
+export function roomPolygonArea(room: RoomV2): number {
+  return roomAreaM2(room);
+}
+
+export function roomLpdFromPolygon(
+  room: RoomV2,
+  scene: ProjectSceneV2,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): number | null {
+  const area = roomPolygonArea(room);
+  const w = roomInstalledWatts(room.id, scene, photometry, wattsById);
+  if (area <= 0 || w <= 0) return null;
+  return w / area;
+}
+
+export function uniformitiesFromResults(res: CalcResults): { uo: number; g2: number } {
+  const { eave, emin, emax } = res.summary;
+  const uo = res.summary.uo;
+  const g2 = emax > 1e-6 ? emin / emax : 0;
+  void eave;
+  return { uo, g2 };
+}
+
+/** Half of the solver-clamped workplane grid spacing (0.25–2 m). */
+export function wallZoneM(room: RoomV2): number {
+  return wallZoneFromSpacingM(room.calc.gridSpacing);
+}
+
+export function typicalMountingHeightM(
+  roomId: string,
+  scene: ProjectSceneV2
+): number | null {
+  const zs = scene.instances
+    .filter((i) => i.roomId === roomId)
+    .map((i) => i.position.z);
+  if (!zs.length) return null;
+  return zs.reduce((a, b) => a + b, 0) / zs.length;
+}
+
+export function roomContextLabel(
+  projectName: string,
+  scene: ProjectSceneV2,
+  room: RoomV2
+): string {
+  const storey = scene.storeys.find((s) => s.id === room.storeyId);
+  const building = projectName;
+  const storeyName = storey?.name ?? "Storey";
+  return `${building} · ${storeyName} · ${room.name}`;
+}
+
+export function workplaneHeightM(room: RoomV2): number {
+  return room.workplaneHeightM;
+}
+
+/** Area + LPD aligned with true room polygon (not solver AABB). */
+export function enrichSummaryWithPolygonArea(
+  room: RoomV2,
+  res: CalcResults,
+  scene: ProjectSceneV2,
+  photometry: Record<string, PhotometricData>,
+  wattsById?: Record<string, number | null | undefined>
+): CalcResults["summary"] {
+  const areaM2 = roomPolygonArea(room);
+  const totalWatts =
+    res.summary.totalWatts > 0
+      ? res.summary.totalWatts
+      : roomInstalledWatts(room.id, scene, photometry, wattsById);
+  const lpd = totalWatts > 0 && areaM2 > 0 ? totalWatts / areaM2 : null;
+  return { ...res.summary, areaM2, totalWatts, lpd };
+}
+
+export function gridWorldOrigin(room: RoomV2, res: CalcResults): { ox: number; oy: number } {
+  const b = roomBounds(room);
+  return { ox: b.minX + res.grid.originX, oy: b.minY + res.grid.originY };
+}

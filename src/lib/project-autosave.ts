@@ -12,6 +12,23 @@ export type ProjectSnapshot = {
   resultsJson: string;
 };
 
+/** UI that should not start an autosave by itself (still included when a real save runs). */
+export function persistableScene(scene: ProjectSceneV2): ProjectSceneV2 {
+  return {
+    ...scene,
+    ui: {
+      ...scene.ui,
+      activeStoreyId: "",
+      activeRoomId: null,
+      viewMode: "top",
+      tool: "select",
+      workflowMode: undefined,
+      camera3d: null,
+      display3d: undefined,
+    },
+  };
+}
+
 export function snapshotProject(
   name: string,
   scene: ProjectSceneV2,
@@ -19,12 +36,12 @@ export function snapshotProject(
 ): ProjectSnapshot {
   return {
     name,
-    sceneJson: JSON.stringify(scene),
+    sceneJson: JSON.stringify(persistableScene(scene)),
     resultsJson: JSON.stringify(results),
   };
 }
 
-/** Only include keys that differ from the last successful save. */
+/** Only include keys that differ from the last successful save. Ephemeral UI is ignored. */
 export function projectPatchDiff(
   current: ProjectSnapshot,
   last: ProjectSnapshot,
