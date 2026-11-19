@@ -23,11 +23,13 @@ function named(name: string) {
 }
 
 describe("photometry file filter", () => {
-  it("accepts only IES and LDT files, case-insensitively", () => {
+  it("accepts only IES, LDT, and GLDF files, case-insensitively", () => {
     expect(isPhotometryFileName("office.ies")).toBe(true);
     expect(isPhotometryFileName("office.IES")).toBe(true);
     expect(isPhotometryFileName("  downlight.Ldt ")).toBe(true);
     expect(isPhotometryFileName("beam.ldt")).toBe(true);
+    expect(isPhotometryFileName("product.gldf")).toBe(true);
+    expect(isPhotometryFileName("PRODUCT.GLDF")).toBe(true);
     expect(isPhotometryFileName("notes.txt")).toBe(false);
     expect(isPhotometryFileName("photo.ies.bak")).toBe(false);
     expect(isPhotometryFileName("ldt")).toBe(false);
@@ -37,8 +39,9 @@ describe("photometry file filter", () => {
       named("b.txt"),
       named("c.LDT"),
       named("d.png"),
+      named("e.gldf"),
     ]);
-    expect(accepted.map((file) => file.name)).toEqual(["a.ies", "c.LDT"]);
+    expect(accepted.map((file) => file.name)).toEqual(["a.ies", "c.LDT", "e.gldf"]);
     expect(rejected.map((file) => file.name)).toEqual(["b.txt", "d.png"]);
   });
 
@@ -59,13 +62,13 @@ describe("photometry file filter", () => {
     const mixed = selectPhotometryFiles([named("ok.ies"), named("skip.pdf")]);
     expect(mixed.accepted.map((file) => file.name)).toEqual(["ok.ies"]);
     expect(mixed.rejected.map((file) => file.name)).toEqual(["skip.pdf"]);
-    expect(mixed.rejectedMessage).toBe("skip.pdf is not an IES or LDT file and was skipped.");
+    expect(mixed.rejectedMessage).toBe("skip.pdf is not an IES, LDT, or GLDF file and was skipped.");
     expect(mixed.prompt?.kind).toBe("single");
 
     const allBad = selectPhotometryFiles([named("a.png"), named("b.doc")]);
     expect(allBad.prompt).toBeNull();
     expect(allBad.rejectedMessage).toBe(
-      "These files are not IES or LDT and were skipped: a.png, b.doc",
+      "These files are not IES, LDT, or GLDF and were skipped: a.png, b.doc",
     );
   });
 });
@@ -112,8 +115,8 @@ describe("photometry batch upload", () => {
     expect(outcome.results.map((result) => result.ok)).toEqual([true, false, true]);
     expect(outcome.errorMessage).toBe("b.ldt: File too large (max 2MB)");
     expect(formatPhotometryUploadErrors(outcome.results)).toBe("b.ldt: File too large (max 2MB)");
-    expect(combinePhotometryMessages("skip.pdf is not an IES or LDT file and was skipped.", outcome.errorMessage)).toBe(
-      "skip.pdf is not an IES or LDT file and was skipped.\nb.ldt: File too large (max 2MB)",
+    expect(combinePhotometryMessages("skip.pdf is not an IES, LDT, or GLDF file and was skipped.", outcome.errorMessage)).toBe(
+      "skip.pdf is not an IES, LDT, or GLDF file and was skipped.\nb.ldt: File too large (max 2MB)",
     );
   });
 });
@@ -129,16 +132,18 @@ describe("LibraryClient photometry upload layout", () => {
     expect(src.indexOf("<GenerateLdtForm")).toBeLessThan(src.indexOf("library-preview-drop"));
   });
 
-  it("keeps Import on the polar preview drop section and accepts multiple IES/LDT files", () => {
+  it("keeps Import on the polar preview drop section and accepts multiple IES/LDT/GLDF files", () => {
     const previewStart = src.indexOf("library-preview-drop");
     const preview = src.slice(previewStart);
     expect(preview).toContain("Import");
     expect(preview).toContain("Select a luminaire to preview its polar curve.");
     expect(preview).toContain("PolarPreview");
-    expect(preview).toContain('accept=".ies,.ldt"');
+    expect(preview).toContain('accept=".ies,.ldt,.gldf"');
     expect(preview).toContain("multiple");
     expect(preview).toContain("onDrop={onDrop}");
     expect(preview).toContain("onDragOver={onDragOver}");
+    expect(src).toContain("Download .gldf");
+    expect(src).toContain("/gldf");
     expect(src).toContain("event.preventDefault()");
     expect(src).toContain("window.addEventListener(\"dragover\"");
     expect(src).toContain("window.addEventListener(\"drop\"");

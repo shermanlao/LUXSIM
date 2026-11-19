@@ -1507,16 +1507,33 @@ export function BuildingEditor({
         setStatus(data.error || "Upload failed");
         return;
       }
-      const lum = data.luminaire as LumRow;
+      const imported = (Array.isArray(data.luminaires) && data.luminaires.length
+        ? data.luminaires
+        : data.luminaire
+          ? [data.luminaire]
+          : []) as LumRow[];
+      if (imported.length === 0) {
+        setStatus(data.error || "Upload failed");
+        return;
+      }
       await loadLibrary();
-      await ensurePhotometry(lum.id);
+      for (const lum of imported) {
+        await ensurePhotometry(lum.id);
+      }
+      const ids = imported.map((lum) => lum.id);
       patchScene((s) => ({
         ...s,
-        fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
-          ? s.fixtureLibraryIds
-          : [...s.fixtureLibraryIds, lum.id],
+        fixtureLibraryIds: [
+          ...s.fixtureLibraryIds,
+          ...ids.filter((id) => !s.fixtureLibraryIds.includes(id)),
+        ],
       }));
-      setStatus(`Imported “${lum.name}” to project fixture list (not placed)`);
+      const first = imported[0]!;
+      setStatus(
+        imported.length === 1
+          ? `Imported “${first.name}” to project fixture list (not placed)`
+          : `Imported ${imported.length} luminaires to project fixture list (not placed)`,
+      );
       });
     } finally {
       setUploading(false);
@@ -3932,12 +3949,12 @@ export function BuildingEditor({
 {!readOnly && (
             <>
           <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
-            <label className="label">Upload IES / LDT</label>
+            <label className="label">Upload IES / LDT / GLDF</label>
             <input
               ref={fileRef}
               className="input text-xs"
               type="file"
-              accept=".ies,.ldt"
+              accept=".ies,.ldt,.gldf"
               disabled={uploading}
               onChange={(e) => void onUploadPhotometry(e.target.files?.[0] ?? null)}
             />

@@ -11,7 +11,7 @@ type Props = {
   onConfirm: () => void;
 };
 
-/** Cancellable display-name prompt shown after IES/LDT files are chosen or dropped. */
+/** Cancellable display-name prompt shown after IES, LDT, or GLDF files are chosen or dropped. */
 export function LibraryImportNameDialog({
   open,
   items,
@@ -51,7 +51,7 @@ export function LibraryImportNameDialog({
         </h2>
         <p id={messageId}>
           {multi
-            ? "Optionally name each IES or LDT file. Leave a field empty to use the photometry description, catalog number, or file name."
+            ? "Optionally name each IES, LDT, or GLDF file. Leave a field empty to use the product name, photometry description, catalog number, or file name."
             : "Optionally name this luminaire. Leave the field empty to use the photometry description, catalog number, or file name."}
         </p>
         <div className="library-import-list">

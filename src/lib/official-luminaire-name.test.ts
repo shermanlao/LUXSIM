@@ -96,8 +96,9 @@ describe("official luminaire name wiring", () => {
     expect(uploadFn).not.toMatch(/form\.append\(\s*["']name["']/);
     expect(uploadFn).not.toMatch(/file\.name\.replace\s*\(\s*\/\\\.\(ies\|ldt\)\$\/i/);
     expect(uploadFn).toContain(
-      "Imported “${lum.name}” to project fixture list (not placed)",
+      "Imported “${first.name}” to project fixture list (not placed)",
     );
+    expect(uploadFn).toContain("data.luminaires");
     expect(uploadFn).not.toMatch(/instances/);
   });
 });

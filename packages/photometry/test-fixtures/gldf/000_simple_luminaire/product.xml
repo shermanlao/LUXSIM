@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-16"?>
+<Root xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:noNamespaceSchemaLocation="https://gldf.io/xsd/gldf/1.0.0-rc.3/gldf.xsd">
+
+	<!-- Manufacturer Metadata/Contact -->
+	<Header>
+		<Manufacturer>Manufacturer XY</Manufacturer>
+		<FormatVersion major="1" minor="0" pre-release="3"></FormatVersion>
+		<CreatedWithApplication>Visual Studio Code</CreatedWithApplication>
+		<GldfCreationTimeCode>2023-04-12T20:00:00Z</GldfCreationTimeCode>
+		<UniqueGldfId>INSERT GUID HERE - SHOULD BE ALWAYS UNIQUE</UniqueGldfId>
+	</Header>
+
+	<!-- Building blocks for the luminaire -->
+	<GeneralDefinitions />
+
+	<!-- The definition of the luminaire itself -->
+	<ProductDefinitions>
+
+		<!-- Global luminaire properties goes here -->
+		<ProductMetaData>
+			<UniqueProductId>INSERT GUID HERE - SHOULD BE ONLY UNIQUE AMONG DIFFERENT PRODUCTS</UniqueProductId>
+			<ProductNumber>
+				<Locale language="en">LightNnumber</Locale>
+				<Locale language="de">Produktnummer</Locale>
+			</ProductNumber>
+			<Name>
+				<Locale language="en">Product name</Locale>
+				<Locale language="de">Produktname</Locale>
+			</Name>
+		</ProductMetaData>
+
+		<!-- Variant-specific luminaire properties goes here -->
+		<Variants>
+			<Variant id="variant-1">
+				<Name>
+					<Locale language="en">Variant name</Locale>
+					<Locale language="de">Variantenname</Locale>
+				</Name>
+			</Variant>
+		</Variants>
+
+	</ProductDefinitions>
+
+</Root>

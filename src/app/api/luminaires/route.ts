@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 import {
   detectFormat,
+  detectUploadFormat,
+  parseGldfContainer,
   parsePhotometricFile,
+  GLDF_MAX_CONTAINER_BYTES,
 } from "@luxsim/photometry";
 import { apiErrorResponse } from "@/lib/api-error";
 import { officialLuminaireDisplayName } from "@/lib/official-luminaire-name";
@@ -46,13 +49,55 @@ export async function POST(req: Request) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "file required" }, { status: 400 });
     }
-    if (file.size > 2_000_000) {
-      return NextResponse.json({ error: "File too large (max 2MB)" }, { status: 400 });
+    const uploadFormat = detectUploadFormat(file.name);
+    if (!uploadFormat) {
+      return NextResponse.json({ error: "Only .ies, .ldt, or .gldf files are supported" }, { status: 400 });
+    }
+
+    const maxBytes = uploadFormat === "gldf" ? GLDF_MAX_CONTAINER_BYTES : 2_000_000;
+    if (file.size > maxBytes) {
+      return NextResponse.json(
+        { error: uploadFormat === "gldf" ? "File too large (max 10MB)" : "File too large (max 2MB)" },
+        { status: 400 },
+      );
+    }
+
+    if (uploadFormat === "gldf") {
+      const bytes = new Uint8Array(await file.arrayBuffer());
+      const parsed = await parseGldfContainer(bytes);
+      const userName = form.get("name") as string | null;
+      const luminaires = [];
+      const warnings = [...parsed.warnings];
+      for (const entry of parsed.entries) {
+        const name = officialLuminaireDisplayName({
+          userName,
+          description: entry.displayName || entry.data.description,
+          catalogNumber: entry.catalogNumber || entry.data.catalogNumber,
+          fileName: file.name,
+        });
+        const storedName = entry.photometryFileName || file.name;
+        const fileKey = await saveTextFile("luminaires", storedName, entry.text);
+        const luminaire = await prisma.luminaire.create({
+          data: {
+            orgId,
+            name,
+            sourceFormat: "gldf",
+            fileKey,
+            originalName: file.name,
+            photometricJson: JSON.stringify(entry.data),
+            watts: entry.data.watts,
+            lumens: entry.data.luminousFlux,
+          },
+        });
+        luminaires.push(luminaire);
+        warnings.push(...entry.warnings);
+      }
+      return NextResponse.json({ luminaire: luminaires[0], luminaires, warnings });
     }
 
     const format = detectFormat(file.name);
     if (!format) {
-      return NextResponse.json({ error: "Only .ies or .ldt files are supported" }, { status: 400 });
+      return NextResponse.json({ error: "Only .ies, .ldt, or .gldf files are supported" }, { status: 400 });
     }
 
     const text = await file.text();

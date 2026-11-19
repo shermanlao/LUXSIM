@@ -256,7 +256,7 @@ export function LibraryClient() {
                 {items.length === 0 && (
                   <tr>
                     <td colSpan={4} className="p-6 text-[var(--muted)]">
-                      No luminaires yet — import an IES or LDT, or generate a library cone.
+                      No luminaires yet — import an IES, LDT, or GLDF, or generate a library cone.
                     </td>
                   </tr>
                 )}
@@ -283,7 +283,7 @@ export function LibraryClient() {
         >
           <div className="flex items-start justify-between gap-3 mb-4">
             <p className="text-sm text-[var(--muted)]">
-              Drop IES or LDT files here to import, or use Import.
+              Drop IES, LDT, or GLDF files here to import, or use Import.
             </p>
             <button type="button" className="btn shrink-0" onClick={onImportClick} disabled={uploading}>
               Import
@@ -293,7 +293,7 @@ export function LibraryClient() {
             ref={fileInputRef}
             className="hidden"
             type="file"
-            accept=".ies,.ldt"
+            accept=".ies,.ldt,.gldf"
             multiple
             onChange={onFileInputChange}
           />
@@ -310,6 +310,10 @@ export function LibraryClient() {
                 <p className="text-xs mb-3">
                   <a className="underline" href={`/api/luminaires/${selected.id}/ldt`}>
                     Download .ldt
+                  </a>
+                  <span className="text-zinc-500">·</span>
+                  <a className="underline" href={`/api/luminaires/${selected.id}/gldf`}>
+                    Download .gldf
                   </a>
                 </p>
               )}

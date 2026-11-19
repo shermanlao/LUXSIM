@@ -149,13 +149,16 @@ describe("user guide", () => {
 
   it("documents library photometry drop, display names, and multi-file import", () => {
     expect(guide).toMatch(/燈具庫 \/ Luminaire library/);
-    expect(guide).toMatch(/可把一個或多個 IES／LDT 檔拖放到該區/);
+    expect(guide).toMatch(/可把一個或多個 IES、LDT 或 GLDF/);
     expect(guide).toMatch(/或按該區上的 \*\*Import\*\* 選擇檔案/);
     expect(guide).toMatch(/單檔時可選填一個 \*\*Display name\*\*/);
-    expect(guide).toMatch(/多檔時每個 LDT／IES 各有一列/);
-    expect(guide).toMatch(/drop one or more IES or LDT files onto that panel/);
+    expect(guide).toMatch(/多檔時每個 IES、LDT 或 GLDF 各有一列/);
+    expect(guide).toMatch(/drop one or more IES, LDT, or GLDF/);
+    expect(guide).toMatch(/Download \.gldf/);
+    expect(guide).toMatch(/IES、LDT 或 GLDF/);
+    expect(guide).toMatch(/\*\*Download \.gldf\*\*/);
     expect(guide).toMatch(/\*\*Import\*\* button on the same section/);
-    expect(guide).toMatch(/For more than one file, each LDT\/IES has its own \*\*Display name\*\* field/);
+    expect(guide).toMatch(/For more than one file, each IES, LDT, or GLDF has its own \*\*Display name\*\* field/);
     expect(guide).toMatch(/If one file in a batch fails, already-imported files are kept/);
     expect(guide).not.toMatch(/Upload photometry/);
   });

@@ -1,4 +1,16 @@
 export type { PhotometricData, ParseResult, SourceFormat, LuminaireBody } from "./types";
+export type { GldfImportEntry, GldfParseResult, GldfExportInput } from "./gldf";
+export {
+  GLDF_SCHEMA_VERSION,
+  GLDF_SCHEMA_LOCATION,
+  GLDF_CREATED_WITH,
+  GLDF_MAX_CONTAINER_BYTES,
+  isGldfFileName,
+  detectUploadFormat,
+  gldfDownloadFileName,
+  parseGldfContainer,
+  buildGldfContainer,
+} from "./gldf";
 export { parseIes } from "./parse-ies";
 export { parseLdt, expandIntensityPlanes } from "./parse-ldt";
 export {

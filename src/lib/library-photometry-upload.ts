@@ -1,4 +1,4 @@
-/** Helpers for library photometry import: IES/LDT filtering, name prompts, and batch upload. */
+/** Helpers for library photometry import: IES/LDT/GLDF filtering, name prompts, and batch upload. */
 
 export type NamedFile = { name: string };
 
@@ -33,7 +33,7 @@ export type PhotometryBatchOutcome = {
   errorMessage: string | null;
 };
 
-const PHOTOMETRY_EXT = /\.(ies|ldt)$/i;
+const PHOTOMETRY_EXT = /\.(ies|ldt|gldf)$/i;
 
 export function isPhotometryFileName(name: string): boolean {
   return PHOTOMETRY_EXT.test(name.trim());
@@ -55,9 +55,9 @@ export function rejectedPhotometryMessage(rejected: NamedFile[]): string | null 
   if (rejected.length === 0) return null;
   const names = rejected.map((file) => file.name).join(", ");
   if (rejected.length === 1) {
-    return `${names} is not an IES or LDT file and was skipped.`;
+    return `${names} is not an IES, LDT, or GLDF file and was skipped.`;
   }
-  return `These files are not IES or LDT and were skipped: ${names}`;
+  return `These files are not IES, LDT, or GLDF and were skipped: ${names}`;
 }
 
 export function buildPendingPhotometryNames<T extends NamedFile>(
