@@ -306,6 +306,8 @@ describe("user guide", () => {
     expect(guide).toMatch(/圖紙空間實體（群組碼 67 = 1）不會顯示、吸附、計入範圍，也不會用來建立房間/);
     expect(guide).toMatch(/Polygon-mesh and polyface-mesh POLYLINE entities are also traced in plan \(Z is ignored\)/);
     expect(guide).toMatch(/多邊形網格與多面網格 POLYLINE 也會按平面描繪（忽略 Z），並可用來建立房間/);
+    expect(guide).toMatch(/A 3D extrusion \(groups 210\/220\/230\) on CIRCLE, ARC, ELLIPSE, LWPOLYLINE, and 2D POLYLINE is applied when tracing in plan/);
+    expect(guide).toMatch(/CIRCLE、ARC、ELLIPSE、LWPOLYLINE 與二維 POLYLINE 的 3D extrusion（群組碼 210\/220\/230）會在平面描繪時套用/);
     expect(guide).toMatch(/or a DWG that has been converted to the same linework/);
     expect(guide).toMatch(/或是已轉換並含描線的 DWG/);
     expect(guide).not.toMatch(/DWG is not parsed/);
@@ -314,6 +316,7 @@ describe("user guide", () => {
     expect(tips).toMatch(/A non-mesh 3D POLYLINE is traced in plan \(Z is ignored\)/);
     expect(tips).toMatch(/Paperspace entities \(group 67 = 1\) are not displayed, snapped, bounded, or used to create rooms/);
     expect(tips).toMatch(/Polygon-mesh and polyface-mesh POLYLINE entities are also traced in plan \(Z is ignored\)/);
+    expect(tips).toMatch(/A 3D extrusion \(groups 210\/220\/230\) on CIRCLE, ARC, ELLIPSE, LWPOLYLINE, and 2D POLYLINE is applied when tracing in plan/);
     expect(tips).not.toMatch(/CIRCLE, ARC, and old POLYLINE entities are not traced/);
   });
 

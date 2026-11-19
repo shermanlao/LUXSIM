@@ -1417,3 +1417,67 @@ describe("officialAppendRoomsFromDxfClosedPolylines paperspace and 3D POLYLINE",
     expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
   });
 });
+
+describe("officialAppendRoomsFromDxfClosedPolylines 3D extrusion", () => {
+  it("creates a 12 m² room from a closed LWPOLYLINE with extrusion (0,0,-1)", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nLWPOLYLINE\n  70\n1\n  210\n0\n  220\n0\n  230\n-1\n" +
+          "  10\n0\n  20\n0\n  10\n4\n  20\n0\n  10\n4\n  20\n3\n  10\n0\n  20\n3\n"
+      )
+    );
+    expect(entities).toHaveLength(1);
+    expect(entities[0]?.points.map((pt) => [pt.x, pt.y])).toEqual([
+      [0, 0],
+      [-4, 0],
+      [-4, 3],
+      [0, 3],
+    ]);
+    const scene = sceneWithDxf(entities);
+    expect(officialCanCreateRoomsFromDxf(scene.underlays[0])).toBe(true);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(out.status).toBe("Created 1 room from DXF");
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
+  });
+
+  it("creates a room from a 2D POLYLINE with extrusion (0,0,-1) and ignores elevation", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nPOLYLINE\n  70\n1\n  38\n5\n  210\n0\n  220\n0\n  230\n-1\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n0\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n0\n" +
+          "  0\nVERTEX\n  10\n4\n  20\n3\n" +
+          "  0\nVERTEX\n  10\n0\n  20\n3\n" +
+          "  0\nSEQEND\n"
+      )
+    );
+    expect(entities).toHaveLength(1);
+    const out = officialAppendRoomsFromDxfClosedPolylines(sceneWithDxf(entities), {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(1);
+    expect(roomAreaM2(out.scene.rooms[0]!)).toBe(12);
+  });
+
+  it("does not invent a room from a circle that projects to a line", () => {
+    const entities = parseDxfEntities(
+      dxfFile(
+        "  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  210\n0\n  220\n1\n  230\n0\n"
+      )
+    );
+    expect(entities.length).toBeGreaterThan(0);
+    const scene = sceneWithDxf(entities);
+    const out = officialAppendRoomsFromDxfClosedPolylines(scene, {
+      heightM: 2.8,
+      nextId: ids().nextId,
+    });
+    expect(out.created).toBe(0);
+    expect(out.status).toBe(DXF_CLOSED_ROOMS_NONE_STATUS);
+    expect(out.scene.rooms).toHaveLength(0);
+  });
+});

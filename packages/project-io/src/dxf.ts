@@ -1106,6 +1106,103 @@ function entitiesFromPolyface(recs: PolylineVertexRecord[]): DxfEntity[] {
   return out;
 }
 
+
+type Vec3 = { x: number; y: number; z: number };
+
+const DXF_DEFAULT_EXTRUSION: Vec3 = { x: 0, y: 0, z: 1 };
+/** Autodesk Arbitrary Axis Algorithm: use world Y × N when N is almost ±world Z. */
+const DXF_AAA_NEAR_Z = 1 / 64;
+
+function isFiniteVec3(value: Vec3): boolean {
+  return isFiniteNumber(value.x) && isFiniteNumber(value.y) && isFiniteNumber(value.z);
+}
+
+function vec3Length(value: Vec3): number {
+  return Math.hypot(value.x, value.y, value.z);
+}
+
+function normalizeVec3(value: Vec3): Vec3 | null {
+  const len = vec3Length(value);
+  if (!(len > 0) || !Number.isFinite(len)) return null;
+  return { x: value.x / len, y: value.y / len, z: value.z / len };
+}
+
+function crossVec3(a: Vec3, b: Vec3): Vec3 {
+  return {
+    x: a.y * b.z - a.z * b.y,
+    y: a.z * b.x - a.x * b.z,
+    z: a.x * b.y - a.y * b.x,
+  };
+}
+
+/**
+ * Resolve DXF groups 210/220/230. Omitted or a zero/non-finite vector means
+ * the default world +Z extrusion (0, 0, 1).
+ */
+export function dxfExtrusionOrDefault(x: number, y: number, z: number, present: boolean): Vec3 {
+  if (!present) return { ...DXF_DEFAULT_EXTRUSION };
+  const raw = { x, y, z };
+  if (!isFiniteVec3(raw) || !(vec3Length(raw) > 0)) return { ...DXF_DEFAULT_EXTRUSION };
+  return normalizeVec3(raw) ?? { ...DXF_DEFAULT_EXTRUSION };
+}
+
+/** True when the normal is the default world +Z, so OCS already matches plan XY. */
+export function dxfExtrusionIsDefaultWorldZ(n: Vec3): boolean {
+  const u = normalizeVec3(n);
+  if (!u) return false;
+  return Math.abs(u.x) < 1e-12 && Math.abs(u.y) < 1e-12 && u.z > 0;
+}
+
+/**
+ * Autodesk Arbitrary Axis Algorithm: OCS axes from the extrusion normal N.
+ * When |Nx| and |Ny| are both < 1/64, Ax = world Y × N; otherwise Ax = world Z × N.
+ * Ay = N × Ax.
+ */
+export function dxfArbitraryAxes(n: Vec3): { ax: Vec3; ay: Vec3; n: Vec3 } | null {
+  const N = normalizeVec3(n);
+  if (!N) return null;
+  const wy: Vec3 = { x: 0, y: 1, z: 0 };
+  const wz: Vec3 = { x: 0, y: 0, z: 1 };
+  const axRaw =
+    Math.abs(N.x) < DXF_AAA_NEAR_Z && Math.abs(N.y) < DXF_AAA_NEAR_Z
+      ? crossVec3(wy, N)
+      : crossVec3(wz, N);
+  const ax = normalizeVec3(axRaw);
+  if (!ax) return null;
+  const ay = normalizeVec3(crossVec3(N, ax));
+  if (!ay) return null;
+  return { ax, ay, n: N };
+}
+
+/** Map an OCS point to WCS, then keep only the plan XY (WCS Z is ignored). */
+export function dxfOcsToPlan(x: number, y: number, z: number, extrusion: Vec3): Vec2 | null {
+  if (!isFiniteNumber(x) || !isFiniteNumber(y) || !isFiniteNumber(z)) return null;
+  if (dxfExtrusionIsDefaultWorldZ(extrusion) && z === 0) return { x, y };
+  const axes = dxfArbitraryAxes(extrusion);
+  if (!axes) return null;
+  const { ax, ay, n } = axes;
+  const wx = x * ax.x + y * ay.x + z * n.x;
+  const wy = x * ax.y + y * ay.y + z * n.y;
+  if (!isFiniteNumber(wx) || !isFiniteNumber(wy)) return null;
+  return { x: wx, y: wy };
+}
+
+function mapOcsEntityToPlan(
+  entity: DxfEntity | null,
+  extrusion: Vec3,
+  elevation = 0
+): DxfEntity | null {
+  if (!entity) return null;
+  if (dxfExtrusionIsDefaultWorldZ(extrusion) && elevation === 0) return entity;
+  const points: Vec2[] = [];
+  for (const p of entity.points) {
+    const q = dxfOcsToPlan(p.x, p.y, elevation, extrusion);
+    if (!q) return null;
+    points.push(q);
+  }
+  return { ...entity, points };
+}
+
 /**
  * Minimal ASCII DXF extractor for LINE, LWPOLYLINE (including group-42 bulges),
  * CIRCLE, ARC, ELLIPSE, SPLINE, and old-style POLYLINE (VERTEX + SEQEND, including
@@ -1138,12 +1235,14 @@ function entitiesFromPolyface(recs: PolylineVertexRecord[]): DxfEntity[] {
  * coordinates, a singular system, or a result that misses the fit points).
  * A knot vector that is missing or the
  * wrong length for a clamped, unclamped, or periodic B-spline of that degree
- * is skipped. Extrusion (210/220/230) and Z are ignored (2D plan only, same as
- * CIRCLE / ARC). A non-mesh 3D POLYLINE (group 70 flag bit 8) is traced in
+ * is skipped. A non-mesh 3D POLYLINE (group 70 flag bit 8) is traced in
  * plan from VERTEX 10/20; Z (30) is ignored. An entity with group 67 = 1
  * is paperspace and is skipped — it is not displayed, snapped, bounded, or
  * used to create rooms. Group 67 omitted or 0 is model space and is kept.
- * 3D extrusion (210/220/230) is not applied. Polygon-mesh (group 70 bit 16)
+ * 3D extrusion (210/220/230) is applied for CIRCLE, ARC, ELLIPSE,
+ * LWPOLYLINE, and 2D POLYLINE (including bulge tessellation, which is done
+ * in OCS before the transform). LINE, SPLINE, 3D POLYLINE, and mesh vertices
+ * stay in WCS; Z is still ignored after any transform. Polygon-mesh (group 70 bit 16)
  * and polyface-mesh (group 70 bit 64) POLYLINE entities are traced in plan:
  * each mesh face is emitted as a closed polyline from VERTEX 10/20, and Z
  * (30) is ignored. Polygon-mesh M and N counts are groups 71 and 72; closed
@@ -1185,13 +1284,34 @@ export function parseDxfEntities(text: string): DxfEntity[] {
    * Like readGroups, and return true when group 67 = 1 (DXF paperspace).
    * 67 omitted or 0 is model space.
    */
-  const readEntityGroups = (onGroup: (code: number, value: string) => void): boolean => {
+  const readEntityGroups = (
+    onGroup: (code: number, value: string) => void
+  ): { paperspace: boolean; extrusion: Vec3 } => {
     let paperspace = false;
+    let ex = 0,
+      ey = 0,
+      ez = 1;
+    let hasExtrusion = false;
     readGroups((code, value) => {
       if (code === 67 && Number(value) === 1) paperspace = true;
+      if (code === 210) {
+        ex = Number(value);
+        hasExtrusion = true;
+      }
+      if (code === 220) {
+        ey = Number(value);
+        hasExtrusion = true;
+      }
+      if (code === 230) {
+        ez = Number(value);
+        hasExtrusion = true;
+      }
       onGroup(code, value);
     });
-    return paperspace;
+    return {
+      paperspace,
+      extrusion: dxfExtrusionOrDefault(ex, ey, ez, hasExtrusion),
+    };
   };
 
   const skipUntilSeqend = () => {
@@ -1218,7 +1338,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         y1 = 0,
         x2 = 0,
         y2 = 0;
-      const paperspace = readEntityGroups((code, value) => {
+      const { paperspace } = readEntityGroups((code, value) => {
         if (code === 10) x1 = Number(value);
         if (code === 20) y1 = Number(value);
         if (code === 11) x2 = Number(value);
@@ -1252,8 +1372,10 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
         pending = null;
       };
-      const paperspace = readEntityGroups((code, value) => {
+      let elevation = 0;
+      const { paperspace, extrusion } = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
+        if (code === 38) elevation = Number(value);
         if (code === 10) {
           flushPending();
           pending = { x: Number(value), bulge: 0 };
@@ -1267,31 +1389,45 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       flushPending();
       if (paperspace) continue;
       const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
-      const entity = polylineFromVertices(verts, closedByFlag);
+      const elev = isFiniteNumber(elevation) ? elevation : 0;
+      const entity = mapOcsEntityToPlan(
+        polylineFromVertices(verts, closedByFlag),
+        extrusion,
+        elev
+      );
       if (entity) entities.push(entity);
     } else if (type === "CIRCLE") {
       let cx = 0,
         cy = 0,
+        cz = 0,
         r = 0;
-      const paperspace = readEntityGroups((code, value) => {
+      const { paperspace, extrusion } = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
+        if (code === 30) cz = Number(value);
         if (code === 40) r = Number(value);
       });
       if (paperspace) continue;
       if (isFiniteNumber(cx) && isFiniteNumber(cy) && isFiniteNumber(r) && r > 0) {
-        const entity = closedPolylineEntity(tessellateCircle(cx, cy, r));
+        const elev = isFiniteNumber(cz) ? cz : 0;
+        const entity = mapOcsEntityToPlan(
+          closedPolylineEntity(tessellateCircle(cx, cy, r)),
+          extrusion,
+          elev
+        );
         if (entity) entities.push(entity);
       }
     } else if (type === "ARC") {
       let cx = 0,
         cy = 0,
+        cz = 0,
         r = 0,
         startDeg = 0,
         endDeg = 0;
-      const paperspace = readEntityGroups((code, value) => {
+      const { paperspace, extrusion } = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
+        if (code === 30) cz = Number(value);
         if (code === 40) r = Number(value);
         if (code === 50) startDeg = Number(value);
         if (code === 51) endDeg = Number(value);
@@ -1308,9 +1444,14 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         const { startRad, sweepRad } = dxfCcwSweepRad(startDeg, endDeg);
         if (sweepRad > 0) {
           const full = Math.abs(sweepRad - TAU) < 1e-12;
-          const entity = full
-            ? closedPolylineEntity(tessellateCircle(cx, cy, r, startRad))
-            : openPolylineEntity(tessellateOpenArc(cx, cy, r, startRad, sweepRad));
+          const elev = isFiniteNumber(cz) ? cz : 0;
+          const entity = mapOcsEntityToPlan(
+            full
+              ? closedPolylineEntity(tessellateCircle(cx, cy, r, startRad))
+              : openPolylineEntity(tessellateOpenArc(cx, cy, r, startRad, sweepRad)),
+            extrusion,
+            elev
+          );
           if (entity) entities.push(entity);
         }
       }
@@ -1318,18 +1459,22 @@ export function parseDxfEntities(text: string): DxfEntity[] {
     } else if (type === "ELLIPSE") {
       let cx = 0,
         cy = 0,
+        cz = 0,
         mx = 0,
-        my = 0;
+        my = 0,
+        mz = 0;
       let ratio: number | undefined;
       // Omitted 41/42 follow the DXF full-ellipse values 0 and 2π.
       let startParam = 0;
       let endParam = TAU;
       let hasRatio = false;
-      const paperspace = readEntityGroups((code, value) => {
+      const { paperspace, extrusion } = readEntityGroups((code, value) => {
         if (code === 10) cx = Number(value);
         if (code === 20) cy = Number(value);
+        if (code === 30) cz = Number(value);
         if (code === 11) mx = Number(value);
         if (code === 21) my = Number(value);
+        if (code === 31) mz = Number(value);
         if (code === 40) {
           ratio = Number(value);
           hasRatio = true;
@@ -1338,7 +1483,13 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         if (code === 42) endParam = Number(value);
       });
       if (paperspace) continue;
-      const majorLen = Math.hypot(mx, my);
+      const czIn = isFiniteNumber(cz) ? cz : 0;
+      const mzIn = isFiniteNumber(mz) ? mz : 0;
+      const usePlanEllipse =
+        dxfExtrusionIsDefaultWorldZ(extrusion) && czIn === 0 && mzIn === 0;
+      const majorLen = usePlanEllipse
+        ? Math.hypot(mx, my)
+        : Math.hypot(mx, my, mzIn);
       if (
         hasRatio &&
         ratio != null &&
@@ -1352,17 +1503,51 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         isFiniteNumber(startParam) &&
         isFiniteNumber(endParam)
       ) {
-        const major = { x: mx, y: my };
-        const minor = ellipseMinorAxis(major, ratio);
         const { startRad, sweepRad } = dxfEllipseSweepRad(startParam, endParam);
         if (sweepRad > 0) {
-          const full = sweepRad === TAU;
-          const entity = full
-            ? closedPolylineEntity(tessellateEllipse(cx, cy, major, minor, startRad))
-            : openPolylineEntity(
-                tessellateEllipticalArc(cx, cy, major, minor, startRad, sweepRad)
-              );
-          if (entity) entities.push(entity);
+          if (usePlanEllipse) {
+            const major = { x: mx, y: my };
+            const minor = ellipseMinorAxis(major, ratio);
+            const full = sweepRad === TAU;
+            const entity = full
+              ? closedPolylineEntity(tessellateEllipse(cx, cy, major, minor, startRad))
+              : openPolylineEntity(
+                  tessellateEllipticalArc(cx, cy, major, minor, startRad, sweepRad)
+                );
+            if (entity) entities.push(entity);
+          } else {
+            const axes = dxfArbitraryAxes(extrusion);
+            if (axes) {
+              const major3: Vec3 = { x: mx, y: my, z: mzIn };
+              const minorRaw = crossVec3(axes.n, major3);
+              const minorLen = vec3Length(minorRaw);
+              if (minorLen > 0) {
+                const scale = (majorLen * ratio) / minorLen;
+                const minor3: Vec3 = {
+                  x: minorRaw.x * scale,
+                  y: minorRaw.y * scale,
+                  z: minorRaw.z * scale,
+                };
+                const count = dxfCurveSegmentCount(sweepRad);
+                const pts: Vec2[] = [];
+                const last = sweepRad === TAU ? count : count + 1;
+                for (let s = 0; s < last; s++) {
+                  const t = startRad + (sweepRad * s) / count;
+                  const c = Math.cos(t);
+                  const si = Math.sin(t);
+                  pts.push({
+                    x: cx + major3.x * c + minor3.x * si,
+                    y: cy + major3.y * c + minor3.y * si,
+                  });
+                }
+                const entity =
+                  sweepRad === TAU
+                    ? closedPolylineEntity(pts)
+                    : openPolylineEntity(pts);
+                if (entity) entities.push(entity);
+              }
+            }
+          }
         }
       }
     } else if (type === "SPLINE") {
@@ -1401,7 +1586,7 @@ export function parseDxfEntities(text: string): DxfEntity[] {
         }
         pendingFit = null;
       };
-      const paperspace = readEntityGroups((code, value) => {
+      const { paperspace } = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
         if (code === 71) degree = Number(value);
         if (code === 40) knots.push(Number(value));
@@ -1452,10 +1637,12 @@ export function parseDxfEntities(text: string): DxfEntity[] {
       let flags = 0;
       let meshM = NaN;
       let meshN = NaN;
-      const paperspace = readEntityGroups((code, value) => {
+      let elevation = 0;
+      const { paperspace, extrusion } = readEntityGroups((code, value) => {
         if (code === 70) flags = Number(value);
         if (code === 71) meshM = Number(value);
         if (code === 72) meshN = Number(value);
+        if (code === 38) elevation = Number(value);
       });
       const closedByFlag = Number.isFinite(flags) && (flags & 1) === 1;
       const isPolyface = Number.isFinite(flags) && (flags & 64) === 64;
@@ -1537,7 +1724,11 @@ export function parseDxfEntities(text: string): DxfEntity[] {
           break;
         }
       }
-      const entity = polylineFromVertices(verts, closedByFlag);
+      const is3dPoly = Number.isFinite(flags) && (flags & 8) === 8;
+      const elev = isFiniteNumber(elevation) ? elevation : 0;
+      const entity = is3dPoly
+        ? polylineFromVertices(verts, closedByFlag)
+        : mapOcsEntityToPlan(polylineFromVertices(verts, closedByFlag), extrusion, elev);
       if (entity) entities.push(entity);
     }
   }

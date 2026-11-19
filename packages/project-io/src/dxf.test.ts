@@ -12,6 +12,9 @@ import {
   evaluateDxfSpline,
   interpolateDxfFitSpline,
   tessellateDxfBulgeIntermediates,
+  dxfOcsToPlan,
+  dxfExtrusionIsDefaultWorldZ,
+  dxfArbitraryAxes,
 } from "./dxf";
 import { importIfcText } from "./ifc-import";
 
@@ -1239,5 +1242,114 @@ describe("parseDxfEntities paperspace and 3D POLYLINE", () => {
       dxfFile(polyfaceMesh(meshGrid, [[1, 2, 99]]))
     );
     expect(badFace).toEqual([]);
+  });
+});
+
+describe("DXF 3D extrusion in plan", () => {
+  it("maps OCS points with the Autodesk Arbitrary Axis Algorithm", () => {
+    expect(dxfExtrusionIsDefaultWorldZ({ x: 0, y: 0, z: 1 })).toBe(true);
+    expect(dxfExtrusionIsDefaultWorldZ({ x: 0, y: 0, z: -1 })).toBe(false);
+    const plusZ = dxfArbitraryAxes({ x: 0, y: 0, z: 1 })!;
+    expect(plusZ.ax.x).toBeCloseTo(1);
+    expect(plusZ.ax.y).toBeCloseTo(0);
+    expect(plusZ.ax.z).toBeCloseTo(0);
+    expect(plusZ.ay.x).toBeCloseTo(0);
+    expect(plusZ.ay.y).toBeCloseTo(1);
+    expect(plusZ.ay.z).toBeCloseTo(0);
+    expect(dxfOcsToPlan(1, 2, 0, { x: 0, y: 0, z: 1 })).toEqual({ x: 1, y: 2 });
+    const flipped = dxfOcsToPlan(1, 2, 0, { x: 0, y: 0, z: -1 })!;
+    expect(flipped.x).toBeCloseTo(-1);
+    expect(flipped.y).toBeCloseTo(2);
+  });
+
+  it("flips LWPOLYLINE and CIRCLE plan X when extrusion is (0,0,-1)", () => {
+    const poly = parseDxfEntities(
+      lwpoly(
+        [
+          { x: 0, y: 0 },
+          { x: 4, y: 0 },
+          { x: 4, y: 3 },
+          { x: 0, y: 3 },
+        ],
+        1
+      ).replace(
+        "  0\nLWPOLYLINE\n",
+        "  0\nLWPOLYLINE\n  210\n0\n  220\n0\n  230\n-1\n"
+      )
+    );
+    expect(poly).toHaveLength(1);
+    expect(poly[0]!.points.map((pt) => [pt.x, pt.y])).toEqual([
+      [0, 0],
+      [-4, 0],
+      [-4, 3],
+      [0, 3],
+    ]);
+    const bounds = dxfBounds(poly)!;
+    expect(bounds).toEqual({ minX: -4, minY: 0, maxX: 0, maxY: 3 });
+
+    const circle = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n1\n  20\n2\n  40\n2\n  210\n0\n  220\n0\n  230\n-1\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(circle[0]?.points).toHaveLength(DXF_CURVE_SEGMENTS_PER_TURN);
+    const cb = dxfBounds(circle)!;
+    // Centre (1,2) in OCS becomes (-1, 2) in plan; radius 2.
+    expect(cb.minX).toBeCloseTo(-3);
+    expect(cb.maxX).toBeCloseTo(1);
+    expect(cb.minY).toBeCloseTo(0);
+    expect(cb.maxY).toBeCloseTo(4);
+  });
+
+  it("leaves LINE, SPLINE, and 3D POLYLINE in WCS when extrusion is (0,0,-1)", () => {
+    const ln = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nLINE\n  10\n1\n  20\n2\n  11\n4\n  21\n2\n  210\n0\n  220\n0\n  230\n-1\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(ln[0]?.points).toEqual([
+      { x: 1, y: 2 },
+      { x: 4, y: 2 },
+    ]);
+
+    const spline = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nSPLINE\n  70\n0\n  71\n1\n  72\n4\n  73\n2\n  40\n0\n  40\n0\n  40\n1\n  40\n1\n  10\n1\n  20\n2\n  10\n4\n  20\n2\n  210\n0\n  220\n0\n  230\n-1\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(spline.length).toBeGreaterThan(0);
+    expect(spline[0]!.points[0]!.x).toBeCloseTo(1);
+    expect(spline[0]!.points[0]!.y).toBeCloseTo(2);
+    const last = spline[0]!.points[spline[0]!.points.length - 1]!;
+    expect(last.x).toBeCloseTo(4);
+    expect(last.y).toBeCloseTo(2);
+
+    const poly3d = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nPOLYLINE\n  70\n8\n  210\n0\n  220\n0\n  230\n-1\n" +
+        "  0\nVERTEX\n  10\n1\n  20\n2\n  30\n5\n" +
+        "  0\nVERTEX\n  10\n4\n  20\n2\n  30\n9\n" +
+        "  0\nSEQEND\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(poly3d[0]?.points).toEqual([
+      { x: 1, y: 2 },
+      { x: 4, y: 2 },
+    ]);
+  });
+
+  it("still skips a paperspace LWPOLYLINE even when it has a non-default extrusion", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nLWPOLYLINE\n  67\n1\n  70\n1\n  210\n0\n  220\n0\n  230\n-1\n" +
+        "  10\n0\n  20\n0\n  10\n4\n  20\n0\n  10\n4\n  20\n3\n  10\n0\n  20\n3\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(entities).toEqual([]);
+    expect(dxfBounds(entities)).toBeNull();
+  });
+
+  it("projects an OCS circle with extrusion (0,1,0) to a line in plan", () => {
+    const circle = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nCIRCLE\n  10\n0\n  20\n0\n  40\n2\n  210\n0\n  220\n1\n  230\n0\n  0\nENDSEC\n  0\nEOF\n"
+    );
+    expect(circle).toHaveLength(1);
+    const bounds = dxfBounds(circle)!;
+    // OCS (x,y,0) with N=(0,1,0) becomes WCS (-x, 0, y); plan is the X axis.
+    expect(bounds.minY).toBeCloseTo(0);
+    expect(bounds.maxY).toBeCloseTo(0);
+    expect(bounds.minX).toBeCloseTo(-2);
+    expect(bounds.maxX).toBeCloseTo(2);
   });
 });

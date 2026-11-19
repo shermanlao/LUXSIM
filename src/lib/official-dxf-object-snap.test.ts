@@ -550,3 +550,18 @@ describe("object snap and bounds skip paperspace and keep 3D POLYLINE in plan", 
     expect(end?.point).toEqual({ x: 0, y: 0 });
   });
 });
+
+describe("object snap and bounds apply 2D extrusion in plan", () => {
+  it("snaps to a flipped LWPOLYLINE corner when extrusion is (0,0,-1)", () => {
+    const entities = parseDxfEntities(
+      "  0\nSECTION\n  2\nENTITIES\n  0\nLWPOLYLINE\n  70\n1\n  210\n0\n  220\n0\n  230\n-1\n" +
+        "  10\n0\n  20\n0\n  10\n4\n  20\n0\n  10\n4\n  20\n3\n  10\n0\n  20\n3\n" +
+        "  0\nENDSEC\n  0\nEOF\n"
+    );
+    const bounds = dxfBounds(entities)!;
+    expect(bounds).toEqual({ minX: -4, minY: 0, maxX: 0, maxY: 3 });
+    const end = pickDxfObjectSnap({ x: -4, y: -0.02 }, entities, 0.1);
+    expect(end?.kind).toBe("endpoint");
+    expect(end?.point).toEqual({ x: -4, y: 0 });
+  });
+});
