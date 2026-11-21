@@ -10,7 +10,7 @@ import {
 } from "./dxf";
 import { officialDxfPointsCoincide } from "./official-dxf-polyline";
 import { officialPointInPolygonInclusive } from "./official-room-union";
-import { officialRoomRingVertices } from "./official-room-vertex";
+import { officialRoomRingVertices, validateStretchedRoomPolygon } from "./official-room-vertex";
 import {
   FILLET_ALL_CORNERS_REFUSE_MISSING_STATUS,
   FILLET_ALL_CORNERS_REFUSE_RADIUS_STATUS,
@@ -431,6 +431,143 @@ describe("filletOfficialRoomAllCorners", () => {
     expect(mixed).toEqual(original);
   });
 });
+
+
+describe("line-to-arc and arc-aware fillets", () => {
+  function quarterDiskPolygon(): Vec2[] {
+    // Quarter-disk of radius 2: line along +x, then tessellated quarter-circle to +y.
+    // At (2,0) the line meets the arc at a sharp 90° joint (not G1 with a chord).
+    const mid = tessellateCircularArcIntermediates(0, 0, 2, 0, Math.PI / 2);
+    return [{ x: 0, y: 0 }, { x: 2, y: 0 }, ...mid, { x: 0, y: 2 }];
+  }
+
+  function assertG1LineArcFillet(ring: Vec2[], t1: Vec2, cf: Vec2, radiusM: number, arcCenter: Vec2, arcR: number) {
+    expect(officialDxfPointsCoincide(t1, ring.find((p) => officialDxfPointsCoincide(p, t1))!)).toBe(true);
+    // Fillet radius through t1 is perpendicular to the straight edge (x-axis ⇒ vertical).
+    expect(Math.abs(t1.y - 0)).toBeLessThan(1e-9);
+    expect(Math.abs(cf.y - radiusM)).toBeLessThan(1e-6);
+    expect(Math.abs(cf.x - t1.x)).toBeLessThan(1e-6);
+    // Tangent on the arc: line of centres collinear Cf → T2 → from arc centre.
+    const t2 = {
+      x: arcCenter.x + (arcR / (arcR - radiusM)) * (cf.x - arcCenter.x),
+      y: arcCenter.y + (arcR / (arcR - radiusM)) * (cf.y - arcCenter.y),
+    };
+    // For internal tangency |Cf-O|=R-r, T2 = O + R*normalize(Cf-O)
+    const sep = Math.hypot(cf.x - arcCenter.x, cf.y - arcCenter.y);
+    const t2Exact = {
+      x: arcCenter.x + (arcR / sep) * (cf.x - arcCenter.x),
+      y: arcCenter.y + (arcR / sep) * (cf.y - arcCenter.y),
+    };
+    const found = ring.find((p) => Math.hypot(p.x - t2Exact.x, p.y - t2Exact.y) < 1e-6);
+    expect(found).toBeDefined();
+    const vFillet = { x: found!.x - cf.x, y: found!.y - cf.y };
+    const vArc = { x: found!.x - arcCenter.x, y: found!.y - arcCenter.y };
+    expect(Math.abs(vFillet.x * vArc.y - vFillet.y * vArc.x)).toBeLessThan(1e-6);
+    void t2;
+  }
+
+  it("fillets the next sharp corner after an official fillet without using a tessellation chord", () => {
+    const square = rectPolygon(0, 0, 2, 2);
+    const first = filletOfficialRoomCorner(square, 0, 0.5);
+    expect(first.ok).toBe(true);
+    if (!first.ok) return;
+    const ring1 = officialRoomRingVertices(first.polygon);
+    // Interior arc vertex must refuse as already straight / G1 (not a chord fillet).
+    expect(filletOfficialRoomCorner(first.polygon, 1, 0.4)).toEqual({
+      ok: false,
+      reason: "straight",
+    });
+    const sharpIdx = ring1.findIndex((p) => officialDxfPointsCoincide(p, { x: 2, y: 0 }));
+    expect(sharpIdx).toBeGreaterThan(0);
+    const second = filletOfficialRoomCorner(first.polygon, sharpIdx, 0.5);
+    expect(second.ok).toBe(true);
+    if (!second.ok) return;
+    const ring2 = officialRoomRingVertices(second.polygon);
+    expect(validateSimple(ring2)).toBe(true);
+    // New fillet at (2,0) is a quarter-circle about (1.5, 0.5).
+    const tLeft = ring2.find((p) => officialDxfPointsCoincide(p, { x: 1.5, y: 0 }));
+    const tUp = ring2.find((p) => officialDxfPointsCoincide(p, { x: 2, y: 0.5 }));
+    expect(tLeft).toBeDefined();
+    expect(tUp).toBeDefined();
+    const mid = ring2.slice(
+      ring2.findIndex((p) => officialDxfPointsCoincide(p, tLeft!)) + 1,
+      ring2.findIndex((p) => officialDxfPointsCoincide(p, tUp!))
+    );
+    const sweep = officialShortSweepRad(-Math.PI / 2, 0);
+    const expectedMid = tessellateCircularArcIntermediates(1.5, 0.5, 0.5, -Math.PI / 2, sweep);
+    expect(mid.length).toBe(expectedMid.length);
+    for (let i = 0; i < mid.length; i++) {
+      expect(mid[i]!.x).toBeCloseTo(expectedMid[i]!.x, 9);
+      expect(mid[i]!.y).toBeCloseTo(expectedMid[i]!.y, 9);
+    }
+  });
+
+  it("fillets a sharp line–arc junction from a tessellated circular arc (DXF-style)", () => {
+    const poly = quarterDiskPolygon();
+    const original = poly.map((p) => ({ ...p }));
+    const radiusM = 0.5;
+    const result = filletOfficialRoomCorner(poly, 1, radiusM);
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(poly).toEqual(original);
+    const ring = officialRoomRingVertices(result.polygon);
+    expect(validateSimple(ring)).toBe(true);
+    const t1 = { x: Math.SQRT2, y: 0 };
+    const cf = { x: Math.SQRT2, y: radiusM };
+    expect(ring.some((p) => officialDxfPointsCoincide(p, t1))).toBe(true);
+    assertG1LineArcFillet(ring, t1, cf, radiusM, { x: 0, y: 0 }, 2);
+    // Must not match a fillet built against only the first tessellation chord.
+    const chordNeighbor = tessellateCircularArcIntermediates(0, 0, 2, 0, Math.PI / 2)[0]!;
+    const wrong = filletAgainstChordOnly({ x: 0, y: 0 }, { x: 2, y: 0 }, chordNeighbor, radiusM);
+    expect(Math.hypot(t1.x - wrong.t1.x, t1.y - wrong.t1.y)).toBeGreaterThan(0.05);
+  });
+
+  it("Fillet all skips already-filleted runs and still all-or-nothing refuses when too large", () => {
+    const square = rectPolygon(0, 0, 2, 2);
+    const one = filletOfficialRoomCorner(square, 0, 0.5);
+    expect(one.ok).toBe(true);
+    if (!one.ok) return;
+    // Remaining three corners fit at R=0.5 on a 2 m square edge shared with the prior fillet.
+    const rest = filletOfficialRoomAllCorners(one.polygon, 0.5);
+    expect(rest.ok).toBe(true);
+    if (!rest.ok) return;
+    const again = filletOfficialRoomAllCorners(rest.polygon, 0.5);
+    expect(again).toEqual({ ok: false, reason: "straight" });
+
+    const poly = quarterDiskPolygon();
+    const original = poly.map((p) => ({ ...p }));
+    // One sharp line–arc joint plus two more corners; a huge radius must refuse fully.
+    const huge = filletOfficialRoomAllCorners(poly, 3);
+    expect(huge).toEqual({ ok: false, reason: "too-large" });
+    expect(poly).toEqual(original);
+
+    const okAll = filletOfficialRoomAllCorners(poly, 0.3);
+    expect(okAll.ok).toBe(true);
+    if (!okAll.ok) return;
+    const ringAll = officialRoomRingVertices(okAll.polygon);
+    // Sharp line–arc joints at (2,0) and (0,2) must be filleted, not skipped.
+    expect(ringAll.some((p) => officialDxfPointsCoincide(p, { x: 2, y: 0 }))).toBe(false);
+    expect(ringAll.some((p) => officialDxfPointsCoincide(p, { x: 0, y: 2 }))).toBe(false);
+    expect(validateSimple(ringAll)).toBe(true);
+  });
+});
+
+function validateSimple(ring: Vec2[]): boolean {
+  return validateStretchedRoomPolygon(ring).ok;
+}
+
+/** Reference: old line–line fillet against the first chord only (for inequality checks). */
+function filletAgainstChordOnly(A: Vec2, B: Vec2, C: Vec2, radiusM: number): { t1: Vec2 } {
+  const len1 = Math.hypot(A.x - B.x, A.y - B.y);
+  const len2 = Math.hypot(C.x - B.x, C.y - B.y);
+  const u1x = (A.x - B.x) / len1;
+  const u1y = (A.y - B.y) / len1;
+  const u2x = (C.x - B.x) / len2;
+  const u2y = (C.y - B.y) / len2;
+  const cross = u1x * u2y - u1y * u2x;
+  const d = radiusM / Math.tan(Math.atan2(Math.abs(cross), u1x * u2x + u1y * u2y) / 2);
+  return { t1: { x: B.x + u1x * d, y: B.y + u1y * d } };
+}
 
 describe("officialFilletRoomAllCorners", () => {
   it("updates the room, unassigns fixtures that fall outside, and leaves inside fixtures put", () => {

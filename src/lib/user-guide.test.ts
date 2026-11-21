@@ -487,10 +487,14 @@ describe("user guide", () => {
     expect(guide).toMatch(/點該房的角點控制點即可修圓該角/);
     expect(guide).toMatch(/A mid-edge insert handle is not a fillet target/);
     expect(guide).toMatch(/邊上的插入控制點不是修圓目標/);
-    expect(guide).toMatch(/the radius is too large for the adjacent edges/);
-    expect(guide).toMatch(/半徑對相鄰兩邊過大/);
+    expect(guide).toMatch(/the radius is too large for the adjacent edges or arcs/);
+    expect(guide).toMatch(/半徑對相鄰兩邊或圓弧過大/);
     expect(guide).toMatch(/no longer lie in the filleted outline have their room assignment cleared/);
     expect(guide).toMatch(/已不在修圓後輪廓內的燈具會取消房間歸屬/);
+    expect(guide).toMatch(/straight wall can be filleted against an existing arc/);
+    expect(guide).toMatch(/直線邊可對已有圓弧/);
+    expect(guide).toMatch(/still stored as a simple polygon/);
+    expect(guide).toMatch(/仍存成無洞的簡單多邊形/);
     expect(guide).not.toMatch(/does not fillet every corner at once/);
     expect(guide).not.toMatch(/不會一次修全部角/);
     const tips = read("src/lib/ui-tips.ts");
@@ -509,14 +513,14 @@ describe("user guide", () => {
     expect(guide).toMatch(/按按鈕即立即套用，不必再點角點控制點/);
     expect(guide).toMatch(/Already-straight or already-filleted corners are skipped/);
     expect(guide).toMatch(/已接近直線或已修圓的角會被略過/);
-    expect(guide).toMatch(/two fillets would overlap on the same edge/);
-    expect(guide).toMatch(/同一邊上兩個圓角的修剪段會重疊/);
+    expect(guide).toMatch(/two fillets would overlap on the same edge or arc/);
+    expect(guide).toMatch(/同一邊或同一圓弧上兩個圓角的修剪段會重疊/);
     expect(guide).toMatch(/no partial fillet/);
     expect(guide).toMatch(/不套用部分圓角/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "tool.filletAllCorners"');
     expect(tips).toMatch(/applies immediately; you do not pick a corner handle/);
-    expect(tips).toMatch(/two fillets would overlap on the same edge/);
+    expect(tips).toMatch(/two fillets would overlap on the same edge or arc/);
     expect(tips).toMatch(/every remaining corner is already straight \(no sharp corner to fillet\)/);
   });
 
