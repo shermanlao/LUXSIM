@@ -89,6 +89,7 @@ import {
   type Camera3dView,
   type Display3dMode,
   type DxfEntity,
+  type OfficialDxfTextLabel,
   type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
@@ -199,6 +200,14 @@ import {
   type ScheduleImportRow,
 } from "@/lib/schedule-csv";
 import {
+  PLAN_CODE_REFUSE_NO_PLAN,
+  commitPlanCodePlacements,
+  planCodeCommitBlockedReason,
+  planPlanCodeCommit,
+  scanPlanCodeLabels,
+  type PlanCodePlaceRow,
+} from "@/lib/plan-code-place";
+import {
   focusActiveRoomAfterPlacement,
   postPlaceCalcStatusSuffix,
 } from "@/lib/post-place-calc";
@@ -224,6 +233,7 @@ import {
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { RcpDetectPanel } from "./RcpDetectPanel";
+import { PlanCodePlacePanel } from "./PlanCodePlacePanel";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
@@ -411,6 +421,11 @@ export function BuildingEditor({
   const [scheduleParseErrors, setScheduleParseErrors] = useState<string[]>([]);
   const [scheduleCommitting, setScheduleCommitting] = useState(false);
   const [calcAfterSchedule, setCalcAfterSchedule] = useState(false);
+  const [planCodeRows, setPlanCodeRows] = useState<PlanCodePlaceRow[]>([]);
+  const [planCodeScanning, setPlanCodeScanning] = useState(false);
+  const [planCodeCommitting, setPlanCodeCommitting] = useState(false);
+  const [calcAfterPlanCode, setCalcAfterPlanCode] = useState(false);
+  const [replacePlanCodeFixtures, setReplacePlanCodeFixtures] = useState(false);
   const [rcpDetecting, setRcpDetecting] = useState(false);
   const [rcpCommitting, setRcpCommitting] = useState(false);
   const [rcpWarnings, setRcpWarnings] = useState<string[]>([]);
@@ -521,6 +536,10 @@ export function BuildingEditor({
   useEffect(() => {
     void loadLibrary();
   }, [loadLibrary]);
+
+  useEffect(() => {
+    setPlanCodeRows([]);
+  }, [scene.ui.activeStoreyId]);
 
   useEffect(() => {
     if (!assets.length) return;
@@ -2324,6 +2343,134 @@ export function BuildingEditor({
     }
   }
 
+  async function runPlanCodeScan() {
+    if (readOnly) return;
+    if (!underlay || !officialHasParsedCadLinework(underlay)) {
+      setPlanCodeRows([]);
+      setStatus(PLAN_CODE_REFUSE_NO_PLAN);
+      return;
+    }
+    setPlanCodeScanning(true);
+    try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.scanningPlanCodes, async () => {
+        const res = await fetch(
+          `/api/projects/${projectId}/assets/${underlay.assetId}/plan-text-labels`
+        );
+        const data = (await res.json()) as { error?: string; labels?: OfficialDxfTextLabel[] };
+        if (!res.ok) {
+          setPlanCodeRows([]);
+          setStatus(data.error || PLAN_CODE_REFUSE_NO_PLAN);
+          return;
+        }
+        const scanned = scanPlanCodeLabels({
+          labels: Array.isArray(data.labels) ? data.labels : [],
+          underlay,
+          hiddenLayers: underlay.hiddenLayers ?? [],
+          rules: latestRef.current.scene.fixtureCodeMap ?? [],
+          rooms: latestRef.current.scene.rooms,
+          storeyId: latestRef.current.scene.ui.activeStoreyId,
+        });
+        if (!scanned.ok) {
+          setPlanCodeRows([]);
+          setStatus(scanned.reason);
+          return;
+        }
+        setPlanCodeRows(scanned.rows);
+        setStatus(
+          scanned.outsideSkipped
+            ? `Found ${scanned.rows.length} plan code(s) · ${scanned.outsideSkipped} outside room / 找到 ${scanned.rows.length} 個燈碼 · ${scanned.outsideSkipped} 個在房外`
+            : `Found ${scanned.rows.length} plan code(s) / 找到 ${scanned.rows.length} 個燈碼`
+        );
+      });
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Scan failed");
+    } finally {
+      setPlanCodeScanning(false);
+    }
+  }
+
+  async function runPlanCodeCommit(options: {
+    calcAfterCommit: boolean;
+    replaceExistingFromPlanCodes: boolean;
+  }) {
+    if (readOnly) return;
+    const latest = latestRef.current;
+    const blockedReason = planCodeCommitBlockedReason(planCodeRows);
+    if (blockedReason) {
+      setStatus(blockedReason);
+      return;
+    }
+    const plan = planPlanCodeCommit(planCodeRows, latest.scene, luminaireNameMap());
+    const roomIds = plan.drafts.map((d) => d.roomId);
+    if (options.replaceExistingFromPlanCodes) {
+      for (const inst of latest.scene.instances) {
+        if (inst.planCodeId && inst.storeyId === latest.scene.ui.activeStoreyId && inst.roomId) {
+          roomIds.push(inst.roomId);
+        }
+      }
+    }
+    requestFixtureWrite(roomIds, () => {
+      void runPlanCodeCommitNow(options);
+    });
+  }
+
+  async function runPlanCodeCommitNow(options: {
+    calcAfterCommit: boolean;
+    replaceExistingFromPlanCodes: boolean;
+  }) {
+    setPlanCodeCommitting(true);
+    try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.committingPlanCodes, async () => {
+        const latest = latestRef.current;
+        const out = await commitPlanCodePlacements(
+          {
+            scene: latest.scene,
+            results: latest.results,
+            rows: planCodeRows,
+            luminaireNames: luminaireNameMap(),
+            options: {
+              replaceExistingFromPlanCodes: options.replaceExistingFromPlanCodes,
+              runCalc: options.calcAfterCommit,
+            },
+          },
+          writeCalcDeps()
+        );
+        if (out.blockedReason) {
+          setStatus(out.blockedReason);
+          return;
+        }
+        recordUndoFromLatest();
+        setScene(out.scene);
+        setResults(out.results);
+        if (out.instanceIds.length === 0) {
+          setStatus(
+            out.skippedOutside.length
+              ? `No fixtures placed — ${out.skippedOutside.length} outside room`
+              : "Nothing to commit"
+          );
+          return;
+        }
+        let msg = `Placed ${out.instanceIds.length} fixture(s) from plan codes / 已按圖則燈碼放置 ${out.instanceIds.length} 個燈具`;
+        if (out.skippedOutside.length) {
+          msg += ` · skipped ${out.skippedOutside.length} outside room`;
+        }
+        if (options.calcAfterCommit && out.calcFailed) {
+          msg += out.calcErrorMessage
+            ? ` · ${out.calcErrorMessage}`
+            : " · calc failed (fixtures kept) / 計算失敗（燈具已保留）";
+        } else if (options.calcAfterCommit) {
+          msg += " · calculated / 已計算";
+        }
+        setStatus(msg);
+        setSelectedId(out.instanceIds[out.instanceIds.length - 1] ?? null);
+      });
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Commit failed");
+    } finally {
+      setPlanCodeCommitting(false);
+    }
+  }
+
   async function applyFixtureArray(params: ArrayParams, luminaireId: string) {
     if (!activeRoom) {
       setStatus("Select a room for the array");
@@ -3984,6 +4131,26 @@ export function BuildingEditor({
                 room={scene.rooms.find((r) => r.id === selected.roomId) ?? null}
               />
             </div>
+          )}
+
+          {workflow === "light" && !readOnly && (
+            <PlanCodePlacePanel
+              disabled={!underlay || !officialHasParsedCadLinework(underlay)}
+              rooms={scene.rooms.filter((r) => r.storeyId === scene.ui.activeStoreyId)}
+              storeyId={scene.ui.activeStoreyId}
+              codeMapRules={scene.fixtureCodeMap ?? []}
+              luminaireNames={codeMapLuminaireNames}
+              rows={planCodeRows}
+              onRowsChange={setPlanCodeRows}
+              scanning={planCodeScanning}
+              onScan={() => void runPlanCodeScan()}
+              calcAfterCommit={calcAfterPlanCode}
+              onCalcAfterCommitChange={setCalcAfterPlanCode}
+              replaceExisting={replacePlanCodeFixtures}
+              onReplaceExistingChange={setReplacePlanCodeFixtures}
+              committing={planCodeCommitting}
+              onCommit={(opts) => void runPlanCodeCommit(opts)}
+            />
           )}
 
           {workflow === "light" && (

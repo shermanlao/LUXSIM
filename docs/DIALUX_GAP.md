@@ -8,6 +8,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **Rect / line fixture arrays** — `arrange-array` + shared `writeFixtureInstances` batch path
 - **Auto arrange by target Ēm (F1.2)** — `arrange-by-em` estimator + same array preview/apply path; utilance η default 0.6 (adjustable); not a substitute for client Calc
 - **CSV schedule import (F3.1)** — Light **Import schedule**: metre coordinates + code map → preview → `writeFixtureInstances`; unmapped accepted rows block commit
+- **Place from plan codes / 按圖則燈碼佈燈** — Light: extract TEXT/MTEXT from the official DXF or converted DWG (INSERT explode, hidden layers, official units) + the same code map → preview → `writeFixtureInstances`; accepted unmapped/ambiguous rows block commit; points outside rooms are skipped
 - **Fixture code map** — schedule codes (e.g. DL-01) → project luminaire via exact/alias rules on `scene.fixtureCodeMap` (no fuzzy match)
 - **Dark CAD workspace** on project routes: workflow ribbon, 3-pane layout, bottom results strip (Ēm / Uo / UGR / MF / LPD)
 - **Workflow ribbon** (Construction / Light / Calculation / Documentation) with panel filters

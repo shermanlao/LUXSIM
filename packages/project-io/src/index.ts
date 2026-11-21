@@ -129,6 +129,16 @@ export {
   tessellateCircularArcIntermediates,
 } from "./dxf";
 export {
+  officialDxfMtextRotationDeg,
+  officialDxfTextInsertionPoint,
+  officialDxfTextLabelsToWorld,
+  officialIsDxfTextLabelList,
+  officialStripDxfText,
+  officialVisibleDxfTextLabels,
+  parseDxfTextLabels,
+} from "./official-dxf-text";
+export type { OfficialDxfTextKind, OfficialDxfTextLabel } from "./official-dxf-text";
+export {
   DXF_CLOSED_VERTEX_EPS_M,
   officialDxfClosedRingVertices,
   officialDxfEntitySegments,

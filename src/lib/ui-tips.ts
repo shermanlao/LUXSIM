@@ -125,6 +125,11 @@ export const UI_TIPS: UiTipSeed[] = [
     body: "Optional maintained illuminance / uniformity / UGR targets for pass-fail hints after Calculate. Design assist only — not certification.",
   },
   {
+    helpKey: "light.placeFromPlanCodes",
+    title: "Place from plan codes",
+    body: "In Light mode, Place from plan codes reads lighting-code text (TEXT / MTEXT, including text exploded from INSERT blocks) from the imported DXF or converted DWG on the current storey and matches it with the project code map. Hidden layers are skipped. Accepted but unmapped or ambiguous rows block commit; the app does not guess. Points outside every room on this storey are skipped and are not placed in empty space. Rooms are not changed. Optional Replace prior plan-code fixtures (off by default) only replaces fixtures previously placed by this command on this storey; fixtures you placed by hand are kept. This does not replace Detect from plan (raster OCR) or Import schedule (CSV).",
+  },
+  {
     helpKey: "export.dialuxVerification",
     title: "Verification pack",
     body: "Downloads rooms.json (height, ρ, MF 0.80 default), schedule.csv with rotation_deg, IES/LDT, geometry.dxf, and results CSV for an independent cross-check. Use closed rooms, normal luminaires, and match MF. Read README.txt inside the zip.",

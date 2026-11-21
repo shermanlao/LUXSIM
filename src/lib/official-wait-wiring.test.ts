@@ -21,6 +21,8 @@ describe("official wait dialog wiring", () => {
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.importingPhotometry");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.saving");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.detectingCodes");
+    expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.scanningPlanCodes");
+    expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.committingPlanCodes");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.committingRcp");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.importingSchedule");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.placingFixtures");

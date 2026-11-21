@@ -176,6 +176,8 @@ export interface FixtureInstance {
   rotationDeg: number;
   /** Present when placed via RCP detect commit (F2.4). */
   rcpProposalId?: string;
+  /** Present when placed via Place from plan codes on this storey. */
+  planCodeId?: string;
 }
 
 /** RCP / schedule fixture code → org luminaire (exact/alias only; stored on project scene). */

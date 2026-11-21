@@ -65,6 +65,14 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Detecting fixture codes…",
     titleZh: "正在偵測燈具編號…",
   },
+  scanningPlanCodes: {
+    titleEn: "Scanning plan codes…",
+    titleZh: "正在掃描圖則燈碼…",
+  },
+  committingPlanCodes: {
+    titleEn: "Placing fixtures from plan codes…",
+    titleZh: "正在按圖則燈碼放置燈具…",
+  },
   placingFixtures: {
     titleEn: "Placing fixtures…",
     titleZh: "正在放置燈具…",

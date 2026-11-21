@@ -138,6 +138,7 @@ describe("user guide", () => {
     expect(headings).toContain("樓層輪廓 / Draw storey contour");
     expect(headings).toContain("復原與重做 / Undo and Redo");
     expect(headings).toContain("樓層標高與層高 / Storey elevation and height");
+    expect(headings).toContain("按圖則燈碼佈燈 / Place from plan codes");
     expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("圓形排列 / Circular array");
     expect(headings).toContain("多邊形排列 / Polygon array");
@@ -146,6 +147,26 @@ describe("user guide", () => {
     expect(headings).toContain("燈具庫 / Luminaire library");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
+  });
+
+  it("documents Place from plan codes in Light mode", () => {
+    expect(guide).toMatch(/按圖則燈碼佈燈 \/ Place from plan codes/);
+    expect(guide).toMatch(/\*\*Place from plan codes\*\*/);
+    expect(guide).toMatch(/\*\*Scan plan codes\*\*/);
+    expect(guide).toMatch(/掃描圖則燈碼/);
+    expect(guide).toMatch(/it does not change rooms/i);
+    expect(guide).toMatch(/房間不會被改動|不會改動房間/);
+    expect(guide).toMatch(/Accepted but unmapped or ambiguous rows block commit/);
+    expect(guide).toMatch(/已接受但未對應或多項匹配的列會阻止提交/);
+    expect(guide).toMatch(/Points outside every room on the current storey are skipped/);
+    expect(guide).toMatch(/落在本層任何房間之外的點會略過/);
+    expect(guide).toMatch(/Replace prior plan-code fixtures/);
+    expect(guide).toMatch(/取代先前按燈碼佈置的燈具|Replace prior plan-code fixtures\*\*（預設關閉）/);
+    expect(guide).toMatch(/hidden on a view-only project/i);
+    expect(guide).toMatch(/唯讀專案會隱藏此操作/);
+    expect(guide).toMatch(/Detect from plan/);
+    expect(guide).toMatch(/Import schedule/);
+    expect(guide).not.toMatch(/DIALux/);
   });
 
   it("documents that only a workspace Owner can rename the workspace", () => {
