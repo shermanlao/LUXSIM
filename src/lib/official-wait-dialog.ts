@@ -77,6 +77,10 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Placing fixtures…",
     titleZh: "正在放置燈具…",
   },
+  planningAutomaticPlacement: {
+    titleEn: "Planning automatic placement…",
+    titleZh: "正在規劃自動佈燈…",
+  },
   committingRcp: {
     titleEn: "Placing detected fixtures…",
     titleZh: "正在放置已偵測燈具…",

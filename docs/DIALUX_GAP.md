@@ -6,7 +6,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 - Multi-storey / multi-room projects (`ProjectSceneV2`)
 - **Rect / line fixture arrays** — `arrange-array` + shared `writeFixtureInstances` batch path
-- **Auto arrange by target Ēm (F1.2)** — `arrange-by-em` estimator + same array preview/apply path; utilance η default 0.6 (adjustable); not a substitute for client Calc
+- **Automatic placement / 自動佈燈** — lumen-method count, S/Hm spacing cap, and a polygon-aware layout inside the official room (including L / T / irregular rooms); EN 12464-1 assist template defaults the target Ēm; utilance η default 0.6 (adjustable); not a substitute for client Calc
 - **CSV schedule import (F3.1)** — Light **Import schedule**: metre coordinates + code map → preview → `writeFixtureInstances`; unmapped accepted rows block commit
 - **Place from plan codes / 按圖則燈碼佈燈** — Light: extract TEXT/MTEXT from the official DXF or converted DWG (INSERT explode, hidden layers, official units) + the same code map → preview → `writeFixtureInstances`; accepted unmapped/ambiguous rows block commit; points outside rooms are skipped
 - **Fixture code map** — schedule codes (e.g. DL-01) → project luminaire via exact/alias rules on `scene.fixtureCodeMap` (no fuzzy match)
@@ -59,9 +59,8 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 ### Fixtures
 
 - No manufacturer catalog
-- **Rectangular / line / circular / polygon / target-Ēm arrays** in Light mode (Arrange · array panel; preview on Top view). Polygon mode places Count fixtures equally along the selected room outline, starting at the first corner, or along an optional custom path picked on the plan (open or closed); rotation is fixture orientation. Alignment is not yet available. Target-Ēm estimate remains a rectangular grid only.
+- **Rectangular / line / circular / polygon arrays** and **Automatic placement / 自動佈燈** in Light mode (Arrange · array panel; preview on Top view). Polygon mode places Count fixtures equally along the selected room outline, starting at the first corner, or along an optional custom path picked on the plan (open or closed); rotation is fixture orientation. Alignment is not yet available. Automatic placement plans a lumen-method quantity, raises it for the S/Hm cap (default 1.5, or 1.25 when the EN assist Uo is at least 0.70), and packs fixtures inside the official room polygon — it does not drop points from a bounding-box grid on L / T / irregular rooms.
 - **Fixture code map** (Light → Code map): RCP/schedule codes → luminaire; CSV import; gates block unmapped/ambiguous on accepted OCR rows (F2.3); F2.4 commit writes instances
-- No automatic placement (intentionally out of v2 scope)
 - `rotationDeg` stored; **BuildingEditor** rotation control + Top view arrow; included in DIALux schedule.csv
 - No lighting scenes / dimming
 

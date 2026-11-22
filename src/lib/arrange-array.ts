@@ -11,8 +11,16 @@ export type ArrayParams = {
   spacingY: number;
   wallOffset: number;
   rotationDeg: number;
-  /** Set when grid came from target-Ēm estimator (F1.2). */
+  /** Set when the plan came from Automatic Placement / the target-Ēm estimator. */
   estimateByTargetEm?: boolean;
+  /** Official Automatic Placement (polygon-aware, lumen method + S/Hm). */
+  automaticPlacement?: boolean;
+  targetEmMaintainedLx?: number;
+  luminousFluxLm?: number;
+  utilance?: number;
+  maintenanceFactor?: number;
+  maxSpacingToHm?: number;
+  utilanceIsDefault?: boolean;
   /**
    * Optional world-metre endpoints from official Line click-to-pick.
    * When both are set, fixtures are placed along this segment and Spacing X

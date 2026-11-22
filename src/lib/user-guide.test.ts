@@ -142,6 +142,7 @@ describe("user guide", () => {
     expect(headings).toContain("直線排列 / Line array");
     expect(headings).toContain("圓形排列 / Circular array");
     expect(headings).toContain("多邊形排列 / Polygon array");
+    expect(headings).toContain("自動佈燈 / Automatic placement");
     expect(headings).toContain("等照度線與數值圖 / Isolines and value labels");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(headings).toContain("燈具庫 / Luminaire library");
@@ -292,6 +293,30 @@ describe("user guide", () => {
     expect(POLYGON_ARRAY_HINT).toMatch(/closed outline/);
     expect(POLYGON_ARRAY_UNUSED_FIELDS_REASON).toMatch(/stay disabled/);
     expect(POLYGON_ARRAY_ROTATION_REASON).toMatch(/not aimed along the tangent or inward/);
+  });
+
+  it("documents Automatic placement in Light mode Arrange", () => {
+    const tips = read("src/lib/ui-tips.ts");
+    expect(guide).toMatch(/自動佈燈 \/ Automatic placement/);
+    expect(guide).toMatch(/choose \*\*Automatic placement\*\* in \*\*Arrange\*/);
+    expect(guide).toMatch(/再開右側 \*\*Arrange\*\* 的 \*\*Automatic placement\*\*（自動佈燈）/);
+    expect(guide).toMatch(/hidden on a view-only project/i);
+    expect(guide).toMatch(/唯讀專案會隱藏此操作/);
+    expect(guide).toMatch(/lumen method/i);
+    expect(guide).toMatch(/流明法/);
+    expect(guide).toMatch(/S\/Hm/);
+    expect(guide).toMatch(/距高比/);
+    expect(guide).toMatch(/L-shaped/);
+    expect(guide).toMatch(/L 形/);
+    expect(guide).toMatch(/Planning automatic placement…/);
+    expect(guide).toMatch(/正在規劃自動佈燈…/);
+    expect(guide).toMatch(/Estimate only/);
+    expect(guide).toMatch(/僅供估算/);
+    expect(guide).toMatch(/not a substitute for \*\*Calc\*/);
+    expect(guide).toMatch(/不能代替 \*\*Calc\*/);
+    expect(guide).not.toMatch(/DIALux/);
+    expect(tips).toContain('helpKey: "tool.automaticPlacement"');
+    expect(tips).toContain("AUTOMATIC_PLACEMENT_HINT");
   });
 
   it("documents official DXF object snap on Top picks", () => {
@@ -612,12 +637,14 @@ describe("user guide", () => {
     expect(guide).toContain("![顯示開關 / Greyscale, False colour, Isolines and Value labels](/docs/guide/display-toggles.svg)");
     expect(guide).toContain("![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)");
     expect(guide).toContain("![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)");
+    expect(guide).toContain("![自動佈燈 / Automatic placement](/docs/guide/automatic-placement.svg)");
     for (const name of [
       "plan-view-controls.svg",
       "room-handles.svg",
       "display-toggles.svg",
       "isolux-overlay.svg",
       "draw-room.svg",
+      "automatic-placement.svg",
     ]) {
       expect(existsSync(path.join(process.cwd(), "public/docs/guide", name))).toBe(true);
     }

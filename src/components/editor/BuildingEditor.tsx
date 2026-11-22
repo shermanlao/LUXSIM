@@ -181,6 +181,11 @@ import {
   prepareFixtureArrayApply,
 } from "@/lib/array-occupied";
 import {
+  automaticPlacementInputFromParams,
+  formatAutomaticPlacementRefusal,
+  planAutomaticPlacement,
+} from "@/lib/automatic-placement";
+import {
   formatAreaM2,
   formatMetresXy,
   formatOriginMetres,
@@ -2472,8 +2477,13 @@ export function BuildingEditor({
   }
 
   async function applyFixtureArray(params: ArrayParams, luminaireId: string) {
+    if (readOnly) return;
     if (!activeRoom) {
-      setStatus("Select a room for the array");
+      setStatus("Select a room for the array / 請先選擇房間");
+      return;
+    }
+    if (params.automaticPlacement) {
+      await applyAutomaticPlacement(params, luminaireId, activeRoom);
       return;
     }
     const plan = planFixtureArray(activeRoom, params);
@@ -2510,6 +2520,51 @@ export function BuildingEditor({
     });
   }
 
+  async function applyAutomaticPlacement(
+    params: ArrayParams,
+    luminaireId: string,
+    room: NonNullable<typeof activeRoom>
+  ) {
+    const input = automaticPlacementInputFromParams(params);
+    if (!input) {
+      const reason =
+        !params.luminousFluxLm || params.luminousFluxLm <= 0
+          ? "no-flux"
+          : !params.targetEmMaintainedLx || params.targetEmMaintainedLx <= 0
+            ? "invalid-target"
+            : !params.maxSpacingToHm || params.maxSpacingToHm <= 0
+              ? "invalid-max-s-over-hm"
+              : "cannot-place";
+      setStatus(formatAutomaticPlacementRefusal(reason));
+      return;
+    }
+    try {
+      const out = await officialWait.run(OFFICIAL_WAIT_COPY.planningAutomaticPlacement, () =>
+        planAutomaticPlacement(room, input)
+      );
+      if (!out.ok) {
+        setArrayPreview(null);
+        setStatus(formatAutomaticPlacementRefusal(out.reason));
+        return;
+      }
+      const decision = prepareFixtureArrayApply(
+        out.plan,
+        latestRef.current.scene.instances,
+        room.id
+      );
+      if (!decision.placeable.length) {
+        setArrayPreview(null);
+        setStatus(formatAutomaticPlacementRefusal("all-occupied"));
+        return;
+      }
+      requestFixtureWrite([room.id], () => {
+        void applyFixtureArrayNow(params, luminaireId, decision, room);
+      });
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Automatic placement failed");
+    }
+  }
+
   async function applyFixtureArrayNow(
     params: ArrayParams,
     luminaireId: string,
@@ -2533,7 +2588,11 @@ export function BuildingEditor({
 
     setArrayApplying(true);
     try {
-      await officialWait.run(OFFICIAL_WAIT_COPY.placingFixtures, async () => {
+      await officialWait.run(
+        params.automaticPlacement
+          ? OFFICIAL_WAIT_COPY.planningAutomaticPlacement
+          : OFFICIAL_WAIT_COPY.placingFixtures,
+        async () => {
       const latest = latestRef.current;
       const out = await writeFixtureInstances(
         {
@@ -4199,7 +4258,7 @@ export function BuildingEditor({
             />
           )}
 
-          {workflow === "light" && (
+          {workflow === "light" && !readOnly && (
             <FixtureArrayPanel
               room={activeRoom}
               existingInstances={scene.instances}
@@ -4225,6 +4284,7 @@ export function BuildingEditor({
               polygonPick={polygonPick}
               onPolygonPickChange={setPolygonPick}
               onPolygonPickActiveChange={setPolygonPickActive}
+              runOfficialWait={officialWait.run}
             />
           )}
 

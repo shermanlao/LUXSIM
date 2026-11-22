@@ -25,7 +25,10 @@ describe("official wait dialog wiring", () => {
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.committingPlanCodes");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.committingRcp");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.importingSchedule");
-    expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.placingFixtures");
+    expect(editor).toContain("OFFICIAL_WAIT_COPY.placingFixtures");
+    expect(editor).toContain("OFFICIAL_WAIT_COPY.planningAutomaticPlacement");
+    expect(OFFICIAL_WAIT_COPY.planningAutomaticPlacement.titleEn).toBe("Planning automatic placement…");
+    expect(OFFICIAL_WAIT_COPY.planningAutomaticPlacement.titleZh).toBe("正在規劃自動佈燈…");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.exportingVerification");
     expect(editor).toContain("officialWait.run(OFFICIAL_WAIT_COPY.savingProjectFile");

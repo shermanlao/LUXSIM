@@ -2,12 +2,18 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { RoomV2 } from "@luxsim/project-io";
+import { clampUtilance, DEFAULT_UTILANCE } from "@/lib/arrange-by-em";
 import {
-  clampUtilance,
-  DEFAULT_UTILANCE,
-  previewTargetEmArrange,
-  type TargetEmArrangeEstimate,
-} from "@/lib/arrange-by-em";
+  AUTOMATIC_PLACEMENT_HINT,
+  automaticPlacementDefaultsFromRoom,
+  DEFAULT_MAX_SPACING_TO_HM,
+  DEFAULT_TARGET_EM_MAINTAINED_LX,
+  formatAutomaticPlacementRefusal,
+  planAutomaticPlacement,
+  type AutomaticPlacementEstimate,
+  type AutomaticPlacementRefusal,
+} from "@/lib/automatic-placement";
+import { OFFICIAL_WAIT_COPY, type OfficialWaitCopy } from "@/lib/official-wait-dialog";
 import { defaultCircleRadiusM, planFixtureArray, type ArrayMode, type ArrayParams, type ArrayPoint } from "@/lib/arrange-array";
 import {
   filterPointsOccupiedInRoom,
@@ -45,7 +51,7 @@ import { clampMf, resolveMaintenanceFactor } from "@luxsim/project-io";
 
 type LumOption = { id: string; name: string; fluxLm: number | null };
 
-type PanelMode = ArrayMode | "targetEm";
+type PanelMode = ArrayMode | "automatic";
 
 type Props = {
   room: RoomV2 | null;
@@ -68,6 +74,7 @@ type Props = {
   polygonPick: PolygonPathPickState;
   onPolygonPickChange: (next: PolygonPathPickState) => void;
   onPolygonPickActiveChange: (active: boolean) => void;
+  runOfficialWait?: <T>(copy: OfficialWaitCopy, work: () => Promise<T> | T) => Promise<T>;
 };
 
 export function FixtureArrayPanel({
@@ -90,6 +97,7 @@ export function FixtureArrayPanel({
   polygonPick,
   onPolygonPickChange,
   onPolygonPickActiveChange,
+  runOfficialWait,
 }: Props) {
   const [mode, setMode] = useState<PanelMode>("rect");
   const [luminaireId, setLuminaireId] = useState(luminaires[0]?.id ?? "");
@@ -102,10 +110,12 @@ export function FixtureArrayPanel({
   const [rotationDeg, setRotationDeg] = useState("0");
   const [radius, setRadius] = useState("1");
 
-  const [targetEm, setTargetEm] = useState("500");
+  const [targetEm, setTargetEm] = useState(String(DEFAULT_TARGET_EM_MAINTAINED_LX));
   const [utilance, setUtilance] = useState(String(DEFAULT_UTILANCE));
   const [utilanceTouched, setUtilanceTouched] = useState(false);
-  const [emEstimate, setEmEstimate] = useState<TargetEmArrangeEstimate | null>(null);
+  const [maxSOverHm, setMaxSOverHm] = useState(String(DEFAULT_MAX_SPACING_TO_HM));
+  const [emEstimate, setEmEstimate] = useState<AutomaticPlacementEstimate | null>(null);
+  const [placementRefusal, setPlacementRefusal] = useState<AutomaticPlacementRefusal | null>(null);
   const [previewSkippedOccupied, setPreviewSkippedOccupied] = useState(0);
 
   useEffect(() => {
@@ -148,9 +158,12 @@ export function FixtureArrayPanel({
   useEffect(() => {
     if (!room) return;
     setRadius(defaultCircleRadiusM(room).toFixed(2));
+    const defaults = automaticPlacementDefaultsFromRoom(room);
+    setTargetEm(String(defaults.targetEmMaintainedLx));
+    setMaxSOverHm(String(defaults.maxSpacingToHm));
     // Prefill from the selected room only; do not reset when the same room object identity changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [room?.id]);
+  }, [room?.id, room?.calc.en12464TemplateId]);
 
   const selectedFlux = luminaires.find((l) => l.id === luminaireId)?.fluxLm ?? null;
 
@@ -175,7 +188,7 @@ export function FixtureArrayPanel({
     const circlePicked = mode === "circle" && isCircleCentrePicked(circlePick);
     const pathComplete = mode === "polygon" && isPolygonPathComplete(polygonPick);
     return {
-      mode: mode === "targetEm" ? "rect" : mode,
+      mode: mode === "automatic" ? "rect" : mode,
       rows: Math.max(1, Math.floor(Number(rows) || 1)),
       cols: Math.max(1, Math.floor(Number(cols) || 1)),
       count: Math.max(1, Math.floor(Number(count) || 1)),
@@ -183,7 +196,8 @@ export function FixtureArrayPanel({
       spacingY: sy,
       wallOffset: wo,
       rotationDeg: rot,
-      estimateByTargetEm: mode === "targetEm",
+      estimateByTargetEm: mode === "automatic",
+      automaticPlacement: mode === "automatic",
       lineStart: lineComplete ? linePick.start : null,
       lineEnd: lineComplete ? linePick.end : null,
       radius: rad,
@@ -193,13 +207,15 @@ export function FixtureArrayPanel({
     };
   }
 
-  function buildTargetEmInput() {
+  function buildAutomaticInput() {
     if (!room) return null;
     const em = Number(targetEm);
     const eta = clampUtilance(Number(utilance));
     const wo = Number(wallOffset);
     const rot = Number(rotationDeg);
+    const maxS = Number(maxSOverHm);
     if (!Number.isFinite(em) || em <= 0 || !Number.isFinite(wo) || !Number.isFinite(rot)) return null;
+    if (!Number.isFinite(maxS) || maxS <= 0) return null;
     if (!selectedFlux || selectedFlux <= 0) return null;
     return {
       targetEmMaintainedLx: em,
@@ -208,6 +224,7 @@ export function FixtureArrayPanel({
       maintenanceFactor: clampMf(maintenanceFactor),
       wallOffset: wo,
       rotationDeg: rot,
+      maxSpacingToHm: maxS,
       utilanceIsDefault: !utilanceTouched,
     };
   }
@@ -224,30 +241,44 @@ export function FixtureArrayPanel({
     onPreviewChange(filtered.placeable);
   }
 
+  function runAutomaticPreview() {
+    const input = buildAutomaticInput();
+    if (!room || !input) {
+      onPreviewChange(null);
+      setEmEstimate(null);
+      setPlacementRefusal(null);
+      setPreviewSkippedOccupied(0);
+      return;
+    }
+    const out = planAutomaticPlacement(room, input);
+    if (!out.ok) {
+      onPreviewChange(null);
+      setEmEstimate(null);
+      setPlacementRefusal(out.reason);
+      setPreviewSkippedOccupied(0);
+      return;
+    }
+    setPlacementRefusal(null);
+    setEmEstimate(out.estimate);
+    publishPreview(out.points);
+  }
+
   function handlePreview() {
     if (!room) {
       onPreviewChange(null);
       setEmEstimate(null);
+      setPlacementRefusal(null);
       setPreviewSkippedOccupied(0);
       return;
     }
-    if (mode === "targetEm") {
-      const input = buildTargetEmInput();
-      if (!input) {
-        onPreviewChange(null);
-        setEmEstimate(null);
-        setPreviewSkippedOccupied(0);
+    if (mode === "automatic") {
+      if (runOfficialWait) {
+        void runOfficialWait(OFFICIAL_WAIT_COPY.planningAutomaticPlacement, () => {
+          runAutomaticPreview();
+        });
         return;
       }
-      const out = previewTargetEmArrange(room, input);
-      if (!out) {
-        onPreviewChange(null);
-        setEmEstimate(null);
-        setPreviewSkippedOccupied(0);
-        return;
-      }
-      setEmEstimate(out.estimate);
-      publishPreview(out.plan.inside);
+      runAutomaticPreview();
       return;
     }
     setEmEstimate(null);
@@ -262,12 +293,30 @@ export function FixtureArrayPanel({
   }
 
   function handleApplyClick() {
-    if (mode === "targetEm") {
-      const input = buildTargetEmInput();
+    if (mode === "automatic") {
+      const input = buildAutomaticInput();
       if (!input || !luminaireId) return;
-      const out = previewTargetEmArrange(room!, input);
-      if (!out) return;
-      onApply(out.estimate.arrayParams, luminaireId);
+      onApply(
+        {
+          mode: "rect",
+          rows: 1,
+          cols: 1,
+          count: 1,
+          spacingX: 0.01,
+          spacingY: 0.01,
+          wallOffset: input.wallOffset,
+          rotationDeg: input.rotationDeg,
+          estimateByTargetEm: true,
+          automaticPlacement: true,
+          targetEmMaintainedLx: input.targetEmMaintainedLx,
+          luminousFluxLm: input.luminousFluxLm,
+          utilance: input.utilance,
+          maintenanceFactor: input.maintenanceFactor,
+          maxSpacingToHm: input.maxSpacingToHm,
+          utilanceIsDefault: input.utilanceIsDefault,
+        },
+        luminaireId
+      );
       return;
     }
     const params = buildParams();
@@ -328,7 +377,8 @@ export function FixtureArrayPanel({
       : null;
 
   const previewCount = preview?.length ?? 0;
-  const fluxBlocked = mode === "targetEm" && (!selectedFlux || selectedFlux <= 0);
+  const fluxBlocked = mode === "automatic" && (!selectedFlux || selectedFlux <= 0);
+  const placementDefaults = room ? automaticPlacementDefaultsFromRoom(room) : null;
 
   return (
     <div className="cad-props-card space-y-2">
@@ -337,6 +387,7 @@ export function FixtureArrayPanel({
         {mode === "line" && <HelpTip helpKey="tool.lineArray" />}
         {mode === "circle" && <HelpTip helpKey="tool.circleArray" />}
         {mode === "polygon" && <HelpTip helpKey="tool.polygonArray" />}
+        {mode === "automatic" && <HelpTip helpKey="tool.automaticPlacement" />}
       </p>
       {!room && (
         <p className="text-xs text-[#8fa3ad]">Select a room in the building tree first. / 請先在左側選房間。</p>
@@ -349,7 +400,7 @@ export function FixtureArrayPanel({
             ["line", "Line", "直線"],
             ["circle", "Circle", "圓形"],
             ["polygon", "Polygon", "多邊形"],
-            ["targetEm", "By target Ēm", "目標照度"],
+            ["automatic", "Automatic placement", "自動佈燈"],
           ] as const
         ).map(([m, en, zh]) => (
           <button
@@ -359,6 +410,7 @@ export function FixtureArrayPanel({
             onClick={() => {
               setMode(m);
               setEmEstimate(null);
+              setPlacementRefusal(null);
               setPreviewSkippedOccupied(0);
               onPreviewChange(null);
               if (m !== "line") onLinePickChange(EMPTY_LINE_PICK);
@@ -394,8 +446,9 @@ export function FixtureArrayPanel({
         </p>
       )}
 
-      {mode === "targetEm" ? (
+      {mode === "automatic" ? (
         <>
+          <p className="text-[10px] text-[#8fa3ad]">{AUTOMATIC_PLACEMENT_HINT}</p>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="label">Target maint. Ēm (lx) / 目標維持照度</label>
@@ -413,42 +466,66 @@ export function FixtureArrayPanel({
               />
             </div>
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="label">Max S/Hm / 最大距高比</label>
+              <input className="input" value={maxSOverHm} onChange={(e) => setMaxSOverHm(e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Wall offset (m) / 離牆</label>
+              <input className="input" value={wallOffset} onChange={(e) => setWallOffset(e.target.value)} />
+            </div>
+          </div>
           <p className="text-[10px] text-[#8fa3ad]">
             n ≈ ceil((Ēm×A)/(Φ×η×MF)) · MF {maintenanceFactor.toFixed(2)} from room settings / 房間設定
+            {placementDefaults?.templateEm
+              ? ` · EN assist ${placementDefaults.templateLabel ?? ""} Ēm ${placementDefaults.templateEm} lx, Uo ${placementDefaults.templateUo ?? "—"} (reference only, not certification) / EN 輔助目標（僅供參考，並非認證）`
+              : ""}
           </p>
           {!utilanceTouched && (
             <p className="text-[10px] text-[#ffb088]">
               Default η={DEFAULT_UTILANCE} — adjust for room finishes / 預設利用系數，請按實際修正。
             </p>
           )}
+          {placementRefusal && (
+            <p className="text-[10px] text-[#ffb088]">{formatAutomaticPlacementRefusal(placementRefusal)}</p>
+          )}
           {emEstimate && (
             <div className="text-[10px] text-[#c5d4dc] border border-[#3d5563] rounded p-2 space-y-0.5">
               <p>
-                n={emEstimate.fixtureCount} · grid {emEstimate.rows}×{emEstimate.cols} · spacing{" "}
-                {emEstimate.spacingX.toFixed(2)}×{emEstimate.spacingY.toFixed(2)} m
+                n={emEstimate.fixtureCount}
+                {emEstimate.fixtureCount !== emEstimate.lumenMethodCount
+                  ? ` (lumen method ${emEstimate.lumenMethodCount})`
+                  : ""}{" "}
+                · rows {emEstimate.rows} · spacing {emEstimate.spacingX.toFixed(2)}×
+                {emEstimate.spacingY.toFixed(2)} m · S/Hm{" "}
+                {emEstimate.mountingHeightAboveWorkplaneM > 0
+                  ? (emEstimate.maxSpacingM / emEstimate.mountingHeightAboveWorkplaneM).toFixed(2)
+                  : "—"}{" "}
+                (max {emEstimate.maxSpacingToHm.toFixed(2)})
               </p>
               <p>
                 Est. avg maint. Ēm ≈ {emEstimate.estimatedMaintainedEmLx.toFixed(0)} lx (not calc) /
                 估算平均照度
               </p>
+              {emEstimate.templateEm != null && (
+                <p>
+                  EN assist target {emEstimate.templateEm} lx, Uo {emEstimate.templateUo ?? "—"} (reference
+                  only) / EN 輔助目標（僅供參考）
+                </p>
+              )}
               <p className="text-[#ffb088]">
                 Estimate only — run Calc for final Ēm / 僅供估算 — 請用 Calc 確認
               </p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label">Wall offset (m) / 離牆</label>
-              <input className="input" value={wallOffset} onChange={(e) => setWallOffset(e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Rotation (°)</label>
-              <input
-                className="input"
-                value={rotationDeg}
-                onChange={(e) => setRotationDeg(e.target.value)}
-              />
-            </div>
+          <div>
+            <label className="label">Rotation (°)</label>
+            <input
+              className="input"
+              value={rotationDeg}
+              onChange={(e) => setRotationDeg(e.target.value)}
+            />
           </div>
         </>
       ) : mode === "rect" ? (
@@ -575,7 +652,7 @@ export function FixtureArrayPanel({
         </div>
       )}
 
-      {mode !== "targetEm" && (
+      {mode !== "automatic" && (
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
