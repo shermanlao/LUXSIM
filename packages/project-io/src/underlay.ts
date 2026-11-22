@@ -1,4 +1,4 @@
-import type { DxfEntity, Underlay } from "./types";
+import type { DxfEntity, OfficialDxfLayer, Underlay } from "./types";
 
 /** Preview longest-side span (meters) so a new raster is visible before calibrate. */
 export const DEFAULT_PLAN_SPAN_M = 12;
@@ -61,18 +61,25 @@ export function isDisplayableRasterUnderlay(
 
 /** A DWG underlay that has already been converted to official DXF entities. */
 export function officialDwgHasConvertedLinework(
-  underlay: { kind?: string; dxfEntities?: DxfEntity[] } | null | undefined
+  underlay: {
+    kind?: string;
+    dxfEntities?: DxfEntity[];
+    hiddenLayers?: string[] | null;
+    dxfLayers?: OfficialDxfLayer[] | null;
+  } | null | undefined
 ): boolean {
-  return (
-    underlay?.kind === "dwg" &&
-    Array.isArray(underlay.dxfEntities) &&
-    underlay.dxfEntities.length > 0
-  );
+  if (underlay?.kind !== "dwg") return false;
+  if (Array.isArray(underlay.dxfEntities) && underlay.dxfEntities.length > 0) return true;
+  // Apply + Select none leaves an empty visible list; the conversion still stands.
+  if (Array.isArray(underlay.hiddenLayers) && underlay.hiddenLayers.length > 0) return true;
+  if (Array.isArray(underlay.dxfLayers) && underlay.dxfLayers.length > 0) return true;
+  return false;
 }
 
 /**
- * Official parsed CAD linework: a DXF underlay, or a DWG underlay converted
- * to a non-empty DXF entity list. Image, PDF, IFC, and unparsed DWG are not.
+ * Official parsed CAD linework: a DXF underlay, or a DWG underlay that has
+ * been converted (including when every layer is currently hidden). Image,
+ * PDF, IFC, and unparsed DWG are not.
  */
 export function officialHasParsedCadLinework<
   T extends { kind?: string; dxfEntities?: DxfEntity[] },

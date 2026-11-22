@@ -107,6 +107,25 @@ describe("official underlay import kind and uncalibrated scale", () => {
     expect(officialHasParsedCadLinework({ kind: "dxf", dxfEntities: [] })).toBe(true);
   });
 
+  it("keeps a converted DWG as parsed linework when every layer is hidden", () => {
+    const hiddenAll = {
+      kind: "dwg" as const,
+      dxfEntities: [] as const,
+      hiddenLayers: ["WALL", "DIM"],
+    };
+    expect(officialHasParsedCadLinework(hiddenAll)).toBe(true);
+    expect(officialDwgHasConvertedLinework(hiddenAll)).toBe(true);
+    expect(
+      officialDwgHasConvertedLinework({
+        kind: "dwg",
+        dxfEntities: [],
+        dxfLayers: [{ name: "WALL", on: true, frozen: false }],
+      })
+    ).toBe(true);
+    expect(officialHasParsedCadLinework({ kind: "dwg", dxfEntities: [] })).toBe(false);
+    expect(officialDwgHasConvertedLinework({ kind: "dwg" })).toBe(false);
+  });
+
   it("rejects off-list image formats that cannot become a usable underlay", () => {
     for (const name of ["plan.bmp", "plan.tif", "plan.tiff", "plan.gif"]) {
       const allowed = projectAssetKindAllowed(name);

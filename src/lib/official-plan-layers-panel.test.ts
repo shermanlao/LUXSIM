@@ -23,5 +23,6 @@ describe("plan layer panel wiring", () => {
     expect(panel).toContain("Apply");
     expect(panel).toContain("Plan layers");
     expect(panel).toContain('data-plan-layers=""');
+    expect(editor).toContain("officialHasParsedCadLinework(underlay)");
   });
 });
