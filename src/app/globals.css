@@ -346,6 +346,22 @@ a {
   color: #e8eef2;
 }
 
+.isoline-levels-panel > summary {
+  list-style: disclosure-closed;
+}
+
+.isoline-levels-panel[open] > summary {
+  list-style: disclosure-open;
+}
+
+.isoline-levels-panel .isoline-levels-controls {
+  max-width: none;
+  padding: 0;
+  border: none;
+  background: transparent;
+}
+
+
 .editor-props {
   border-left: 1px solid var(--line);
   padding: 0.75rem;

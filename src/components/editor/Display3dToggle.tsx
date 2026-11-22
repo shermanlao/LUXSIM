@@ -1,8 +1,7 @@
 "use client";
 
-import type { Display3dMode, IsolineLevelSettings } from "@luxsim/project-io";
+import type { Display3dMode } from "@luxsim/project-io";
 import { HelpTip } from "@/components/HelpTip";
-import { IsolineLevelsControls } from "./IsolineLevelsControls";
 
 function overlayButtonClass(on: boolean, enabled: boolean) {
   return `!py-1.5 !px-3 !text-xs btn ${
@@ -24,10 +23,6 @@ export function Display3dToggle({
   onShowValueLabelsChange,
   showWorkplane = true,
   onShowWorkplaneChange,
-  isolineSettings,
-  isolineReadOnly = false,
-  onIsolineSettingsCommit,
-  onIsolineSettingsInvalid,
   className = "",
 }: {
   value: Display3dMode;
@@ -42,10 +37,6 @@ export function Display3dToggle({
   onShowValueLabelsChange?: (show: boolean) => void;
   showWorkplane?: boolean;
   onShowWorkplaneChange?: (show: boolean) => void;
-  isolineSettings?: IsolineLevelSettings;
-  isolineReadOnly?: boolean;
-  onIsolineSettingsCommit?: (next: IsolineLevelSettings) => void;
-  onIsolineSettingsInvalid?: (status: string) => void;
   className?: string;
 }) {
   const surface = value === "greyscale" ? "greyscale" : "falsecolor";
@@ -91,15 +82,6 @@ export function Display3dToggle({
         <p className="text-[10px] text-[#c5d0d6] max-w-[22rem] leading-snug" data-display-3d-isolux-reason="">
           {isolinesReason}
         </p>
-      )}
-      {showIsolines && isolineSettings && onIsolineSettingsCommit && onIsolineSettingsInvalid && (
-        <IsolineLevelsControls
-          settings={isolineSettings}
-          enabled={isolinesEnabled}
-          readOnly={isolineReadOnly}
-          onCommit={onIsolineSettingsCommit}
-          onInvalid={onIsolineSettingsInvalid}
-        />
       )}
     </div>
   );

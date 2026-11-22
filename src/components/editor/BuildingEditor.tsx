@@ -245,6 +245,7 @@ import { FixtureArrayPanel } from "./FixtureArrayPanel";
 import { ScheduleImportPanel } from "./ScheduleImportPanel";
 import { FixtureCodeMapPanel } from "./FixtureCodeMapPanel";
 import { Display3dToggle } from "./Display3dToggle";
+import { IsolineLevelsControls } from "./IsolineLevelsControls";
 import { PlanIsoluxToggle } from "./PlanIsoluxToggle";
 import {
   planIsoluxControlState,
@@ -3043,10 +3044,6 @@ export function BuildingEditor({
                 ui: { ...s.ui, showWorkplane: show },
               }))
             }
-            isolineSettings={isolineSettings}
-            isolineReadOnly={readOnly}
-            onIsolineSettingsCommit={commitIsolineSettings}
-            onIsolineSettingsInvalid={setStatus}
           />
         )}
         {(viewMode === "top") && (
@@ -3086,10 +3083,6 @@ export function BuildingEditor({
             }
             enabled={planIsoluxControls.enabled}
             reason={planIsoluxControls.reason}
-            isolineSettings={isolineSettings}
-            isolineReadOnly={readOnly}
-            onIsolineSettingsCommit={commitIsolineSettings}
-            onIsolineSettingsInvalid={setStatus}
           />
         )}
       </div>
@@ -3899,6 +3892,22 @@ export function BuildingEditor({
 
         <aside className="cad-right space-y-2">
           <p className="cad-section-title">Properties</p>
+          {workflow === "calculation" && (
+            <details className="cad-props-card isoline-levels-panel" data-isoline-levels-panel="">
+              <summary className="cursor-pointer text-xs font-semibold">
+                Isoline levels / 等照度線數值
+              </summary>
+              <IsolineLevelsControls
+                className="mt-2"
+                settings={isolineSettings}
+                enabled
+                readOnly={readOnly}
+                hideHeading
+                onCommit={commitIsolineSettings}
+                onInvalid={setStatus}
+              />
+            </details>
+          )}
           {!selected && activeRoom ? (
             <div
               className={`cad-props-card space-y-2 ${

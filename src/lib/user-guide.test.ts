@@ -640,6 +640,10 @@ describe("user guide", () => {
     expect(guide).toContain("![顯示開關 / Greyscale, False colour, Isolines and Value labels](/docs/guide/display-toggles.svg)");
     expect(guide).toContain("![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)");
     expect(guide).toContain("![等照度線數值與預設 / Isoline levels and presets](/docs/guide/isoline-levels.svg)");
+    expect(guide).toMatch(/Calculation/);
+    expect(guide).toMatch(/計算.*分頁|分頁.*計算/);
+    expect(guide).toMatch(/預設收合/);
+    expect(guide).toMatch(/collapsed until you click/);
     expect(guide).toContain("![完整 PDF 的 3D 等照度線 / Full PDF 3D Isolines](/docs/guide/pdf-3d-isolines.svg)");
     expect(guide).toContain("![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)");
     expect(guide).toContain("![自動佈燈 / Automatic placement](/docs/guide/automatic-placement.svg)");

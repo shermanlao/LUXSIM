@@ -406,7 +406,18 @@ describe("official editor and export path wiring", () => {
     expect(toggle).toContain("False colour");
     expect(toggle).toContain('helpKey="view.planIsolux"');
     expect(toggle).toContain("disabled={!enabled}");
-    expect(toggle).toContain("IsolineLevelsControls");
+    expect(toggle).not.toContain("IsolineLevelsControls");
+    const display3d = readSrc("src/components/editor/Display3dToggle.tsx");
+    expect(display3d).not.toContain("IsolineLevelsControls");
+    expect(editor).toContain("IsolineLevelsControls");
+    expect(editor).toContain('data-isoline-levels-panel=""');
+    expect(editor).toMatch(/workflow === "calculation"/);
+    const panelIdx = editor.indexOf('data-isoline-levels-panel=""');
+    expect(panelIdx).toBeGreaterThan(-1);
+    const panelSnippet = editor.slice(Math.max(0, panelIdx - 120), panelIdx + 280);
+    expect(panelSnippet).toContain("<details");
+    expect(panelSnippet).not.toMatch(/<details[^>]*\sopen\b/);
+    expect(panelSnippet).toContain("Isoline levels / 等照度線數值");
     expect(editor).toContain("commitIsolineSettings");
     expect(editor).toContain("OFFICIAL_WAIT_COPY.updatingIsolines");
   });
@@ -419,6 +430,10 @@ describe("official editor and export path wiring", () => {
     expect(guide).toMatch(/False colour/);
     expect(guide).toMatch(/Isolines/);
     expect(guide).toMatch(/Value labels/);
+    expect(guide).toMatch(/Calculation/);
+    expect(guide).toMatch(/計算/);
+    expect(guide).toMatch(/預設收合/);
+    expect(guide).toMatch(/collapsed until you click/);
     expect(guide).toMatch(/不會發明數字/);
     expect(guide).toMatch(/do not invent numbers/);
     expect(guide).toMatch(/接近房間輪廓/);
@@ -433,5 +448,7 @@ describe("official editor and export path wiring", () => {
     expect(tips).toContain('helpKey: "view.planIsolux"');
     expect(tips).toContain("PLAN_ISOLUX_HINT");
     expect(PLAN_ISOLUX_HINT).toMatch(/Full PDF report/);
+    expect(PLAN_ISOLUX_HINT).toMatch(/Calculation tab/);
+    expect(PLAN_ISOLUX_HINT).toMatch(/collapsed until clicked/);
   });
 });

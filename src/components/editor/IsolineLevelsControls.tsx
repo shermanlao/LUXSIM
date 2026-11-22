@@ -21,6 +21,7 @@ export function IsolineLevelsControls({
   settings,
   enabled,
   readOnly = false,
+  hideHeading = false,
   onCommit,
   onInvalid,
   className = "",
@@ -28,6 +29,8 @@ export function IsolineLevelsControls({
   settings: IsolineLevelSettings;
   enabled: boolean;
   readOnly?: boolean;
+  /** When true, omit the duplicate Isoline levels heading (e.g. inside a <details> summary). */
+  hideHeading?: boolean;
   onCommit: (next: IsolineLevelSettings) => void;
   onInvalid: (status: string) => void;
   className?: string;
@@ -83,7 +86,9 @@ export function IsolineLevelsControls({
       data-isoline-levels-controls=""
       data-isoline-mode={settings.mode}
     >
-      <div className="isoline-levels-controls__label">Isoline levels / 等照度線數值</div>
+      {!hideHeading && (
+        <div className="isoline-levels-controls__label">Isoline levels / 等照度線數值</div>
+      )}
       <div className="inline-flex items-center gap-1 flex-wrap" role="group" aria-label="Isoline levels / 等照度線數值">
         <button
           type="button"
