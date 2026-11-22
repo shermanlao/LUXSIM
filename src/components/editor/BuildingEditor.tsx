@@ -69,6 +69,8 @@ import {
   officialSetStoreyOutline,
   officialValidateSimplePolygon,
   officialCadLayerNames,
+  officialCadLayerMetaIncomplete,
+  officialCadEntitiesLackLayerNames,
   officialCompressCadEntities,
   officialExtractVisibleCadEntities,
   officialMetersPerUnitFromAssetMeta,
@@ -455,6 +457,7 @@ export function BuildingEditor({
   });
   const fileRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
+  const cadLayerBackfillAttemptedRef = useRef<Set<string>>(new Set());
   /** Live 3D orbit; flushed into scene.ui.camera3d on save */
   const camera3dRef = useRef<Camera3dView | null>(initialScene.ui.camera3d ?? null);
   const lastSavedRef = useRef<ProjectSnapshot>(
@@ -1999,6 +2002,63 @@ export function BuildingEditor({
     return target.dxfEntities ?? [];
   }
 
+  async function backfillPlanCadLayers(assetId: string, underlayId: string) {
+    if (readOnly || shareBasePath) return;
+    setUploading(true);
+    try {
+      await officialWait.run(OFFICIAL_WAIT_COPY.backfillingPlanLayers, async () => {
+        const res = await fetch(`/api/projects/${projectId}/assets/${assetId}/cad-layers`, {
+          method: "POST",
+        });
+        let data: { asset?: AssetRow; error?: string } = {};
+        try {
+          data = (await res.json()) as { asset?: AssetRow; error?: string };
+        } catch {
+          /* use the fallback status below */
+        }
+        if (!res.ok || !data.asset) {
+          setStatus(data.error || "Could not update plan layers");
+          return;
+        }
+        const asset = data.asset;
+        setAssets((rows) => rows.map((row) => (row.id === asset.id ? asset : row)));
+        let nextMeta: { entities?: DxfEntity[]; layers?: OfficialDxfLayer[] } = {};
+        try {
+          nextMeta = JSON.parse(asset.metaJson || "{}") as typeof nextMeta;
+        } catch {
+          nextMeta = {};
+        }
+        patchScene(
+          (s) => ({
+            ...s,
+            underlays: s.underlays.map((u) => {
+              if (u.id !== underlayId) return u;
+              const patched = {
+                ...u,
+                dxfLayers: Array.isArray(nextMeta.layers) ? nextMeta.layers : u.dxfLayers,
+              };
+              if (
+                officialCadEntitiesLackLayerNames(u.dxfEntities) &&
+                Array.isArray(nextMeta.entities)
+              ) {
+                patched.dxfEntities = officialCompressCadEntities(
+                  officialExtractVisibleCadEntities(
+                    nextMeta.entities,
+                    u.hiddenLayers ?? []
+                  )
+                );
+              }
+              return patched;
+            }),
+          }),
+          { recordUndo: false }
+        );
+      });
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function applyPlanLayers() {
     if (readOnly || !underlay || !officialHasParsedCadLinework(underlay)) return;
     const source = cadSourceEntities(underlay);
@@ -2820,6 +2880,26 @@ export function BuildingEditor({
 
   const workflow: EditorWorkflowMode = scene.ui.workflowMode ?? "construction";
   const workflowMeta = WORKFLOW_MODES.find((m) => m.id === workflow)!;
+
+  useEffect(() => {
+    if (readOnly || shareBasePath) return;
+    if (workflow !== "construction") return;
+    if (!underlay || (underlay.kind !== "dxf" && underlay.kind !== "dwg")) return;
+    const underlayId = underlay.id;
+    const assetId = underlay.assetId;
+    const planAsset = assets.find((row) => row.id === assetId);
+    if (!planAsset) return;
+    let meta: unknown = {};
+    try {
+      meta = JSON.parse(planAsset.metaJson || "{}");
+    } catch {
+      meta = {};
+    }
+    if (!officialCadLayerMetaIncomplete(meta)) return;
+    if (cadLayerBackfillAttemptedRef.current.has(assetId)) return;
+    cadLayerBackfillAttemptedRef.current.add(assetId);
+    void backfillPlanCadLayers(assetId, underlayId);
+  }, [readOnly, shareBasePath, workflow, underlay?.id, underlay?.kind, underlay?.assetId, assets, projectId]);
 
   useEffect(() => {
     setLinePick(EMPTY_LINE_PICK);

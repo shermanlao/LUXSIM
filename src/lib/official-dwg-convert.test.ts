@@ -60,5 +60,6 @@ describe("official DWG conversion of the Kam Tin sample", () => {
     expect(parsed.bounds.maxY).toBeGreaterThan(parsed.bounds.minY);
     expect(parsed.metersPerUnit).toBeGreaterThan(0);
     expect([1, 0.001, 0.01, 0.0254, 0.3048]).toContain(parsed.metersPerUnit);
+    expect(parsed.layers.length).toBeGreaterThan(1);
   }, 60_000);
 });

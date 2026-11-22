@@ -39,6 +39,10 @@ describe("official reusable wait dialog", () => {
       titleEn: "Updating isolines…",
       titleZh: "正在更新等照度線…",
     });
+    expect(OFFICIAL_WAIT_COPY.backfillingPlanLayers).toEqual({
+      titleEn: "Updating plan layers…",
+      titleZh: "正在更新圖則圖層…",
+    });
     expect(OFFICIAL_WAIT_COPY.loadingView).toEqual({
       titleEn: "Loading…",
       titleZh: "正在載入…",

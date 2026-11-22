@@ -41,6 +41,10 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Updating plan layers…",
     titleZh: "正在更新圖則圖層…",
   },
+  backfillingPlanLayers: {
+    titleEn: "Updating plan layers…",
+    titleZh: "正在更新圖則圖層…",
+  },
   rasterizingPdf: {
     titleEn: "Updating PDF page…",
     titleZh: "正在更新 PDF 頁面…",

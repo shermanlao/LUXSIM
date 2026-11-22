@@ -614,13 +614,25 @@ export type {
 
 export {
   OFFICIAL_DXF_DEFAULT_LAYER,
+  officialCadEntitiesLackLayerNames,
+  officialCadLayerMetaIncomplete,
   officialCadLayerNames,
   officialDxfLayerName,
+  officialEnsureCadLayerTable,
+  officialEntitiesHaveNonDefaultLayer,
   officialEntityLayer,
   officialExtractVisibleCadEntities,
+  officialHasCadLayerTable,
   officialInsertExplodedLayer,
   parseDxfLayers,
 } from "./official-dxf-layers";
+
+export {
+  OFFICIAL_CAD_LAYER_BACKFILL_FAILED,
+  OFFICIAL_CAD_LAYER_BACKFILL_WRONG_KIND,
+  OfficialCadLayerBackfillError,
+  officialBackfillCadLayerMetaFromDxf,
+} from "./official-cad-layer-backfill";
 
 export {
   OFFICIAL_CAD_COMPRESS_TOL_M,

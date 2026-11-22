@@ -41,6 +41,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/128×/);
     expect(guide).toMatch(/A DWG import is converted and then works like a DXF underlay/);
     expect(guide).toMatch(/匯入 DWG 後會轉換成與 DXF 相同的描線/);
+    expect(guide).toMatch(/Older plans imported before layer names were stored are re-read from the original file/);
+    expect(guide).toMatch(/在圖層名稱被儲存之前就已匯入的舊圖則/);
+    expect(guide).toMatch(/A file that genuinely has only layer 0 still shows one layer/);
+    expect(guide).toMatch(/若檔案本身只有圖層 0，清單仍只顯示一層/);
     expect(guide).not.toMatch(/DWG is not parsed/);
     expect(guide).not.toMatch(/不會解析 DWG/);
     expect(guide).not.toMatch(/DIALux/);

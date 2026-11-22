@@ -1,8 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { parseDxfEntities } from "./dxf";
 import {
+  officialCadEntitiesLackLayerNames,
+  officialCadLayerMetaIncomplete,
   officialCadLayerNames,
   officialDxfLayerName,
+  officialEnsureCadLayerTable,
   officialExtractVisibleCadEntities,
   officialInsertExplodedLayer,
   parseDxfLayers,
@@ -150,3 +153,49 @@ describe("official CAD compress", () => {
     expect(compressed[0]?.points[2]).toEqual({ x: 8, y: 5 });
   });
 });
+
+describe("official CAD layer meta completeness", () => {
+  const wall = { type: "line" as const, layer: "WALL", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] };
+  const unnamed = { type: "line" as const, points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] };
+  const layer0 = { type: "line" as const, layer: "0", points: [{ x: 0, y: 0 }, { x: 1, y: 0 }] };
+
+  it("detects missing layer tables when every entity is omitted or 0", () => {
+    expect(officialCadLayerMetaIncomplete(undefined)).toBe(true);
+    expect(officialCadLayerMetaIncomplete(null)).toBe(true);
+    expect(officialCadLayerMetaIncomplete({})).toBe(true);
+    expect(officialCadLayerMetaIncomplete({ entities: [unnamed] })).toBe(true);
+    expect(officialCadLayerMetaIncomplete({ entities: [layer0], layers: [] })).toBe(true);
+  });
+
+  it("treats a layer table or any non-0 entity layer as complete", () => {
+    expect(
+      officialCadLayerMetaIncomplete({
+        layers: [{ name: "0", on: true, frozen: false }],
+        entities: [unnamed],
+      })
+    ).toBe(false);
+    expect(officialCadLayerMetaIncomplete({ entities: [wall] })).toBe(false);
+    expect(
+      officialCadLayerMetaIncomplete({
+        layers: [{ name: "WALL", on: true, frozen: false }],
+        entities: [wall],
+      })
+    ).toBe(false);
+  });
+
+  it("reports live linework as lacking layer names when every entity is 0 or omitted", () => {
+    expect(officialCadEntitiesLackLayerNames(undefined)).toBe(true);
+    expect(officialCadEntitiesLackLayerNames([])).toBe(true);
+    expect(officialCadEntitiesLackLayerNames([unnamed, layer0])).toBe(true);
+    expect(officialCadEntitiesLackLayerNames([wall])).toBe(false);
+  });
+
+  it("persists at least layer 0 when the LAYER table is empty", () => {
+    expect(officialEnsureCadLayerTable([], [unnamed])).toEqual([
+      { name: "0", on: true, frozen: false },
+    ]);
+    const table = [{ name: "WALL", on: true, frozen: false }];
+    expect(officialEnsureCadLayerTable(table, [wall])).toBe(table);
+  });
+});
+
