@@ -8,6 +8,7 @@ import type {
   ResultsV2,
   RoomV2,
 } from "@luxsim/project-io";
+import { isolineSettingsFromUi } from "@luxsim/project-io";
 import {
   isoluxFieldScreenRect,
   isoluxPxToWorld,
@@ -60,6 +61,7 @@ export function PlanIsoluxOverlay({
   viewScale?: number;
   colorScale?: FalseColorScale;
 }) {
+  const isolineSettings = isolineSettingsFromUi(scene.ui);
   const models = useMemo(
     () =>
       officialPlanIsoluxModels({
@@ -70,8 +72,19 @@ export function PlanIsoluxOverlay({
         showIsolines,
         showValueLabels,
         colorScale,
+        isolineSettings,
       }),
-    [rooms, results, showFalseColor, showIsolines, scene.instances, colorScale, showValueLabels]
+    [
+      rooms,
+      results,
+      showFalseColor,
+      showIsolines,
+      scene.instances,
+      colorScale,
+      showValueLabels,
+      isolineSettings.mode,
+      isolineSettings.levels,
+    ]
   );
 
   const fieldImages = useMemo(() => {

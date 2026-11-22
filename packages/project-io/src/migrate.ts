@@ -1,5 +1,6 @@
 import { defaultMaintenanceFactor, normalizeMfBreakdown } from "./maintenance-factor";
 import { normalizeWorkflowMode } from "./editor-workflow";
+import { isolineSettingsFromUi, isolineSettingsToUi } from "./isoline-presets";
 import type {
   FixtureCodeMapRule,
   ProjectSceneV2,
@@ -230,7 +231,11 @@ export function normalizeScene(scene: unknown): ProjectSceneV2 {
         camera3d: normalizeCamera3d(scene.ui?.camera3d),
         display3d: normalizeDisplay3d(scene.ui?.display3d),
         planIsoluxMode: normalizePlanIsoluxMode(scene.ui?.planIsoluxMode),
+        planShowFalseColor: scene.ui?.planShowFalseColor,
+        planShowIsolines: scene.ui?.planShowIsolines,
         planValueLabels: normalizePlanValueLabels(scene.ui?.planValueLabels),
+        showWorkplane: scene.ui?.showWorkplane,
+        ...isolineSettingsToUi(isolineSettingsFromUi(scene.ui)),
       },
     };
   }

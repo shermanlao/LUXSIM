@@ -264,6 +264,88 @@ a {
   margin-left: 0.15rem;
 }
 
+.isoline-levels-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  max-width: 22rem;
+  padding: 0.4rem 0.5rem 0.5rem;
+  border: 1px solid #2a3842;
+  border-radius: 4px;
+  background: rgba(15, 23, 29, 0.92);
+}
+
+.isoline-levels-controls__label {
+  font-size: 10px;
+  letter-spacing: 0.02em;
+  color: #c5d0d6;
+}
+
+.isoline-levels-controls__list,
+.isoline-levels-controls__presets {
+  display: flex;
+  flex-direction: column;
+  gap: 0.28rem;
+}
+
+.isoline-levels-controls__row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.isoline-levels-controls__row--wrap {
+  flex-wrap: wrap;
+}
+
+.isoline-levels-controls__input,
+.isoline-levels-controls__select {
+  min-width: 0;
+  flex: 1;
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  font-size: 11px;
+  color: #e8eef2;
+  background: #12202a;
+  border: 1px solid #4a6270;
+  border-radius: 3px;
+}
+
+.isoline-levels-controls__input--name {
+  min-width: 7rem;
+}
+
+.isoline-levels-controls__unit {
+  font-size: 10px;
+  color: #8aa0ad;
+}
+
+.isoline-levels-controls__icon,
+.isoline-levels-controls__text-btn {
+  height: 1.7rem;
+  padding: 0 0.4rem;
+  font-size: 10px;
+  color: #e8eef2;
+  background: #162630;
+  border: 1px solid #4a6270;
+  border-radius: 3px;
+  white-space: nowrap;
+}
+
+.isoline-levels-controls__icon:disabled,
+.isoline-levels-controls__text-btn:disabled,
+.isoline-levels-controls__input:disabled,
+.isoline-levels-controls__select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.isoline-levels-controls__readonly {
+  margin: 0;
+  font-size: 11px;
+  color: #e8eef2;
+}
+
 .editor-props {
   border-left: 1px solid var(--line);
   padding: 0.75rem;

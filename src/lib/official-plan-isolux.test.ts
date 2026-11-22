@@ -406,6 +406,9 @@ describe("official editor and export path wiring", () => {
     expect(toggle).toContain("False colour");
     expect(toggle).toContain('helpKey="view.planIsolux"');
     expect(toggle).toContain("disabled={!enabled}");
+    expect(toggle).toContain("IsolineLevelsControls");
+    expect(editor).toContain("commitIsolineSettings");
+    expect(editor).toContain("OFFICIAL_WAIT_COPY.updatingIsolines");
   });
 
   it("documents isolines and value labels on the official path", () => {

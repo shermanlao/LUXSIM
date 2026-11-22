@@ -33,6 +33,16 @@ export type { EditorWorkflowMode } from "./editor-workflow";
 /** In-app / report 3D presentation: clean architecture, false-colour, or isolines. */
 export type Display3dMode = "greyscale" | "falsecolor" | "isolines";
 
+/** Auto steps isoline levels from the result range; Custom uses a user or preset list. */
+export type IsolineLevelsMode = "auto" | "custom";
+
+/** A named list of isoline illuminance levels, stored on the project. Built-in starters are not stored here. */
+export interface IsolinePreset {
+  id: string;
+  name: string;
+  levels: number[];
+}
+
 /** Three.js orbit camera pose (y-up) for persp3d restore */
 export interface Camera3dView {
   position: [number, number, number];
@@ -243,6 +253,12 @@ export interface ProjectSceneV2 {
     planValueLabels?: boolean;
     /** Show the 3D workplane / calculation plane (default shown). */
     showWorkplane?: boolean;
+    /** Auto (default) or a custom isoline level list. Absent on older projects, treated as Auto. */
+    isolineLevelsMode?: IsolineLevelsMode;
+    /** Last valid custom isoline levels in lux. Empty or absent when the project has never set Custom. */
+    isolineLevels?: number[];
+    /** User-named isoline level presets for this project. Built-in starters are not stored here. */
+    isolinePresets?: IsolinePreset[];
   };
 }
 

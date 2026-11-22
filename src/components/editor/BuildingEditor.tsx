@@ -251,6 +251,12 @@ import {
   planShowFalseColorFromUi,
   planShowIsolinesFromUi,
 } from "@/lib/plan-isolux-display";
+import {
+  isolineSettingsEqual,
+  isolineSettingsFromUi,
+  isolineSettingsToUi,
+  type IsolineLevelSettings,
+} from "@luxsim/project-io";
 import { showWorkplaneFromUi } from "@/lib/workplane-display";
 import { captureOfficialReport3dViewsAsync } from "@/lib/official-pdf-3d-capture";
 import { renderAllReport3dViewsAsync, webglCaptureAvailable } from "@/lib/render-scene-3d";
@@ -2903,6 +2909,7 @@ export function BuildingEditor({
   const planShowFalseColor = planShowFalseColorFromUi(scene.ui);
   const planShowIsolines = planShowIsolinesFromUi(scene.ui);
   const planValueLabels = scene.ui.planValueLabels === true;
+  const isolineSettings = isolineSettingsFromUi(scene.ui);
   const planIsoluxControls = planIsoluxControlState(results, currentStoreyRoomIds());
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
@@ -2918,6 +2925,18 @@ export function BuildingEditor({
     if (!shouldApplyViewFalseColorScale(viewScaleRef.current, next)) return;
     setScale(next);
     void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {});
+  }
+
+  function commitIsolineSettings(next: IsolineLevelSettings) {
+    if (readOnly) return;
+    if (isolineSettingsEqual(isolineSettings, next)) return;
+    patchScene((s) => ({
+      ...s,
+      ui: { ...s.ui, ...isolineSettingsToUi(next) },
+    }));
+    if (planShowIsolines) {
+      void officialWait.run(OFFICIAL_WAIT_COPY.updatingIsolines, async () => {});
+    }
   }
 
   const viewReadyResolverRef = useRef<(() => void) | null>(null);
@@ -3020,6 +3039,10 @@ export function BuildingEditor({
                 ui: { ...s.ui, showWorkplane: show },
               }))
             }
+            isolineSettings={isolineSettings}
+            isolineReadOnly={readOnly}
+            onIsolineSettingsCommit={commitIsolineSettings}
+            onIsolineSettingsInvalid={setStatus}
           />
         )}
         {(viewMode === "top") && (
@@ -3059,6 +3082,10 @@ export function BuildingEditor({
             }
             enabled={planIsoluxControls.enabled}
             reason={planIsoluxControls.reason}
+            isolineSettings={isolineSettings}
+            isolineReadOnly={readOnly}
+            onIsolineSettingsCommit={commitIsolineSettings}
+            onIsolineSettingsInvalid={setStatus}
           />
         )}
       </div>

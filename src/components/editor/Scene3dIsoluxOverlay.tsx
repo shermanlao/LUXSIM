@@ -3,6 +3,7 @@
 import { useLayoutEffect, useMemo } from "react";
 import * as THREE from "three";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "@luxsim/project-io";
+import { isolineSettingsFromUi } from "@luxsim/project-io";
 import {
   isoluxLabelSpriteScale,
   official3dIsoluxOverlaysForRooms,
@@ -127,12 +128,14 @@ export function Scene3dIsoluxOverlay({
   showValueLabels: boolean;
   showWorkplane?: boolean;
 }) {
+  const isolineSettings = isolineSettingsFromUi(scene.ui);
   const overlays = useMemo(
     () =>
       official3dIsoluxOverlaysForRooms(rooms, results, elevationM, scene.instances, {
         showWorkplane,
+        isolineSettings,
       }),
-    [rooms, results, elevationM, scene.instances, showWorkplane]
+    [rooms, results, elevationM, scene.instances, showWorkplane, isolineSettings.mode, isolineSettings.levels]
   );
   if (overlays.length === 0) return null;
   return (

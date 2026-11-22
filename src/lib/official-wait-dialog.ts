@@ -97,6 +97,10 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Updating scale…",
     titleZh: "正在更新比例尺…",
   },
+  updatingIsolines: {
+    titleEn: "Updating isolines…",
+    titleZh: "正在更新等照度線…",
+  },
   loading3d: {
     titleEn: "Loading…",
     titleZh: "正在載入…",

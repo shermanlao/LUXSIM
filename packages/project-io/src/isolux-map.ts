@@ -509,6 +509,8 @@ export function buildIsoluxModel(
     includeContours?: boolean;
     palette?: IsoluxPalette;
     includeValueLabels?: boolean;
+    /** When set, these lux values are used instead of isoluxLevels(emin, emax). */
+    contourLevels?: number[];
   }
 ): IsoluxModel | null {
   const { grid } = results;
@@ -570,7 +572,7 @@ export function buildIsoluxModel(
       }
     }
 
-    const levels = isoluxLevels(results.summary.emin, results.summary.emax);
+    const levels = opts?.contourLevels ?? isoluxLevels(results.summary.emin, results.summary.emax);
     contours = levels.map((level) => ({
       level,
       polylines: marchingSquares(fieldVals, sx, sy, minX, minY, stepM, stepM, level).map((line) =>

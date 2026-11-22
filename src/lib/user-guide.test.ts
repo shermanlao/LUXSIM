@@ -637,6 +637,7 @@ describe("user guide", () => {
     expect(guide).toContain("![房間角點控制點 / Room corner and edge handles](/docs/guide/room-handles.svg)");
     expect(guide).toContain("![顯示開關 / Greyscale, False colour, Isolines and Value labels](/docs/guide/display-toggles.svg)");
     expect(guide).toContain("![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)");
+    expect(guide).toContain("![等照度線數值與預設 / Isoline levels and presets](/docs/guide/isoline-levels.svg)");
     expect(guide).toContain("![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)");
     expect(guide).toContain("![自動佈燈 / Automatic placement](/docs/guide/automatic-placement.svg)");
     for (const name of [
@@ -644,6 +645,7 @@ describe("user guide", () => {
       "room-handles.svg",
       "display-toggles.svg",
       "isolux-overlay.svg",
+      "isoline-levels.svg",
       "draw-room.svg",
       "automatic-placement.svg",
       "calc-storey.svg",

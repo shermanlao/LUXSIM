@@ -14,6 +14,7 @@ import {
   type IsoluxModel,
   type IsoluxPalette,
 } from "./isolux-map";
+import { isolineSettingsFromUi, resolveIsolineLevels, type IsolineLevelSettings } from "./isoline-presets";
 
 export function hasCalcGrid(results?: CalcResults | null): results is CalcResults {
   const grid = results?.grid;
@@ -53,9 +54,14 @@ export function officialIsoluxModelForRoom(
     includeContours?: boolean;
     includeValueLabels?: boolean;
     palette?: IsoluxPalette;
+    contourLevels?: number[];
+    isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null;
   }
 ): IsoluxModel | null {
   if (!hasCalcGrid(results)) return null;
+  const contourLevels =
+    opts?.contourLevels ??
+    resolveIsolineLevels(results.summary.emin, results.summary.emax, opts?.isolineSettings);
   return buildIsoluxModel(room, results, {
     mode: opts?.mode ?? "isolines",
     wallZoneM: ISOLUX_DISPLAY_WALL_ZONE_M,
@@ -65,20 +71,23 @@ export function officialIsoluxModelForRoom(
     includeContours: opts?.includeContours,
     includeValueLabels: opts?.includeValueLabels,
     palette: opts?.palette,
+    contourLevels,
   });
 }
 
 export function officialIsoluxModelsByRoom(
   scene: ProjectSceneV2,
   results: ResultsV2,
-  opts?: { mode?: IsoluxMode; targetLongSide?: number }
+  opts?: { mode?: IsoluxMode; targetLongSide?: number; isolineSettings?: IsolineLevelSettings | null }
 ): Record<string, IsoluxModel> {
+  const isolineSettings = opts?.isolineSettings ?? isolineSettingsFromUi(scene.ui);
   const out: Record<string, IsoluxModel> = {};
   for (const room of scene.rooms) {
     const model = officialIsoluxModelForRoom(room, results.byRoomId[room.id], {
       mode: opts?.mode,
       fixtures: scene.instances.filter((i) => i.roomId === room.id),
       targetLongSide: opts?.targetLongSide,
+      isolineSettings,
     });
     if (model) out[room.id] = model;
   }
@@ -278,6 +287,7 @@ export async function collectOfficialIsoluxSnapshotsAsync(
     const model = officialIsoluxModelForRoom(room, results.byRoomId[room.id], {
       mode: "isolines",
       fixtures: scene.instances.filter((i) => i.roomId === room.id),
+      isolineSettings: isolineSettingsFromUi(scene.ui),
     });
     if (model) {
       const url = render(model, OFFICIAL_PDF_ISOLUX_RENDER);

@@ -1,6 +1,7 @@
 import type {
   FalseColorScale,
   FixtureInstance,
+  IsolineLevelSettings,
   IsoluxModel,
   ResultsV2,
   RoomV2,
@@ -22,6 +23,7 @@ export function officialPlanIsoluxModels(input: {
   showValueLabels?: boolean;
   colorScale?: FalseColorScale;
   targetLongSide?: number;
+  isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null;
 }): OfficialPlanIsoluxEntry[] {
   const {
     rooms,
@@ -32,6 +34,7 @@ export function officialPlanIsoluxModels(input: {
     showValueLabels = false,
     colorScale,
     targetLongSide = 800,
+    isolineSettings,
   } = input;
   if (!showFalseColor && !showIsolines && !showValueLabels) return [];
   const out: OfficialPlanIsoluxEntry[] = [];
@@ -43,6 +46,7 @@ export function officialPlanIsoluxModels(input: {
       colorScale,
       includeContours: showIsolines,
       includeValueLabels: showValueLabels,
+      isolineSettings,
     });
     if (model) out.push({ room, model });
   }
@@ -58,10 +62,15 @@ export function officialPlanIsoluxModelKey(input: {
   showValueLabels?: boolean;
   colorScale?: FalseColorScale;
   instanceIds?: readonly string[];
+  isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null;
 }): string {
   const scale = input.colorScale
     ? `${input.colorScale.minLux}:${input.colorScale.maxLux}`
     : "";
+  const isolines =
+    input.isolineSettings?.mode === "custom"
+      ? `custom:${(input.isolineSettings.levels ?? []).join(",")}`
+      : "auto";
   const rooms = input.roomIds.join(",");
   const instances = (input.instanceIds ?? []).join(",");
   const resultRooms = Object.keys(input.results.byRoomId).sort().join(",");
@@ -72,6 +81,7 @@ export function officialPlanIsoluxModelKey(input: {
     String(Boolean(input.showIsolines)),
     String(Boolean(input.showValueLabels)),
     scale,
+    isolines,
     instances,
   ].join("|");
 }

@@ -1,4 +1,11 @@
-import type { CalcResults, FixtureInstance, IsoluxModel, ResultsV2, RoomV2 } from "@luxsim/project-io";
+import type {
+  CalcResults,
+  FixtureInstance,
+  IsolineLevelSettings,
+  IsoluxModel,
+  ResultsV2,
+  RoomV2,
+} from "@luxsim/project-io";
 import { isoluxPxToWorld, officialIsoluxModelForRoom } from "@luxsim/project-io";
 import {
   OFFICIAL_ILLUMINANCE_DISPLAY_LIFT_M,
@@ -75,12 +82,14 @@ export function official3dIsoluxOverlayForRoom(
     fixtures?: FixtureInstance[];
     targetLongSide?: number;
     showWorkplane?: boolean;
+    isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null;
   }
 ): Official3dIsoluxOverlay | null {
   const model = officialIsoluxModelForRoom(room, results, {
     mode: "isolines",
     fixtures: opts?.fixtures,
     targetLongSide: opts?.targetLongSide ?? 800,
+    isolineSettings: opts?.isolineSettings,
   });
   if (!model || !results) return null;
   const heightM = isoluxWorkplaneHeightM(room, results, elevationM, opts?.showWorkplane ?? true);
@@ -110,7 +119,7 @@ export function official3dIsoluxOverlaysForRooms(
   results: ResultsV2 | null | undefined,
   elevationM = 0,
   fixtures: FixtureInstance[] = [],
-  opts?: { showWorkplane?: boolean }
+  opts?: { showWorkplane?: boolean; isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null }
 ): Official3dIsoluxOverlay[] {
   if (!results) return [];
   const out: Official3dIsoluxOverlay[] = [];
@@ -118,6 +127,7 @@ export function official3dIsoluxOverlaysForRooms(
     const overlay = official3dIsoluxOverlayForRoom(room, results.byRoomId[room.id], elevationM, {
       fixtures: fixtures.filter((i) => i.roomId === room.id),
       showWorkplane: opts?.showWorkplane,
+      isolineSettings: opts?.isolineSettings,
     });
     if (overlay) out.push(overlay);
   }

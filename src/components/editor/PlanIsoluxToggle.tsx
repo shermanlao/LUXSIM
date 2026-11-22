@@ -1,6 +1,8 @@
 "use client";
 
+import type { IsolineLevelSettings } from "@luxsim/project-io";
 import { HelpTip } from "@/components/HelpTip";
+import { IsolineLevelsControls } from "./IsolineLevelsControls";
 
 function overlayButtonClass(on: boolean, enabled: boolean) {
   return `!py-1.5 !px-3 !text-xs btn ${
@@ -19,6 +21,10 @@ export function PlanIsoluxToggle({
   onShowValueLabelsChange,
   enabled,
   reason,
+  isolineSettings,
+  isolineReadOnly = false,
+  onIsolineSettingsCommit,
+  onIsolineSettingsInvalid,
   className = "",
 }: {
   showFalseColor: boolean;
@@ -29,6 +35,10 @@ export function PlanIsoluxToggle({
   onShowValueLabelsChange: (show: boolean) => void;
   enabled: boolean;
   reason: string | null;
+  isolineSettings: IsolineLevelSettings;
+  isolineReadOnly?: boolean;
+  onIsolineSettingsCommit: (next: IsolineLevelSettings) => void;
+  onIsolineSettingsInvalid: (status: string) => void;
   className?: string;
 }) {
   const btn = (on: boolean, label: string, onToggle: (next: boolean) => void) => (
@@ -56,6 +66,13 @@ export function PlanIsoluxToggle({
           {reason}
         </p>
       )}
+      <IsolineLevelsControls
+        settings={isolineSettings}
+        enabled={enabled}
+        readOnly={isolineReadOnly}
+        onCommit={onIsolineSettingsCommit}
+        onInvalid={onIsolineSettingsInvalid}
+      />
     </div>
   );
 }
