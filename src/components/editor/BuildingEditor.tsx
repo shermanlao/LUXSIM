@@ -2692,8 +2692,10 @@ export function BuildingEditor({
     const {
       projectPerspectiveGreyscale,
       projectPerspectiveFalseColor,
+      projectPerspectiveIsolines,
       persp3dGreyscale,
       persp3dFalseColor,
+      persp3dIsolines,
     } = captured3d.views;
     let website: string | undefined;
     try {
@@ -2732,8 +2734,10 @@ export function BuildingEditor({
         isoluxSnapshots,
         projectPerspectiveGreyscale,
         projectPerspectiveFalseColor,
+        projectPerspectiveIsolines,
         persp3dGreyscale,
         persp3dFalseColor,
+        persp3dIsolines,
         luxsimVersion: "0.1.0",
         website,
         shareUrl,

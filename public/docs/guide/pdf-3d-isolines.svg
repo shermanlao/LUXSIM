@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" role="img" aria-labelledby="t d">
+  <title id="t">Full PDF 3D Isolines</title>
+  <desc id="d">The Full PDF report adds a 3D Isolines chapter with isolines and value labels on the workplane, from the same official viewpoints as the greyscale and false-colour pair.</desc>
+  <rect width="840" height="300" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="500" height="210" rx="6" fill="#f3f3f0" stroke="#2a3842"/>
+    <text x="36" y="38" fill="#1a242c" font-size="13" font-weight="700">3D Isolines</text>
+    <text x="36" y="56" fill="#4a5a64" font-size="11">3D isolines</text>
+    <polygon points="70,200 470,200 430,110 130,110" fill="#d8d8d2" stroke="#8a8a84"/>
+    <polygon points="130,110 430,110 400,70 160,70" fill="#cfd4d8" stroke="#7a848c"/>
+    <polygon points="70,200 130,110 160,70 100,160" fill="#c4c8cc" stroke="#6a7278"/>
+    <path d="M160,185 C230,160 310,150 400,170" fill="none" stroke="#3a4a52" stroke-width="1.6"/>
+    <path d="M175,165 C240,145 300,138 385,155" fill="none" stroke="#3a4a52" stroke-width="1.6"/>
+    <path d="M195,145 C250,132 300,128 365,140" fill="none" stroke="#3a4a52" stroke-width="1.6"/>
+    <text x="270" y="152" text-anchor="middle" fill="#f5f7f8" stroke="#0a1218" stroke-width="3" paint-order="stroke" font-size="11">500</text>
+    <text x="330" y="172" text-anchor="middle" fill="#dce8ff" stroke="#0a1218" stroke-width="3" paint-order="stroke" font-size="10">432</text>
+    <rect x="200" y="78" width="28" height="10" fill="#c45c26"/>
+    <rect x="300" y="78" width="28" height="10" fill="#c45c26"/>
+
+    <rect x="540" y="16" width="280" height="210" rx="6" fill="#12202a" stroke="#2a3842"/>
+    <text x="556" y="42" fill="#e8eef2" font-size="13">3D Isolines / 3D 等照度線</text>
+    <text x="556" y="70" fill="#c5d0d6" font-size="12">Same official 3D viewpoints</text>
+    <text x="556" y="92" fill="#c5d0d6" font-size="12">Isolines on the workplane</text>
+    <text x="556" y="114" fill="#c5d0d6" font-size="12">Contour and value labels</text>
+    <text x="556" y="136" fill="#c5d0d6" font-size="12">Auto or Custom levels</text>
+    <text x="556" y="158" fill="#c5d0d6" font-size="12">Project-wide and per-room</text>
+    <text x="556" y="190" fill="#8aa0ad" font-size="11">2D isolux and 3D greyscale /</text>
+    <text x="556" y="208" fill="#8aa0ad" font-size="11">false-colour chapters are kept</text>
+
+    <text x="20" y="258" fill="#e8eef2" font-size="13">The Full PDF includes a 3D Isolines chapter; existing 2D isolux and 3D greyscale / false-colour chapters stay.</text>
+    <text x="20" y="280" fill="#8aa0ad" font-size="12">完整 PDF 另有 3D 等照度線章節；既有的 2D 等照度圖與 3D 灰階／偽色章節會保留。</text>
+  </g>
+</svg>

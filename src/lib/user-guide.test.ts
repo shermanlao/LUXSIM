@@ -605,8 +605,10 @@ describe("user guide", () => {
     expect(guide).toMatch(/Full PDF report/);
     expect(guide).toMatch(/if 3D views cannot be captured/);
     expect(guide).toMatch(/即使 3D 視圖未能擷取/);
-    expect(guide).toMatch(/does not add a separate 3D-isoline chapter/);
-    expect(guide).toMatch(/不會另增一章 3D 等照度線/);
+    expect(guide).toMatch(/adds a separate \*\*3D Isolines\*\* \/ \*\*3D 等照度線\*\* chapter/);
+    expect(guide).toMatch(/獨立的 \*\*3D Isolines\*\*／\*\*3D 等照度線\*\* 章節/);
+    expect(guide).not.toMatch(/does not add a separate 3D-isoline chapter/);
+    expect(guide).not.toMatch(/不會另增一章 3D 等照度線/);
     expect(guide).toMatch(/Greyscale scale/);
     expect(guide).toMatch(/灰階模式，刻度條改為灰色漸層/);
     expect(guide).toMatch(/Workplane \(m\)/);
@@ -638,6 +640,7 @@ describe("user guide", () => {
     expect(guide).toContain("![顯示開關 / Greyscale, False colour, Isolines and Value labels](/docs/guide/display-toggles.svg)");
     expect(guide).toContain("![偽色與等照度線疊加 / False colour with isolines and value labels](/docs/guide/isolux-overlay.svg)");
     expect(guide).toContain("![等照度線數值與預設 / Isoline levels and presets](/docs/guide/isoline-levels.svg)");
+    expect(guide).toContain("![完整 PDF 的 3D 等照度線 / Full PDF 3D Isolines](/docs/guide/pdf-3d-isolines.svg)");
     expect(guide).toContain("![畫房步驟 / Draw room on the plan](/docs/guide/draw-room.svg)");
     expect(guide).toContain("![自動佈燈 / Automatic placement](/docs/guide/automatic-placement.svg)");
     for (const name of [
@@ -646,6 +649,7 @@ describe("user guide", () => {
       "display-toggles.svg",
       "isolux-overlay.svg",
       "isoline-levels.svg",
+      "pdf-3d-isolines.svg",
       "draw-room.svg",
       "automatic-placement.svg",
       "calc-storey.svg",

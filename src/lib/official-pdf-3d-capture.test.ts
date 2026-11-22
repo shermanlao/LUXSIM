@@ -2,9 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { buildFullReportPdf, rectPolygon, reportPdfPlainText } from "@luxsim/project-io";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "@luxsim/project-io";
 import {
+  assignOfficialReport3dIsolineStill,
   captureOfficialReport3dViews,
+  hasOfficialProject3dIsolines,
   hasOfficialProject3dStills,
   REPORT_3D_OMITTED_STATUS,
+  tryOfficialReport3dIsolineStill,
 } from "./official-pdf-3d-capture";
 import { webglCaptureAvailable } from "./render-scene-3d";
 
@@ -121,6 +124,26 @@ describe("captureOfficialReport3dViews", () => {
     expect(captured.views.projectPerspectiveFalseColor).toBe(TINY_JPEG);
     expect(captured.views.persp3dGreyscale).toEqual({ r1: TINY_JPEG });
     expect(captured.views.persp3dFalseColor).toEqual({ r1: TINY_JPEG });
+    expect(hasOfficialProject3dIsolines(captured.views)).toBe(false);
+    expect(captured.views.projectPerspectiveIsolines).toBeUndefined();
+  });
+
+  it("maps official 3D isoline stills without overloading false-colour slots", () => {
+    const captured = captureOfficialReport3dViews({
+      captureAvailable: () => true,
+      render: () => ({
+        ...STILLS,
+        projectIsolines: "data:image/jpeg,iso-project",
+        roomIsolines: { r1: "data:image/jpeg,iso-room" },
+      }),
+    });
+    expect(captured.omitted).toBe(false);
+    expect(captured.status).toBeNull();
+    expect(captured.views.projectPerspectiveIsolines).toBe("data:image/jpeg,iso-project");
+    expect(captured.views.persp3dIsolines).toEqual({ r1: "data:image/jpeg,iso-room" });
+    expect(captured.views.projectPerspectiveFalseColor).toBe(TINY_JPEG);
+    expect(captured.views.persp3dFalseColor).toEqual({ r1: TINY_JPEG });
+    expect(hasOfficialProject3dIsolines(captured.views)).toBe(true);
   });
 
   it("still warns and omits 3D when a capture attempt throws", () => {
@@ -160,6 +183,7 @@ describe("official Full PDF report with 3D capture decision", () => {
     expect(captured.status).toBe(REPORT_3D_OMITTED_STATUS);
     const text = pdfText(officialPdfFromCapture(captured));
     expect(text).not.toContain("3D views");
+    expect(text).not.toContain("3D Isolines");
     expect(text).toContain("5. Lighting Plan");
     expect(text).toContain("6. Per-room summary and working plane");
     expect(text).toContain("7. Product sheets");
@@ -177,7 +201,40 @@ describe("official Full PDF report with 3D capture decision", () => {
     expect(text).toContain("6. 3D views");
     expect(text).toContain("3D greyscale");
     expect(text).toContain("3D false colour");
+    expect(text).not.toContain("3D Isolines");
     expect(text).toContain("7. Per-room summary and working plane");
+  });
+
+  it("adds a 3D Isolines chapter after 3D views and keeps 2D isolux plus greyscale / false-colour", () => {
+    const { scene, results } = officeScene();
+    const captured = captureOfficialReport3dViews({
+      captureAvailable: () => true,
+      render: () => ({
+        ...STILLS,
+        projectIsolines: TINY_JPEG,
+        roomIsolines: { r1: TINY_JPEG },
+      }),
+    });
+    expect(captured.status).toBeNull();
+    const text = pdfText(
+      buildFullReportPdf({
+        projectName: "AED-180297 L9M",
+        scene,
+        results,
+        photometry: {},
+        wattsById: {},
+        luxsimVersion: "0.1.0",
+        isoluxSnapshots: { r1: TINY_JPEG },
+        ...captured.views,
+      })
+    );
+    expect(text).toContain("6. 3D views");
+    expect(text).toContain("7. 3D Isolines");
+    expect(text).toContain("8. Per-room summary and working plane");
+    expect(text).toContain("3D greyscale");
+    expect(text).toContain("3D false colour");
+    expect(text).toContain("3D isolines");
+    expect(text).toContain("Working plane — isolux diagram");
   });
 
   it("still hides the empty 3D views contents entry after a failed capture, and exports other chapters", () => {
@@ -190,7 +247,49 @@ describe("official Full PDF report with 3D capture decision", () => {
     expect(captured.status).toBe(REPORT_3D_OMITTED_STATUS);
     const text = pdfText(officialPdfFromCapture(captured));
     expect(text).not.toContain("3D views");
+    expect(text).not.toContain("3D Isolines");
     expect(text).toContain("5. Lighting Plan");
     expect(text).toContain("6. Per-room summary and working plane");
+  });
+});
+
+describe("official 3D isoline still capture helpers", () => {
+  it("does not invent a still when isoline capture throws or returns nothing", () => {
+    expect(tryOfficialReport3dIsolineStill(() => null)).toBeUndefined();
+    expect(
+      tryOfficialReport3dIsolineStill(() => {
+        throw new Error("room isoline capture failed");
+      })
+    ).toBeUndefined();
+    const bucket: Record<string, string> = { keep: TINY_JPEG };
+    assignOfficialReport3dIsolineStill(bucket, "r2", () => {
+      throw new Error("room isoline capture failed");
+    });
+    expect(bucket).toEqual({ keep: TINY_JPEG });
+    expect(bucket.r2).toBeUndefined();
+  });
+
+  it("records a successful isoline still without raising an omission", () => {
+    const captured = captureOfficialReport3dViews({
+      captureAvailable: () => true,
+      render: () => ({
+        ...STILLS,
+        projectIsolines: tryOfficialReport3dIsolineStill(() => TINY_JPEG),
+        roomIsolines: (() => {
+          const bucket: Record<string, string> = {};
+          assignOfficialReport3dIsolineStill(bucket, "r1", () => TINY_JPEG);
+          assignOfficialReport3dIsolineStill(bucket, "r-missing", () => {
+            throw new Error("isoline capture failed");
+          });
+          return bucket;
+        })(),
+      }),
+    });
+    expect(captured.omitted).toBe(false);
+    expect(captured.status).toBeNull();
+    expect(captured.views.projectPerspectiveGreyscale).toBe(TINY_JPEG);
+    expect(captured.views.projectPerspectiveFalseColor).toBe(TINY_JPEG);
+    expect(captured.views.projectPerspectiveIsolines).toBe(TINY_JPEG);
+    expect(captured.views.persp3dIsolines).toEqual({ r1: TINY_JPEG });
   });
 });

@@ -849,6 +849,9 @@ export function setMirroredFrontFace(renderer: THREE.WebGLRenderer): void {
 
 export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   scene: THREE.Scene;
+  content: THREE.Group;
+  rooms: RoomV2[];
+  elevationM: number;
   dispose: () => void;
 } {
   const disposables: Array<{ dispose: () => void }> = [];
@@ -1052,6 +1055,9 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
 
   return {
     scene: threeScene,
+    content,
+    rooms,
+    elevationM: elev,
     dispose: () => {
       for (const d of disposables) {
         try {

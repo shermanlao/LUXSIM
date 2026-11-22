@@ -8,13 +8,24 @@ import type { PhotometricData } from "@luxsim/photometry";
 import {
   fitOverviewCamera,
   fitRoomCamera,
+  isolineSettingsFromUi,
+  OFFICIAL_FALSE_COLOR_SCALE,
   type Camera3dView,
   type Display3dMode,
   type ProjectSceneV2,
   type ResultsV2,
   type RoomV2,
 } from "@luxsim/project-io";
-import { buildBuildingThreeScene, setMirroredFrontFace } from "./scene-3d-model";
+import {
+  assignOfficialReport3dIsolineStill,
+  tryOfficialReport3dIsolineStill,
+} from "./official-pdf-3d-capture";
+import { addOfficial3dIsoluxOverlay } from "./scene-3d-isolux";
+import {
+  buildBuildingThreeScene,
+  createOfficialFalseColorWorkplane,
+  setMirroredFrontFace,
+} from "./scene-3d-model";
 
 /** Official Full PDF 3D stills: sharp enough on A4, small enough for the file. */
 export const REPORT_3D_JPEG_QUALITY = 0.75;
@@ -145,6 +156,85 @@ function renderMode(
   }
 }
 
+/**
+ * Official Full PDF 3D isoline still: same viewpoint as the greyscale /
+ * false-colour pair, with the official isoline overlay (contours and labels)
+ * drawn on a greyscale workplane. Returns null when the rooms have no isoline
+ * overlay — never invents a field. Uses the project's Isoline levels setting.
+ */
+export function renderOfficialReport3dIsolines(
+  opts: RenderBuilding3dOpts & { renderer?: OfficialReportRenderer }
+): string | null {
+  const camera = opts.camera ?? fitOverviewCamera(opts.scene, opts.storeyId);
+  const built = buildBuildingThreeScene({
+    scene: opts.scene,
+    results: opts.results,
+    photometry: opts.photometry,
+    mode: "greyscale",
+    theme: "light",
+    storeyId: opts.storeyId,
+    isolateRoomId: opts.isolateRoomId,
+    highlightRoomId: opts.highlightRoomId ?? null,
+  });
+  const workplaneDisposables: Array<{ dispose: () => void }> = [];
+  let isolineOverlay: { hasOverlay: boolean; dispose: () => void } = {
+    hasOverlay: false,
+    dispose: () => undefined,
+  };
+  try {
+    const isolineSettings = isolineSettingsFromUi(opts.scene.ui);
+    for (const room of built.rooms) {
+      const res = opts.results?.byRoomId[room.id];
+      if (!res) continue;
+      const official = createOfficialFalseColorWorkplane(
+        room,
+        res,
+        built.elevationM,
+        OFFICIAL_FALSE_COLOR_SCALE,
+        "greyscale"
+      );
+      if (!official) continue;
+      workplaneDisposables.push(official.geometry, official.material, official.texture);
+      built.content.add(new THREE.Mesh(official.geometry, official.material));
+    }
+    const fixtures = opts.scene.instances.filter((i) => {
+      if (opts.isolateRoomId) return i.roomId === opts.isolateRoomId;
+      return built.rooms.some((r) => r.id === i.roomId);
+    });
+    isolineOverlay = addOfficial3dIsoluxOverlay(
+      built.content,
+      built.rooms,
+      opts.results,
+      built.elevationM,
+      fixtures,
+      {
+        showWorkplane: true,
+        isolineSettings,
+        showValueLabels: true,
+      }
+    );
+    if (!isolineOverlay.hasOverlay) return null;
+    const jpegOpts = {
+      scene: built.scene,
+      camera,
+      width: opts.width ?? REPORT_3D_OVERVIEW_WIDTH,
+      height: opts.height ?? REPORT_3D_OVERVIEW_HEIGHT,
+      quality: opts.quality ?? REPORT_3D_JPEG_QUALITY,
+    };
+    return opts.renderer ? opts.renderer.renderToJpeg(jpegOpts) : renderThreeSceneToJpeg(jpegOpts);
+  } finally {
+    isolineOverlay.dispose();
+    for (const d of workplaneDisposables) {
+      try {
+        d.dispose();
+      } catch {
+        /* ignore */
+      }
+    }
+    built.dispose();
+  }
+}
+
 export function renderBuilding3dPair(
   opts: RenderBuilding3dOpts & { renderer?: OfficialReportRenderer }
 ): {
@@ -193,11 +283,13 @@ export function renderAllReport3dViews(opts: {
 }): {
   projectGreyscale: string;
   projectFalseColor: string;
+  projectIsolines?: string;
   roomGreyscale: Record<string, string>;
   roomFalseColor: Record<string, string>;
+  roomIsolines?: Record<string, string>;
 } {
   const storeyId = opts.scene.ui.activeStoreyId ?? opts.scene.storeys[0]?.id;
-  const overview = renderBuilding3dPair({
+  const overviewOpts = {
     scene: opts.scene,
     results: opts.results,
     photometry: opts.photometry,
@@ -205,9 +297,14 @@ export function renderAllReport3dViews(opts: {
     storeyId,
     width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
     height: opts.overviewHeight ?? REPORT_3D_OVERVIEW_HEIGHT,
-  });
+  };
+  const overview = renderBuilding3dPair(overviewOpts);
+  const projectIsolines = tryOfficialReport3dIsolineStill(() =>
+    renderOfficialReport3dIsolines(overviewOpts)
+  );
   const roomGreyscale: Record<string, string> = {};
   const roomFalseColor: Record<string, string> = {};
+  const roomIsolines: Record<string, string> = {};
   for (const room of opts.scene.rooms) {
     const storey = opts.scene.storeys.find((s) => s.id === room.storeyId);
     const pair = renderRoom3dPair({
@@ -221,12 +318,27 @@ export function renderAllReport3dViews(opts: {
     });
     roomGreyscale[room.id] = pair.greyscale;
     roomFalseColor[room.id] = pair.falsecolor;
+    assignOfficialReport3dIsolineStill(roomIsolines, room.id, () =>
+      renderOfficialReport3dIsolines({
+        scene: opts.scene,
+        results: opts.results,
+        photometry: opts.photometry,
+        camera: pair.camera,
+        storeyId: room.storeyId,
+        isolateRoomId: room.id,
+        highlightRoomId: null,
+        width: opts.roomWidth ?? REPORT_3D_ROOM_WIDTH,
+        height: opts.roomHeight ?? REPORT_3D_ROOM_HEIGHT,
+      })
+    );
   }
   return {
     projectGreyscale: overview.greyscale,
     projectFalseColor: overview.falsecolor,
+    ...(projectIsolines ? { projectIsolines } : {}),
     roomGreyscale,
     roomFalseColor,
+    ...(Object.keys(roomIsolines).length ? { roomIsolines } : {}),
   };
 }
 
@@ -246,14 +358,16 @@ export async function renderAllReport3dViewsAsync(
 ): Promise<{
   projectGreyscale: string;
   projectFalseColor: string;
+  projectIsolines?: string;
   roomGreyscale: Record<string, string>;
   roomFalseColor: Record<string, string>;
+  roomIsolines?: Record<string, string>;
 }> {
   const storeyId = opts.scene.ui.activeStoreyId ?? opts.scene.storeys[0]?.id;
   const renderer = createOffscreenReportRenderer();
   try {
     await yieldTo();
-    const overview = renderBuilding3dPair({
+    const overviewOpts = {
       scene: opts.scene,
       results: opts.results,
       photometry: opts.photometry,
@@ -262,9 +376,15 @@ export async function renderAllReport3dViewsAsync(
       width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
       height: opts.overviewHeight ?? REPORT_3D_OVERVIEW_HEIGHT,
       renderer,
-    });
+    };
+    const overview = renderBuilding3dPair(overviewOpts);
+    await yieldTo();
+    const projectIsolines = tryOfficialReport3dIsolineStill(() =>
+      renderOfficialReport3dIsolines(overviewOpts)
+    );
     const roomGreyscale: Record<string, string> = {};
     const roomFalseColor: Record<string, string> = {};
+    const roomIsolines: Record<string, string> = {};
     for (const room of opts.scene.rooms) {
       await yieldTo();
       const storey = opts.scene.storeys.find((s) => s.id === room.storeyId);
@@ -284,12 +404,18 @@ export async function renderAllReport3dViewsAsync(
       roomGreyscale[room.id] = renderMode(shared, "greyscale", camera, renderer);
       await yieldTo();
       roomFalseColor[room.id] = renderMode(shared, "falsecolor", camera, renderer);
+      await yieldTo();
+      assignOfficialReport3dIsolineStill(roomIsolines, room.id, () =>
+        renderOfficialReport3dIsolines(shared)
+      );
     }
     return {
       projectGreyscale: overview.greyscale,
       projectFalseColor: overview.falsecolor,
+      ...(projectIsolines ? { projectIsolines } : {}),
       roomGreyscale,
       roomFalseColor,
+      ...(Object.keys(roomIsolines).length ? { roomIsolines } : {}),
     };
   } finally {
     renderer.dispose();

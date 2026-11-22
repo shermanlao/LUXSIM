@@ -15,7 +15,7 @@ import {
 } from "./report-model";
 import { clipResultsToPolygon, roomToCalcOptions } from "./room-adapter";
 import { calculateRoomWalls } from "./wall-surfaces";
-import type { FixtureInstance, ProjectSceneV2, RoomV2 } from "./types";
+import type { FixtureInstance, ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 
 const fixture = readFileSync(
   path.join(process.cwd(), "fixtures/sample-downlight.ies"),
@@ -350,6 +350,116 @@ describe("3D views section", () => {
     const pages =
       (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal?.getNumberOfPages?.() ?? 0;
     expect(pages).toBeGreaterThanOrEqual(11);
+  });
+});
+
+describe("3D Isolines section", () => {
+  const TINY_JPEG =
+    "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAUDBAQEAwUEBAQFBQUGBwwIBwcHBw8LCwkMEQ8SEhEPERETFhwXExQaFRERGCEYGh0dHx8fExciJCIeJBweHx7/2wBDAQUFBQcGBw4ICA4eFBEUHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh4eHh7/wAARCAAgADADASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwD2OiiigAooooAKKKKACiiigAooooAKKKKAP//Z";
+
+  function officeScene() {
+    const room: RoomV2 = {
+      id: "r1",
+      storeyId: "s1",
+      name: "Office",
+      polygon: rectPolygon(0, 0, 6, 5),
+      heightM: 2.8,
+      workplaneHeightM: 0.75,
+      reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+      calc: { gridSpacing: 0.5, interreflection: true, bounces: 2, computeUgr: true },
+    };
+    const scene: ProjectSceneV2 = {
+      version: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 3 }],
+      rooms: [room],
+      underlays: [],
+      fixtureLibraryIds: [],
+      instances: [],
+      ui: { activeStoreyId: "s1", activeRoomId: "r1", viewMode: "top", tool: "select" },
+    };
+    const results: ResultsV2 = {
+      version: 2,
+      byRoomId: {
+        r1: {
+          version: 1,
+          summary: {
+            eave: 400,
+            emin: 300,
+            emax: 500,
+            uo: 0.75,
+            ugr: 16,
+            lpd: 2,
+            totalWatts: 30,
+            areaM2: 30,
+          },
+          grid: {
+            originX: 0,
+            originY: 0,
+            spacing: 0.5,
+            nx: 2,
+            ny: 2,
+            z: 0.75,
+            lux: [300, 400, 400, 500],
+          },
+          meta: { interreflection: true, bounces: 2, calculatedAt: "2026-11-14T08:00:00.000Z", disclaimer: "assist" },
+        },
+      },
+    };
+    return { scene, results };
+  }
+
+  it("adds a 3D Isolines chapter and labelled per-room still without dropping 2D isolux or 3D views", () => {
+    const { scene, results } = officeScene();
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results,
+      photometry: {},
+      wattsById: {},
+      luxsimVersion: "0.1.0",
+      isoluxSnapshots: { r1: TINY_JPEG },
+      projectPerspectiveGreyscale: TINY_JPEG,
+      projectPerspectiveFalseColor: TINY_JPEG,
+      projectPerspectiveIsolines: TINY_JPEG,
+      persp3dGreyscale: { r1: TINY_JPEG },
+      persp3dFalseColor: { r1: TINY_JPEG },
+      persp3dIsolines: { r1: TINY_JPEG },
+    });
+    const text = reportPdfPlainText(doc);
+    expect(text).toContain("6. 3D views");
+    expect(text).toContain("7. 3D Isolines");
+    expect(text).toContain("8. Per-room summary and working plane");
+    expect(text).toContain("3D views");
+    expect(text).toContain("3D Isolines");
+    expect(text).toContain("3D greyscale");
+    expect(text).toContain("3D false colour");
+    expect(text).toContain("3D isolines");
+    expect(text).toContain("Working plane — isolux diagram");
+    expect(text).not.toContain("Created with DIALux");
+  });
+
+  it("keeps 3D views and 2D isolux when a room isoline still is missing, and invents no isoline chapter without a project still", () => {
+    const { scene, results } = officeScene();
+    const doc = buildFullReportPdf({
+      projectName: "AED-180297 L9M",
+      scene,
+      results,
+      photometry: {},
+      wattsById: {},
+      luxsimVersion: "0.1.0",
+      isoluxSnapshots: { r1: TINY_JPEG },
+      projectPerspectiveGreyscale: TINY_JPEG,
+      projectPerspectiveFalseColor: TINY_JPEG,
+      persp3dGreyscale: { r1: TINY_JPEG },
+      persp3dFalseColor: { r1: TINY_JPEG },
+    });
+    const text = reportPdfPlainText(doc);
+    expect(text).toContain("6. 3D views");
+    expect(text).not.toContain("3D Isolines");
+    expect(text).toContain("7. Per-room summary and working plane");
+    expect(text).toContain("3D greyscale");
+    expect(text).toContain("3D false colour");
+    expect(text).toContain("Working plane — isolux diagram");
   });
 });
 

@@ -299,6 +299,50 @@ describe("official 3D isolux model wiring", () => {
   });
 });
 
+describe("official 3D isoline levels for Full PDF capture", () => {
+  it("honours custom isoline levels and invents no contour outside emin–emax or without results", () => {
+    const room = officeRoom();
+    const calc = calcResults([300, 400, 400, 500]);
+    const custom = official3dIsoluxOverlayForRoom(room, calc, 0, {
+      isolineSettings: { mode: "custom", levels: [400] },
+    });
+    expect(custom).not.toBeNull();
+    expect(custom!.contours.map((c) => c.level)).toEqual([400]);
+    expect(custom!.contours[0]!.polylines.some((line) => line.length >= 2)).toBe(true);
+
+    const auto = official3dIsoluxOverlayForRoom(room, calc, 0, {
+      isolineSettings: { mode: "auto", levels: [] },
+    });
+    expect(auto).not.toBeNull();
+    expect(auto!.contours.map((c) => c.level)).not.toEqual([400]);
+
+    const outside = official3dIsoluxOverlayForRoom(room, calc, 0, {
+      isolineSettings: { mode: "custom", levels: [50, 2000] },
+    });
+    expect(outside).not.toBeNull();
+    expect(outside!.contours.map((c) => c.level)).toEqual([50, 2000]);
+    expect(outside!.contours.every((c) => c.polylines.every((line) => line.length < 2))).toBe(true);
+
+    expect(
+      official3dIsoluxOverlayForRoom(room, null, 0, {
+        isolineSettings: { mode: "custom", levels: [400] },
+      })
+    ).toBeNull();
+  });
+
+  it("passes Isoline levels from the scene into the official 3D isoline capture path", () => {
+    const capture = readSrc("src/lib/render-scene-3d.ts");
+    expect(capture).toContain("isolineSettingsFromUi(opts.scene.ui)");
+    expect(capture).toContain("addOfficial3dIsoluxOverlay");
+    expect(capture).toContain("showValueLabels: true");
+    expect(capture).toContain("createOfficialFalseColorWorkplane");
+    expect(capture).toContain('"greyscale"');
+    const helper = readSrc("src/lib/scene-3d-isolux.ts");
+    expect(helper).toContain("isolineSettings: opts?.isolineSettings");
+    expect(helper).toContain("addOfficial3dIsoluxOverlay");
+  });
+});
+
 describe("official 3D isolux editor and PDF path wiring", () => {
   it("keeps Greyscale and False colour exclusive, with Isolines as an overlay", () => {
     const results: ResultsV2 = { version: 2, byRoomId: { r1: calcResults([200, 400, 350, 550]) } };
@@ -369,11 +413,16 @@ describe("official 3D isolux editor and PDF path wiring", () => {
       exportFn.indexOf("captureOfficialReport3dViewsAsync")
     );
     expect(exportFn.indexOf("isoluxSnapshots,")).toBeLessThan(exportFn.indexOf("officialSaveBlob"));
-    expect(exportFn).not.toMatch(/3[Dd].*isoline chapter|isoluxSnapshots3d|collectOfficial3dIsolux/);
+    expect(exportFn).toContain("projectPerspectiveIsolines");
+    expect(exportFn).toContain("persp3dIsolines");
+    expect(exportFn.indexOf("projectPerspectiveIsolines")).toBeLessThan(exportFn.indexOf("officialSaveBlob"));
 
     const capture = readSrc("src/lib/render-scene-3d.ts");
     expect(capture).toContain('greyscale: renderMode(opts, "greyscale", camera, opts.renderer)');
     expect(capture).toContain('falsecolor: renderMode(opts, "falsecolor", camera, opts.renderer)');
+    expect(capture).toContain("renderOfficialReport3dIsolines");
+    expect(capture).toContain("isolineSettingsFromUi");
+    expect(capture).toContain("addOfficial3dIsoluxOverlay");
     expect(capture).not.toMatch(/renderMode\(opts, "isolines"/);
 
     const { results } = officeScene();
@@ -397,8 +446,10 @@ describe("official 3D isolux editor and PDF path wiring", () => {
     expect(guide).toMatch(/On the \*\*3D\*\* view/);
     expect(guide).toMatch(/同一個 \*\*Value labels\*\* 開關/);
     expect(guide).toMatch(/same \*\*Value labels\*\* control/);
-    expect(guide).toMatch(/不會另增一章 3D 等照度線/);
-    expect(guide).toMatch(/does not add a separate 3D-isoline chapter/);
+    expect(guide).toMatch(/獨立的 \*\*3D Isolines\*\*／\*\*3D 等照度線\*\* 章節/);
+    expect(guide).toMatch(/adds a separate \*\*3D Isolines\*\* \/ \*\*3D 等照度線\*\* chapter/);
+    expect(guide).not.toMatch(/不會另增一章 3D 等照度線/);
+    expect(guide).not.toMatch(/does not add a separate 3D-isoline chapter/);
     expect(guide).toMatch(/Isoline levels/);
     expect(guide).toMatch(/等照度線數值/);
     expect(guide).toMatch(/\*\*Auto\*\*/);

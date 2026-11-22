@@ -10,9 +10,11 @@ LUXSIM’s full PDF export (`buildFullReportPdf` in `@luxsim/project-io`) is str
 4. **Luminaire list** — project totals (Φ, P, efficacy) and per-product table (pcs, manufacturer, article, Φ, P, lm/W).
 5. **Room list** — per room: Ptotal, true polygon ARoom, LPD (W/m² and W/m²/100 lx), Ēperpendicular, luminaire sub-table.
 6. **Calculation objects** — all workplanes: type, height, wall zone, Ē, Emin, Emax, Uo, g2.
-7. **Per room** — Summary (properties + optional plan/3D images and isolux diagram with isolines and value labels), Summary results, Working plane (false-color + coordinate schedule).
-8. **Product sheets** — polar curve when available; flux shown honestly for absolute IES (-1 lm) files.
-9. **Luminaire schedule** — global coordinates.
+7. **3D views** (when captured) — project-wide greyscale / false-colour pair; per-room pairs also appear on each room Summary.
+8. **3D Isolines** (when captured) — project-wide official 3D isoline still, plus a labelled per-room still on each room Summary. Existing 2D isolux diagrams and 3D greyscale / false-colour chapters are kept.
+9. **Per room** — Summary (properties + optional plan/3D images, 2D isolux diagram with isolines and value labels, and labelled 3D isolines when captured), Summary results, Working plane (false-color + coordinate schedule).
+10. **Product sheets** — polar curve when available; flux shown honestly for absolute IES (-1 lm) files.
+11. **Luminaire schedule** — global coordinates.
 
 ## Area and LPD
 
@@ -20,7 +22,7 @@ Room area and LPD in the report use **true polygon area** (`roomAreaM2`), not th
 
 ## Browser export
 
-The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` and isolux / value-label figures via `collectOfficialIsoluxSnapshots` (from `buildIsoluxModel`) before calling `buildFullReportPdf`. Isolux figures are produced from the 2D model and are still passed when WebGL 3D capture is unavailable. Optional `planSnapshots` data URLs can be supplied when capture is wired up; official 3D stills use the capture helper described in the 3D-omission path, which still renders greyscale and false-colour pair chapters — not a separate 3D-isoline chapter. The in-app official 3D view can show isolines and value labels on the workplane from the same `buildIsoluxModel`.
+The building editor generates false-color workplane PNGs via `gridToFalseColorPngDataUrl` and isolux / value-label figures via `collectOfficialIsoluxSnapshots` (from `buildIsoluxModel`) before calling `buildFullReportPdf`. Isolux figures are produced from the 2D model and are still passed when WebGL 3D capture is unavailable. Optional `planSnapshots` data URLs can be supplied when capture is wired up. Official 3D stills use the capture helper described in the 3D-omission path: greyscale and false-colour pair chapters (`projectPerspectiveGreyscale` / `projectPerspectiveFalseColor` / `persp3dGreyscale` / `persp3dFalseColor`) plus a separate **3D Isolines** chapter (`projectPerspectiveIsolines` / `persp3dIsolines`) from the same official viewpoints, with isolines and contour / value labels drawn on the workplane from the same `buildIsoluxModel` / official 3D isoline overlay, honouring the project's Isoline levels setting. 2D isolux figures are still passed when WebGL 3D capture is unavailable; a failed isoline still for one room is omitted and not invented. The in-app official 3D view can also show isolines and value labels on the workplane from the same model.
 
 See also `fixtures/reference-dialux-report.pdf` and repo `CONTENT_SPEC` notes for field checklist vs official DIALux exports (no branding clone).
 

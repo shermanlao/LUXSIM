@@ -71,6 +71,10 @@ export interface ReportInput {
   persp3dGreyscale?: Record<string, string>;
   /** Per-room 3D false-colour, keyed by roomId. */
   persp3dFalseColor?: Record<string, string>;
+  /** Project-wide 3D isolines (JPEG/PNG data URL). */
+  projectPerspectiveIsolines?: string;
+  /** Per-room 3D isolines, keyed by roomId. */
+  persp3dIsolines?: Record<string, string>;
   /** @deprecated Prefer projectPerspectiveGreyscale. No longer drawn on the cover. */
   projectPerspectiveSnapshot?: string;
   /** @deprecated Prefer persp3dGreyscale. */
@@ -344,6 +348,8 @@ class ReportPdfBuilder {
     await yieldTo();
     this.threeDViews();
     await yieldTo();
+    this.threeDIsolines();
+    await yieldTo();
     for (const room of this.input.scene.rooms) {
       this.roomSummaryProperties(room);
       this.roomSummaryResults(room);
@@ -367,6 +373,7 @@ class ReportPdfBuilder {
     this.calculationObjects();
     this.lightingPlan();
     this.threeDViews();
+    this.threeDIsolines();
     for (const room of this.input.scene.rooms) {
       this.roomSummaryProperties(room);
       this.roomSummaryResults(room);
@@ -452,6 +459,7 @@ class ReportPdfBuilder {
       "Calculation objects",
       "Lighting Plan",
       ...(this.hasProject3dViews() ? (["3D views"] as const) : []),
+      ...(this.hasProject3dIsolines() ? (["3D Isolines"] as const) : []),
       "Per-room summary and working plane",
       "Product sheets",
       "Luminaire schedule",
@@ -789,6 +797,36 @@ class ReportPdfBuilder {
     this.finishPage("3D views");
   }
 
+  private projectIsolines(): string | undefined {
+    return this.input.projectPerspectiveIsolines;
+  }
+
+  private hasProject3dIsolines(): boolean {
+    return Boolean(this.projectIsolines());
+  }
+
+  private roomIsolines(roomId: string): string | undefined {
+    return this.input.persp3dIsolines?.[roomId];
+  }
+
+  private threeDIsolines() {
+    const isolines = this.projectIsolines();
+    if (!isolines) return;
+    this.addReportPage("landscape");
+    this.page += 1;
+    const y = this.pageHeader("3D Isolines");
+    const contentW = this.contentWidth();
+    const footerTop = this.footerY() - 12;
+    const labelH = 6;
+    const imgMaxH = Math.max(40, footerTop - y - labelH - 8);
+    this.doc.setFontSize(TYPE.body);
+    this.font("bold");
+    this.doc.text("3D isolines", MARGIN, y);
+    this.font("normal");
+    this.drawFittedImage(isolines, MARGIN, y + 3, contentW, imgMaxH);
+    this.finishPage("3D Isolines");
+  }
+
   private projectRange(): { emin: number; emax: number } {
     let emin = Infinity;
     let emax = -Infinity;
@@ -844,11 +882,13 @@ class ReportPdfBuilder {
     const isolux = this.input.isoluxSnapshots?.[room.id];
     const grey = this.roomGreyscale(room.id);
     const color = this.roomFalseColor(room.id);
+    const isolines = this.roomIsolines(room.id);
     const has3d = Boolean(grey || color);
+    const has3dIsolines = Boolean(isolines);
     if (isolux) {
       this.doc.setFontSize(TYPE.body);
       this.doc.text("Working plane — isolux diagram", MARGIN, y);
-      const isoluxH = has3d ? 92 : 150;
+      const isoluxH = has3d || has3dIsolines ? 92 : 150;
       y = this.drawFittedImage(isolux, MARGIN, y + 3, CONTENT_W, isoluxH) + 4;
     }
 
@@ -867,6 +907,15 @@ class ReportPdfBuilder {
       }
       this.font("normal");
       y += 62;
+    }
+
+    if (isolines) {
+      y = this.ensureY(y, 70, "Summary", ctx);
+      this.doc.setFontSize(TYPE.body);
+      this.font("bold");
+      this.doc.text("3D isolines", MARGIN, y);
+      this.font("normal");
+      y = this.drawFittedImage(isolines, MARGIN, y + 3, 82, 56) + 4;
     }
 
     const plan = this.input.planSnapshots?.[room.id];

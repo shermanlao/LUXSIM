@@ -75,7 +75,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Visualization & docs
 
-- False colour, isolines, and value labels on the official Top plan (after Calculate) and in the official Full PDF isolux diagram; official 3D can also show isolines and value labels on the workplane from the same model, beside greyscale / false-colour. Custom isoline presets (Auto or a named/custom lux list) apply to the editor and to the existing Full PDF 2D isolux figures. The Full PDF report still has no separate 3D isoline chapter. Not a raytraced visualisation.
+- False colour, isolines, and value labels on the official Top plan (after Calculate) and in the official Full PDF isolux diagram; official 3D can also show isolines and value labels on the workplane from the same model, beside greyscale / false-colour. Custom isoline presets (Auto or a named/custom lux list) apply to the editor, to the existing Full PDF 2D isolux figures, and to the Full PDF **3D Isolines** / **3D 等照度線** chapter (project-wide and per-room stills from the same official viewpoints, with isolines and contour / value labels on the workplane). Not a raytraced visualisation.
 - No raytrace
 - PDF is a fixed template; no DOCX / PPT / CD layouts
 - No proprietary native DIALux project write
