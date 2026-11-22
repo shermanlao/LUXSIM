@@ -3,6 +3,10 @@ import fs from "fs/promises";
 import path from "path";
 import { loadPublicShareByToken } from "@/lib/load-public-share";
 import { absolutePath } from "@/lib/storage";
+import {
+  officialAssetFileDownloadRequested,
+  officialContentDisposition,
+} from "@/lib/official-content-disposition";
 
 type Params = { params: Promise<{ token: string; assetId: string }> };
 
@@ -17,7 +21,7 @@ const MIME: Record<string, string> = {
   ".ifc": "application/x-step",
 };
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   try {
     const { token, assetId } = await params;
     const project = await loadPublicShareByToken(token);
@@ -27,10 +31,16 @@ export async function GET(_req: Request, { params }: Params) {
     const full = absolutePath(asset.fileKey);
     const data = await fs.readFile(full);
     const ext = path.extname(asset.fileName).toLowerCase();
+    const download = officialAssetFileDownloadRequested(
+      new URL(req.url).searchParams.get("download")
+    );
     return new NextResponse(data, {
       headers: {
         "Content-Type": MIME[ext] ?? "application/octet-stream",
-        "Content-Disposition": `inline; filename="${asset.fileName}"`,
+        "Content-Disposition": officialContentDisposition(
+          download ? "attachment" : "inline",
+          asset.fileName
+        ),
       },
     });
   } catch (e) {

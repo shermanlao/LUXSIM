@@ -278,6 +278,7 @@ import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
 import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitYield } from "@/lib/official-wait-dialog";
 import { officialSaveBlob, OFFICIAL_SAVE_TYPES } from "@/lib/official-save-file";
 import { officialFormatPlanUploadAt } from "@/lib/official-plan-upload-label";
+import { officialPlanAssetFileUrl } from "@/lib/official-content-disposition";
 import { OfficialMaybeInput, OfficialMaybeSelect } from "@/components/editor/OfficialViewField";
 import { officialViewSwitchReady, shouldWaitForOfficialViewSwitch } from "@/lib/official-view-switch";
 import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
@@ -2002,6 +2003,28 @@ export function BuildingEditor({
     return target.dxfEntities ?? [];
   }
 
+  function renderCurrentPlanFile() {
+    if (!underlay) return null;
+    const planAsset = assets.find((a) => a.id === underlay.assetId);
+    if (!planAsset) return null;
+    const uploaded = officialFormatPlanUploadAt(planAsset.createdAt);
+    return (
+      <div className="text-[10px] text-[var(--muted)] leading-snug space-y-1">
+        <p className="truncate" title={planAsset.fileName}>
+          {planAsset.fileName}
+        </p>
+        {uploaded ? <p>Uploaded {uploaded}</p> : null}
+        <a
+          className="btn btn-secondary !text-xs"
+          href={officialPlanAssetFileUrl(assetApiBase, planAsset.id, { download: true })}
+          download={planAsset.fileName}
+        >
+          Download
+        </a>
+      </div>
+    );
+  }
+
   async function backfillPlanCadLayers(assetId: string, underlayId: string) {
     if (readOnly || shareBasePath) return;
     setUploading(true);
@@ -3449,20 +3472,7 @@ export function BuildingEditor({
             <p className="text-[10px] text-[var(--muted)]">
               Image / PDF / DXF / DWG / IFC
             </p>
-            {underlay &&
-              (() => {
-                const planAsset = assets.find((a) => a.id === underlay.assetId);
-                if (!planAsset) return null;
-                const uploaded = officialFormatPlanUploadAt(planAsset.createdAt);
-                return (
-                  <div className="text-[10px] text-[var(--muted)] leading-snug">
-                    <p className="truncate" title={planAsset.fileName}>
-                      {planAsset.fileName}
-                    </p>
-                    {uploaded ? <p>Uploaded {uploaded}</p> : null}
-                  </div>
-                );
-              })()}
+            {renderCurrentPlanFile()}
             {underlay && (
               <div>
                 <label className="label">Underlay opacity</label>
@@ -3519,16 +3529,19 @@ export function BuildingEditor({
             )}
           </div>
 
-          {!readOnly || !officialHasParsedCadLinework(underlay) ? null : (
+          {readOnly && underlay ? (
             <div className="border-t border-[#3d5563] pt-2 space-y-2">
-              <PlanLayerPanel
-                layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
-                hiddenLayers={underlay?.hiddenLayers ?? []}
-                disabled
-                readOnlyList
-              />
+              {renderCurrentPlanFile()}
+              {officialHasParsedCadLinework(underlay) ? (
+                <PlanLayerPanel
+                  layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
+                  hiddenLayers={underlay?.hiddenLayers ?? []}
+                  disabled
+                  readOnlyList
+                />
+              ) : null}
             </div>
-          )}
+          ) : null}
 
           <p className="cad-section-title">Building</p>
           {!readOnly && (

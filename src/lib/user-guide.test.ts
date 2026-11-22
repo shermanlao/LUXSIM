@@ -36,6 +36,11 @@ describe("user guide", () => {
     expect(guide).toMatch(/左側面板最上方是 \*\*Import plan\*\*/);
     expect(guide).toMatch(/In view-only, Import plan stays hidden/);
     expect(guide).toMatch(/唯讀檢視時，\*\*Import plan\*\* 會隱藏/);
+    expect(guide).toMatch(/\*\*Download\*\*/);
+    expect(guide).toMatch(/already uploaded and stored original file/);
+    expect(guide).toMatch(/已上傳並儲存的原檔/);
+    expect(guide).toMatch(/You cannot upload a plan in view-only/);
+    expect(guide).toMatch(/不能上傳/);
     expect(guide).toMatch(/Plan layers/);
     expect(guide).toMatch(/1\.5 mm/);
     expect(guide).toMatch(/128×/);

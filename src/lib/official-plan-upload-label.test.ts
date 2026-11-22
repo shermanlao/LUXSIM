@@ -37,10 +37,12 @@ describe("official Import plan upload record", () => {
       '<p className="cad-section-title">Building</p>'
     );
     const window = editor.slice(aside, buildingTitle);
-    expect(window).toContain("officialFormatPlanUploadAt");
-    expect(window).toContain("planAsset.fileName");
-    expect(window).toContain("planAsset.createdAt");
-    expect(window).toMatch(/Uploaded /);
+    expect(editor).toContain("function renderCurrentPlanFile");
+    expect(editor).toContain("officialFormatPlanUploadAt");
+    expect(editor).toContain("planAsset.fileName");
+    expect(editor).toContain("planAsset.createdAt");
+    expect(editor).toMatch(/Uploaded /);
+    expect(window).toContain("renderCurrentPlanFile()");
     expect(editor).toMatch(/createdAt\?: string/);
     expect(editor).toContain("officialMetersPerUnitFromAssetMeta(meta) ?? meta.metersPerUnit");
   });
