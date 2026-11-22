@@ -38,7 +38,7 @@ describe("official project loading dialog", () => {
     expect(copy).toContain('export const PROJECT_LOADING_TITLE_ZH = "正在載入專案…"');
     expect(css).toContain(".official-wait-backdrop");
     expect(css).toContain(".official-wait-dialog");
-    expect(css).toMatch(/\.official-wait-backdrop\s*\{[^}]*z-index:\s*200;/);
+    expect(css).toMatch(/\.official-wait-backdrop\s*\{[^}]*z-index:\s*210;/);
     expect(css).toContain("#0a1218");
   });
 

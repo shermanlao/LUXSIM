@@ -155,6 +155,7 @@ describe("user guide", () => {
     expect(headings).toContain("計算樓層 / Calc storey");
     expect(headings).toContain("等照度線與數值圖 / Isolines and value labels");
     expect(headings).toContain("房間屬性 / Room properties");
+    expect(headings).toContain("專案燈具庫 / Fixture library");
     expect(headings).toContain("燈具庫 / Luminaire library");
     expect(blocks.some((b) => b.type === "ol" && b.items.length >= 6)).toBe(true);
     expect(blocks.some((b) => b.type === "ul")).toBe(true);
@@ -193,6 +194,19 @@ describe("user guide", () => {
     expect(admin).toMatch(/rename the workspace on the Workspace members page/);
     expect(admin).toMatch(/They cannot rename the workspace/);
     expect(admin).not.toMatch(/\bHost\b/);
+  });
+
+  it("documents editor Fixture library Generate LDT dialog under Add from org library", () => {
+    expect(guide).toMatch(/專案燈具庫 \/ Fixture library/);
+    expect(guide).toMatch(/Add from org library/);
+    expect(guide).toMatch(/\*\*Upload IES \/ LDT \/ GLDF\*\*/);
+    expect(guide).toMatch(/\*\*Generate LDT\*\* 會彈出對話框/);
+    expect(guide).toMatch(/右側屬性欄在靜止狀態不會展開整份 Generate LDT 表單/);
+    expect(guide).toMatch(/Generate LDT\*\* opens a dialog with the same generation parameters/);
+    expect(guide).toMatch(/At rest, the right property panel does not show the full Generate LDT form/);
+    expect(guide).toMatch(/Luminaire library\*\* page still keeps its inline \*\*Generate LDT\*\* form/);
+    expect(guide).toMatch(/不是編輯器右側的按鈕與對話框/);
+    expect(guide).not.toMatch(/DIALux/);
   });
 
   it("documents library photometry drop, display names, and multi-file import", () => {

@@ -34,10 +34,12 @@ export type GeneratedLuminaireRow = {
 type Props = {
   compact?: boolean;
   tone?: "light" | "cad";
+  /** Hide the in-form "Generate LDT" heading when a parent dialog already titles the panel. */
+  hideHeading?: boolean;
   onCreated?: (luminaire: GeneratedLuminaireRow, photometric: PhotometricData) => void | Promise<void>;
 };
 
-export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: Props) {
+export function GenerateLdtForm({ compact = false, tone = "light", hideHeading = false, onCreated }: Props) {
   const [family, setFamily] = useState<PhotometricFamily>("circular");
   const [beamDegrees, setBeamDegrees] = useState(24);
   const [beamHint, setBeamHint] = useState("");
@@ -158,7 +160,7 @@ export function GenerateLdtForm({ compact = false, tone = "light", onCreated }: 
     {saving && <OfficialWaitDialog {...OFFICIAL_WAIT_COPY.generatingLdt} />}
     <form onSubmit={onSubmit} className={compact ? "space-y-2" : "space-y-3"}>
       <div>
-        <h2 className="font-semibold">Generate LDT</h2>
+        {!hideHeading && <h2 className="font-semibold">Generate LDT</h2>}
         <p className={`text-[var(--muted)] ${compact ? "text-[10px]" : "text-sm"}`}>
           {GENERATE_LDT_FORM_DISCLAIMER}
         </p>

@@ -271,7 +271,7 @@ import { SaveReminderDialog } from "./SaveReminderDialog";
 import { FixtureLightConePreview } from "./FixtureLightConePreview";
 import { PolarPreview } from "@/components/PolarPreview";
 import { PhotometricColorQuality } from "@/components/PhotometricColorQuality";
-import { GenerateLdtForm } from "@/components/GenerateLdtForm";
+import { GenerateLdtDialog } from "./GenerateLdtDialog";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
@@ -401,6 +401,7 @@ export function BuildingEditor({
   const reminderEpochRef = useRef<number | null>(null);
   const [reminderGeneration, setReminderGeneration] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [generateLdtOpen, setGenerateLdtOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
   const [calcAfterPlace, setCalcAfterPlace] = useState(false);
   const [arrayPreview, setArrayPreview] = useState<{ x: number; y: number; rotationDeg: number }[] | null>(
@@ -4441,39 +4442,6 @@ export function BuildingEditor({
             <p className="cad-section-title">Fixture library</p>
 {!readOnly && (
             <>
-          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
-            <label className="label">Upload IES / LDT / GLDF</label>
-            <input
-              ref={fileRef}
-              className="input text-xs"
-              type="file"
-              accept=".ies,.ldt,.gldf"
-              disabled={uploading}
-              onChange={(e) => void onUploadPhotometry(e.target.files?.[0] ?? null)}
-            />
-            <p className="text-[10px] text-[var(--muted)]">
-              Adds to list only — drag to place on the plan.
-            </p>
-          </div>
-
-          <div className="space-y-2 rounded border border-dashed border-[#4a6270] p-3 bg-[#1a2832]">
-            <GenerateLdtForm
-              compact
-              tone="cad"
-              onCreated={async (lum, photometric) => {
-                await loadLibrary();
-                setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
-                patchScene((s) => ({
-                  ...s,
-                  fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
-                    ? s.fixtureLibraryIds
-                    : [...s.fixtureLibraryIds, lum.id],
-                }));
-                setStatus(`Generated “${lum.name}” and added to project fixture list (not placed)`);
-              }}
-            />
-          </div>
-
           <div>
             <label className="label">Add from org library</label>
             <OfficialMaybeSelect
@@ -4491,6 +4459,37 @@ export function BuildingEditor({
                 </option>
               ))}
             </OfficialMaybeSelect>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <input
+              ref={fileRef}
+              className="sr-only"
+              type="file"
+              accept=".ies,.ldt,.gldf"
+              disabled={uploading}
+              tabIndex={-1}
+              aria-hidden="true"
+              onChange={(e) => void onUploadPhotometry(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              className="btn btn-secondary w-full !text-xs"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+            >
+              Upload IES / LDT / GLDF
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary w-full !text-xs"
+              onClick={() => setGenerateLdtOpen(true)}
+            >
+              Generate LDT
+            </button>
+            <p className="text-[10px] text-[var(--muted)]">
+              Adds to list only — drag to place on the plan.
+            </p>
           </div>
 
             </>
@@ -4601,6 +4600,23 @@ export function BuildingEditor({
         onSave={saveFromReminder}
         onLater={deferSaveReminder}
       />
+      {!readOnly && (
+        <GenerateLdtDialog
+          open={generateLdtOpen}
+          onClose={() => setGenerateLdtOpen(false)}
+          onCreated={async (lum, photometric) => {
+            await loadLibrary();
+            setPhotoCache((c) => ({ ...c, [lum.id]: photometric }));
+            patchScene((s) => ({
+              ...s,
+              fixtureLibraryIds: s.fixtureLibraryIds.includes(lum.id)
+                ? s.fixtureLibraryIds
+                : [...s.fixtureLibraryIds, lum.id],
+            }));
+            setStatus(`Generated “${lum.name}” and added to project fixture list (not placed)`);
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -54,14 +54,16 @@ describe("library-cone bilingual laboratory-file disclaimer", () => {
     );
   });
 
-  it("shows the bilingual disclaimer on the Generate LDT form, including compact editor reuse", () => {
+  it("shows the bilingual disclaimer on the Generate LDT form, including compact editor dialog reuse", () => {
     expect(formSrc).toContain("GENERATE_LDT_FORM_DISCLAIMER");
     expect(formSrc).toMatch(
       /<p className=\{`text-\[var\(--muted\)\] \$\{compact \? "text-\[10px\]" : "text-sm"\}`\}>\s*\{GENERATE_LDT_FORM_DISCLAIMER\}\s*<\/p>/,
     );
     // Compact typography still uses the same copy; there is no English-only branch.
     expect(formSrc).not.toMatch(/compact\s*\?\s*["'`][^"'`]*laboratory file/);
-    expect(editorSrc).toMatch(/<GenerateLdtForm[\s\S]*?\bcompact\b/);
+    const dialogSrc = readSrc("src/components/editor/GenerateLdtDialog.tsx");
+    expect(dialogSrc).toMatch(/<GenerateLdtForm[\s\S]*?\bcompact\b/);
+    expect(editorSrc).toContain("GenerateLdtDialog");
     expect(editorSrc).not.toMatch(/This is not a laboratory file/);
   });
 

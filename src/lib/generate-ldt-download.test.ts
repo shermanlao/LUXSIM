@@ -163,9 +163,11 @@ describe("Generate LDT form download wiring", () => {
     expect(formSrc).toContain('fetch("/api/luminaires/generate"');
   });
 
-  it("keeps the same form, including compact editor reuse, and does not auto-save on download", () => {
+  it("keeps the same form, including compact editor dialog reuse, and does not auto-save on download", () => {
     expect(librarySrc).toMatch(/<GenerateLdtForm[\s\S]*?onCreated=/);
-    expect(editorSrc).toMatch(/<GenerateLdtForm[\s\S]*?\bcompact\b/);
+    const dialogSrc = readSrc("src/components/editor/GenerateLdtDialog.tsx");
+    expect(dialogSrc).toMatch(/<GenerateLdtForm[\s\S]*?\bcompact\b/);
+    expect(editorSrc).toContain("GenerateLdtDialog");
     expect(editorSrc).not.toMatch(/Download \.ldt/);
     const downloadFn = formSrc.slice(
       formSrc.indexOf("function downloadCurrent"),
