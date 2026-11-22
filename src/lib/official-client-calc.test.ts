@@ -109,7 +109,7 @@ describe("runOfficialClientCalc — Calc all missing photometry", () => {
     const runSolver = solverForEave(150);
     const ensurePhotometry = vi.fn(async (id: string) => (id === "lum_ok" ? photo : null));
 
-    const out = await runOfficialClientCalc(scene, priorMissing, true, {
+    const out = await runOfficialClientCalc(scene, priorMissing, "all", {
       ensurePhotometry,
       getWatts: () => 30,
       runSolver,
@@ -144,7 +144,7 @@ describe("runOfficialClientCalc — Calc all missing photometry", () => {
     const empty: ResultsV2 = { version: 2, byRoomId: {} };
     const runSolver = solverForEave(180);
 
-    const out = await runOfficialClientCalc(scene, empty, true, {
+    const out = await runOfficialClientCalc(scene, empty, "all", {
       ensurePhotometry: async (id) => (id === "lum_ok" ? photo : null),
       getWatts: () => 18,
       runSolver,
@@ -172,7 +172,7 @@ describe("runOfficialClientCalc — Calc all missing photometry", () => {
     const out = await runOfficialClientCalc(
       scene,
       { version: 2, byRoomId: {} },
-      true,
+      "all",
       {
         ensurePhotometry: async (id) => (id === "lum_ok" ? photo : null),
         getWatts: () => 30,
@@ -200,7 +200,7 @@ describe("runOfficialClientCalc — Calc all missing photometry", () => {
     const out = await runOfficialClientCalc(
       scene,
       { version: 2, byRoomId: {} },
-      true,
+      "all",
       {
         ensurePhotometry: async () => null,
         getWatts: () => 30,
@@ -233,7 +233,7 @@ describe("runOfficialClientCalc — Calc room and empty-room behaviour", () => {
     const snapshot = structuredClone(scene.instances);
     const runSolver = solverForEave(150);
 
-    const out = await runOfficialClientCalc(scene, prior, false, {
+    const out = await runOfficialClientCalc(scene, prior, "room", {
       ensurePhotometry: async (id) => (id === "lum_ok" ? photo : null),
       getWatts: () => 30,
       runSolver,
@@ -262,7 +262,7 @@ describe("runOfficialClientCalc — Calc room and empty-room behaviour", () => {
     const out = await runOfficialClientCalc(
       scene,
       { version: 2, byRoomId: {} },
-      true,
+      "all",
       {
         ensurePhotometry: async () => photo,
         getWatts: () => 30,
@@ -288,7 +288,7 @@ describe("runOfficialClientCalc — Calc room and empty-room behaviour", () => {
     const out = await runOfficialClientCalc(
       scene,
       { version: 2, byRoomId: {} },
-      true,
+      "all",
       {
         ensurePhotometry: async () => photo,
         getWatts: () => 30,
@@ -329,6 +329,155 @@ describe("runPostPlaceCalcForRooms default path is unchanged", () => {
     expect(out.calcFailed).toBe(true);
     expect(out.results.byRoomId.r_ok).toBeUndefined();
     expect(out.results.byRoomId.r_missing).toBeUndefined();
+    expect(runSolver).not.toHaveBeenCalled();
+  });
+});
+
+
+describe("runOfficialClientCalc — Calc storey", () => {
+  it("calculates only rooms on the active storey and preserves other storeys’ results", async () => {
+    const base = defaultSceneV2();
+    const s1 = base.ui.activeStoreyId;
+    const s2 = "storey_other";
+    const scene: ProjectSceneV2 = {
+      ...base,
+      storeys: [...base.storeys, { id: s2, name: "1F", elevationM: 3, heightM: 3 }],
+      rooms: [
+        room("r_gf_a", "GF A", s1),
+        room("r_gf_b", "GF B", s1),
+        room("r_1f", "1F Office", s2),
+      ],
+      instances: [
+        fixture("i1", "r_gf_a", s1, "lum_ok"),
+        fixture("i2", "r_gf_b", s1, "lum_ok"),
+        fixture("i3", "r_1f", s2, "lum_ok"),
+      ],
+      ui: { ...base.ui, activeStoreyId: s1, activeRoomId: "r_1f" },
+    };
+    const prior: ResultsV2 = {
+      version: 2,
+      byRoomId: {
+        r_1f: fakeResult(99),
+        r_gf_a: fakeResult(11),
+      },
+    };
+    const runSolver = solverForEave(160);
+
+    const out = await runOfficialClientCalc(scene, prior, "storey", {
+      ensurePhotometry: async () => photo,
+      getWatts: () => 30,
+      runSolver,
+    });
+
+    expect(out.ok).toBe(true);
+    expect(out.calculatedRoomIds.sort()).toEqual(["r_gf_a", "r_gf_b"]);
+    expect(out.results.byRoomId.r_gf_a?.summary.eave).toBe(160);
+    expect(out.results.byRoomId.r_gf_b?.summary.eave).toBe(160);
+    expect(out.results.byRoomId.r_1f?.summary.eave).toBe(99);
+    expect(runSolver).toHaveBeenCalledTimes(2);
+  });
+
+  it("skips missing photometry on the storey like Calc all and still writes calculable rooms", async () => {
+    const base = defaultSceneV2();
+    const s1 = base.ui.activeStoreyId;
+    const s2 = "storey_other";
+    const scene: ProjectSceneV2 = {
+      ...base,
+      storeys: [...base.storeys, { id: s2, name: "1F", elevationM: 3, heightM: 3 }],
+      rooms: [
+        room("r_ok", "Lit", s1),
+        room("r_missing", "Broken", s1),
+        room("r_other", "Other floor", s2),
+      ],
+      instances: [
+        fixture("i1", "r_ok", s1, "lum_ok"),
+        fixture("i2", "r_missing", s1, "lum_missing"),
+        fixture("i3", "r_other", s2, "lum_ok"),
+      ],
+      ui: { ...base.ui, activeStoreyId: s1, activeRoomId: "r_ok" },
+    };
+    const prior: ResultsV2 = {
+      version: 2,
+      byRoomId: {
+        r_other: fakeResult(55),
+        r_missing: fakeResult(42),
+      },
+    };
+    const runSolver = solverForEave(175);
+
+    const out = await runOfficialClientCalc(
+      scene,
+      prior,
+      "storey",
+      {
+        ensurePhotometry: async (id) => (id === "lum_ok" ? photo : null),
+        getWatts: () => 30,
+        runSolver,
+      },
+      { luminaireNames: { lum_missing: "Downlight A" } }
+    );
+
+    expect(out.ok).toBe(true);
+    expect(out.calculatedRoomIds).toEqual(["r_ok"]);
+    expect(out.results.byRoomId.r_ok?.summary.eave).toBe(175);
+    expect(out.results.byRoomId.r_missing?.summary.eave).toBe(42);
+    expect(out.results.byRoomId.r_other?.summary.eave).toBe(55);
+    expect(out.status).toContain("Broken (missing photometry)");
+    expect(runSolver).toHaveBeenCalledTimes(1);
+  });
+
+  it("refuses an empty storey without writing results", async () => {
+    const base = defaultSceneV2();
+    const s2 = "storey_empty";
+    const scene: ProjectSceneV2 = {
+      ...base,
+      storeys: [...base.storeys, { id: s2, name: "Empty", elevationM: 3, heightM: 3 }],
+      rooms: [room("r1", "GF", base.ui.activeStoreyId)],
+      instances: [fixture("i1", "r1", base.ui.activeStoreyId, "lum_ok")],
+      ui: { ...base.ui, activeStoreyId: s2, activeRoomId: null },
+    };
+    const prior: ResultsV2 = { version: 2, byRoomId: { r1: fakeResult(88) } };
+    const runSolver = solverForEave(1);
+
+    const out = await runOfficialClientCalc(scene, prior, "storey", {
+      ensurePhotometry: async () => photo,
+      getWatts: () => 30,
+      runSolver,
+    });
+
+    expect(out.ok).toBe(false);
+    expect(out.started).toBe(false);
+    expect(out.status).toBe("No rooms on this storey / 此樓層沒有房間");
+    expect(out.results.byRoomId.r1?.summary.eave).toBe(88);
+    expect(runSolver).not.toHaveBeenCalled();
+  });
+
+  it("refuses when nothing on the storey is calculable and writes nothing new", async () => {
+    const storey = defaultSceneV2().ui.activeStoreyId;
+    const scene = sceneWith(
+      [room("r_empty", "Empty", storey), room("r_missing", "Broken", storey)],
+      [fixture("i1", "r_missing", storey, "lum_missing")],
+      "r_missing"
+    );
+    const prior: ResultsV2 = { version: 2, byRoomId: { r_other: fakeResult(33) } };
+    const runSolver = solverForEave(999);
+
+    const out = await runOfficialClientCalc(
+      scene,
+      prior,
+      "storey",
+      {
+        ensurePhotometry: async () => null,
+        getWatts: () => 30,
+        runSolver,
+      },
+      { luminaireNames: { lum_missing: "Downlight A" } }
+    );
+
+    expect(out.ok).toBe(false);
+    expect(out.calculatedRoomIds).toEqual([]);
+    expect(out.results.byRoomId).toEqual({ r_other: fakeResult(33) });
+    expect(out.status).toMatch(/Missing photometry — upload IES\/LDT: Downlight A/);
     expect(runSolver).not.toHaveBeenCalled();
   });
 });

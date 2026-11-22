@@ -91,7 +91,7 @@ describe("official project loading dialog", () => {
     expect(guide).toMatch(/正在開啟專案檔…/);
     expect(guide).toMatch(/The same loading dialog also appears while other work that can take time is running/);
     expect(guide).toMatch(/其他需要較長時間的工作同樣使用這個載入對話框/);
-    expect(guide).toMatch(/\*\*Calc room\*\* \/ \*\*Calc all\*\*/);
+    expect(guide).toMatch(/\*\*Calc room\*\* \/ \*\*Calc storey\*\* \/ \*\*Calc all\*\*/);
     expect(guide).toMatch(/does not appear for pan, zoom, selection, orbiting the 3D view/);
     expect(guide).toMatch(/平移、縮放、選取、環繞旋轉 3D 視圖/);
   });

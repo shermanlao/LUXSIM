@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { defaultSceneV2, rectPolygon } from "@luxsim/project-io";
 import type { ProjectSceneV2, RoomV2 } from "@luxsim/project-io";
-import { formatCalcCompleteStatus, formatCalcEmptyError, planCalcRooms } from "./editor-calc-rooms";
+import {
+  formatCalcBusyStatus,
+  formatCalcCompleteStatus,
+  formatCalcEmptyError,
+  planCalcRooms,
+} from "./editor-calc-rooms";
 
 function room(id: string, name: string, storeyId: string): RoomV2 {
   return {
@@ -28,45 +33,60 @@ function fixture(id: string, roomId: string, storeyId: string): ProjectSceneV2["
   };
 }
 
-function sceneWith(rooms: RoomV2[], instances: ProjectSceneV2["instances"], activeRoomId: string | null) {
+function sceneWith(
+  rooms: RoomV2[],
+  instances: ProjectSceneV2["instances"],
+  activeRoomId: string | null,
+  activeStoreyId?: string
+) {
   const base = defaultSceneV2();
-  const storeyId = base.ui.activeStoreyId;
+  const storeyId = activeStoreyId ?? base.ui.activeStoreyId;
   return {
     ...base,
     rooms: rooms.map((r) => ({ ...r, storeyId })),
     instances: instances.map((i) => ({ ...i, storeyId })),
-    ui: { ...base.ui, activeRoomId },
+    ui: { ...base.ui, activeRoomId, activeStoreyId: storeyId },
   };
 }
 
 describe("planCalcRooms", () => {
   it("errors when Calc room has no active room", () => {
     const scene = sceneWith([], [], null);
-    const plan = planCalcRooms(scene, false);
+    const plan = planCalcRooms(scene, "room");
     expect(plan.ok).toBe(false);
     if (!plan.ok) {
       expect(plan.reason).toBe("no-room");
+      expect(plan.scope).toBe("room");
       expect(formatCalcEmptyError(plan)).toBe("Select or create a room first");
     }
   });
 
   it("errors when the only selected room has no fixtures", () => {
-    const scene = sceneWith([room("r1", "Office", "s")], [], "r1");
-    const plan = planCalcRooms(scene, false);
-    expect(plan).toMatchObject({ ok: false, reason: "all-empty", roomIds: [] });
+    const base = defaultSceneV2();
+    const storey = base.ui.activeStoreyId;
+    const scene = {
+      ...base,
+      rooms: [room("r1", "Office", storey)],
+      instances: [],
+      ui: { ...base.ui, activeRoomId: "r1", activeStoreyId: storey },
+    };
+    const plan = planCalcRooms(scene, "room");
+    expect(plan).toMatchObject({ ok: false, reason: "all-empty", roomIds: [], scope: "room" });
     if (!plan.ok) {
       expect(formatCalcEmptyError(plan)).toBe("Room “Office” has no fixtures");
     }
   });
 
   it("skips empty rooms in Calc all but calculates the rest", () => {
-    const storey = defaultSceneV2().ui.activeStoreyId;
-    const scene = sceneWith(
-      [room("r1", "Empty", storey), room("r2", "Lit", storey), room("r3", "Also empty", storey)],
-      [fixture("i1", "r2", storey)],
-      "r1"
-    );
-    const plan = planCalcRooms(scene, true);
+    const base = defaultSceneV2();
+    const storey = base.ui.activeStoreyId;
+    const scene = {
+      ...base,
+      rooms: [room("r1", "Empty", storey), room("r2", "Lit", storey), room("r3", "Also empty", storey)],
+      instances: [fixture("i1", "r2", storey)],
+      ui: { ...base.ui, activeRoomId: "r1", activeStoreyId: storey },
+    };
+    const plan = planCalcRooms(scene, "all");
     expect(plan.ok).toBe(true);
     expect(plan.roomIds).toEqual(["r2"]);
     expect(plan.skippedEmpty.map((s) => s.name)).toEqual(["Empty", "Also empty"]);
@@ -78,10 +98,80 @@ describe("planCalcRooms", () => {
       [],
       "r1"
     );
-    const plan = planCalcRooms(scene, true);
+    const plan = planCalcRooms(scene, "all");
     expect(plan.ok).toBe(false);
     if (!plan.ok) expect(plan.reason).toBe("all-empty");
     expect(plan.roomIds).toEqual([]);
+  });
+
+  it("plans only rooms on the active storey for Calc storey", () => {
+    const base = defaultSceneV2();
+    const s1 = base.ui.activeStoreyId;
+    const s2 = "storey_other";
+    const scene: ProjectSceneV2 = {
+      ...base,
+      storeys: [
+        ...base.storeys,
+        { id: s2, name: "1F", elevationM: 3, heightM: 3 },
+      ],
+      rooms: [
+        room("r1", "GF Office", s1),
+        room("r2", "GF Empty", s1),
+        room("r3", "1F Lit", s2),
+      ],
+      instances: [fixture("i1", "r1", s1), fixture("i2", "r3", s2)],
+      ui: { ...base.ui, activeStoreyId: s1, activeRoomId: "r3" },
+    };
+    const plan = planCalcRooms(scene, "storey");
+    expect(plan.ok).toBe(true);
+    expect(plan.roomIds).toEqual(["r1"]);
+    expect(plan.skippedEmpty.map((s) => s.name)).toEqual(["GF Empty"]);
+    expect(plan.roomIds).not.toContain("r3");
+  });
+
+  it("refuses Calc storey when the active storey has no rooms", () => {
+    const base = defaultSceneV2();
+    const s2 = "storey_empty";
+    const scene: ProjectSceneV2 = {
+      ...base,
+      storeys: [...base.storeys, { id: s2, name: "Empty floor", elevationM: 3, heightM: 3 }],
+      rooms: [room("r1", "GF", base.ui.activeStoreyId)],
+      instances: [fixture("i1", "r1", base.ui.activeStoreyId)],
+      ui: { ...base.ui, activeStoreyId: s2, activeRoomId: null },
+    };
+    const plan = planCalcRooms(scene, "storey");
+    expect(plan.ok).toBe(false);
+    if (!plan.ok) {
+      expect(plan.reason).toBe("no-room");
+      expect(formatCalcEmptyError(plan)).toBe("No rooms on this storey / 此樓層沒有房間");
+    }
+  });
+
+  it("refuses Calc storey when every room on the storey lacks fixtures", () => {
+    const base = defaultSceneV2();
+    const storey = base.ui.activeStoreyId;
+    const scene = {
+      ...base,
+      rooms: [room("r1", "A", storey), room("r2", "B", storey)],
+      instances: [],
+      ui: { ...base.ui, activeRoomId: "r1", activeStoreyId: storey },
+    };
+    const plan = planCalcRooms(scene, "storey");
+    expect(plan.ok).toBe(false);
+    if (!plan.ok) {
+      expect(plan.reason).toBe("all-empty");
+      expect(formatCalcEmptyError(plan)).toBe(
+        "No rooms on this storey have fixtures to calculate / 此樓層沒有可計算的房間"
+      );
+    }
+  });
+});
+
+describe("formatCalcBusyStatus", () => {
+  it("uses a bilingual storey busy status", () => {
+    expect(formatCalcBusyStatus("storey")).toBe("Calculating storey… / 正在計算樓層…");
+    expect(formatCalcBusyStatus("room")).toBe("Calculating on client…");
+    expect(formatCalcBusyStatus("all")).toBe("Calculating on client…");
   });
 });
 

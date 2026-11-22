@@ -50,7 +50,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 - **RCP OCR (F2.2)**: Light mode **Detect from plan** — local tesseract proposals (`rcpProposals` on scene); no cloud by default
 - **RCP confirm (F2.3)**: human review table (code map column, accept/reject, edit code → `codeNorm`); autosaved proposals only
 - **RCP commit (F2.4)**: **Commit accepted** places mapped proposals as fixtures (`rcpProposalId` on instance); optional replace prior detect-sourced fixtures on storey; room results cleared; optional calc after commit
-- **Post-place calc (F2.6)**: RCP commit, array apply, drag-drop, and **Calc room/all** use shared **`post-place-calc`** → `runClientCalcForRooms` / `packages/solver`; bottom results strip + EN/MF assist; photometry gaps surfaced by luminaire name
+- **Post-place calc (F2.6)**: RCP commit, array apply, drag-drop, and **Calc room** / **Calc storey** / **Calc all** use shared **`post-place-calc`** → `runClientCalcForRooms` / `packages/solver`; bottom results strip + EN/MF assist; photometry gaps surfaced by luminaire name
 - Official DXF object snap on Top picks (endpoint, midpoint, nearest-on-segment, 8 CSS px). **Create rooms from DXF** builds rooms from closed polylines, from simple closed loops of connected LINE / open LWPOLYLINE segments, and from each minimal interior face of a T-junction or shared-wall network on the current storey. Official rooms are simple polygons without holes: if one room lies fully inside another with no connecting wall, only the inner room is kept. A DWG import is converted and then works like a DXF underlay. CIRCLE, ARC, ELLIPSE, SPLINE (including a spline that has only fit points), old POLYLINE, and LWPOLYLINE bulges are also traced (curves as polygons). A non-mesh 3D POLYLINE is traced in plan (Z is ignored). Paperspace entities (group 67 = 1) are not displayed, snapped, bounded, or used to create rooms. Polygon-mesh and polyface-mesh POLYLINE entities are also traced in plan (Z is ignored)
 - DWG not parsed natively
 - IFC import is a text parser (no openings, no export)
@@ -66,6 +66,7 @@ LUXSIM is a **browser design-assist** tool. DIALux evo 14 is a **desktop, standa
 
 ### Calculation
 
+- **Calc room** / **Calc storey** / **Calc all** — official scopes for the active room, every room on the active storey, or the whole project. Calc storey keeps other storeys’ existing results; missing photometry is skipped like Calc all. No “current view” calc scope yet
 - Automatic vertical calculation surfaces on every room wall (inward normals, same grid/inset as the workplane). One workplane per room; no extra task areas, ceiling grids, or user-drawn surfaces yet
 - Interreflection is a box-room boost, not radiosity
 - UGR observers are simplified (look toward room centre)

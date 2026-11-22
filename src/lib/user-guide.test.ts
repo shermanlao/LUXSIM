@@ -143,6 +143,7 @@ describe("user guide", () => {
     expect(headings).toContain("圓形排列 / Circular array");
     expect(headings).toContain("多邊形排列 / Polygon array");
     expect(headings).toContain("自動佈燈 / Automatic placement");
+    expect(headings).toContain("計算樓層 / Calc storey");
     expect(headings).toContain("等照度線與數值圖 / Isolines and value labels");
     expect(headings).toContain("房間屬性 / Room properties");
     expect(headings).toContain("燈具庫 / Luminaire library");
@@ -645,6 +646,7 @@ describe("user guide", () => {
       "isolux-overlay.svg",
       "draw-room.svg",
       "automatic-placement.svg",
+      "calc-storey.svg",
     ]) {
       expect(existsSync(path.join(process.cwd(), "public/docs/guide", name))).toBe(true);
     }
@@ -680,5 +682,21 @@ describe("user guide", () => {
     expect(article).toContain("中文");
     expect(article).toContain("English");
     expect(article).toContain("GUIDE_LANG_STORAGE_KEY");
+  });
+
+  it("documents Calc storey for the active storey", () => {
+    expect(guide).toMatch(/計算樓層 \/ Calc storey/);
+    expect(guide).toMatch(/\*\*Calc storey\*\*/);
+    expect(guide).toMatch(/Calculating storey…/);
+    expect(guide).toMatch(/正在計算樓層…/);
+    expect(guide).toMatch(/active storey/i);
+    expect(guide).toMatch(/目前樓層/);
+    expect(guide).toMatch(/other storeys/i);
+    expect(guide).toMatch(/其他樓層/);
+    expect(guide).toMatch(/missing photometry/i);
+    expect(guide).toMatch(/缺配光/);
+    expect(guide).toMatch(/view-only|唯讀/);
+    expect(guide).toContain("![計算樓層 / Calc storey](/docs/guide/calc-storey.svg)");
+    expect(existsSync(path.join(process.cwd(), "public/docs/guide/calc-storey.svg"))).toBe(true);
   });
 });

@@ -226,8 +226,10 @@ import { saveReminderDue, startSaveReminderEpoch } from "@/lib/save-reminder";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
   calcStatusTone,
+  formatCalcBusyStatus,
   formatCalcEmptyError,
   planCalcRooms,
+  type CalcScope,
 } from "@/lib/editor-calc-rooms";
 import { runOfficialClientCalc } from "@/lib/official-client-calc";
 import {
@@ -456,7 +458,7 @@ export function BuildingEditor({
   const saveQueued = useRef(false);
 
   const { autosaveMs, loaded: accountLoaded } = useAccountSettings();
-  const [calcTarget, setCalcTarget] = useState<"room" | "all" | null>(null);
+  const [calcTarget, setCalcTarget] = useState<CalcScope | null>(null);
   const undoStackRef = useRef(
     createUndoStack<{ name: string; scene: ProjectSceneV2; results: ResultsV2 }>(50)
   );
@@ -2128,22 +2130,22 @@ export function BuildingEditor({
     []
   );
 
-  async function runCalc(all: boolean) {
+  async function runCalc(scope: CalcScope) {
     if (readOnly) return;
-    const plan = planCalcRooms(scene, all);
+    const plan = planCalcRooms(scene, scope);
     if (!plan.ok) {
       setStatus(formatCalcEmptyError(plan));
       return;
     }
-    setCalcTarget(all ? "all" : "room");
+    setCalcTarget(scope);
     setCalculating(true);
-    setStatus("Calculating on client…");
+    setStatus(formatCalcBusyStatus(scope));
     try {
       await officialWait.run(OFFICIAL_WAIT_COPY.calculating, async () => {
       const calc = await runOfficialClientCalc(
         scene,
         results,
-        all,
+        scope,
         writeCalcDeps(),
         { luminaireNames: luminaireNameMap(), bilingual: true }
       );
@@ -3277,17 +3279,27 @@ export function BuildingEditor({
             type="button"
             className="btn btn-secondary !text-xs"
             disabled={calculating}
-            onClick={() => void runCalc(false)}
+            onClick={() => void runCalc("room")}
           >
             {calculating && calcTarget === "room" ? "Calculating…" : "Calc room"}
           </button>
           <button
             type="button"
+            className="btn btn-secondary !text-xs"
+            disabled={calculating}
+            onClick={() => void runCalc("storey")}
+            title="Calc storey / 計算樓層"
+          >
+            {calculating && calcTarget === "storey" ? "Calculating…" : "Calc storey"}
+          </button>
+          <HelpTip helpKey="calc.storey" />
+          <button
+            type="button"
             className="btn btn-accent !text-xs"
             disabled={calculating}
-            onClick={() => void runCalc(true)}
+            onClick={() => void runCalc("all")}
           >
-            {calculating && calcTarget !== "room" ? "Calculating…" : "Calc all"}
+            {calculating && calcTarget === "all" ? "Calculating…" : "Calc all"}
           </button>
             </>
           )}

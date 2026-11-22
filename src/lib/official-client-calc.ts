@@ -4,6 +4,7 @@ import {
   formatCalcEmptyError,
   planCalcRooms,
   type CalcRoomSkip,
+  type CalcScope,
 } from "@/lib/editor-calc-rooms";
 import {
   formatMissingPhotometryStatus,
@@ -66,20 +67,21 @@ export async function partitionRoomsByPhotometry(
 }
 
 /**
- * Official Calc room / Calc all path. Calc all skips rooms that lack photometry
- * the same way it skips empty rooms: explain in the status and still write
- * results for rooms that can be calculated. A direct Calc room request still
- * fails clearly when that room itself lacks photometry. The scene (fixtures)
- * is never mutated.
+ * Official Calc room / Calc storey / Calc all path. Calc storey and Calc all
+ * skip rooms that lack photometry the same way they skip empty rooms: explain
+ * in the status and still write results for rooms that can be calculated. A
+ * direct Calc room request still fails clearly when that room itself lacks
+ * photometry. The scene (fixtures) is never mutated. Calc storey only plans
+ * rooms on `scene.ui.activeStoreyId`; other storeys’ existing results are kept.
  */
 export async function runOfficialClientCalc(
   scene: ProjectSceneV2,
   results: ResultsV2,
-  all: boolean,
+  scope: CalcScope,
   deps: WriteInstancesCalcDeps,
   options?: { luminaireNames?: Record<string, string>; bilingual?: boolean }
 ): Promise<OfficialClientCalcResult> {
-  const plan = planCalcRooms(scene, all);
+  const plan = planCalcRooms(scene, scope);
   const skippedEmpty: OfficialCalcSkip[] = plan.skippedEmpty.map((s) => ({
     ...s,
     reason: "no-fixtures",
@@ -104,6 +106,9 @@ export async function runOfficialClientCalc(
     deps.ensurePhotometry
   );
 
+  // Calc room: a single-room request with missing photometry lands here with
+  // no ready rooms and fails clearly. Calc storey / Calc all skip missing
+  // photometry rooms like empty rooms when others remain.
   if (!readyRoomIds.length) {
     const missingLuminaireIds = [
       ...new Set(skippedMissing.flatMap((s) => s.missingLuminaireIds ?? [])),

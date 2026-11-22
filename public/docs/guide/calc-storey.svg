@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" role="img" aria-labelledby="t d">
+  <title id="t">Calc storey</title>
+  <desc id="d">Calc storey calculates every room on the active storey and keeps results on other storeys unchanged.</desc>
+  <rect width="840" height="300" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="380" height="210" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <text x="36" y="42" fill="#e8eef2" font-size="13">Active storey · 目前樓層</text>
+    <rect x="48" y="60" width="140" height="90" rx="4" fill="#1a2c38" stroke="#c45c26" stroke-width="2"/>
+    <text x="68" y="112" fill="#7ec8e3" font-size="12">Room A · calculated</text>
+    <rect x="210" y="60" width="140" height="90" rx="4" fill="#1a2c38" stroke="#c45c26" stroke-width="2"/>
+    <text x="228" y="112" fill="#7ec8e3" font-size="12">Room B · calculated</text>
+    <text x="48" y="180" fill="#8aa0ad" font-size="11">Missing photometry → skipped</text>
+    <text x="48" y="200" fill="#8aa0ad" font-size="11">缺配光 → 略過並說明</text>
+
+    <rect x="420" y="16" width="400" height="210" rx="6" fill="#12202a" stroke="#2a3842"/>
+    <text x="436" y="42" fill="#e8eef2" font-size="13">Calc storey / 計算樓層</text>
+    <text x="436" y="70" fill="#c5d0d6" font-size="12">1. Select the active storey</text>
+    <text x="436" y="92" fill="#c5d0d6" font-size="12">2. Click Calc storey</text>
+    <text x="436" y="114" fill="#c5d0d6" font-size="12">3. Only this storey’s rooms run</text>
+    <text x="436" y="136" fill="#c5d0d6" font-size="12">4. Other storeys’ results kept</text>
+    <text x="436" y="158" fill="#c5d0d6" font-size="12">5. Storey strip shows combined Ēm</text>
+    <text x="436" y="190" fill="#8aa0ad" font-size="11">Same solver as Calc room / Calc all</text>
+    <text x="436" y="208" fill="#8aa0ad" font-size="11">與 Calc room／Calc all 同一官方計算路徑</text>
+
+    <text x="20" y="258" fill="#e8eef2" font-size="13">Calc storey recalculates the active floor only; other floors stay as they were.</text>
+    <text x="20" y="280" fill="#8aa0ad" font-size="12">計算樓層只重算目前樓層；其他樓層的既有結果會保留。</text>
+  </g>
+</svg>
