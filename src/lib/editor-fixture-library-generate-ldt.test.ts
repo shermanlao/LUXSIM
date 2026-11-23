@@ -15,9 +15,10 @@ describe("editor Fixture library Generate LDT dialog", () => {
   const librarySrc = readSrc("src/components/LibraryClient.tsx");
   const css = readSrc("src/app/globals.css");
 
+  const fixtureStart = editorSrc.indexOf('cad-section-title">Fixture library');
   const fixtureSection = editorSrc.slice(
-    editorSrc.indexOf('cad-section-title">Fixture library'),
-    editorSrc.indexOf('cad-section-title">Documentation'),
+    fixtureStart,
+    editorSrc.indexOf("</aside>", fixtureStart),
   );
 
   it("keeps Add from org library and two buttons under it, without an always-visible parameter form", () => {

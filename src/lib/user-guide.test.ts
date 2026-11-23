@@ -226,8 +226,14 @@ describe("user guide", () => {
     expect(guide).toMatch(/其他分頁即使已開啟偽色或灰階疊加，也不會顯示刻度條/);
     expect(guide).toMatch(/\*\*Fixtures in project\*\* 表也只在 Light 分頁顯示/);
     expect(guide).toMatch(/The \*\*Fixtures in project\*\* table at the bottom is also Light-only/);
-    expect(guide).toMatch(/隱藏整條左欄/);
-    expect(guide).toMatch(/the entire left rail is hidden/);
+    expect(guide).toMatch(/左側顯示 \*\*Documentation & export\*\*/);
+    expect(guide).toMatch(/the left rail shows \*\*Documentation & export\*\*/);
+    expect(guide).toMatch(/左側欄是主要面板/);
+    expect(guide).toMatch(/The left rail is the primary panel/);
+    expect(guide).toMatch(/左側欄寬度保持不變/);
+    expect(guide).toMatch(/The left rail width stays the same/);
+    expect(guide).not.toMatch(/隱藏整條左欄/);
+    expect(guide).not.toMatch(/the entire left rail is hidden/);
     expect(guide).toMatch(/Documentation & export/);
     expect(guide).toMatch(/工作面、網格間距與維護係數不在此分頁/);
     expect(guide).toMatch(/Workplane, grid spacing, and maintenance factor are not shown here/);

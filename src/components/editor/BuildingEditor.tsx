@@ -276,6 +276,7 @@ import { renderAllReport3dViewsAsync, webglCaptureAvailable } from "@/lib/render
 import { TopView2D } from "./TopView2D";
 import { PlanLayerPanel } from "./PlanLayerPanel";
 import { ElevationView2D } from "./ElevationView2D";
+import { editorWorkflowRailPlacement } from "@/lib/editor-workflow-panels";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { SaveReminderDialog } from "./SaveReminderDialog";
 import { FixtureLightConePreview } from "./FixtureLightConePreview";
@@ -3106,7 +3107,6 @@ export function BuildingEditor({
     });
   }
 
-  const showLeftRail = workflow !== "export";
   const showConstructionPlan = workflow === "construction";
   const showConstructionEditors = workflow === "construction";
   const showConstructionTools = workflow === "construction" && !readOnly;
@@ -3115,14 +3115,16 @@ export function BuildingEditor({
   const showRightFixtureProps = workflow === "light" && !!selected;
   const showRightFixtureLibrary = workflow === "light";
   const showRightIsolines = workflow === "calculation";
-  const showRightDocumentation = workflow === "export";
-  const showRightRail =
-    showRightConstructionRoom ||
-    showRightCalculationRoom ||
-    showRightFixtureProps ||
-    showRightFixtureLibrary ||
-    showRightIsolines ||
-    showRightDocumentation;
+  const { showLeftRail, showLeftBuilding, showLeftDocumentation, showRightRail } =
+    editorWorkflowRailPlacement({
+      workflow,
+      hasRightContent:
+        showRightConstructionRoom ||
+        showRightCalculationRoom ||
+        showRightFixtureProps ||
+        showRightFixtureLibrary ||
+        showRightIsolines,
+    });
   const showFixturesTable = workflow === "light";
   const showResultsStrip = workflow === "calculation";
 
@@ -3520,6 +3522,39 @@ export function BuildingEditor({
             />
           </div>
           {!chromeMin.left && (
+          <>
+          {showLeftDocumentation && (
+          <div className="border-t border-[#3d5563] pt-2 space-y-2" data-documentation-export="">
+            <p className="cad-section-title">Documentation &amp; export</p>
+            {!readOnly && (
+              <ProjectSharePanel projectId={projectId} />
+            )}
+            {!readOnly && (
+            <>
+            <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
+              Full PDF report
+            </button>
+            <button
+              className="btn btn-secondary w-full"
+              onClick={() => void saveOfficialLuxFile()}
+            >
+              Save .lxm
+            </button>
+            <button
+              className="btn btn-accent w-full"
+              data-help-key="export.dialuxVerification"
+              onClick={() => void onExportDialuxVerification()}
+            >
+              Verification pack (zip)
+            </button>
+            <p className="text-[10px] text-[var(--muted)]">
+              Multi-room geometry, IES/LDT, DXF, and results CSV for an independent cross-check.
+            </p>
+            </>
+            )}
+          </div>
+          )}
+          {showLeftBuilding && (
           <>
           {showConstructionPlan && !readOnly && (
           <div className="border-t border-[#3d5563] pt-2 space-y-2">
@@ -3977,6 +4012,8 @@ export function BuildingEditor({
           </div>
           )}
 
+          </>
+          )}
           </>
           )}
         </aside>
@@ -4626,37 +4663,6 @@ export function BuildingEditor({
           </div>
           )}
 
-          {showRightDocumentation && (
-          <div className="border-t border-[#3d5563] pt-2 space-y-2" data-documentation-export="">
-            <p className="cad-section-title">Documentation &amp; export</p>
-            {!readOnly && (
-              <ProjectSharePanel projectId={projectId} />
-            )}
-            {!readOnly && (
-            <>
-            <button className="btn btn-secondary w-full" onClick={() => void exportFullPdf()}>
-              Full PDF report
-            </button>
-            <button
-              className="btn btn-secondary w-full"
-              onClick={() => void saveOfficialLuxFile()}
-            >
-              Save .lxm
-            </button>
-            <button
-              className="btn btn-accent w-full"
-              data-help-key="export.dialuxVerification"
-              onClick={() => void onExportDialuxVerification()}
-            >
-              Verification pack (zip)
-            </button>
-            <p className="text-[10px] text-[var(--muted)]">
-              Multi-room geometry, IES/LDT, DXF, and results CSV for an independent cross-check.
-            </p>
-            </>
-            )}
-          </div>
-          )}
           </>
           )}
         </aside>

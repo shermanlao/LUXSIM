@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
+import { editorWorkflowRailPlacement } from "./editor-workflow-panels";
 
 const root = path.resolve(__dirname, "../..");
 
@@ -100,12 +101,12 @@ describe("editor workflow panels are tab-specific", () => {
   const fixtureLibrary = sliceBetween(
     editor,
     'data-fixture-library=""',
-    "showRightDocumentation &&",
+    "</aside>",
   );
   const documentation = sliceBetween(
     editor,
     'data-documentation-export=""',
-    "</aside>",
+    "showLeftBuilding &&",
   );
   const fixturesTable = sliceBetween(
     editor,
@@ -209,11 +210,16 @@ describe("editor workflow panels are tab-specific", () => {
     expect(editor).not.toContain('showFixturesTable = workflow === "calculation"');
   });
 
-  it("Documentation shows only the export block and hides the left rail", () => {
-    expect(editor).toContain('showLeftRail = workflow !== "export"');
-    expect(editor).toContain('showRightDocumentation = workflow === "export"');
+  it("Documentation shows the export block on the left and hides the right rail", () => {
+    expect(editor).toContain("editorWorkflowRailPlacement");
+    expect(editor).toContain("showLeftDocumentation");
+    expect(editor).toContain("showLeftBuilding");
     expect(editor).toContain("{showLeftRail && (");
-    expect(editor).toContain("{showRightDocumentation && (");
+    expect(editor).toContain("{showLeftDocumentation && (");
+    expect(editor).toContain("{showLeftBuilding && (");
+    expect(editor).not.toContain("showRightDocumentation");
+    expect(leftRail).toContain('data-documentation-export=""');
+    expect(rightRail).not.toContain('data-documentation-export=""');
     expect(documentation).toContain("Documentation &amp; export");
     expect(documentation).toContain("ProjectSharePanel");
     expect(documentation).toContain("Full PDF report");
@@ -225,6 +231,21 @@ describe("editor workflow panels are tab-specific", () => {
     expect(editor).toContain("editorChromeBodyClassName");
     expect(readSrc("src/lib/editor-chrome-minimize.ts")).toContain("cad-body--no-left");
     expect(css).toContain("cad-body--no-left");
+    expect(declsOf(css, ".cad-body")["grid-template-columns"]?.replace(/\s+/g, " ")).toBe(
+      "248px minmax(0, 1fr) 288px",
+    );
+    expect(declsOf(css, ".cad-body.cad-body--no-right")["grid-template-columns"]?.replace(/\s+/g, " ")).toBe(
+      "248px minmax(0, 1fr)",
+    );
+    const panels = sliceBetween(guide, "## 工作分頁與面板 / Workflow panels", "## 匯入圖則 / Import plan");
+    expect(panels).toMatch(/左側顯示 \*\*Documentation & export\*\*/);
+    expect(panels).toMatch(/the left rail shows \*\*Documentation & export\*\*/);
+    expect(panels).toMatch(/左側欄是主要面板/);
+    expect(panels).toMatch(/The left rail is the primary panel/);
+    expect(panels).toMatch(/左側欄寬度保持不變/);
+    expect(panels).toMatch(/The left rail width stays the same/);
+    expect(panels).not.toMatch(/隱藏整條左欄/);
+    expect(panels).not.toMatch(/the entire left rail is hidden/i);
   });
 
   it("hides a rail completely and collapses the grid when that tab has no content for it", () => {
@@ -291,3 +312,51 @@ describe("editor workflow panels are tab-specific", () => {
     expect(panels).not.toMatch(/DIALux|\bevo\b/i);
   });
 });
+
+describe("editorWorkflowRailPlacement keeps the left rail first", () => {
+  it("puts Documentation on the left and never uses a right-only layout", () => {
+    expect(
+      editorWorkflowRailPlacement({ workflow: "export", hasRightContent: false }),
+    ).toEqual({
+      showLeftDocumentation: true,
+      showLeftBuilding: false,
+      showLeftRail: true,
+      showRightRail: false,
+    });
+    // Even if leftover right-hand flags were true, Documentation stays left-only.
+    expect(
+      editorWorkflowRailPlacement({ workflow: "export", hasRightContent: true }),
+    ).toEqual({
+      showLeftDocumentation: true,
+      showLeftBuilding: false,
+      showLeftRail: true,
+      showRightRail: false,
+    });
+  });
+
+  it("keeps the Building tree on the left and shows the right rail only when that tab has right content", () => {
+    expect(
+      editorWorkflowRailPlacement({ workflow: "construction", hasRightContent: false }),
+    ).toEqual({
+      showLeftDocumentation: false,
+      showLeftBuilding: true,
+      showLeftRail: true,
+      showRightRail: false,
+    });
+    expect(
+      editorWorkflowRailPlacement({ workflow: "construction", hasRightContent: true }),
+    ).toEqual({
+      showLeftDocumentation: false,
+      showLeftBuilding: true,
+      showLeftRail: true,
+      showRightRail: true,
+    });
+    expect(
+      editorWorkflowRailPlacement({ workflow: "light", hasRightContent: true }),
+    ).toMatchObject({ showLeftBuilding: true, showLeftRail: true, showRightRail: true });
+    expect(
+      editorWorkflowRailPlacement({ workflow: "calculation", hasRightContent: true }),
+    ).toMatchObject({ showLeftBuilding: true, showLeftRail: true, showRightRail: true });
+  });
+});
+
