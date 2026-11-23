@@ -5,6 +5,12 @@ import { useEffect, useRef, useState } from "react";
 import { signOut, useSession } from "next-auth/react";
 import { AUTOSAVE_INTERVALS } from "@/lib/account-settings";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
+import { officialClearProjectOpenCache } from "@/lib/official-project-open-cache";
+
+async function officialSignOut() {
+  await officialClearProjectOpenCache();
+  await signOut({ callbackUrl: "/" });
+}
 
 export function NavAuth() {
   const { data: session, status } = useSession();
@@ -133,7 +139,7 @@ export function NavAuth() {
             <button
               type="button"
               className="btn nav-signout w-full !py-1.5 !px-3 !text-xs"
-              onClick={() => void signOut({ callbackUrl: "/" })}
+              onClick={() => void officialSignOut()}
             >
               Sign out
             </button>
@@ -143,7 +149,7 @@ export function NavAuth() {
       <button
         type="button"
         className="btn nav-signout !py-1.5 !px-3 !text-xs"
-        onClick={() => void signOut({ callbackUrl: "/" })}
+        onClick={() => void officialSignOut()}
       >
         Sign out
       </button>

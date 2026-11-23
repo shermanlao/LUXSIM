@@ -1,12 +1,8 @@
 import { redirect, notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { loadAccessibleProject } from "@/lib/session";
-import { parseProjectResults, parseProjectScene } from "@/lib/project-scene";
-import { BuildingEditor } from "@/components/editor/BuildingEditor";
+import { loadAccessibleProjectMeta } from "@/lib/session";
 import { CadEditorRoot } from "@/components/editor/CadEditorRoot";
-import { ProjectEditorLoadGate } from "@/components/ProjectEditorLoadGate";
-import { officialCadAssetMetaJsonWithoutSourceEntities } from "@luxsim/project-io";
+import { OfficialProjectEditorLoader } from "@/components/OfficialProjectEditorLoader";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -14,40 +10,12 @@ export default async function ProjectPage({ params }: Props) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login");
   const { id } = await params;
-  const project = await loadAccessibleProject(session.user.id, id);
+  const project = await loadAccessibleProjectMeta(session.user.id, id);
   if (!project) notFound();
-
-  const scene = parseProjectScene(project.sceneJson);
-  const results = parseProjectResults(project.resultsJson, scene);
-
-  // Persist migration if still v1 on disk
-  if (!project.sceneJson.includes('"version":2')) {
-    await prisma.project.update({
-      where: { id },
-      data: {
-        sceneJson: JSON.stringify(scene),
-        resultsJson: JSON.stringify(results),
-      },
-    });
-  }
 
   return (
     <CadEditorRoot>
-      <ProjectEditorLoadGate>
-        <BuildingEditor
-        projectId={project.id}
-        initialName={project.name}
-        initialScene={scene}
-        initialResults={results}
-        initialAssets={project.assets.map((a) => ({
-          id: a.id,
-          kind: a.kind,
-          fileName: a.fileName,
-          metaJson: officialCadAssetMetaJsonWithoutSourceEntities(a.metaJson),
-          createdAt: a.createdAt.toISOString(),
-        }))}
-        />
-      </ProjectEditorLoadGate>
+      <OfficialProjectEditorLoader projectId={project.id} userId={session.user.id} />
     </CadEditorRoot>
   );
 }

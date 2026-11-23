@@ -222,10 +222,12 @@ import {
 } from "@/lib/post-place-calc";
 import {
   patchProjectMinimal,
+  persistableScene,
   projectPatchDiff,
   snapshotProject,
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
+import { officialWriteCachedProjectOpen } from "@/lib/official-project-open-cache";
 import { saveReminderDue, startSaveReminderEpoch } from "@/lib/save-reminder";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
@@ -386,6 +388,10 @@ type Props = {
   readOnly?: boolean;
   /** Prefix for underlay/asset fetches, e.g. /api/share/<token>. */
   shareBasePath?: string;
+  /** Server updatedAt of the snapshot this editor was opened from. */
+  initialUpdatedAt?: string;
+  /** Signed-in user, used to write the recent-project open cache after a save. */
+  cacheUserId?: string;
 };
 
 export function BuildingEditor({
@@ -398,6 +404,7 @@ export function BuildingEditor({
   initialPhotometry = {},
   readOnly = false,
   shareBasePath,
+  cacheUserId,
 }: Props) {
   const [name, setName] = useState(initialName);
   const [scene, setScene] = useState<ProjectSceneV2>(initialScene);
@@ -910,12 +917,29 @@ export function BuildingEditor({
     setScene(toSave);
     try {
       await officialWait.run(OFFICIAL_WAIT_COPY.saving, async () => {
-        const { ok } = await patchProjectMinimal(projectId, body);
+        const { ok, updatedAt } = await patchProjectMinimal(projectId, body);
         if (ok) {
           lastSavedRef.current = current;
           reminderEpochRef.current = null;
           setSaveReminderOpen(false);
           setStatus("Saved");
+          if (updatedAt && cacheUserId) {
+            void officialWriteCachedProjectOpen({
+              userId: cacheUserId,
+              projectId,
+              name: nextName,
+              updatedAt,
+              scene: persistableScene(toSave),
+              results: nextResults,
+              assets: assets.map((asset) => ({
+                id: asset.id,
+                kind: asset.kind,
+                fileName: asset.fileName,
+                metaJson: asset.metaJson,
+                createdAt: asset.createdAt ?? "",
+              })),
+            });
+          }
         } else {
           setStatus("Save failed");
         }

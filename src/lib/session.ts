@@ -152,6 +152,57 @@ export async function countOrgOwners(orgId: string): Promise<number> {
   return prisma.orgMember.count({ where: { orgId, role: "owner" } });
 }
 
+const PROJECT_ACCESS_META_SELECT = {
+  id: true,
+  name: true,
+  orgId: true,
+  createdAt: true,
+  updatedAt: true,
+} as const;
+
+/**
+ * Open a project without reading sceneJson or assets. Used by the revision
+ * endpoint and the editor page shell so a repeat open does not touch the
+ * large payload until the client cache has been checked.
+ */
+export async function requireProjectAccessMeta(projectId: string) {
+  const user = await requireUser();
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: PROJECT_ACCESS_META_SELECT,
+  });
+  if (!project) throw new Error(AUTH_NOT_FOUND);
+  const membership = await getOrgMembership(project.orgId, user.id);
+  const isMember = Boolean(membership);
+  if (!canOpenProject(isMember, user.isSiteAdmin)) {
+    throw new Error(AUTH_NOT_FOUND);
+  }
+  return {
+    user,
+    project,
+    orgId: project.orgId,
+    role: (membership?.role as WorkspaceRole | undefined) ?? null,
+    viaSiteAdmin: !isMember && user.isSiteAdmin,
+  };
+}
+
+/** Editor page shell: confirm the project exists and is accessible, no payload. */
+export async function loadAccessibleProjectMeta(userId: string, projectId: string) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, orgId: true, name: true, updatedAt: true },
+  });
+  if (!project) return null;
+  const membership = await getOrgMembership(project.orgId, userId);
+  if (membership) return project;
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { isSiteAdmin: true, disabled: true },
+  });
+  if (user?.isSiteAdmin && !user.disabled) return project;
+  return null;
+}
+
 /** Editor and project pages: membership or site-admin support access. */
 export async function loadAccessibleProject(userId: string, projectId: string) {
   const project = await prisma.project.findUnique({
