@@ -1,5 +1,6 @@
 import type { Camera3dView, Display3dMode, ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import { roomBounds } from "./geometry";
+import { officialStoreyOutlineRing } from "./official-storey-outline";
 
 export function defaultDisplay3d(
   results?: ResultsV2 | null,
@@ -51,6 +52,89 @@ export function unionWorldBounds(
   return { minX, maxX, minY, maxY, minZ: elevationM, maxZ };
 }
 
+export type StoreyWorldBounds = {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+  minZ: number;
+  maxZ: number;
+};
+
+function expandWorldBounds(
+  into: StoreyWorldBounds | null,
+  x: number,
+  y: number,
+  z0: number,
+  z1: number
+): StoreyWorldBounds {
+  if (!into) {
+    return {
+      minX: x,
+      maxX: x,
+      minY: y,
+      maxY: y,
+      minZ: Math.min(z0, z1),
+      maxZ: Math.max(z0, z1),
+    };
+  }
+  into.minX = Math.min(into.minX, x);
+  into.maxX = Math.max(into.maxX, x);
+  into.minY = Math.min(into.minY, y);
+  into.maxY = Math.max(into.maxY, y);
+  into.minZ = Math.min(into.minZ, z0, z1);
+  into.maxZ = Math.max(into.maxZ, z0, z1);
+  return into;
+}
+
+/**
+ * Union of official rooms, a valid storey contour, and fixtures on the storey.
+ * Used to frame the 3D camera so a contour-only floor plate stays in view.
+ */
+export function storeyWorldBounds(
+  scene: ProjectSceneV2,
+  storeyId?: string | null
+): StoreyWorldBounds | null {
+  const id = storeyId ?? scene.ui.activeStoreyId ?? scene.storeys[0]?.id;
+  const storey = scene.storeys.find((s) => s.id === id);
+  const elev = storey?.elevationM ?? 0;
+  let bounds = unionWorldBounds(storeyRooms(scene, id), elev);
+
+  const ring = officialStoreyOutlineRing(storey);
+  if (ring) {
+    const height = Math.max(0.1, storey?.heightM ?? 3);
+    for (const p of ring) {
+      bounds = expandWorldBounds(bounds, p.x, p.y, elev, elev + height);
+    }
+  }
+
+  for (const inst of scene.instances) {
+    if (inst.storeyId !== id) continue;
+    const z = elev + inst.position.z;
+    bounds = expandWorldBounds(bounds, inst.position.x, inst.position.y, Math.min(elev, z), Math.max(elev, z));
+  }
+
+  return bounds;
+}
+
+/** True when the orbit target still looks at the storey contents (with generous padding). */
+export function cameraTargetInStoreyBounds(view: Camera3dView, bounds: StoreyWorldBounds): boolean {
+  const tx = view.target[0];
+  const ty = view.target[1];
+  const tz = view.target[2];
+  const padX = Math.max(20, (bounds.maxX - bounds.minX) * 1.5);
+  const padY = Math.max(20, (bounds.maxY - bounds.minY) * 1.5);
+  const padZ = Math.max(10, bounds.maxZ - bounds.minZ + 5);
+  return (
+    tx >= bounds.minX - padX &&
+    tx <= bounds.maxX + padX &&
+    tz >= bounds.minY - padY &&
+    tz <= bounds.maxY + padY &&
+    ty >= bounds.minZ - padZ &&
+    ty <= bounds.maxZ + padZ
+  );
+}
+
 /**
  * Perspective camera that frames the given plan bounds so that high world-Y
  * (top of the Lighting Plan) appears toward the top of the image.
@@ -85,9 +169,8 @@ export function fitCameraToBounds(
 export function fitOverviewCamera(scene: ProjectSceneV2, storeyId?: string | null): Camera3dView {
   const id = storeyId ?? scene.ui.activeStoreyId ?? scene.storeys[0]?.id;
   const storey = scene.storeys.find((s) => s.id === id);
-  const rooms = storeyRooms(scene, id);
   const elev = storey?.elevationM ?? 0;
-  const bounds = unionWorldBounds(rooms, elev) ?? {
+  const bounds = storeyWorldBounds(scene, id) ?? {
     minX: 0,
     maxX: 8,
     minY: 0,
@@ -129,6 +212,14 @@ export function storeyCenter(
       n += 1;
     }
     return { x: sx / n, y: sy / n, z: elev + (storey?.heightM ?? 3) * 0.4 };
+  }
+  const bounds = storeyWorldBounds(scene, id);
+  if (bounds) {
+    return {
+      x: (bounds.minX + bounds.maxX) / 2,
+      y: (bounds.minY + bounds.maxY) / 2,
+      z: elev + (storey?.heightM ?? 3) * 0.4,
+    };
   }
   return { x: 4, y: 3, z: elev + 1.4 };
 }
@@ -234,5 +325,7 @@ export function resolveEditorCamera(
   if (!stored) return fallback;
   if (isLegacyNortheastOrbit(stored, storeyCenter(scene, storeyId))) return fallback;
   if (isInvertedPlanOrbit(stored)) return fallback;
+  const bounds = storeyWorldBounds(scene, storeyId);
+  if (bounds && !cameraTargetInStoreyBounds(stored, bounds)) return fallback;
   return stored;
 }

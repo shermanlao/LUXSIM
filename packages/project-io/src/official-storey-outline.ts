@@ -35,6 +35,15 @@ function refuseStatus(reason: OfficialStoreyOutlineReason): string {
   return STOREY_OUTLINE_REFUSE_VERTICES_STATUS;
 }
 
+/** Valid official floor-plate ring, or null when the storey has no usable contour. */
+export function officialStoreyOutlineRing(
+  storey: { outline?: Vec2[] } | null | undefined
+): Vec2[] | null {
+  if (!storey || !Array.isArray(storey.outline) || storey.outline.length < 3) return null;
+  const valid = officialValidateSimplePolygon(storey.outline);
+  return valid.ok ? valid.ring : null;
+}
+
 /** Official simple-polygon check shared with rooms (no holes). */
 export function officialValidateSimplePolygon(
   polygon: Vec2[]

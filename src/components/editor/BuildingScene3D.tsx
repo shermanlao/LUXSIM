@@ -14,7 +14,7 @@ import type {
   ProjectSceneV2,
   ResultsV2,
 } from "@luxsim/project-io";
-import { editorRoomCamera, resolveEditorCamera, roomBounds } from "@luxsim/project-io";
+import { editorRoomCamera, officialStoreyOutlineRing, resolveEditorCamera, roomBounds } from "@luxsim/project-io";
 import { FalseColorPlane } from "./FalseColorPlane";
 import { FalseColorWalls } from "./FalseColorWalls";
 import { OrbitViewBridge } from "./OrbitViewBridge";
@@ -24,8 +24,14 @@ import { FixtureEmissionGizmo } from "./FixtureEmissionGizmo";
 import { Scene3dIsoluxOverlay } from "./Scene3dIsoluxOverlay";
 import {
   EDITOR_BG,
+  STOREY_CONTOUR_EDGE_COLOR,
+  STOREY_CONTOUR_FLOOR_COLOR,
+  STOREY_CONTOUR_WALL_COLOR,
+  STOREY_CONTOUR_WALL_OPACITY,
   createCeilingGeometry,
   createFloorGeometry,
+  createStoreyContourFloorGeometry,
+  createStoreyContourWallGeometry,
   createWallGeometry,
   createWorkplanePlateGeometry,
   setMirroredFrontFace,
@@ -98,6 +104,59 @@ function RoomShell({
         <mesh geometry={ceiling}>
           <meshStandardMaterial color="#d8dce0" roughness={0.9} metalness={0.02} side={THREE.FrontSide} />
           <Edges color={edgeColor} />
+        </mesh>
+      )}
+    </group>
+  );
+}
+
+function StoreyContour({
+  polygon,
+  elev,
+  heightM,
+}: {
+  polygon: { x: number; y: number }[];
+  elev: number;
+  heightM: number;
+}) {
+  const floor = useMemo(() => createStoreyContourFloorGeometry(polygon, elev), [polygon, elev]);
+  const walls = useMemo(
+    () => createStoreyContourWallGeometry(polygon, elev, Math.max(0.1, heightM)),
+    [polygon, elev, heightM]
+  );
+
+  useLayoutEffect(() => {
+    return () => {
+      floor?.dispose();
+      walls?.dispose();
+    };
+  }, [floor, walls]);
+
+  return (
+    <group>
+      {floor && (
+        <mesh geometry={floor}>
+          <meshStandardMaterial
+            color={STOREY_CONTOUR_FLOOR_COLOR}
+            roughness={0.92}
+            metalness={0.02}
+            side={THREE.DoubleSide}
+          />
+          <Edges color={STOREY_CONTOUR_EDGE_COLOR} />
+        </mesh>
+      )}
+      {walls && (
+        <mesh geometry={walls}>
+          <meshStandardMaterial
+            color={STOREY_CONTOUR_WALL_COLOR}
+            roughness={0.88}
+            metalness={0.04}
+            transparent
+            opacity={STOREY_CONTOUR_WALL_OPACITY}
+            depthWrite
+            side={THREE.FrontSide}
+          />
+          <Edges threshold={20} color={STOREY_CONTOUR_EDGE_COLOR} />
         </mesh>
       )}
     </group>
@@ -219,6 +278,7 @@ export function BuildingScene3D({
   });
   const underlay = isolateId ? undefined : scene.underlays.find((u) => u.storeyId === storeyId);
   const elev = storey?.elevationM ?? 0;
+  const outlineRing = isolateId ? null : officialStoreyOutlineRing(storey);
 
   const startView = useMemo(() => {
     if (isolateId) {
@@ -282,6 +342,10 @@ export function BuildingScene3D({
             dxfEntities={dxfEntities}
             onSourceSize={onUnderlaySourceSize}
           />
+        )}
+
+        {outlineRing && (
+          <StoreyContour polygon={outlineRing} elev={elev} heightM={storey?.heightM ?? 3} />
         )}
 
         {rooms.map((room) => (

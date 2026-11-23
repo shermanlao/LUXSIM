@@ -23,7 +23,9 @@ import {
   type ProjectSceneV2,
   type ResultsV2,
   type RoomV2,
+  type Vec2,
   type WallSurfaceResult,
+  officialStoreyOutlineRing,
 } from "@luxsim/project-io";
 import { officialIlluminanceFieldHeightM } from "./workplane-display";
 
@@ -55,6 +57,11 @@ const WALL_COLOR = "#b0b4b8";
 const WALL_COLOR_ACTIVE = "#c5b7ab";
 const EDGE_COLOR = "#2c2c2c";
 const EDGE_COLOR_ACTIVE = "#c45c26";
+/** Teal floor plate / ribbon so a storey contour reads against the dark editor background. */
+export const STOREY_CONTOUR_FLOOR_COLOR = "#b7d9d6";
+export const STOREY_CONTOUR_WALL_COLOR = "#2aa8a0";
+export const STOREY_CONTOUR_EDGE_COLOR = "#7ee0d8";
+export const STOREY_CONTOUR_WALL_OPACITY = 0.42;
 
 export function sampleGridLux(room: RoomV2, grid: CalcResults["grid"], wx: number, wy: number): number {
   const b = roomBounds(room);
@@ -526,14 +533,29 @@ export function workplaneVerticesInsideRoom(
   return { inside, total };
 }
 
-export function createFloorGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
-  const shape = shapeFromPolygon(room.polygon);
+export function createPolygonFloorGeometry(
+  polygon: Vec2[] | { x: number; y: number }[],
+  y: number
+): THREE.BufferGeometry | null {
+  const shape = shapeFromPolygon(polygon);
   if (!shape) return null;
   const geo = new THREE.ShapeGeometry(shape);
   geo.rotateX(-Math.PI / 2);
-  geo.translate(0, elevationM + 0.002, 0);
+  geo.translate(0, y, 0);
   geo.computeVertexNormals();
   return geo;
+}
+
+export function createFloorGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
+  return createPolygonFloorGeometry(room.polygon, elevationM + 0.002);
+}
+
+/** Storey floor-plate slightly below room floors so the meshes do not z-fight. */
+export function createStoreyContourFloorGeometry(
+  polygon: Vec2[] | { x: number; y: number }[],
+  elevationM: number
+): THREE.BufferGeometry | null {
+  return createPolygonFloorGeometry(polygon, elevationM + 0.001);
 }
 
 export function createCeilingGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
@@ -674,10 +696,14 @@ function pushVerticalQuad(
 }
 
 /** Thin inward wall slab (not a zero-thickness plane) so adjacent rooms and inner/outer faces do not z-fight. */
-export function createWallGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
-  const ring = closedRing(room.polygon);
+export function createPolygonWallGeometry(
+  polygon: Vec2[] | { x: number; y: number }[],
+  elevationM: number,
+  heightM: number
+): THREE.BufferGeometry | null {
+  const ring = closedRing(polygon);
   if (ring.length < 3) return null;
-  const h = Math.max(0.1, room.heightM);
+  const h = Math.max(0.1, heightM);
   const y0 = elevationM;
   const y1 = elevationM + h;
   const ccw = signedPolygonArea(ring) >= 0;
@@ -727,6 +753,18 @@ export function createWallGeometry(room: RoomV2, elevationM: number): THREE.Buff
   geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
   geo.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
   return geo;
+}
+
+export function createWallGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
+  return createPolygonWallGeometry(room.polygon, elevationM, room.heightM);
+}
+
+export function createStoreyContourWallGeometry(
+  polygon: Vec2[] | { x: number; y: number }[],
+  elevationM: number,
+  heightM: number
+): THREE.BufferGeometry | null {
+  return createPolygonWallGeometry(polygon, elevationM, heightM);
 }
 
 export function createCeilingEdgeGeometry(room: RoomV2, elevationM: number): THREE.BufferGeometry | null {
@@ -877,11 +915,12 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
     return true;
   });
 
+  const outlineRing = opts.isolateRoomId ? null : officialStoreyOutlineRing(storey);
   let minX = 0,
     maxX = 0,
     minY = 0,
     maxY = 0;
-  if (rooms.length) {
+  if (rooms.length || outlineRing) {
     minX = Infinity;
     maxX = -Infinity;
     minY = Infinity;
@@ -893,8 +932,17 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       minY = Math.min(minY, b.minY);
       maxY = Math.max(maxY, b.maxY);
     }
+    if (outlineRing) {
+      for (const p of outlineRing) {
+        minX = Math.min(minX, p.x);
+        maxX = Math.max(maxX, p.x);
+        minY = Math.min(minY, p.y);
+        maxY = Math.max(maxY, p.y);
+      }
+    }
   }
-  const { root, content } = createPlanHandednessRoot(rooms.length ? (minX + maxX) / 2 : 0);
+  const hasContent = rooms.length > 0 || Boolean(outlineRing);
+  const { root, content } = createPlanHandednessRoot(hasContent ? (minX + maxX) / 2 : 0);
   threeScene.add(root);
 
   const amb = new THREE.AmbientLight(0xffffff, opts.theme === "light" ? 0.82 : 0.55);
@@ -906,7 +954,7 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
   fill.position.set(-18, 12, 16);
   content.add(fill);
 
-  if (rooms.length) {
+  if (hasContent) {
     const gw = Math.max(4, (maxX - minX) * 1.18);
     const gd = Math.max(4, (maxY - minY) * 1.18);
     const ground = new THREE.Mesh(
@@ -986,6 +1034,46 @@ export function buildBuildingThreeScene(opts: BuildBuildingSceneOpts): {
       toneMapped: false,
     })
   );
+
+  if (outlineRing) {
+    const contourFloor = createStoreyContourFloorGeometry(outlineRing, elev);
+    if (contourFloor) {
+      track(contourFloor);
+      const contourFloorMat = track(
+        new THREE.MeshStandardMaterial({
+          color: STOREY_CONTOUR_FLOOR_COLOR,
+          roughness: 0.92,
+          metalness: 0.02,
+          side: THREE.DoubleSide,
+        })
+      );
+      const contourEdgeMat = track(new THREE.LineBasicMaterial({ color: STOREY_CONTOUR_EDGE_COLOR }));
+      content.add(new THREE.Mesh(contourFloor, contourFloorMat));
+      content.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(contourFloor)), contourEdgeMat));
+    }
+    const contourWalls = createStoreyContourWallGeometry(
+      outlineRing,
+      elev,
+      Math.max(0.1, storey?.heightM ?? 3)
+    );
+    if (contourWalls) {
+      track(contourWalls);
+      const contourWallMat = track(
+        new THREE.MeshStandardMaterial({
+          color: STOREY_CONTOUR_WALL_COLOR,
+          roughness: 0.88,
+          metalness: 0.04,
+          transparent: true,
+          opacity: STOREY_CONTOUR_WALL_OPACITY,
+          depthWrite: true,
+          side: THREE.FrontSide,
+        })
+      );
+      const contourEdgeMat = track(new THREE.LineBasicMaterial({ color: STOREY_CONTOUR_EDGE_COLOR }));
+      content.add(new THREE.Mesh(contourWalls, contourWallMat));
+      content.add(new THREE.LineSegments(track(new THREE.EdgesGeometry(contourWalls, 20)), contourEdgeMat));
+    }
+  }
 
   for (const room of rooms) {
     const active = opts.highlightRoomId != null && room.id === opts.highlightRoomId;

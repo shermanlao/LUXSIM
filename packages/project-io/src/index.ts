@@ -640,6 +640,7 @@ export {
   STOREY_OUTLINE_REFUSE_VERTICES_STATUS,
   STOREY_OUTLINE_REPLACED_STATUS,
   officialSetStoreyOutline,
+  officialStoreyOutlineRing,
   officialValidateSimplePolygon,
 } from "./official-storey-outline";
 export type {
