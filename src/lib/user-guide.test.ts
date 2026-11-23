@@ -385,8 +385,11 @@ describe("user guide", () => {
     expect(guide).toMatch(/snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels/i);
     expect(guide).toMatch(/吸附到線段端點、中點，或線段上最近的一點/);
     expect(guide).toMatch(/8 個 CSS 像素/);
-    expect(guide).toMatch(/Create rooms from DXF\*\* makes rooms from closed polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network/);
-    expect(guide).toMatch(/Create rooms from DXF\*\* 為每條封閉折線、由相連線段組成的簡單閉合迴路，以及 T 形交匯或共用牆網絡中的每個最小房間面，在該層各建立一間房間/);
+    expect(guide).toMatch(/Create rooms from DXF\*\* first builds the storey contour from the outer boundary of the main visible linework cluster/);
+    expect(guide).toMatch(/creates rooms of at least 1 m² from closed polylines, simple closed loops, or wall-network faces on layout layers/);
+    expect(guide).toMatch(/or from room-sized closed shapes that are not a uniform small grid/);
+    expect(guide).toMatch(/Create rooms from DXF\*\* 先以主要可見描線叢集的外輪廓建立樓層輪廓/);
+    expect(guide).toMatch(/建立面積不少於 1 m² 的房間/);
     expect(guide).toMatch(/if one room lies fully inside another with no connecting wall, only the inner room is kept/);
     expect(guide).toMatch(/若一間房完全落在另一間之內且沒有連牆，只保留內房/);
     expect(guide).toMatch(/Image and PDF underlays do not get raster snap/);
@@ -411,8 +414,17 @@ describe("user guide", () => {
   });
 
   it("documents Create rooms from DXF on closed polylines, simple line loops, and wall networks", () => {
-    expect(guide).toMatch(/Create rooms from DXF\*\* makes rooms from closed polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network on that storey/);
-    expect(guide).toMatch(/會在該層為每條封閉折線、由相連線段組成的簡單閉合迴路，以及 T 形交匯或共用牆網絡中的每個最小房間面，各建立一間房間/);
+    expect(guide).toMatch(/Create rooms from DXF\*\* first builds the storey contour from the outer boundary of the main visible linework cluster/);
+    expect(guide).toMatch(/Auto-created rooms must be at least 1 m²/);
+    expect(guide).toMatch(/A large regular grid of similar small rectangles is skipped entirely/);
+    expect(guide).toMatch(/Admin → Settings/);
+    expect(guide).toMatch(/Analysing rooms…/);
+    expect(guide).toMatch(/正在辨認房間…/);
+    expect(guide).toMatch(/工具列的 \*\*Create rooms from DXF\*\* 會先以主要可見描線叢集的外輪廓建立樓層輪廓/);
+    expect(guide).toMatch(/自動建立的房間面積須至少 1 m²/);
+    expect(guide).toMatch(/若線條是大量相近的小矩形格網，會整組略過/);
+    expect(guide).toMatch(/Admin → Settings/);
+    expect(guide).toMatch(/正在辨認房間…/);
     expect(guide).toMatch(/if one room lies fully inside another with no connecting wall, only the inner room is kept/);
     expect(guide).toMatch(/若一間房完全落在另一間之內且沒有連牆，只保留內房/);
     expect(guide).toMatch(/official defaults \(maintenance factor 0\.80, no EN template inherited from the selected room\)/);
@@ -425,7 +437,9 @@ describe("user guide", () => {
     expect(guide).not.toMatch(/不包括由 DXF 自動建立房間/);
     const tips = read("src/lib/ui-tips.ts");
     expect(tips).toContain('helpKey: "tool.createRoomsFromDxf"');
-    expect(tips).toMatch(/rooms from closed polylines, from simple closed loops of connected lines, and from each minimal room face in a T-junction or shared-wall network/);
+    expect(tips).toMatch(/first builds the storey contour from the outer boundary of the main visible linework cluster/);
+    expect(tips).toMatch(/creates rooms of at least 1 m² from closed polylines, simple closed loops, or wall-network faces on layout layers/);
+    expect(tips).toMatch(/Admin → Settings/);
     expect(tips).toMatch(/if one room lies fully inside another with no connecting wall, only the inner room is kept/);
     expect(guide).toMatch(/CIRCLE, ARC, ELLIPSE, SPLINE \(including a spline that has only fit points\), old POLYLINE, and LWPOLYLINE bulges are also traced \(curves as polygons\)/);
     expect(guide).toMatch(/CIRCLE、ARC、ELLIPSE、SPLINE（包括只有擬合點的 SPLINE）、舊式 POLYLINE 與 LWPOLYLINE 凸度也會描繪（曲線以多邊形近似）/);

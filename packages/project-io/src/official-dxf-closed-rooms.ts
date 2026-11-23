@@ -5,12 +5,10 @@ import {
   type OfficialDxfWorldUnderlay,
 } from "./official-dxf-world";
 import {
-  officialDxfHasSimpleLineLoop,
   officialDxfSimpleLineLoopRings,
 } from "./official-dxf-line-loops";
 import {
   officialDxfDropContainingRings,
-  officialDxfHasNetworkFace,
   officialDxfNetworkFaceRings,
   officialDxfRingsMatch,
 } from "./official-dxf-network-rooms";
@@ -54,18 +52,16 @@ export function officialDxfWorldEntitiesForRooms(
 
 /**
  * The official command is enabled when the current storey’s underlay is a
- * parsed DXF, or a DWG converted to DXF linework, and at least one closed polyline, simple LINE / open-polyline
- * loop, or planar wall-network face exists after world mapping.
+ * parsed DXF, or a DWG converted to DXF linework. This check is cheap and
+ * does not walk wall-network faces or line loops (a dense ceiling grid used
+ * to hang the tab when that ran on every render).
  */
 export function officialCanCreateRoomsFromDxf(
   underlay: OfficialDxfRoomsUnderlay | null | undefined
 ): boolean {
-  const world = officialDxfWorldEntitiesForRooms(underlay);
-  return (
-    world.some((entity) => officialDxfPolylineClosed(entity)) ||
-    officialDxfHasSimpleLineLoop(world) ||
-    officialDxfHasNetworkFace(world)
-  );
+  // Cheap enablement only: do not walk wall-network faces or line loops here.
+  // A dense ceiling grid used to hang the tab when this ran on every render.
+  return officialHasParsedCadLinework(underlay);
 }
 
 function uniqueVertexCount(points: Vec2[], epsM: number): number {

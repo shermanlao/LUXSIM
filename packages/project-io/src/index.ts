@@ -178,14 +178,39 @@ export type {
 } from "./official-dxf-closed-rooms";
 export {
   officialBuildStoreyAndRoomsFromPlan,
-  officialConvexHullRing,
+  officialBuildFromPlanGeometry,
+  officialApplyFromPlanGeometry,
   officialEnsureActiveStoreyForPlanBuild,
   officialSuggestStoreyOutlineFromPlan,
 } from "./official-build-from-plan";
 export type {
   OfficialBuildFromPlanInput,
   OfficialBuildFromPlanResult,
+  OfficialFromPlanGeometryResult,
+  OfficialApplyFromPlanGeometryInput,
+  OfficialApplyFromPlanGeometryResult,
 } from "./official-build-from-plan";
+export {
+  DXF_FROM_PLAN_ROOM_MIN_AREA_M2,
+  officialCheapStoreyOutlineFromLinework,
+  officialConvexHullRing,
+  officialFilterFromPlanRoomRings,
+  officialFindLayoutRoomsFromPlan,
+  officialIsLayoutPlanLayer,
+  officialIsRcpOrLightingLayer,
+  officialPlanLayerRole,
+  officialValidateFromPlanRoomRing,
+  officialDropRegularSmallGridRings,
+  officialBuildRoomAnalysisSummary,
+  formatOfficialFromPlanStatus,
+} from "./official-layout-plan";
+export type {
+  OfficialRoomAnalysisSummary,
+  OfficialPlanLayerRole,
+  OfficialPlanLayerSummary,
+  OfficialFindLayoutRoomsResult,
+  OfficialFromPlanStatusFlags,
+} from "./official-layout-plan";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf, buildFullReportPdfAsync, officialProductSheetColumns, officialTableCellLines, officialTableRowHeight, REPORT_TABLE_LINE_H, REPORT_TABLE_ROW_MIN_H } from "./report";

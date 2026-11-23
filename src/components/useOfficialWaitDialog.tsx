@@ -18,6 +18,13 @@ export function useOfficialWaitDialog() {
     setCopy(next);
   }, []);
 
+  /** Change the wait title during an in-flight run without cancelling hide. */
+  const updateCopy = useCallback((next: OfficialWaitCopy) => {
+    flushSync(() => {
+      setCopy(next);
+    });
+  }, []);
+
   const hide = useCallback(async () => {
     const generation = generationRef.current;
     await officialWaitAfterPaint();
@@ -46,6 +53,7 @@ export function useOfficialWaitDialog() {
     dialog: copy ? <OfficialWaitDialog {...copy} /> : null,
     copy,
     show,
+    updateCopy,
     hide,
     run,
     waiting: copy != null,

@@ -1,29 +1,26 @@
+import { appendOfficialNewRoom } from "./new-room-defaults";
+import { officialDxfWorldEntitiesForRooms } from "./official-dxf-closed-rooms";
 import {
-  formatDxfClosedRoomsCreatedStatus,
-  officialAppendRoomsFromDxfClosedPolylines,
-  officialDxfWorldEntitiesForRooms,
-} from "./official-dxf-closed-rooms";
-import { officialDxfSimpleLineLoopRings } from "./official-dxf-line-loops";
-import {
-  officialDxfDropContainingRings,
-  officialDxfNetworkFaceRings,
-  officialDxfRingFullyContains,
-  officialDxfRingsMatch,
-} from "./official-dxf-network-rooms";
+  DXF_FROM_PLAN_ROOM_MIN_AREA_M2,
+  formatOfficialFromPlanStatus,
+  officialBuildRoomAnalysisSummary,
+  officialCheapStoreyOutlineFromLinework,
+  officialConvexHullRing,
+  officialFilterFromPlanRoomRings,
+  officialFindLayoutRoomsFromPlan,
+  officialValidateFromPlanRoomRing,
+  type OfficialRoomAnalysisSummary,
+} from "./official-layout-plan";
+import { officialDxfRingsMatch } from "./official-dxf-network-rooms";
 import {
   DXF_CLOSED_VERTEX_EPS_M,
-  officialDxfClosedRingVertices,
   officialDxfPointsCoincide,
-  officialDxfPolylineClosed,
 } from "./official-dxf-polyline";
-import { roomAreaM2 } from "./geometry";
 import { officialAppendStorey } from "./official-storey-metrics";
 import {
   officialSetStoreyOutline,
-  officialValidateSimplePolygon,
-  STOREY_OUTLINE_CREATED_STATUS,
 } from "./official-storey-outline";
-import type { ProjectSceneV2, RoomV2, Vec2 } from "./types";
+import type { DxfEntity, ProjectSceneV2, RoomV2, Vec2 } from "./types";
 
 function roomRing(room: Pick<RoomV2, "polygon">): Vec2[] {
   const pts = room.polygon;
@@ -36,126 +33,7 @@ function roomRing(room: Pick<RoomV2, "polygon">): Vec2[] {
   return pts;
 }
 
-function uniqueRings(rings: ReadonlyArray<Vec2[]>, epsM: number): Vec2[][] {
-  const out: Vec2[][] = [];
-  for (const ring of rings) {
-    if (out.some((other) => officialDxfRingsMatch(ring, other, epsM))) continue;
-    out.push(ring);
-  }
-  return out;
-}
-
-function ringAreaM2(ring: Vec2[]): number {
-  return roomAreaM2({ polygon: ring } as RoomV2);
-}
-
-/** Collect the same candidate rings Create rooms from DXF considers, before drop. */
-function officialDxfCandidateRingsForStorey(scene: ProjectSceneV2, storeyId: string): Vec2[][] {
-  const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
-  const world = officialDxfWorldEntitiesForRooms(underlay);
-  const closedRings: Vec2[][] = [];
-  for (const entity of world) {
-    if (!officialDxfPolylineClosed(entity)) continue;
-    const ring = officialDxfClosedRingVertices(entity);
-    if (ring) closedRings.push(ring);
-  }
-  const loopRings = officialDxfSimpleLineLoopRings(world);
-  const networkRings = officialDxfNetworkFaceRings(world);
-  return [...closedRings, ...loopRings, ...networkRings];
-}
-
-/**
- * Convex hull (Andrew's monotone chain) of plan points. Returns an open ring
- * (no repeated closing vertex). Degenerate inputs return fewer than 3 points.
- */
-export function officialConvexHullRing(points: ReadonlyArray<Vec2>): Vec2[] {
-  const eps = DXF_CLOSED_VERTEX_EPS_M;
-  const uniq: Vec2[] = [];
-  for (const p of points) {
-    if (!uniq.some((q) => officialDxfPointsCoincide(p, q, eps))) uniq.push({ x: p.x, y: p.y });
-  }
-  uniq.sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
-  if (uniq.length <= 2) return uniq;
-
-  const cross = (o: Vec2, a: Vec2, b: Vec2) =>
-    (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
-
-  const lower: Vec2[] = [];
-  for (const p of uniq) {
-    while (
-      lower.length >= 2 &&
-      cross(lower[lower.length - 2]!, lower[lower.length - 1]!, p) <= 0
-    ) {
-      lower.pop();
-    }
-    lower.push(p);
-  }
-  const upper: Vec2[] = [];
-  for (let i = uniq.length - 1; i >= 0; i--) {
-    const p = uniq[i]!;
-    while (
-      upper.length >= 2 &&
-      cross(upper[upper.length - 2]!, upper[upper.length - 1]!, p) <= 0
-    ) {
-      upper.pop();
-    }
-    upper.push(p);
-  }
-  lower.pop();
-  upper.pop();
-  return lower.concat(upper);
-}
-
-/**
- * Prefer a containing ring that Create rooms from DXF dropped; otherwise a
- * simple outer ring (convex hull) of the storey’s rooms when that polygon is
- * officially valid. Returns null when the storey already has a contour, has
- * no rooms, or no valid outer ring can be formed.
- */
-export function officialSuggestStoreyOutlineFromPlan(
-  scene: ProjectSceneV2,
-  storeyId: string
-): Vec2[] | null {
-  const storey = scene.storeys.find((s) => s.id === storeyId);
-  if (!storey) return null;
-  if (Array.isArray(storey.outline) && storey.outline.length >= 3) return null;
-
-  const roomRings = scene.rooms
-    .filter((room) => room.storeyId === storeyId)
-    .map((room) => roomRing(room));
-  if (roomRings.length === 0) return null;
-
-  const eps = DXF_CLOSED_VERTEX_EPS_M;
-  const all = uniqueRings(officialDxfCandidateRingsForStorey(scene, storeyId), eps);
-  const kept = officialDxfDropContainingRings(all, eps);
-  const dropped = all.filter(
-    (ring) => !kept.some((other) => officialDxfRingsMatch(ring, other, eps))
-  );
-
-  let best: Vec2[] | null = null;
-  let bestArea = 0;
-  for (const ring of dropped) {
-    const containsAll = roomRings.every(
-      (rr) =>
-        officialDxfRingsMatch(ring, rr, eps) ||
-        officialDxfRingFullyContains(ring, rr, eps)
-    );
-    if (!containsAll) continue;
-    const area = ringAreaM2(ring);
-    if (area > bestArea) {
-      best = ring;
-      bestArea = area;
-    }
-  }
-  if (best) {
-    const valid = officialValidateSimplePolygon(best);
-    if (valid.ok) return valid.ring;
-  }
-
-  const hull = officialConvexHullRing(roomRings.flatMap((r) => r));
-  const validHull = officialValidateSimplePolygon(hull);
-  return validHull.ok ? validHull.ring : null;
-}
+export { officialConvexHullRing, DXF_FROM_PLAN_ROOM_MIN_AREA_M2 };
 
 /**
  * Ensure the scene has an active storey (new-project defaults when empty) and
@@ -188,6 +66,177 @@ export function officialEnsureActiveStoreyForPlanBuild(
   };
 }
 
+function storeyOutline(
+  scene: ProjectSceneV2,
+  storeyId: string
+): Vec2[] | null {
+  const storey = scene.storeys.find((s) => s.id === storeyId);
+  if (!storey || !Array.isArray(storey.outline) || storey.outline.length < 3) {
+    return null;
+  }
+  return storey.outline;
+}
+
+/**
+ * Cheap outer boundary of the main visible linework cluster on this storey.
+ * Returns null when the storey already has a contour, has no usable linework,
+ * or no valid outer ring can be formed. Does not overwrite an existing contour
+ * and does not enumerate inner ceiling-grid faces.
+ */
+export function officialSuggestStoreyOutlineFromPlan(
+  scene: ProjectSceneV2,
+  storeyId: string
+): Vec2[] | null {
+  const storey = scene.storeys.find((s) => s.id === storeyId);
+  if (!storey) return null;
+  if (Array.isArray(storey.outline) && storey.outline.length >= 3) return null;
+  const underlay = scene.underlays.find((u) => u.storeyId === storeyId);
+  const world = officialDxfWorldEntitiesForRooms(underlay);
+  if (world.length === 0) return null;
+  return officialCheapStoreyOutlineFromLinework(world);
+}
+
+export type OfficialFromPlanGeometryResult = {
+  outline: Vec2[] | null;
+  outlineCreated: boolean;
+  outlineExisting: boolean;
+  outlineFailed: boolean;
+  layoutFound: boolean;
+  rooms: Vec2[][];
+  status: string;
+  analysis: OfficialRoomAnalysisSummary;
+};
+
+/**
+ * Compute the storey contour first (cheap outer boundary), then search for a
+ * room layout on architectural layers. Does not invent a contour or rooms when
+ * none can be made. Existing rooms are not returned — only new layout rooms.
+ */
+export function officialBuildFromPlanGeometry(
+  worldEntities: ReadonlyArray<DxfEntity>,
+  existingOutline?: Vec2[] | null
+): OfficialFromPlanGeometryResult {
+  const hasExisting =
+    Array.isArray(existingOutline) && existingOutline.length >= 3;
+  let outline: Vec2[] | null = hasExisting ? existingOutline!.map((p) => ({ x: p.x, y: p.y })) : null;
+  let outlineCreated = false;
+  let outlineFailed = false;
+
+  if (!hasExisting) {
+    const computed = officialCheapStoreyOutlineFromLinework(worldEntities);
+    if (computed) {
+      outline = computed;
+      outlineCreated = true;
+    } else {
+      outlineFailed = true;
+    }
+  }
+
+  const emptyAnalysis = officialBuildRoomAnalysisSummary(
+    worldEntities,
+    outline,
+    []
+  );
+
+  if (!outline) {
+    return {
+      outline: null,
+      outlineCreated: false,
+      outlineExisting: false,
+      outlineFailed,
+      layoutFound: false,
+      rooms: [],
+      status: formatOfficialFromPlanStatus({
+        outlineCreated: false,
+        outlineExisting: false,
+        outlineFailed,
+        created: 0,
+        roomSource: "none",
+      }),
+      analysis: emptyAnalysis,
+    };
+  }
+
+  const found = officialFindLayoutRoomsFromPlan(worldEntities, outline);
+  return {
+    outline,
+    outlineCreated,
+    outlineExisting: hasExisting,
+    outlineFailed: false,
+    layoutFound: found.layoutFound,
+    rooms: found.rooms,
+    status: formatOfficialFromPlanStatus({
+      outlineCreated,
+      outlineExisting: hasExisting,
+      outlineFailed: false,
+      created: found.rooms.length,
+      roomSource: found.layoutFound ? "layout" : "none",
+    }),
+    analysis: { ...found.analysis, contour: outline },
+  };
+}
+
+export type OfficialApplyFromPlanGeometryInput = {
+  outline?: Vec2[] | null;
+  rooms: ReadonlyArray<Vec2[]>;
+  heightM: number;
+  nextRoomId: () => string;
+  /** When true, do not replace an existing official contour. Default true. */
+  keepExistingOutline?: boolean;
+};
+
+export type OfficialApplyFromPlanGeometryResult = {
+  scene: ProjectSceneV2;
+  created: number;
+  outlineCreated: boolean;
+};
+
+/**
+ * Apply a computed contour and new room rings to the scene as one write.
+ * Existing rooms are left unchanged. An existing contour is left unchanged
+ * unless keepExistingOutline is false.
+ */
+export function officialApplyFromPlanGeometry(
+  scene: ProjectSceneV2,
+  input: OfficialApplyFromPlanGeometryInput
+): OfficialApplyFromPlanGeometryResult {
+  const storeyId = scene.ui.activeStoreyId;
+  const existing = storeyOutline(scene, storeyId);
+  let next = scene;
+  let outlineCreated = false;
+  const keepExisting = input.keepExistingOutline !== false;
+  if (input.outline && input.outline.length >= 3 && (!existing || !keepExisting)) {
+    const set = officialSetStoreyOutline(next, storeyId, input.outline);
+    if (set.ok) {
+      next = set.scene;
+      outlineCreated = set.created;
+    }
+  }
+
+  let created = 0;
+  const outline = storeyOutline(next, storeyId);
+  const rings = officialFilterFromPlanRoomRings(input.rooms, outline);
+  const existingRings = next.rooms
+    .filter((r) => r.storeyId === storeyId)
+    .map((r) => roomRing(r));
+  for (const ring of rings) {
+    const valid = officialValidateFromPlanRoomRing(ring);
+    if (!valid) continue;
+    if (existingRings.some((other) => officialDxfRingsMatch(valid, other, DXF_CLOSED_VERTEX_EPS_M))) {
+      continue;
+    }
+    next = appendOfficialNewRoom(next, {
+      id: input.nextRoomId(),
+      polygon: valid,
+      heightM: input.heightM,
+    });
+    existingRings.push(valid);
+    created += 1;
+  }
+
+  return { scene: next, created, outlineCreated };
+}
+
 export type OfficialBuildFromPlanInput = {
   heightM: number;
   nextStoreyId: () => string;
@@ -198,74 +247,48 @@ export type OfficialBuildFromPlanResult = {
   scene: ProjectSceneV2;
   created: number;
   outlineCreated: boolean;
+  outlineExisting: boolean;
+  outlineFailed: boolean;
+  layoutFound: boolean;
   status: string;
+  analysis: OfficialRoomAnalysisSummary;
 };
 
 /**
- * Create rooms on the active storey with the same path as Create rooms from
- * DXF. When the storey has no contour and at least one room is created, set
- * the official storey outline from a dropped containing ring or a simple
- * outer ring of the created rooms. Does not overwrite existing rooms or an
- * existing contour. Zero rooms → no contour invented from leftover linework.
+ * Create the official storey contour first, then rooms from a layout plan on
+ * the active storey. Same path as Create rooms from DXF and Create from plan.
+ * Does not overwrite existing rooms or an existing contour. Heavy callers
+ * should run this off the browser main thread (official server route).
  */
 export function officialBuildStoreyAndRoomsFromPlan(
   scene: ProjectSceneV2,
   input: OfficialBuildFromPlanInput
 ): OfficialBuildFromPlanResult {
-  let next = officialEnsureActiveStoreyForPlanBuild(scene, input.nextStoreyId);
-  const roomsResult = officialAppendRoomsFromDxfClosedPolylines(next, {
+  const nextBase = officialEnsureActiveStoreyForPlanBuild(scene, input.nextStoreyId);
+  const storeyId = nextBase.ui.activeStoreyId;
+  const underlay = nextBase.underlays.find((u) => u.storeyId === storeyId);
+  const world = officialDxfWorldEntitiesForRooms(underlay);
+  const geometry = officialBuildFromPlanGeometry(world, storeyOutline(nextBase, storeyId));
+  const applied = officialApplyFromPlanGeometry(nextBase, {
+    outline: geometry.outline,
+    rooms: geometry.rooms,
     heightM: input.heightM,
-    nextId: input.nextRoomId,
+    nextRoomId: input.nextRoomId,
   });
-  next = roomsResult.scene;
-
-  if (roomsResult.created <= 0) {
-    return {
-      scene: next,
-      created: 0,
-      outlineCreated: false,
-      status: roomsResult.status,
-    };
-  }
-
-  const storeyId = next.ui.activeStoreyId;
-  const storey = next.storeys.find((s) => s.id === storeyId);
-  const hasOutline =
-    !!storey && Array.isArray(storey.outline) && storey.outline.length >= 3;
-  if (hasOutline) {
-    return {
-      scene: next,
-      created: roomsResult.created,
-      outlineCreated: false,
-      status: roomsResult.status,
-    };
-  }
-
-  const ring = officialSuggestStoreyOutlineFromPlan(next, storeyId);
-  if (!ring) {
-    return {
-      scene: next,
-      created: roomsResult.created,
-      outlineCreated: false,
-      status: roomsResult.status,
-    };
-  }
-
-  const outline = officialSetStoreyOutline(next, storeyId, ring);
-  if (!outline.ok) {
-    return {
-      scene: next,
-      created: roomsResult.created,
-      outlineCreated: false,
-      status: roomsResult.status,
-    };
-  }
-
-  const roomStatus = formatDxfClosedRoomsCreatedStatus(roomsResult.created);
   return {
-    scene: outline.scene,
-    created: roomsResult.created,
-    outlineCreated: true,
-    status: `${roomStatus}. ${STOREY_OUTLINE_CREATED_STATUS}`,
+    scene: applied.scene,
+    created: applied.created,
+    outlineCreated: applied.outlineCreated,
+    outlineExisting: geometry.outlineExisting,
+    outlineFailed: geometry.outlineFailed,
+    layoutFound: geometry.layoutFound,
+    status: formatOfficialFromPlanStatus({
+      outlineCreated: applied.outlineCreated,
+      outlineExisting: geometry.outlineExisting,
+      outlineFailed: geometry.outlineFailed,
+      created: applied.created,
+      roomSource: geometry.layoutFound ? "layout" : "none",
+    }),
+    analysis: geometry.analysis,
   };
 }

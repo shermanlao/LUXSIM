@@ -80,9 +80,17 @@ describe("settingsFromRows reportWebsite", () => {
       publicRegistration: false,
       defaultAutosaveMs: 300_000,
       reportWebsite: "http://187.7.21.12:8088",
+      roomAnalysisAiEnabled: false,
+      roomAnalysisAiProvider: "xai",
+      roomAnalysisAiModel: "grok-2-vision-latest",
+      roomAnalysisAiKeyConfigured: false,
+      roomAnalysisAiKeyMasked: "",
     });
     expect(info).toEqual({ reportWebsite: "http://187.7.21.12:8088" });
     expect(info).not.toHaveProperty("publicRegistration");
     expect(info).not.toHaveProperty("defaultAutosaveMs");
+    expect(info).not.toHaveProperty("roomAnalysisAiEnabled");
+    expect(info).not.toHaveProperty("roomAnalysisAiKeyConfigured");
+    expect(info).not.toHaveProperty("roomAnalysisAiKeyMasked");
   });
 });

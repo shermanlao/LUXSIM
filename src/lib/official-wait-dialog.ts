@@ -97,6 +97,10 @@ export const OFFICIAL_WAIT_COPY = {
     titleEn: "Creating rooms from DXF…",
     titleZh: "正在從 DXF 建立房間…",
   },
+  analysingRooms: {
+    titleEn: "Analysing rooms…",
+    titleZh: "正在辨認房間…",
+  },
   updatingScale: {
     titleEn: "Updating scale…",
     titleZh: "正在更新比例尺…",

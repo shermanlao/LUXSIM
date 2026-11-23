@@ -1,5 +1,22 @@
 import { DEFAULT_AUTOSAVE_MS, parseAutosaveMs, type AutosaveMs } from "@/lib/account-settings";
 import { prisma } from "@/lib/prisma";
+import {
+  DEFAULT_ROOM_ANALYSIS_AI_MODEL,
+  DEFAULT_ROOM_ANALYSIS_AI_PROVIDER,
+  SETTING_ROOM_ANALYSIS_AI_ENABLED,
+  SETTING_ROOM_ANALYSIS_AI_KEY,
+  SETTING_ROOM_ANALYSIS_AI_MODEL,
+  SETTING_ROOM_ANALYSIS_AI_PROVIDER,
+  decryptRoomAnalysisAiKey,
+  encryptRoomAnalysisAiKey,
+  maskRoomAnalysisAiKey,
+  parseRoomAnalysisAiEnabled,
+  parseRoomAnalysisAiModel,
+  parseRoomAnalysisAiProvider,
+  resolveRoomAnalysisAiConfig,
+  type ResolvedRoomAnalysisAiConfig,
+  type RoomAnalysisAiProvider,
+} from "@/lib/room-analysis-ai-settings";
 
 export const SETTING_PUBLIC_REGISTRATION = "publicRegistration";
 export const SETTING_DEFAULT_AUTOSAVE_MS = "defaultAutosaveMs";
@@ -10,13 +27,37 @@ export type SiteSettings = {
   defaultAutosaveMs: AutosaveMs;
   /** Address printed in lighting-report PDF footers. Empty string omits the line. */
   reportWebsite: string;
+  /** Room-analysis AI is off until a site admin enables it. */
+  roomAnalysisAiEnabled: boolean;
+  roomAnalysisAiProvider: RoomAnalysisAiProvider;
+  roomAnalysisAiModel: string;
+  roomAnalysisAiKeyConfigured: boolean;
+  /** Masked hint only (e.g. ••••ab12). Never the full key. */
+  roomAnalysisAiKeyMasked: string;
 };
 
 export const DEFAULT_SITE_SETTINGS: SiteSettings = {
   publicRegistration: true,
   defaultAutosaveMs: DEFAULT_AUTOSAVE_MS,
   reportWebsite: "",
+  roomAnalysisAiEnabled: false,
+  roomAnalysisAiProvider: DEFAULT_ROOM_ANALYSIS_AI_PROVIDER,
+  roomAnalysisAiModel: DEFAULT_ROOM_ANALYSIS_AI_MODEL,
+  roomAnalysisAiKeyConfigured: false,
+  roomAnalysisAiKeyMasked: "",
 };
+
+export type SiteSettingsPatch = Partial<{
+  publicRegistration: boolean;
+  defaultAutosaveMs: AutosaveMs;
+  reportWebsite: string;
+  roomAnalysisAiEnabled: boolean;
+  roomAnalysisAiProvider: RoomAnalysisAiProvider;
+  roomAnalysisAiModel: string;
+  /** New API key to store. Omit to leave the saved key unchanged. */
+  roomAnalysisAiKey: string;
+  clearRoomAnalysisAiKey: boolean;
+}>;
 
 /** Public fields safe to expose to any signed-in designer (or a public GET). */
 export type PublicSiteInfo = {
@@ -72,10 +113,27 @@ export function settingsFromRows(rows: { key: string; value: string }[]): SiteSe
     const parsed = parseReportWebsite(map.get(SETTING_REPORT_WEBSITE));
     if (parsed != null) reportWebsite = parsed;
   }
+  const enabled =
+    parseRoomAnalysisAiEnabled(map.get(SETTING_ROOM_ANALYSIS_AI_ENABLED)) ??
+    DEFAULT_SITE_SETTINGS.roomAnalysisAiEnabled;
+  const provider =
+    parseRoomAnalysisAiProvider(map.get(SETTING_ROOM_ANALYSIS_AI_PROVIDER)) ??
+    DEFAULT_SITE_SETTINGS.roomAnalysisAiProvider;
+  const storedModel = parseRoomAnalysisAiModel(map.get(SETTING_ROOM_ANALYSIS_AI_MODEL));
+  const model =
+    storedModel && storedModel.length > 0
+      ? storedModel
+      : DEFAULT_SITE_SETTINGS.roomAnalysisAiModel;
+  const plainKey = decryptRoomAnalysisAiKey(map.get(SETTING_ROOM_ANALYSIS_AI_KEY));
   return {
     publicRegistration: reg ?? DEFAULT_SITE_SETTINGS.publicRegistration,
     defaultAutosaveMs: auto ?? DEFAULT_SITE_SETTINGS.defaultAutosaveMs,
     reportWebsite,
+    roomAnalysisAiEnabled: enabled,
+    roomAnalysisAiProvider: provider,
+    roomAnalysisAiModel: model,
+    roomAnalysisAiKeyConfigured: plainKey.length > 0,
+    roomAnalysisAiKeyMasked: plainKey ? maskRoomAnalysisAiKey(plainKey) : "",
   };
 }
 
@@ -98,7 +156,7 @@ export async function getPublicSiteInfo(): Promise<PublicSiteInfo> {
   return publicSiteInfo(await getSiteSettings());
 }
 
-export async function setSiteSettings(patch: Partial<SiteSettings>): Promise<SiteSettings> {
+export async function setSiteSettings(patch: SiteSettingsPatch): Promise<SiteSettings> {
   if (patch.publicRegistration !== undefined) {
     const value = String(patch.publicRegistration);
     await prisma.siteSetting.upsert({
@@ -123,5 +181,69 @@ export async function setSiteSettings(patch: Partial<SiteSettings>): Promise<Sit
       create: { key: SETTING_REPORT_WEBSITE, value },
     });
   }
+  if (patch.roomAnalysisAiEnabled !== undefined) {
+    const value = String(patch.roomAnalysisAiEnabled);
+    await prisma.siteSetting.upsert({
+      where: { key: SETTING_ROOM_ANALYSIS_AI_ENABLED },
+      update: { value },
+      create: { key: SETTING_ROOM_ANALYSIS_AI_ENABLED, value },
+    });
+  }
+  if (patch.roomAnalysisAiProvider !== undefined) {
+    const value = patch.roomAnalysisAiProvider;
+    await prisma.siteSetting.upsert({
+      where: { key: SETTING_ROOM_ANALYSIS_AI_PROVIDER },
+      update: { value },
+      create: { key: SETTING_ROOM_ANALYSIS_AI_PROVIDER, value },
+    });
+  }
+  if (patch.roomAnalysisAiModel !== undefined) {
+    const value = patch.roomAnalysisAiModel;
+    await prisma.siteSetting.upsert({
+      where: { key: SETTING_ROOM_ANALYSIS_AI_MODEL },
+      update: { value },
+      create: { key: SETTING_ROOM_ANALYSIS_AI_MODEL, value },
+    });
+  }
+  if (patch.clearRoomAnalysisAiKey) {
+    await prisma.siteSetting.upsert({
+      where: { key: SETTING_ROOM_ANALYSIS_AI_KEY },
+      update: { value: "" },
+      create: { key: SETTING_ROOM_ANALYSIS_AI_KEY, value: "" },
+    });
+  } else if (patch.roomAnalysisAiKey !== undefined && patch.roomAnalysisAiKey !== "") {
+    const encrypted = encryptRoomAnalysisAiKey(patch.roomAnalysisAiKey);
+    if (!encrypted) {
+      throw new Error("AUTH_SECRET is required to save the room-analysis AI key");
+    }
+    await prisma.siteSetting.upsert({
+      where: { key: SETTING_ROOM_ANALYSIS_AI_KEY },
+      update: { value: encrypted },
+      create: { key: SETTING_ROOM_ANALYSIS_AI_KEY, value: encrypted },
+    });
+  }
   return getSiteSettings();
+}
+
+/** Server-only. Includes the decrypted key for the analyse-rooms API. Never send this to a client. */
+export async function getRoomAnalysisAiRuntimeConfig(): Promise<ResolvedRoomAnalysisAiConfig> {
+  const rows = await prisma.siteSetting.findMany();
+  const map = new Map(rows.map((r) => [r.key, r.value]));
+  const enabled =
+    parseRoomAnalysisAiEnabled(map.get(SETTING_ROOM_ANALYSIS_AI_ENABLED)) ?? false;
+  const provider =
+    parseRoomAnalysisAiProvider(map.get(SETTING_ROOM_ANALYSIS_AI_PROVIDER)) ??
+    DEFAULT_ROOM_ANALYSIS_AI_PROVIDER;
+  const storedModel = parseRoomAnalysisAiModel(map.get(SETTING_ROOM_ANALYSIS_AI_MODEL));
+  const model =
+    storedModel && storedModel.length > 0
+      ? storedModel
+      : DEFAULT_ROOM_ANALYSIS_AI_MODEL;
+  const storedKey = decryptRoomAnalysisAiKey(map.get(SETTING_ROOM_ANALYSIS_AI_KEY));
+  return resolveRoomAnalysisAiConfig({
+    enabled,
+    provider,
+    model,
+    storedKey,
+  });
 }

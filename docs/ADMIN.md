@@ -23,7 +23,7 @@ Visible only to site admins.
 | `/admin/users` | List accounts, create a user, disable or enable, set site admin, place someone in a workspace, reset a password |
 | `/admin/workspaces` | List organisations, members, and projects; sort those lists; add or remove members; open a project; delete a workspace (users are not deleted) |
 | `/admin/traffic` | Site visitors and page views for today, the last 7 days, and the last 30 days, plus a last-14-days daily table |
-| `/admin/settings` | Open or close public registration, set the default autosave for *new* users, set the website shown in lighting-report PDF footers, edit in-app help tips |
+| `/admin/settings` | Open or close public registration, set the default autosave for *new* users, set the website shown in lighting-report PDF footers, configure room-analysis AI (enable, provider, model, and API key), edit in-app help tips |
 
 The last remaining active site admin cannot be demoted or disabled. The last owner of a workspace cannot be removed or demoted.
 
@@ -45,7 +45,15 @@ Only document / page navigations are counted — for example `/`, `/login`, `/pr
 
 A first-party cookie (`luxsim_vid`) identifies a visitor across the day, and is only set when `POST /api/traffic/collect` receives a countable document / page navigation. Uncountable requests — `/api/*` (including autosave and the collect endpoint itself), `/_next/*`, and static files such as `/favicon.ico` — return 204 with an empty body, do not set the cookie, and do not write a traffic row. The stored value is an HMAC-SHA256 hash of that id (or, if no cookie is present, of the IP and the Hong Kong date) using `AUTH_SECRET`. Raw IP addresses, request bodies, passwords, OTP codes, and emails are not written to the traffic tables. `GET /api/admin/traffic` is the only stats endpoint and requires a site admin. The collect endpoint never returns visitor or page-view figures. A failed write is logged and must not break the page.
 
+
+## Room-analysis AI
+
+On `/admin/settings`, a site administrator can enable **Room-analysis AI**, choose a provider (xAI or OpenAI) and model, and save an API key. This is the official way to configure the fallback used by **Create rooms from DXF** and **Create from plan** when no room or architectural layout can be found in the imported drawing.
+
+The saved key is stored on the server and is never shown again in the form. The page shows only a masked hint (for example `••••ab12`) and allows the key to be replaced or removed. Regular project users cannot see or edit this setting, and `GET /api/site` does not include it. The analyse-rooms API reads this admin setting; an optional environment variable (`XAI_API_KEY` or `OPENAI_API_KEY`, matching the chosen provider) is only a fallback when AI is enabled and no admin key has been saved. If AI is not enabled, or no key is available, the editor keeps the storey contour and does not invent rooms.
+
 ## Report website
+
 
 The lighting report PDF footer can show the site’s web address as plain text. On `/admin/settings`, set **Lighting report website** to an http(s) URL or a host[:port]. When the setting has never been stored, the server uses `AUTH_URL` or `NEXTAUTH_URL`. A blank value hides the line. Designers fetch this (and only this public field) from `GET /api/site` when exporting a report; they do not need the admin settings API.
 

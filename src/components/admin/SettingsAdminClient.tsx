@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { AUTOSAVE_INTERVALS } from "@/lib/account-settings";
 
-type Settings = { publicRegistration: boolean; defaultAutosaveMs: number; reportWebsite: string };
+type Settings = {
+  publicRegistration: boolean;
+  defaultAutosaveMs: number;
+  reportWebsite: string;
+  roomAnalysisAiEnabled: boolean;
+  roomAnalysisAiProvider: "xai" | "openai";
+  roomAnalysisAiModel: string;
+  roomAnalysisAiKeyConfigured: boolean;
+  roomAnalysisAiKeyMasked: string;
+};
 type Tip = { helpKey: string; title: string; body: string; updatedAt: string | null };
 
 async function readError(res: Response, fallback: string) {
@@ -14,6 +23,10 @@ async function readError(res: Response, fallback: string) {
 export function SettingsAdminClient() {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [websiteDraft, setWebsiteDraft] = useState("");
+  const [aiEnabled, setAiEnabled] = useState(false);
+  const [aiProvider, setAiProvider] = useState<"xai" | "openai">("xai");
+  const [aiModel, setAiModel] = useState("");
+  const [aiKeyDraft, setAiKeyDraft] = useState("");
   const [tips, setTips] = useState<Tip[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
@@ -33,6 +46,10 @@ export function SettingsAdminClient() {
     const next = (await settingsRes.json()) as Settings;
     setSettings(next);
     setWebsiteDraft(next.reportWebsite ?? "");
+    setAiEnabled(Boolean(next.roomAnalysisAiEnabled));
+    setAiProvider(next.roomAnalysisAiProvider === "openai" ? "openai" : "xai");
+    setAiModel(next.roomAnalysisAiModel ?? "");
+    setAiKeyDraft("");
     if (tipsRes.ok) setTips((await tipsRes.json()) as Tip[]);
     setLoading(false);
   }, []);
@@ -41,7 +58,9 @@ export function SettingsAdminClient() {
     void refresh();
   }, [refresh]);
 
-  async function saveSettings(patch: Partial<Settings>) {
+  async function saveSettings(
+    patch: Partial<Settings> & { roomAnalysisAiKey?: string; clearRoomAnalysisAiKey?: boolean }
+  ) {
     setError(null);
     setSaved(null);
     const res = await fetch("/api/admin/settings", {
@@ -56,6 +75,10 @@ export function SettingsAdminClient() {
     const next = (await res.json()) as Settings;
     setSettings(next);
     if (patch.reportWebsite !== undefined) setWebsiteDraft(next.reportWebsite ?? "");
+    setAiEnabled(Boolean(next.roomAnalysisAiEnabled));
+    setAiProvider(next.roomAnalysisAiProvider === "openai" ? "openai" : "xai");
+    setAiModel(next.roomAnalysisAiModel ?? "");
+    if ("roomAnalysisAiKey" in patch || "clearRoomAnalysisAiKey" in patch) setAiKeyDraft("");
     setSaved("Site settings saved.");
   }
 
@@ -84,7 +107,7 @@ export function SettingsAdminClient() {
       <h1 className="display text-4xl mb-2">Site settings</h1>
       <p className="text-[var(--muted)] mb-6">
         Public registration, the default save reminder for new accounts, the website shown on lighting
-        report PDFs, and in-app help tips.
+        report PDFs, room-analysis AI, and in-app help tips.
       </p>
       {error && <p className="text-sm text-red-700 mb-4">{error}</p>}
       {saved && <p className="text-sm text-[var(--ok)] mb-4">{saved}</p>}
@@ -144,6 +167,114 @@ export function SettingsAdminClient() {
             (AUTH_URL) is used.
           </p>
           <button className="btn btn-accent !py-1.5 !px-3 !text-xs">Save website</button>
+        </form>
+      </section>
+
+      <section className="panel p-5 mb-6 space-y-4">
+        <h2 className="text-lg font-semibold">Room-analysis AI</h2>
+        <p className="text-sm text-[var(--muted)]">
+          When <strong>Create rooms from DXF</strong> or <strong>Create from plan</strong> cannot
+          find a room layout in the drawing, the editor can send a compact plan image to this
+          service to identify rooms. Only site administrators can see or change this setting.
+          Regular project users never see the key. The saved key is never shown again.
+        </p>
+        <form
+          className="max-w-md space-y-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            const patch: Partial<Settings> & { roomAnalysisAiKey?: string } = {
+              roomAnalysisAiEnabled: aiEnabled,
+              roomAnalysisAiProvider: aiProvider,
+              roomAnalysisAiModel: aiModel,
+            };
+            if (aiKeyDraft.trim()) patch.roomAnalysisAiKey = aiKeyDraft.trim();
+            void saveSettings(patch);
+          }}
+        >
+          <label className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={aiEnabled}
+              onChange={(e) => setAiEnabled(e.target.checked)}
+            />
+            Enable room-analysis AI
+          </label>
+          <div>
+            <label className="label" htmlFor="room-analysis-ai-provider">
+              Provider
+            </label>
+            <select
+              id="room-analysis-ai-provider"
+              className="select"
+              value={aiProvider}
+              onChange={(e) => {
+                const next = e.target.value === "openai" ? "openai" : "xai";
+                setAiProvider(next);
+                if (
+                  aiModel === "grok-2-vision-latest" ||
+                  aiModel === "gpt-4o" ||
+                  aiModel.trim() === ""
+                ) {
+                  setAiModel(next === "openai" ? "gpt-4o" : "grok-2-vision-latest");
+                }
+              }}
+            >
+              <option value="xai">xAI</option>
+              <option value="openai">OpenAI</option>
+            </select>
+          </div>
+          <div>
+            <label className="label" htmlFor="room-analysis-ai-model">
+              Model
+            </label>
+            <input
+              id="room-analysis-ai-model"
+              className="input"
+              type="text"
+              autoComplete="off"
+              spellCheck={false}
+              value={aiModel}
+              onChange={(e) => setAiModel(e.target.value)}
+            />
+          </div>
+          <div>
+            <label className="label" htmlFor="room-analysis-ai-key">
+              API key
+            </label>
+            <input
+              id="room-analysis-ai-key"
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              spellCheck={false}
+              placeholder={
+                settings.roomAnalysisAiKeyConfigured
+                  ? settings.roomAnalysisAiKeyMasked || "••••"
+                  : "Not set"
+              }
+              value={aiKeyDraft}
+              onChange={(e) => setAiKeyDraft(e.target.value)}
+            />
+            <p className="text-sm text-[var(--muted)] mt-1">
+              {settings.roomAnalysisAiKeyConfigured
+                ? `A key is saved (${settings.roomAnalysisAiKeyMasked || "••••"}). Leave this field blank to keep it, or enter a new key to replace it.`
+                : "No key is saved yet. Paste a key here to store it."}
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="btn btn-accent !py-1.5 !px-3 !text-xs" type="submit">
+              Save AI settings
+            </button>
+            {settings.roomAnalysisAiKeyConfigured && (
+              <button
+                type="button"
+                className="btn !py-1.5 !px-3 !text-xs"
+                onClick={() => void saveSettings({ clearRoomAnalysisAiKey: true })}
+              >
+                Remove key
+              </button>
+            )}
+          </div>
         </form>
       </section>
 

@@ -18,9 +18,10 @@ import {
   officialDrawRoomAllowed,
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
-  officialAppendRoomsFromDxfClosedPolylines,
-  officialBuildStoreyAndRoomsFromPlan,
+  officialApplyFromPlanGeometry,
   officialCanCreateRoomsFromDxf,
+  officialEnsureActiveStoreyForPlanBuild,
+  formatOfficialFromPlanStatus,
   officialHasParsedCadLinework,
   officialTranslateRoom,
   officialTranslateStorey,
@@ -295,7 +296,7 @@ import { GenerateLdtDialog } from "./GenerateLdtDialog";
 import { OfficialWaitDialog } from "@/components/OfficialWaitDialog";
 import { useOfficialWaitDialog } from "@/components/useOfficialWaitDialog";
 import { ProjectSharePanel } from "@/components/editor/ProjectSharePanel";
-import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitYield } from "@/lib/official-wait-dialog";
+import { OFFICIAL_WAIT_COPY, officialWaitAfterPaint, officialWaitBeforeWork, officialWaitYield } from "@/lib/official-wait-dialog";
 import { officialSaveBlob, OFFICIAL_SAVE_TYPES } from "@/lib/official-save-file";
 import { officialFormatPlanUploadAt } from "@/lib/official-plan-upload-label";
 import { officialPlanAssetFileUrl } from "@/lib/official-content-disposition";
@@ -1131,39 +1132,163 @@ export function BuildingEditor({
     drawRoomPolygon(rectPolygon(0, 0, lengthM, widthM));
   }
 
-  async function createRoomsFromDxf() {
+  async function runOfficialBuildFromPlan() {
     const heightM = resolveNewRoomHeightM();
-    await officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf, () => {
-      const result = officialAppendRoomsFromDxfClosedPolylines(scene, {
-        heightM,
-        nextId: () => nid("room"),
+    await officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf, async () => {
+      const prepared = officialEnsureActiveStoreyForPlanBuild(scene, () => nid("storey"));
+      const storeyId = prepared.ui.activeStoreyId;
+      const underlay = prepared.underlays.find((u) => u.storeyId === storeyId) ?? null;
+      const storey = prepared.storeys.find((s) => s.id === storeyId);
+      const existingOutline =
+        storey && Array.isArray(storey.outline) && storey.outline.length >= 3
+          ? storey.outline
+          : null;
+
+      const res = await fetch(`/api/projects/${projectId}/build-from-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          underlay: underlay
+            ? {
+                kind: underlay.kind,
+                dxfEntities: underlay.dxfEntities ?? [],
+                metersPerUnit: underlay.metersPerUnit,
+                offsetX: underlay.offsetX,
+                offsetY: underlay.offsetY,
+              }
+            : null,
+          existingOutline,
+        }),
       });
-      setStatus(result.status);
-      if (result.created > 0) {
-        patchScene(() => result.scene);
+      const local = (await res.json().catch(() => ({}))) as {
+        error?: string;
+        outline?: { x: number; y: number }[] | null;
+        outlineCreated?: boolean;
+        outlineExisting?: boolean;
+        outlineFailed?: boolean;
+        layoutFound?: boolean;
+        rooms?: { x: number; y: number }[][];
+        analysis?: unknown;
+      };
+      if (!res.ok) {
+        setStatus(local.error || "Could not build the storey and rooms from the plan.");
+        return;
+      }
+
+      let next = prepared;
+      let created = 0;
+      let outlineCreated = false;
+      const apply = (outline: { x: number; y: number }[] | null | undefined, rooms: { x: number; y: number }[][]) => {
+        const applied = officialApplyFromPlanGeometry(next, {
+          outline: outline ?? null,
+          rooms,
+          heightM,
+          nextRoomId: () => nid("room"),
+        });
+        next = applied.scene;
+        created += applied.created;
+        outlineCreated = outlineCreated || applied.outlineCreated;
+      };
+
+      if (local.layoutFound) {
+        apply(local.outline, local.rooms ?? []);
+        setStatus(
+          formatOfficialFromPlanStatus({
+            outlineCreated,
+            outlineExisting: Boolean(local.outlineExisting),
+            outlineFailed: Boolean(local.outlineFailed),
+            created,
+            roomSource: "layout",
+          })
+        );
+      } else {
+        if (local.outline && !local.outlineFailed) {
+          apply(local.outline, []);
+        }
+        if (local.outline && !local.outlineFailed) {
+          officialWait.updateCopy(OFFICIAL_WAIT_COPY.analysingRooms);
+          await officialWaitBeforeWork();
+          const aiRes = await fetch(`/api/projects/${projectId}/analyse-rooms`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              analysis: local.analysis,
+              outline: local.outline,
+            }),
+          });
+          const ai = (await aiRes.json().catch(() => ({}))) as {
+            configured?: boolean;
+            failed?: boolean;
+            rooms?: { x: number; y: number }[][];
+            error?: string;
+          };
+          if (!aiRes.ok) {
+            setStatus(
+              formatOfficialFromPlanStatus({
+                outlineCreated,
+                outlineExisting: Boolean(local.outlineExisting),
+                outlineFailed: Boolean(local.outlineFailed),
+                created: 0,
+                roomSource: "none",
+                aiFailed: true,
+              })
+            );
+          } else if (!ai.configured) {
+            setStatus(
+              formatOfficialFromPlanStatus({
+                outlineCreated,
+                outlineExisting: Boolean(local.outlineExisting),
+                outlineFailed: Boolean(local.outlineFailed),
+                created: 0,
+                roomSource: "none",
+                aiConfigured: false,
+              })
+            );
+          } else {
+            apply(null, ai.rooms ?? []);
+            setStatus(
+              formatOfficialFromPlanStatus({
+                outlineCreated,
+                outlineExisting: Boolean(local.outlineExisting),
+                outlineFailed: Boolean(local.outlineFailed),
+                created,
+                roomSource: ai.failed && created === 0 ? "none" : "ai",
+                aiConfigured: true,
+                aiFailed: Boolean(ai.failed) && created === 0,
+              })
+            );
+          }
+        } else {
+          setStatus(
+            formatOfficialFromPlanStatus({
+              outlineCreated,
+              outlineExisting: Boolean(local.outlineExisting),
+              outlineFailed: Boolean(local.outlineFailed),
+              created: 0,
+              roomSource: "none",
+            })
+          );
+        }
+      }
+
+      const changed =
+        created > 0 ||
+        outlineCreated ||
+        next.storeys.length !== scene.storeys.length ||
+        next.ui.activeStoreyId !== scene.ui.activeStoreyId;
+      if (changed) {
+        patchScene(() => next);
       }
     });
   }
 
+  async function createRoomsFromDxf() {
+    await runOfficialBuildFromPlan();
+  }
+
   async function createStoreyAndRoomsFromPlan() {
     setAskBuildAfterPlanOpen(false);
-    const heightM = resolveNewRoomHeightM();
-    await officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf, () => {
-      const result = officialBuildStoreyAndRoomsFromPlan(scene, {
-        heightM,
-        nextStoreyId: () => nid("storey"),
-        nextRoomId: () => nid("room"),
-      });
-      setStatus(result.status);
-      const changed =
-        result.created > 0 ||
-        result.outlineCreated ||
-        result.scene.storeys.length !== scene.storeys.length ||
-        result.scene.ui.activeStoreyId !== scene.ui.activeStoreyId;
-      if (changed) {
-        patchScene(() => result.scene);
-      }
-    });
+    await runOfficialBuildFromPlan();
   }
 
   function currentStoreyRoomIds(): string[] {
