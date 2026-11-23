@@ -6,6 +6,8 @@ import {
   officialDxfRingFullyContains,
   officialDxfRingsMatch,
 } from "./official-dxf-network-rooms";
+import { officialPolygonsOverlapOrShareEdge } from "./official-room-union";
+import { intersectOfficialRoomPolygons } from "./official-room-intersect";
 import {
   officialDxfSimpleLineLoopRings,
 } from "./official-dxf-line-loops";
@@ -55,13 +57,41 @@ export type OfficialPlanLayerSummary = {
   entityCount: number;
 };
 
+export type OfficialRoomAnalysisSourceUsed = "full" | "visible-fallback";
+
+export type OfficialRoomAnalysisTextLabel = {
+  text: string;
+  x: number;
+  y: number;
+  rotationDeg?: number;
+  layer?: string;
+};
+
 export type OfficialRoomAnalysisSummary = {
   layers: OfficialPlanLayerSummary[];
   bounds: { minX: number; minY: number; maxX: number; maxY: number } | null;
   contour: Vec2[] | null;
   candidateRings: Vec2[][];
   linework: [Vec2, Vec2][];
+  textLabels?: OfficialRoomAnalysisTextLabel[];
+  acceptedRooms?: Vec2[][];
+  sourceUsed?: OfficialRoomAnalysisSourceUsed;
 };
+
+export type OfficialBuildRoomAnalysisSummaryOptions = {
+  textLabels?: ReadonlyArray<OfficialRoomAnalysisTextLabel>;
+  acceptedRooms?: ReadonlyArray<Vec2[]>;
+  sourceUsed?: OfficialRoomAnalysisSourceUsed;
+  /** Crop linework, labels, and bounds to the contour plus a modest margin. */
+  cropToContour?: boolean;
+};
+
+/** Modest crop margin around the official storey contour for room-analysis AI. */
+const ANALYSIS_CROP_MARGIN_FRACTION = 0.05;
+const ANALYSIS_CROP_MARGIN_MIN_M = 1;
+const ANALYSIS_CROP_MARGIN_MAX_M = 5;
+const ANALYSIS_TEXT_LABEL_CAP = 200;
+const SUBSTANTIAL_OVERLAP_RATIO = 0.25;
 
 function ringAreaM2(ring: Vec2[]): number {
   return roomAreaM2({ polygon: ring } as RoomV2);
@@ -320,6 +350,145 @@ function boundsOfSegments(
   }
   if (!Number.isFinite(minX) || maxX - minX <= 0 || maxY - minY <= 0) return null;
   return { minX, minY, maxX, maxY };
+}
+
+type AnalysisBounds = { minX: number; minY: number; maxX: number; maxY: number };
+
+function boundsOfPoints(points: ReadonlyArray<Vec2>): AnalysisBounds | null {
+  if (points.length === 0) return null;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+  for (const p of points) {
+    minX = Math.min(minX, p.x);
+    minY = Math.min(minY, p.y);
+    maxX = Math.max(maxX, p.x);
+    maxY = Math.max(maxY, p.y);
+  }
+  if (!Number.isFinite(minX) || maxX - minX <= 0 || maxY - minY <= 0) return null;
+  return { minX, minY, maxX, maxY };
+}
+
+function expandBounds(bounds: AnalysisBounds, marginM: number): AnalysisBounds {
+  return {
+    minX: bounds.minX - marginM,
+    minY: bounds.minY - marginM,
+    maxX: bounds.maxX + marginM,
+    maxY: bounds.maxY + marginM,
+  };
+}
+
+function pointInBounds(p: Vec2, bounds: AnalysisBounds): boolean {
+  return p.x >= bounds.minX && p.x <= bounds.maxX && p.y >= bounds.minY && p.y <= bounds.maxY;
+}
+
+function segmentIntersectsBounds(a: Vec2, b: Vec2, bounds: AnalysisBounds): boolean {
+  if (pointInBounds(a, bounds) || pointInBounds(b, bounds)) return true;
+  const minX = Math.min(a.x, b.x);
+  const maxX = Math.max(a.x, b.x);
+  const minY = Math.min(a.y, b.y);
+  const maxY = Math.max(a.y, b.y);
+  if (maxX < bounds.minX || minX > bounds.maxX || maxY < bounds.minY || minY > bounds.maxY) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Axis-aligned bounds of the official storey contour plus a modest margin,
+ * used to crop room-analysis AI input to the floor plate instead of a huge
+ * drawing sheet.
+ */
+export function officialContourBoundsWithMargin(contour: Vec2[] | null): AnalysisBounds | null {
+  if (!contour || contour.length < 3) return null;
+  const raw = boundsOfPoints(contour);
+  if (!raw) return null;
+  const span = Math.max(raw.maxX - raw.minX, raw.maxY - raw.minY);
+  const margin = Math.min(
+    ANALYSIS_CROP_MARGIN_MAX_M,
+    Math.max(ANALYSIS_CROP_MARGIN_MIN_M, span * ANALYSIS_CROP_MARGIN_FRACTION)
+  );
+  return expandBounds(raw, margin);
+}
+
+/** Area of the storey contour not already covered by accepted room polygons. */
+export function officialLeftoverAreaInsideContourM2(
+  contour: Vec2[] | null,
+  rooms: ReadonlyArray<Vec2[]>
+): number {
+  if (!contour || contour.length < 3) return 0;
+  const plate = ringAreaM2(contour);
+  if (!(plate > 0)) return 0;
+  const eps = DXF_CLOSED_VERTEX_EPS_M;
+  let covered = 0;
+  for (const room of rooms) {
+    if (room.length < 3) continue;
+    const c = ringCentroid(room);
+    const onPlate =
+      pointInOrOnRing(c, contour, eps) ||
+      officialDxfRingFullyContains(contour, room, eps);
+    if (!onPlate) {
+      const containedVerts = room.filter((p) => pointInOrOnRing(p, contour, eps)).length;
+      if (containedVerts < room.length * 0.6) continue;
+    }
+    covered += ringAreaM2(room);
+  }
+  return Math.max(0, plate - covered);
+}
+
+export function officialShouldAnalyseLeftoverSpace(
+  contour: Vec2[] | null,
+  rooms: ReadonlyArray<Vec2[]>
+): boolean {
+  if (!contour || contour.length < 3) return false;
+  return officialLeftoverAreaInsideContourM2(contour, rooms) >= DXF_FROM_PLAN_ROOM_MIN_AREA_M2;
+}
+
+/**
+ * True when two official room rings are the same, one contains the other, or
+ * their intersection is a substantial fraction of the smaller room.
+ */
+export function officialRoomRingsSubstantiallyOverlap(
+  a: Vec2[],
+  b: Vec2[],
+  epsM: number = DXF_CLOSED_VERTEX_EPS_M
+): boolean {
+  if (a.length < 3 || b.length < 3) return false;
+  if (officialDxfRingsMatch(a, b, epsM)) return true;
+  if (officialDxfRingFullyContains(a, b, epsM) || officialDxfRingFullyContains(b, a, epsM)) {
+    return true;
+  }
+  const relation = officialPolygonsOverlapOrShareEdge(a, b);
+  if (relation !== "overlap") return false;
+  const inter = intersectOfficialRoomPolygons(a, b);
+  if (!inter.ok) return true;
+  const interArea = ringAreaM2(inter.polygon);
+  const minArea = Math.min(ringAreaM2(a), ringAreaM2(b));
+  if (!(minArea > 0)) return true;
+  return interArea / minArea >= SUBSTANTIAL_OVERLAP_RATIO;
+}
+
+export function officialDropRoomsOverlappingAccepted(
+  rings: ReadonlyArray<Vec2[]>,
+  accepted: ReadonlyArray<Vec2[]>,
+  epsM: number = DXF_CLOSED_VERTEX_EPS_M
+): Vec2[][] {
+  if (accepted.length === 0) return rings.map((ring) => ring.map((p) => ({ x: p.x, y: p.y })));
+  return rings.filter(
+    (ring) => !accepted.some((other) => officialRoomRingsSubstantiallyOverlap(ring, other, epsM))
+  );
+}
+
+/** True when at least one hidden layer is a layout / architectural layer. */
+export function officialArchitecturalLayersHidden(
+  hiddenLayers?: Iterable<string> | null
+): boolean {
+  if (!hiddenLayers) return false;
+  for (const name of hiddenLayers) {
+    if (officialIsLayoutPlanLayer(name)) return true;
+  }
+  return false;
 }
 
 function downsamplePoints(points: ReadonlyArray<Vec2>, maxCount: number): Vec2[] {
@@ -773,18 +942,74 @@ function allVisibleSegments(entities: ReadonlyArray<DxfEntity>): [Vec2, Vec2][] 
   return segs;
 }
 
+function architecturalSegments(entities: ReadonlyArray<DxfEntity>): [Vec2, Vec2][] {
+  const preferred: [Vec2, Vec2][] = [];
+  const all: [Vec2, Vec2][] = [];
+  for (const entity of entities) {
+    const segs = entitySegments(entity);
+    all.push(...segs);
+    if (!officialIsRcpOrLightingLayer(officialEntityLayer(entity))) {
+      preferred.push(...segs);
+    }
+  }
+  return preferred.length > 0 ? preferred : all;
+}
+
+function compactTextLabels(
+  labels: ReadonlyArray<OfficialRoomAnalysisTextLabel> | undefined,
+  crop: AnalysisBounds | null
+): OfficialRoomAnalysisTextLabel[] {
+  if (!labels || labels.length === 0) return [];
+  const kept: OfficialRoomAnalysisTextLabel[] = [];
+  for (const label of labels) {
+    const text = String(label.text || "").trim();
+    if (!text) continue;
+    if (crop && !pointInBounds({ x: label.x, y: label.y }, crop)) continue;
+    kept.push({
+      text,
+      x: label.x,
+      y: label.y,
+      rotationDeg: label.rotationDeg,
+      layer: label.layer,
+    });
+    if (kept.length >= ANALYSIS_TEXT_LABEL_CAP) break;
+  }
+  return kept;
+}
+
 export function officialBuildRoomAnalysisSummary(
   entities: ReadonlyArray<DxfEntity>,
   contour: Vec2[] | null,
-  candidateRings: Vec2[][]
+  candidateRings: Vec2[][],
+  options?: OfficialBuildRoomAnalysisSummaryOptions
 ): OfficialRoomAnalysisSummary {
-  return {
+  const cropToContour = options?.cropToContour !== false;
+  const crop = cropToContour ? officialContourBoundsWithMargin(contour) : null;
+  let segs = architecturalSegments(entities);
+  if (crop) {
+    const cropped = segs.filter(([a, b]) => segmentIntersectsBounds(a, b, crop));
+    if (cropped.length > 0) segs = cropped;
+  }
+  const rings = candidateRings.filter((ring) => {
+    if (!crop) return true;
+    const c = ringCentroid(ring);
+    return pointInBounds(c, crop) || ring.some((p) => pointInBounds(p, crop));
+  });
+  const accepted = (options?.acceptedRooms ?? []).map((ring) =>
+    ring.map((p) => ({ x: p.x, y: p.y }))
+  );
+  const summary: OfficialRoomAnalysisSummary = {
     layers: summarizeLayers(entities),
-    bounds: boundsOfSegments(allVisibleSegments(entities)),
+    bounds: crop ?? boundsOfSegments(segs),
     contour: contour ? contour.map((p) => ({ x: p.x, y: p.y })) : null,
-    candidateRings: candidateRings.slice(0, 80).map((ring) => ring.map((p) => ({ x: p.x, y: p.y }))),
-    linework: compactLinework(allVisibleSegments(entities), 2500),
+    candidateRings: rings.slice(0, 80).map((ring) => ring.map((p) => ({ x: p.x, y: p.y }))),
+    linework: compactLinework(segs, 2500),
   };
+  const labels = compactTextLabels(options?.textLabels, crop);
+  if (labels.length > 0) summary.textLabels = labels;
+  if (accepted.length > 0) summary.acceptedRooms = accepted;
+  if (options?.sourceUsed) summary.sourceUsed = options.sourceUsed;
+  return summary;
 }
 
 export type OfficialFindLayoutRoomsResult = {
@@ -871,7 +1096,72 @@ export type OfficialFromPlanStatusFlags = {
   aiConfigured?: boolean;
   aiFailed?: boolean;
   aiFailReason?: OfficialFromPlanAiFailReason;
+  /** Local layout rooms kept before any leftover-space AI. */
+  layoutCreated?: number;
+  /** Additional rooms from leftover-space or fallback AI, after overlap filtering. */
+  aiCreated?: number;
+  /** AI was invoked (or declined as not configured) for leftover space after local rooms. */
+  aiLeftoverAttempted?: boolean;
+  usedFullSource?: boolean;
+  architecturalLayersHidden?: boolean;
 };
+
+function layoutRoomsPhrase(count: number): { en: string; zh: string } {
+  if (count === 1) {
+    return { en: " Created 1 room from the layout plan.", zh: " 已從房間佈局圖建立 1 個房間。" };
+  }
+  return {
+    en: ` Created ${count} rooms from the layout plan.`,
+    zh: ` 已從房間佈局圖建立 ${count} 個房間。`,
+  };
+}
+
+function fullDrawingNote(flags: OfficialFromPlanStatusFlags, roomsFound: boolean): { en: string; zh: string } {
+  if (!roomsFound || !flags.usedFullSource || !flags.architecturalLayersHidden) {
+    return { en: "", zh: "" };
+  }
+  return {
+    en: " Rooms were taken from the full drawing, including hidden architectural layers.",
+    zh: " 房間取自完整圖則（包括目前隱藏的建築圖層）。",
+  };
+}
+
+function aiFailPhrase(reason: OfficialFromPlanAiFailReason | undefined, leftover: boolean): { en: string; zh: string } {
+  if (leftover) {
+    if (reason === "model-unavailable") {
+      return {
+        en: " AI analysis of the remaining space failed because the configured model is not available. The rooms already found were kept.",
+        zh: " 對剩餘空間的 AI 辨認失敗（已設定的模型無法使用）。已找到的房間已保留。",
+      };
+    }
+    if (reason === "timeout") {
+      return {
+        en: " AI analysis of the remaining space timed out. The rooms already found were kept.",
+        zh: " 對剩餘空間的 AI 辨認逾時。已找到的房間已保留。",
+      };
+    }
+    return {
+      en: " AI analysis of the remaining space failed. The rooms already found were kept.",
+      zh: " 對剩餘空間的 AI 辨認失敗。已找到的房間已保留。",
+    };
+  }
+  if (reason === "model-unavailable") {
+    return {
+      en: " No room layout plan was found, and AI analysis failed because the configured model is not available. No rooms were added.",
+      zh: " 找不到房間佈局圖，而且 AI 辨認失敗（已設定的模型無法使用）。沒有新增房間。",
+    };
+  }
+  if (reason === "timeout") {
+    return {
+      en: " No room layout plan was found, and AI analysis timed out. No rooms were added.",
+      zh: " 找不到房間佈局圖，而且 AI 辨認逾時。沒有新增房間。",
+    };
+  }
+  return {
+    en: " No room layout plan was found, and AI analysis failed. No rooms were added.",
+    zh: " 找不到房間佈局圖，而且 AI 辨認失敗。沒有新增房間。",
+  };
+}
 
 export function formatOfficialFromPlanStatus(flags: OfficialFromPlanStatusFlags): string {
   const contourEn = flags.outlineCreated
@@ -893,18 +1183,45 @@ export function formatOfficialFromPlanStatus(flags: OfficialFromPlanStatusFlags)
           ? "無法從圖則建立樓層輪廓。"
           : "未設定樓層輪廓。";
 
+  const layoutCount =
+    typeof flags.layoutCreated === "number" ? flags.layoutCreated : flags.roomSource === "layout" ? flags.created : 0;
+  const aiCount = typeof flags.aiCreated === "number" ? flags.aiCreated : flags.roomSource === "ai" ? flags.created : 0;
+  const leftover = Boolean(flags.aiLeftoverAttempted) && layoutCount > 0;
+
   let roomsEn = "";
   let roomsZh = "";
-  if (flags.roomSource === "layout") {
-    roomsEn =
-      flags.created === 1
-        ? " Created 1 room from the layout plan."
-        : ` Created ${flags.created} rooms from the layout plan.`;
-    roomsZh =
-      flags.created === 1
-        ? " 已從房間佈局圖建立 1 個房間。"
-        : ` 已從房間佈局圖建立 ${flags.created} 個房間。`;
+
+  if (layoutCount > 0) {
+    const local = layoutRoomsPhrase(layoutCount);
+    const note = fullDrawingNote(flags, true);
+    roomsEn = `${local.en}${note.en}`;
+    roomsZh = `${local.zh}${note.zh}`;
+    if (leftover) {
+      if (flags.aiConfigured === false) {
+        roomsEn +=
+          " Further rooms in the remaining space were not sought because Room-analysis AI is not configured. A site administrator must enable Room-analysis AI in Admin → Settings and save an API key.";
+        roomsZh +=
+          " 輪廓內剩餘空間尚未交由 AI 辨認，因為尚未設定房間辨認 AI。請網站管理員在「管理 → 設定」啟用房間辨認 AI 並儲存 API 金鑰。";
+      } else if (flags.aiFailed) {
+        const fail = aiFailPhrase(flags.aiFailReason, true);
+        roomsEn += fail.en;
+        roomsZh += fail.zh;
+      } else if (aiCount > 0) {
+        roomsEn +=
+          aiCount === 1
+            ? " AI analysis created 1 more room in the remaining space."
+            : ` AI analysis created ${aiCount} more rooms in the remaining space.`;
+        roomsZh +=
+          aiCount === 1
+            ? " AI 辨認後在剩餘空間又建立了 1 個房間。"
+            : ` AI 辨認後在剩餘空間又建立了 ${aiCount} 個房間。`;
+      } else {
+        roomsEn += " AI analysis found no further rooms in the remaining space.";
+        roomsZh += " AI 辨認後在剩餘空間沒有再找到房間。";
+      }
+    }
   } else if (flags.roomSource === "ai") {
+    const note = fullDrawingNote(flags, flags.created > 0);
     if (flags.created > 0) {
       roomsEn =
         flags.created === 1
@@ -914,23 +1231,16 @@ export function formatOfficialFromPlanStatus(flags: OfficialFromPlanStatusFlags)
         flags.created === 1
           ? " 找不到房間佈局圖。AI 辨認後建立了 1 個房間。"
           : ` 找不到房間佈局圖。AI 辨認後建立了 ${flags.created} 個房間。`;
+      roomsEn += note.en;
+      roomsZh += note.zh;
     } else {
       roomsEn = " No room layout plan was found, and AI analysis found no rooms.";
       roomsZh = " 找不到房間佈局圖，AI 也未能辨認出房間。";
     }
   } else if (flags.aiFailed) {
-    if (flags.aiFailReason === "model-unavailable") {
-      roomsEn =
-        " No room layout plan was found, and AI analysis failed because the configured model is not available. No rooms were added.";
-      roomsZh = " 找不到房間佈局圖，而且 AI 辨認失敗（已設定的模型無法使用）。沒有新增房間。";
-    } else if (flags.aiFailReason === "timeout") {
-      roomsEn =
-        " No room layout plan was found, and AI analysis timed out. No rooms were added.";
-      roomsZh = " 找不到房間佈局圖，而且 AI 辨認逾時。沒有新增房間。";
-    } else {
-      roomsEn = " No room layout plan was found, and AI analysis failed. No rooms were added.";
-      roomsZh = " 找不到房間佈局圖，而且 AI 辨認失敗。沒有新增房間。";
-    }
+    const fail = aiFailPhrase(flags.aiFailReason, false);
+    roomsEn = fail.en;
+    roomsZh = fail.zh;
   } else if (flags.aiConfigured === false) {
     roomsEn =
       " No room layout plan was found, and AI analysis is not configured. A site administrator must enable Room-analysis AI in Admin → Settings and save an API key.";

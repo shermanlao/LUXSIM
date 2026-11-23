@@ -1,6 +1,9 @@
 import { createCanvas } from "@napi-rs/canvas";
 import type { OfficialRoomAnalysisSummary, Vec2 } from "@luxsim/project-io";
-import { officialFilterFromPlanRoomRings } from "@luxsim/project-io";
+import {
+  officialDropRoomsOverlappingAccepted,
+  officialFilterFromPlanRoomRings,
+} from "@luxsim/project-io";
 import { loadRoomAnalysisAiSkill } from "@/lib/ai-room-analysis-skill";
 import {
   roomAnalysisAiBaseUrl,
@@ -18,6 +21,16 @@ export type AnalyseRoomsAiResult = {
   failed: boolean;
   rooms: Vec2[][];
   failReason?: AnalyseRoomsAiFailReason;
+  model?: string;
+  provider?: string;
+  durationMs?: number;
+  imageWidth?: number;
+  imageHeight?: number;
+  lineworkCount?: number;
+  candidateRingCount?: number;
+  parsedRoomCount?: number;
+  filteredRoomCount?: number;
+  sourceUsed?: OfficialRoomAnalysisSummary["sourceUsed"];
 };
 
 const IMAGE_MAX_EDGE = 1600;
@@ -66,6 +79,42 @@ function renderPlanPng(summary: OfficialRoomAnalysisSummary): {
     ctx.stroke();
     ctx.setLineDash([]);
   }
+  if (summary.acceptedRooms && summary.acceptedRooms.length > 0) {
+    ctx.fillStyle = "rgba(15, 118, 110, 0.18)";
+    ctx.strokeStyle = "#0f766e";
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([]);
+    for (const ring of summary.acceptedRooms) {
+      if (ring.length < 3) continue;
+      ctx.beginPath();
+      ctx.moveTo(toX(ring[0]!.x), toY(ring[0]!.y));
+      for (let i = 1; i < ring.length; i++) {
+        ctx.lineTo(toX(ring[i]!.x), toY(ring[i]!.y));
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+  const labels = summary.textLabels ?? [];
+  if (labels.length > 0) {
+    ctx.fillStyle = "#1f2937";
+    ctx.font = "11px sans-serif";
+    ctx.textAlign = "left";
+    ctx.textBaseline = "middle";
+    for (const label of labels) {
+      const text = String(label.text || "").trim();
+      if (!text) continue;
+      const x = toX(label.x);
+      const y = toY(label.y);
+      const rot = ((label.rotationDeg ?? 0) * Math.PI) / 180;
+      ctx.save();
+      ctx.translate(x, y);
+      if (rot) ctx.rotate(-rot);
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+  }
   return { buffer: canvas.toBuffer("image/png"), width, height };
 }
 
@@ -75,7 +124,19 @@ function compactSummary(summary: OfficialRoomAnalysisSummary) {
     bounds: summary.bounds,
     contour: summary.contour,
     candidateRings: summary.candidateRings,
+    acceptedRooms: summary.acceptedRooms ?? [],
+    textLabels: (summary.textLabels ?? []).map((label) => ({
+      text: label.text,
+      x: label.x,
+      y: label.y,
+      layer: label.layer,
+    })),
     units: "official scene metres; X right, Y up",
+    notes:
+      "Bounds are the official storey contour plus a modest margin, not the full drawing sheet. " +
+      "Linework is architectural / wall linework from the full imported drawing. " +
+      "acceptedRooms are already found and must be kept; identify only leftover occupiable space inside the contour that does not overlap them. " +
+      "textLabels are room-name and other plan text from the source.",
   };
 }
 
@@ -183,8 +244,23 @@ export async function analyseRoomsWithConfiguredAi(
   summary: OfficialRoomAnalysisSummary,
   outline?: Vec2[] | null
 ): Promise<AnalyseRoomsAiResult> {
+  const started = Date.now();
+  const metricsBase = {
+    model: config.model,
+    provider: config.provider,
+    lineworkCount: summary.linework.length,
+    candidateRingCount: summary.candidateRings.length,
+    sourceUsed: summary.sourceUsed,
+  };
   if (!config.configured || !config.apiKey) {
-    return { configured: false, failed: false, rooms: [] };
+    return {
+      configured: false,
+      failed: false,
+      rooms: [],
+      durationMs: Date.now() - started,
+      ...metricsBase,
+      model: undefined,
+    };
   }
 
   const skill = loadRoomAnalysisAiSkill();
@@ -192,9 +268,14 @@ export async function analyseRoomsWithConfiguredAi(
     ...summary,
     contour: outline ?? summary.contour,
   });
+  const acceptedCount = summary.acceptedRooms?.length ?? 0;
+  const identifyLine =
+    acceptedCount > 0
+      ? "Identify official room polygons in the leftover space inside the storey contour that is not already covered by acceptedRooms. Do not replace, rewrite, or overlap those rooms. If leftover space surrounds accepted rooms, return simple polygons without holes that do not cover them."
+      : "Identify official room polygons on this plan.";
   const userText = [
-    "Identify official room polygons on this plan.",
-    "Return JSON only, using official scene metres matching the bounds and contour below.",
+    identifyLine,
+    "Return JSON only, using official scene metres matching the cropped bounds and contour below. Use room-name text labels as guidance.",
     JSON.stringify(compactSummary({ ...summary, contour: outline ?? summary.contour })),
   ].join("\n\n");
 
@@ -311,14 +392,52 @@ export async function analyseRoomsWithConfiguredAi(
       await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
       result = await requestOnce();
     }
+    const imageWidth = rendered?.width;
+    const imageHeight = rendered?.height;
     if (!result.ok) {
-      return { configured: true, failed: true, rooms: [], failReason: result.reason };
+      return {
+        configured: true,
+        failed: true,
+        rooms: [],
+        failReason: result.reason,
+        durationMs: Date.now() - started,
+        imageWidth,
+        imageHeight,
+        parsedRoomCount: 0,
+        filteredRoomCount: 0,
+        ...metricsBase,
+      };
     }
     const parsed = parseRoomPolygons(extractJsonObject(result.text));
     const mapped = mapAnalysedRoomRingsToMetres(parsed, summary, rendered);
-    const rooms = officialFilterFromPlanRoomRings(mapped, outline ?? summary.contour);
-    return { configured: true, failed: false, rooms };
+    const filtered = officialFilterFromPlanRoomRings(mapped, outline ?? summary.contour);
+    const rooms = officialDropRoomsOverlappingAccepted(
+      filtered,
+      summary.acceptedRooms ?? []
+    );
+    return {
+      configured: true,
+      failed: false,
+      rooms,
+      durationMs: Date.now() - started,
+      imageWidth,
+      imageHeight,
+      parsedRoomCount: parsed.length,
+      filteredRoomCount: rooms.length,
+      ...metricsBase,
+    };
   } catch {
-    return { configured: true, failed: true, rooms: [], failReason: "invalid-response" };
+    return {
+      configured: true,
+      failed: true,
+      rooms: [],
+      failReason: "invalid-response",
+      durationMs: Date.now() - started,
+      imageWidth: rendered?.width,
+      imageHeight: rendered?.height,
+      parsedRoomCount: 0,
+      filteredRoomCount: 0,
+      ...metricsBase,
+    };
   }
 }

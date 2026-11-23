@@ -1149,6 +1149,8 @@ export function BuildingEditor({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          assetId: underlay?.assetId ?? null,
+          hiddenLayers: underlay?.hiddenLayers ?? [],
           underlay: underlay
             ? {
                 kind: underlay.kind,
@@ -1170,6 +1172,9 @@ export function BuildingEditor({
         layoutFound?: boolean;
         rooms?: { x: number; y: number }[][];
         analysis?: unknown;
+        sourceUsed?: "full" | "visible-fallback";
+        shouldAnalyseLeftover?: boolean;
+        architecturalLayersHidden?: boolean;
       };
       if (!res.ok) {
         setStatus(local.error || "Could not build the storey and rooms from the plan.");
@@ -1194,102 +1199,113 @@ export function BuildingEditor({
         outlineReplaced = outlineReplaced || applied.outlineReplaced;
       };
 
-      if (local.layoutFound) {
-        apply(local.outline, local.rooms ?? []);
+      const usedFullSource = local.sourceUsed === "full";
+      const architecturalLayersHidden = Boolean(local.architecturalLayersHidden);
+      const contourStatus = () => ({
+        outlineCreated,
+        outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+        outlineReplaced,
+        outlineFailed: Boolean(local.outlineFailed),
+        usedFullSource,
+        architecturalLayersHidden,
+      });
+      const aiFailReasonOf = (reason: OfficialFromPlanAiFailReason | undefined) =>
+        reason === "timeout" ||
+        reason === "model-unavailable" ||
+        reason === "provider-error" ||
+        reason === "invalid-response"
+          ? reason
+          : undefined;
+
+      const localRooms = local.layoutFound ? (local.rooms ?? []) : [];
+      if (local.outline && !local.outlineFailed) {
+        apply(local.outline, localRooms);
+      }
+
+      const layoutCreated = created;
+      const shouldAnalyse =
+        Boolean(local.outline && !local.outlineFailed) &&
+        (local.shouldAnalyseLeftover === true || (!local.layoutFound && Boolean(local.outline && !local.outlineFailed)));
+
+      if (shouldAnalyse) {
+        officialWait.updateCopy(OFFICIAL_WAIT_COPY.analysingRooms);
+        await officialWaitBeforeWork();
+        const aiRes = await fetch(`/api/projects/${projectId}/analyse-rooms`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            analysis: local.analysis,
+            outline: local.outline,
+          }),
+        });
+        const ai = (await aiRes.json().catch(() => ({}))) as {
+          configured?: boolean;
+          failed?: boolean;
+          failReason?: OfficialFromPlanAiFailReason;
+          rooms?: { x: number; y: number }[][];
+          error?: string;
+        };
+        if (!aiRes.ok) {
+          setStatus(
+            formatOfficialFromPlanStatus({
+              ...contourStatus(),
+              created: layoutCreated,
+              layoutCreated,
+              aiCreated: 0,
+              aiLeftoverAttempted: layoutCreated > 0,
+              roomSource: layoutCreated > 0 ? "layout" : "none",
+              aiFailed: true,
+              aiFailReason: aiRes.status === 408 ? "timeout" : undefined,
+            })
+          );
+        } else if (!ai.configured) {
+          setStatus(
+            formatOfficialFromPlanStatus({
+              ...contourStatus(),
+              created: layoutCreated,
+              layoutCreated,
+              aiCreated: 0,
+              aiLeftoverAttempted: layoutCreated > 0,
+              roomSource: layoutCreated > 0 ? "layout" : "none",
+              aiConfigured: false,
+            })
+          );
+        } else {
+          const beforeAi = created;
+          apply(null, ai.rooms ?? []);
+          const aiCreated = created - beforeAi;
+          setStatus(
+            formatOfficialFromPlanStatus({
+              ...contourStatus(),
+              created,
+              layoutCreated,
+              aiCreated,
+              aiLeftoverAttempted: layoutCreated > 0,
+              roomSource:
+                layoutCreated > 0 ? "layout" : ai.failed && aiCreated === 0 ? "none" : "ai",
+              aiConfigured: true,
+              aiFailed: Boolean(ai.failed) && aiCreated === 0,
+              aiFailReason: aiFailReasonOf(ai.failReason),
+            })
+          );
+        }
+      } else if (layoutCreated > 0) {
         setStatus(
           formatOfficialFromPlanStatus({
-            outlineCreated,
-            outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
-            outlineReplaced,
-            outlineFailed: Boolean(local.outlineFailed),
-            created,
+            ...contourStatus(),
+            created: layoutCreated,
+            layoutCreated,
             roomSource: "layout",
           })
         );
       } else {
-        if (local.outline && !local.outlineFailed) {
-          apply(local.outline, []);
-        }
-        if (local.outline && !local.outlineFailed) {
-          officialWait.updateCopy(OFFICIAL_WAIT_COPY.analysingRooms);
-          await officialWaitBeforeWork();
-          const aiRes = await fetch(`/api/projects/${projectId}/analyse-rooms`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              analysis: local.analysis,
-              outline: local.outline,
-            }),
-          });
-          const ai = (await aiRes.json().catch(() => ({}))) as {
-            configured?: boolean;
-            failed?: boolean;
-            failReason?: OfficialFromPlanAiFailReason;
-            rooms?: { x: number; y: number }[][];
-            error?: string;
-          };
-          if (!aiRes.ok) {
-            setStatus(
-              formatOfficialFromPlanStatus({
-                outlineCreated,
-                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
-                outlineReplaced,
-                outlineFailed: Boolean(local.outlineFailed),
-                created: 0,
-                roomSource: "none",
-                aiFailed: true,
-                aiFailReason:
-                  aiRes.status === 408
-                    ? "timeout"
-                    : undefined,
-              })
-            );
-          } else if (!ai.configured) {
-            setStatus(
-              formatOfficialFromPlanStatus({
-                outlineCreated,
-                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
-                outlineReplaced,
-                outlineFailed: Boolean(local.outlineFailed),
-                created: 0,
-                roomSource: "none",
-                aiConfigured: false,
-              })
-            );
-          } else {
-            apply(null, ai.rooms ?? []);
-            setStatus(
-              formatOfficialFromPlanStatus({
-                outlineCreated,
-                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
-                outlineReplaced,
-                outlineFailed: Boolean(local.outlineFailed),
-                created,
-                roomSource: ai.failed && created === 0 ? "none" : "ai",
-                aiConfigured: true,
-                aiFailed: Boolean(ai.failed) && created === 0,
-                aiFailReason:
-                  ai.failReason === "timeout" ||
-                  ai.failReason === "model-unavailable" ||
-                  ai.failReason === "provider-error" ||
-                  ai.failReason === "invalid-response"
-                    ? ai.failReason
-                    : undefined,
-              })
-            );
-          }
-        } else {
-          setStatus(
-            formatOfficialFromPlanStatus({
-              outlineCreated,
-              outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
-              outlineReplaced,
-              outlineFailed: Boolean(local.outlineFailed),
-              created: 0,
-              roomSource: "none",
-            })
-          );
-        }
+        setStatus(
+          formatOfficialFromPlanStatus({
+            ...contourStatus(),
+            created: 0,
+            roomSource: "none",
+          })
+        );
       }
 
       const changed =

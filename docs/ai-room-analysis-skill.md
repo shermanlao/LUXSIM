@@ -3,46 +3,62 @@
 This skill is the official instruction for LUXSIM room-layout analysis. The
 server loads this file when a signed-in user with project access runs
 **Create rooms from DXF** or **Create from plan**, a storey contour has been
-set, and no room or architectural layout could be found in the imported
-DXF or DWG by local layer and geometry search.
+set, and either no room or architectural layout could be found by local
+search, or some rooms were found and leftover occupiable space remains
+inside the official storey contour.
 
 Regular project users do not configure this skill. A site administrator
 enables the service, chooses a provider and model, and saves an API key in
 **Admin → Settings**. If the service is not enabled or no key is available,
-analysis must not run and no rooms are invented.
+analysis must not run and no rooms are invented. Rooms already found
+locally must be kept.
 
 ## When to use
 
-Use this skill only as a fallback after:
+Use this skill after:
 
 1. The official storey contour (building / floor-plate outline) has already
-   been computed from a cheap outer boundary of the main visible linework
-   cluster, or an existing official contour was left unchanged.
+   been computed from a cheap outer boundary of the main linework cluster
+   of the full imported drawing (including architectural layers that may be
+   hidden in the editor), or an existing official contour was replaced by
+   that outer boundary on an explicit Create from plan / Create rooms from
+   DXF click.
 2. Local search has already looked for a room or architectural layout
    (layers such as WALL, A-WALL, A-DOOR, ROOM, AREA, PARTITION, I-WALL,
-   FFL, FLOOR, LAYOUT, PLAN, 牆, 房間, and close variants).
+   FFL, FLOOR, LAYOUT, PLAN, 牆, 房間, and close variants), using the full
+   imported drawing, not only the layers currently visible in Plan layers.
 3. Typical lighting, ceiling, and grid layers (CEILING, C-Lighting,
    EL-LIGHTING, GRID, TILE, LIGHT, FIXTURE, and close variants) have been
    skipped, and a large regular grid of similar small rectangles has not
    been treated as rooms.
-4. That local search found no genuine room layout.
 
-Do not use this skill to replace a layout that was already found locally.
-Do not use it to detect fixtures, codes, or photometry.
+Then either:
+
+- Local search found no genuine room layout, and you should identify rooms
+  on the floor plate; or
+- Local search found some rooms (listed and drawn as `acceptedRooms`), and
+  you should identify only leftover occupiable space inside the contour
+  that is not already covered by those rooms.
+
+Do not use this skill to replace or rewrite a layout that was already
+found locally. Do not use it to detect fixtures, codes, or photometry.
 
 ## Inputs
 
 The model receives:
 
-- A rendered plan image of the visible linework, when one can be produced
-  (black strokes on a white ground; the official storey contour may be
-  drawn as a distinct outline). The image is a top-view plan, not a photo
-  of a room.
+- A rendered plan image of architectural / wall linework from the full
+  imported drawing, cropped to the official storey contour plus a modest
+  margin (black strokes on a white ground; the official storey contour may
+  be drawn as a distinct outline; already-accepted rooms may be filled).
+  The image is a top-view plan, not a photo of a room, and not a
+  lighting-only view of the whole drawing sheet.
 - A compact structured summary in official scene metres: layer names and
-  roles, the axis-aligned bounds of the visible linework, the official
-  storey contour if one exists, and up to a limited set of room-sized
-  candidate rings. Coordinates use the same metre system as the official
-  scene (X right, Y up).
+  roles, the cropped axis-aligned bounds, the official storey contour if
+  one exists, up to a limited set of room-sized candidate rings,
+  already-accepted rooms, and room-name or other plan text labels from the
+  source. Coordinates use the same metre system as the official scene
+  (X right, Y up).
 
 The input is deliberately smaller than a raw DWG or a full entity dump.
 
@@ -63,10 +79,14 @@ Rules for each room:
   about 0.34–0.36 m² is not a room; a small WC of 1 m² or more may pass).
 - If a storey contour is provided, rooms should lie on that floor plate.
 - Prefer real architectural rooms: enclosed offices, corridors, toilets,
-  stair cores, plant rooms, and similar spaces visible on the plan.
+  stair cores, plant rooms, open-plan leftover space, and similar spaces
+  visible on the plan or named by text labels.
+- Do not overlap, cover, or rewrite already-accepted rooms. If leftover
+  space surrounds accepted rooms, return simple polygons for the remaining
+  parts without holes and without covering those rooms.
 
-If you are not confident that a shape is a room, omit it. If no rooms can
-be identified, return `{"rooms":[]}`.
+If you are not confident that a shape is a room, omit it. If no further
+rooms can be identified, return `{"rooms":[]}`.
 
 ## What never to do
 

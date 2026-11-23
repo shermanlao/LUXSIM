@@ -8,6 +8,7 @@ import {
   officialConvexHullRing,
   officialFilterFromPlanRoomRings,
   officialFindLayoutRoomsFromPlan,
+  officialRoomRingsSubstantiallyOverlap,
   officialValidateFromPlanRoomRing,
   type OfficialRoomAnalysisSummary,
 } from "./official-layout-plan";
@@ -227,7 +228,13 @@ export function officialApplyFromPlanGeometry(
   for (const ring of rings) {
     const valid = officialValidateFromPlanRoomRing(ring);
     if (!valid) continue;
-    if (existingRings.some((other) => officialDxfRingsMatch(valid, other, DXF_CLOSED_VERTEX_EPS_M))) {
+    if (
+      existingRings.some(
+        (other) =>
+          officialDxfRingsMatch(valid, other, DXF_CLOSED_VERTEX_EPS_M) ||
+          officialRoomRingsSubstantiallyOverlap(valid, other, DXF_CLOSED_VERTEX_EPS_M)
+      )
+    ) {
       continue;
     }
     next = appendOfficialNewRoom(next, {

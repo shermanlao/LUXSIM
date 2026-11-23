@@ -6,7 +6,7 @@ import path from "node:path";
  * The fallback is used only when the file cannot be read at runtime; keep it
  * in sync with that document.
  */
-export const ROOM_ANALYSIS_AI_SKILL_FALLBACK = `You analyse an imported architectural or lighting plan after a local search found no room layout. Return only official simple room polygons with no holes, in official scene metres, as JSON {"rooms":[{"polygon":[{"x":0,"y":0},...]}]}. Each room needs at least three unique corners, must not cross itself, and must have area of at least 1 m². Do not create rooms from ceiling-grid cells, title blocks, furniture, or invent rooms that are not on the plan. If none can be identified, return {"rooms":[]}.`;
+export const ROOM_ANALYSIS_AI_SKILL_FALLBACK = `You analyse an imported architectural plan after local search, using linework and room-name labels from the full drawing, cropped to the official storey contour. If acceptedRooms are listed, identify only leftover occupiable space inside the contour and do not replace, rewrite, or overlap those rooms. Return only official simple room polygons with no holes, in official scene metres, as JSON {"rooms":[{"polygon":[{"x":0,"y":0},...]}]}. Each room needs at least three unique corners, must not cross itself, and must have area of at least 1 m². Do not create rooms from ceiling-grid cells, title blocks, furniture, or invent rooms that are not on the plan. If none can be identified, return {"rooms":[]}.`;
 
 let cached: string | null = null;
 
