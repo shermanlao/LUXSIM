@@ -19,6 +19,7 @@ import {
   officialDrawRoomBlockedReason,
   officialAppendDrawnRoom,
   officialAppendRoomsFromDxfClosedPolylines,
+  officialBuildStoreyAndRoomsFromPlan,
   officialCanCreateRoomsFromDxf,
   officialHasParsedCadLinework,
   officialTranslateRoom,
@@ -283,6 +284,8 @@ import { ElevationView2D } from "./ElevationView2D";
 import { editorWorkflowRailPlacement } from "@/lib/editor-workflow-panels";
 import { officialShouldPromptBuildBefore3d } from "@/lib/official-needs-build-before-3d";
 import { BuildModelFirstDialog } from "./BuildModelFirstDialog";
+import { AskBuildAfterPlanDialog } from "./AskBuildAfterPlanDialog";
+import { officialShouldAskBuildAfterPlanImport } from "@/lib/official-ask-build-after-plan";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { SaveReminderDialog } from "./SaveReminderDialog";
 import { FixtureLightConePreview } from "./FixtureLightConePreview";
@@ -428,6 +431,7 @@ export function BuildingEditor({
   const pendingFixtureApplyRef = useRef<(() => void) | null>(null);
   const [saveReminderOpen, setSaveReminderOpen] = useState(false);
   const [buildModelFirstOpen, setBuildModelFirstOpen] = useState(false);
+  const [askBuildAfterPlanOpen, setAskBuildAfterPlanOpen] = useState(false);
   const reminderEpochRef = useRef<number | null>(null);
   const [reminderGeneration, setReminderGeneration] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -1136,6 +1140,27 @@ export function BuildingEditor({
       });
       setStatus(result.status);
       if (result.created > 0) {
+        patchScene(() => result.scene);
+      }
+    });
+  }
+
+  async function createStoreyAndRoomsFromPlan() {
+    setAskBuildAfterPlanOpen(false);
+    const heightM = resolveNewRoomHeightM();
+    await officialWait.run(OFFICIAL_WAIT_COPY.creatingRoomsFromDxf, () => {
+      const result = officialBuildStoreyAndRoomsFromPlan(scene, {
+        heightM,
+        nextStoreyId: () => nid("storey"),
+        nextRoomId: () => nid("room"),
+      });
+      setStatus(result.status);
+      const changed =
+        result.created > 0 ||
+        result.outlineCreated ||
+        result.scene.storeys.length !== scene.storeys.length ||
+        result.scene.ui.activeStoreyId !== scene.ui.activeStoreyId;
+      if (changed) {
         patchScene(() => result.scene);
       }
     });
@@ -2046,6 +2071,9 @@ export function BuildingEditor({
         setStatus("Plan imported, but image size could not be read — re-import if distorted.");
       } else {
         setStatus(`Plan imported (${asset.kind}). Use calibrate tool to set scale.`);
+      }
+      if (officialShouldAskBuildAfterPlanImport(scene, asset.kind, readOnly)) {
+        setAskBuildAfterPlanOpen(true);
       }
       });
     } finally {
@@ -4820,6 +4848,11 @@ export function BuildingEditor({
       <BuildModelFirstDialog
         open={buildModelFirstOpen}
         onDismiss={() => setBuildModelFirstOpen(false)}
+      />
+      <AskBuildAfterPlanDialog
+        open={askBuildAfterPlanOpen && !readOnly}
+        onSelfBuild={() => setAskBuildAfterPlanOpen(false)}
+        onCreateFromPlan={() => void createStoreyAndRoomsFromPlan()}
       />
       <DiscardResultsDialog
         open={pendingDiscardRoomIds != null && !readOnly}

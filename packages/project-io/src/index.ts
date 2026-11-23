@@ -176,6 +176,16 @@ export type {
   OfficialAppendDxfClosedRoomsResult,
   OfficialDxfRoomsUnderlay,
 } from "./official-dxf-closed-rooms";
+export {
+  officialBuildStoreyAndRoomsFromPlan,
+  officialConvexHullRing,
+  officialEnsureActiveStoreyForPlanBuild,
+  officialSuggestStoreyOutlineFromPlan,
+} from "./official-build-from-plan";
+export type {
+  OfficialBuildFromPlanInput,
+  OfficialBuildFromPlanResult,
+} from "./official-build-from-plan";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";
 export { buildFullReportPdf, buildFullReportPdfAsync, officialProductSheetColumns, officialTableCellLines, officialTableRowHeight, REPORT_TABLE_LINE_H, REPORT_TABLE_ROW_MIN_H } from "./report";
