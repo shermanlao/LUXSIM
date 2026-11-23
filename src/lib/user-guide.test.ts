@@ -231,6 +231,12 @@ describe("user guide", () => {
     expect(guide).toMatch(/Documentation & export/);
     expect(guide).toMatch(/工作面、網格間距與維護係數不在此分頁/);
     expect(guide).toMatch(/Workplane, grid spacing, and maintenance factor are not shown here/);
+    expect(guide).toMatch(/有顯示的左側欄、右側欄，以及底部的 Light \*\*Fixtures in project\*\* 表與 Calculation 結果列，都可以最小化並還原/);
+    expect(guide).toMatch(/Visible left and right rails, and the bottom panels \(the Light \*\*Fixtures in project\*\* table and the Calculation results strip\), can be minimized and restored/);
+    expect(guide).toMatch(/沒有內容或不屬於該分頁的左欄或右欄仍會整欄隱藏，不會留下還原條/);
+    expect(guide).toMatch(/A rail that the current tab has no content for still hides completely/);
+    expect(guide).toMatch(/狀態列與只在 Calculation 出現的偽色／灰階刻度條不能用這個方式最小化，外觀也不變/);
+    expect(guide).toMatch(/The status bar and the Calculation-only false-colour \/ greyscale scale bar are unchanged/);
     expect(guide).not.toMatch(/DIALux/);
     expect(guide).not.toMatch(/\bevo\b/i);
   });

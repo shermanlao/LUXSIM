@@ -11,7 +11,7 @@ describe("official Import plan panel and DWG status", () => {
   const editor = readSrc("src/components/editor/BuildingEditor.tsx");
 
   it("places the Import plan section at the top of the left panel, before Building", () => {
-    const aside = editor.indexOf('<aside className="cad-left space-y-1">');
+    const aside = editor.indexOf('data-cad-left-rail=""');
     const importTitle = editor.indexOf(
       '<p className="cad-section-title">Import plan</p>'
     );

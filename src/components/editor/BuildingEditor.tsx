@@ -241,6 +241,16 @@ import {
 } from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
 import { EditorResultsStrip } from "./EditorResultsStrip";
+import { EditorChromeToggle } from "./EditorChromeToggle";
+import {
+  DEFAULT_EDITOR_CHROME_MINIMIZED,
+  readEditorChromeMinimized,
+  writeEditorChromeMinimized,
+  patchEditorChromeMinimized,
+  editorChromeBodyClassName,
+  type EditorChromeMinimized,
+  type EditorChromePanel,
+} from "@/lib/editor-chrome-minimize";
 import { RcpDetectPanel } from "./RcpDetectPanel";
 import { PlanCodePlacePanel } from "./PlanCodePlacePanel";
 import { FixtureArrayPanel } from "./FixtureArrayPanel";
@@ -403,6 +413,19 @@ export function BuildingEditor({
   const [uploading, setUploading] = useState(false);
   const [generateLdtOpen, setGenerateLdtOpen] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [chromeMin, setChromeMin] = useState<EditorChromeMinimized>(
+    DEFAULT_EDITOR_CHROME_MINIMIZED,
+  );
+  useEffect(() => {
+    setChromeMin(readEditorChromeMinimized());
+  }, []);
+  function setChromePanelMinimized(panel: EditorChromePanel, minimized: boolean) {
+    setChromeMin((prev) => {
+      const next = patchEditorChromeMinimized(prev, panel, minimized);
+      writeEditorChromeMinimized(next);
+      return next;
+    });
+  }
   const [calcAfterPlace, setCalcAfterPlace] = useState(false);
   const [arrayPreview, setArrayPreview] = useState<{ x: number; y: number; rotationDeg: number }[] | null>(
     null
@@ -3477,10 +3500,27 @@ export function BuildingEditor({
       )}
 
       <div
-        className={`cad-body${showLeftRail ? "" : " cad-body--no-left"}${showRightRail ? "" : " cad-body--no-right"}`}
+        className={editorChromeBodyClassName({
+          showLeftRail,
+          showRightRail,
+          minimized: chromeMin,
+        })}
       >
         {showLeftRail && (
-        <aside className="cad-left space-y-1">
+        <aside
+          className="cad-left space-y-1"
+          data-cad-left-rail=""
+          data-minimized={chromeMin.left ? "true" : undefined}
+        >
+          <div className="cad-chrome-panel-bar">
+            <EditorChromeToggle
+              panel="left"
+              minimized={chromeMin.left}
+              onToggle={() => setChromePanelMinimized("left", !chromeMin.left)}
+            />
+          </div>
+          {!chromeMin.left && (
+          <>
           {showConstructionPlan && !readOnly && (
           <div className="border-t border-[#3d5563] pt-2 space-y-2">
             <p className="cad-section-title">Import plan</p>
@@ -3937,6 +3977,8 @@ export function BuildingEditor({
           </div>
           )}
 
+          </>
+          )}
         </aside>
         )}
 
@@ -3947,10 +3989,23 @@ export function BuildingEditor({
 
           {showFixturesTable && (
           <div
-            className="shrink-0 px-2 pb-2 max-h-40 overflow-auto"
+            className={
+              chromeMin.fixtures
+                ? "cad-fixtures-panel cad-fixtures-panel--minimized"
+                : "cad-fixtures-panel"
+            }
             data-fixtures-in-project=""
           >
-            <p className="cad-section-title">Fixtures in project ({scene.instances.length})</p>
+            <div className="cad-chrome-panel-bar">
+              <p className="cad-section-title">Fixtures in project ({scene.instances.length})</p>
+              <EditorChromeToggle
+                panel="fixtures"
+                minimized={chromeMin.fixtures}
+                onToggle={() => setChromePanelMinimized("fixtures", !chromeMin.fixtures)}
+              />
+            </div>
+            {!chromeMin.fixtures && (
+            <div className="shrink-0 px-2 pb-2 max-h-40 overflow-auto">
             <table className="cad-fixtures-table">
               <thead>
                 <tr>
@@ -4005,12 +4060,27 @@ export function BuildingEditor({
                 )}
               </tbody>
             </table>
+            </div>
+            )}
           </div>
           )}
         </section>
 
         {showRightRail && (
-        <aside className="cad-right space-y-2">
+        <aside
+          className="cad-right space-y-2"
+          data-cad-right-rail=""
+          data-minimized={chromeMin.right ? "true" : undefined}
+        >
+          <div className="cad-chrome-panel-bar">
+            <EditorChromeToggle
+              panel="right"
+              minimized={chromeMin.right}
+              onToggle={() => setChromePanelMinimized("right", !chromeMin.right)}
+            />
+          </div>
+          {!chromeMin.right && (
+          <>
           {showRightIsolines && (
             <details className="cad-props-card isoline-levels-panel" data-isoline-levels-panel="">
               <summary className="cursor-pointer text-xs font-semibold">
@@ -4587,11 +4657,24 @@ export function BuildingEditor({
             )}
           </div>
           )}
+          </>
+          )}
         </aside>
         )}
       </div>
 
       {showResultsStrip && (
+      <div
+        className={
+          chromeMin.results
+            ? "cad-results-chrome cad-results-chrome--minimized"
+            : "cad-results-chrome"
+        }
+      >
+        {chromeMin.results && (
+          <p className="cad-section-title cad-chrome-panel-bar__label">Calculation results / 計算結果</p>
+        )}
+        {!chromeMin.results && (
       <EditorResultsStrip
         results={stripResults}
         en12464Check={activeRoom ? en12464Check : null}
@@ -4606,6 +4689,13 @@ export function BuildingEditor({
         roomName={activeRoom?.name ?? activeStorey?.name ?? null}
         scope={activeRoom ? "room" : activeStorey ? "storey" : "room"}
       />
+        )}
+        <EditorChromeToggle
+          panel="results"
+          minimized={chromeMin.results}
+          onToggle={() => setChromePanelMinimized("results", !chromeMin.results)}
+        />
+      </div>
       )}
 
       <div className="cad-status-bar">

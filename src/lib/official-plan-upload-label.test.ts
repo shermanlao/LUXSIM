@@ -32,7 +32,7 @@ describe("official Import plan upload record", () => {
   );
 
   it("shows the imported file name and upload date after import, not only the empty file input", () => {
-    const aside = editor.indexOf('<aside className="cad-left space-y-1">');
+    const aside = editor.indexOf('data-cad-left-rail=""');
     const buildingTitle = editor.indexOf(
       '<p className="cad-section-title">Building</p>'
     );

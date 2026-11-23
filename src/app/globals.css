@@ -705,6 +705,26 @@ body:has(.cad-editor-root) header nav {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.cad-body.cad-body--min-left {
+  grid-template-columns: 28px minmax(0, 1fr) 288px;
+}
+
+.cad-body.cad-body--min-right {
+  grid-template-columns: 248px minmax(0, 1fr) 28px;
+}
+
+.cad-body.cad-body--min-left.cad-body--min-right {
+  grid-template-columns: 28px minmax(0, 1fr) 28px;
+}
+
+.cad-body.cad-body--no-left.cad-body--min-right {
+  grid-template-columns: minmax(0, 1fr) 28px;
+}
+
+.cad-body.cad-body--min-left.cad-body--no-right {
+  grid-template-columns: 28px minmax(0, 1fr);
+}
+
 @media (max-width: 1100px) {
   .cad-body {
     grid-template-columns: 1fr;
@@ -727,6 +747,31 @@ body:has(.cad-editor-root) header nav {
     grid-template-columns: 1fr;
     grid-template-rows: minmax(16rem, 1fr);
   }
+
+  .cad-body.cad-body--min-left {
+    grid-template-columns: 1fr;
+    grid-template-rows: 28px minmax(16rem, 1fr) minmax(0, 14rem);
+  }
+
+  .cad-body.cad-body--min-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 11rem) minmax(16rem, 1fr) 28px;
+  }
+
+  .cad-body.cad-body--min-left.cad-body--min-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: 28px minmax(16rem, 1fr) 28px;
+  }
+
+  .cad-body.cad-body--no-left.cad-body--min-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(16rem, 1fr) 28px;
+  }
+
+  .cad-body.cad-body--min-left.cad-body--no-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: 28px minmax(16rem, 1fr);
+  }
 }
 
 .cad-left,
@@ -746,6 +791,104 @@ body:has(.cad-editor-root) header nav {
 .cad-right {
   border-left: 1px solid #2a3842;
   padding: 0.65rem;
+}
+
+.cad-left[data-minimized="true"],
+.cad-right[data-minimized="true"] {
+  padding: 0;
+  overflow: hidden;
+}
+
+.cad-chrome-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+  min-height: 28px;
+  background: #17222b;
+}
+
+.cad-left[data-minimized="true"] .cad-chrome-panel-bar,
+.cad-right[data-minimized="true"] .cad-chrome-panel-bar {
+  flex: 1;
+  justify-content: center;
+  min-height: 28px;
+}
+
+.cad-chrome-panel-bar__label,
+.cad-chrome-panel-bar .cad-section-title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  padding: 0 0.45rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cad-chrome-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  margin: 2px;
+  padding: 0;
+  flex-shrink: 0;
+  border: 1px solid #2a3842;
+  background: #17222b;
+  color: #c5d4dc;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.cad-chrome-toggle:hover {
+  background: #243540;
+  color: #fff;
+}
+
+.cad-chrome-toggle:focus-visible {
+  outline: 2px solid #8fa3ad;
+  outline-offset: 1px;
+}
+
+.cad-chrome-toggle__icon {
+  width: 14px;
+  height: 14px;
+  display: block;
+}
+
+.cad-fixtures-panel {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #0a1218;
+  border-top: 1px solid #2a3842;
+}
+
+.cad-fixtures-panel--minimized {
+  height: 28px;
+  overflow: hidden;
+}
+
+.cad-results-chrome {
+  display: flex;
+  align-items: stretch;
+  flex-shrink: 0;
+  background: #0f171d;
+}
+
+.cad-results-chrome .cad-results-strip {
+  flex: 1;
+  min-width: 0;
+}
+
+.cad-results-chrome--minimized {
+  height: 28px;
+  align-items: center;
+  border-top: 1px solid #2a3842;
 }
 
 .cad-center {

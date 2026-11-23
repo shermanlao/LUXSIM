@@ -114,12 +114,12 @@ describe("editor workflow panels are tab-specific", () => {
   );
   const leftRail = sliceBetween(
     editor,
-    '<aside className="cad-left space-y-1">',
+    'data-cad-left-rail=""',
     "</aside>",
   );
   const rightRail = sliceBetween(
     editor,
-    '<aside className="cad-right space-y-2">',
+    'data-cad-right-rail=""',
     "</aside>",
   );
   const legendGate = editor.slice(
@@ -222,15 +222,20 @@ describe("editor workflow panels are tab-specific", () => {
     expect(documentation).not.toContain("Fixture library");
     expect(documentation).not.toContain("Import plan");
     expect(documentation).not.toContain("Isoline levels");
-    expect(editor).toContain('cad-body--no-left');
+    expect(editor).toContain("editorChromeBodyClassName");
+    expect(readSrc("src/lib/editor-chrome-minimize.ts")).toContain("cad-body--no-left");
+    expect(css).toContain("cad-body--no-left");
   });
 
   it("hides a rail completely and collapses the grid when that tab has no content for it", () => {
     expect(editor).toContain("{showRightRail && (");
-    expect(editor).toContain(
+    expect(editor).toContain("editorChromeBodyClassName({");
+    expect(editor).toContain("showLeftRail");
+    expect(editor).toContain("showRightRail");
+    expect(editor).not.toContain('className="cad-body"');
+    expect(editor).not.toContain(
       'className={`cad-body${showLeftRail ? "" : " cad-body--no-left"}${showRightRail ? "" : " cad-body--no-right"}`}',
     );
-    expect(editor).not.toContain('className="cad-body"');
 
     const desktopNoLeft = declsOf(css, ".cad-body.cad-body--no-left");
     const desktopNoRight = declsOf(css, ".cad-body.cad-body--no-right");
