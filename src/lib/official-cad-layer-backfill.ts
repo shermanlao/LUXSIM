@@ -5,7 +5,9 @@ import {
   officialBackfillCadLayerMetaFromDxf,
   officialCadLayerMetaIncomplete,
   officialEnsureCadLayerTable,
+  parseDxfEntities,
   parseDxfTextLabels,
+  type DxfEntity,
 } from "@luxsim/project-io";
 import {
   DwgConversionError,
@@ -57,6 +59,46 @@ export async function officialBackfillStoredCadLayerMeta(input: {
         },
         changed: true,
       };
+    }
+  } catch (error) {
+    if (error instanceof OfficialCadLayerBackfillError) throw error;
+    if (error instanceof DwgConversionError) {
+      throw new OfficialCadLayerBackfillError(error.message);
+    }
+    throw new OfficialCadLayerBackfillError(OFFICIAL_CAD_LAYER_BACKFILL_FAILED);
+  }
+  throw new OfficialCadLayerBackfillError(OFFICIAL_CAD_LAYER_BACKFILL_WRONG_KIND);
+}
+
+/**
+ * Full CAD source used by a later plan-layer Apply. Prefers leftover
+ * `meta.entities` on older rows so a DWG is not converted again; otherwise
+ * re-parses the stored DXF or DWG. Does not write the database.
+ */
+export async function officialLoadStoredCadSourceEntities(input: {
+  kind: string;
+  data: Buffer;
+  metaJson?: string | null;
+}): Promise<DxfEntity[]> {
+  const meta = officialParseMetaJson(input.metaJson);
+  if (Array.isArray(meta.entities) && meta.entities.length > 0) {
+    return meta.entities as DxfEntity[];
+  }
+  const kind = String(input.kind || "").toLowerCase();
+  try {
+    if (kind === "dxf") {
+      const entities = parseDxfEntities(input.data.toString("utf8"));
+      if (!entities.length) {
+        throw new OfficialCadLayerBackfillError(OFFICIAL_CAD_LAYER_BACKFILL_FAILED);
+      }
+      return entities;
+    }
+    if (kind === "dwg") {
+      const parsed = await officialParseDwgPlan(input.data);
+      if (!parsed.entities.length) {
+        throw new OfficialCadLayerBackfillError(OFFICIAL_CAD_LAYER_BACKFILL_FAILED);
+      }
+      return parsed.entities;
     }
   } catch (error) {
     if (error instanceof OfficialCadLayerBackfillError) throw error;

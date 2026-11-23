@@ -130,8 +130,9 @@ export interface Underlay {
   orientationMigrated?: boolean;
   /**
    * Compressed visible CAD linework used for Top-view display and object snap.
-   * Hidden layers are omitted. The full uncompressed source stays on the
-   * project asset (`meta.entities`) so a later layer Apply can restore a layer.
+   * Hidden layers are omitted. A later layer Apply restores hidden layers from
+   * the stored plan file (or leftover `meta.entities` on older assets), not
+   * from this visible list.
    */
   dxfEntities?: DxfEntity[];
   /**

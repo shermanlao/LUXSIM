@@ -1,5 +1,9 @@
 import { notFound } from "next/navigation";
-import { normalizeResults, normalizeScene } from "@luxsim/project-io";
+import {
+  normalizeResults,
+  normalizeScene,
+  officialCadAssetMetaJsonWithoutSourceEntities,
+} from "@luxsim/project-io";
 import { loadPublicShareByToken } from "@/lib/load-public-share";
 import { prisma } from "@/lib/prisma";
 import { ViewOnlyProject } from "@/components/editor/ViewOnlyProject";
@@ -49,7 +53,7 @@ export default async function ViewProjectPage({ params }: Props) {
         id: a.id,
         kind: a.kind,
         fileName: a.fileName,
-        metaJson: a.metaJson,
+        metaJson: officialCadAssetMetaJsonWithoutSourceEntities(a.metaJson),
         createdAt: a.createdAt.toISOString(),
       }))}
       luminaires={luminaires.map((l) => {

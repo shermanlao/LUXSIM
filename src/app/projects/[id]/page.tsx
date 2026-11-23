@@ -6,6 +6,7 @@ import { parseProjectResults, parseProjectScene } from "@/lib/project-scene";
 import { BuildingEditor } from "@/components/editor/BuildingEditor";
 import { CadEditorRoot } from "@/components/editor/CadEditorRoot";
 import { ProjectEditorLoadGate } from "@/components/ProjectEditorLoadGate";
+import { officialCadAssetMetaJsonWithoutSourceEntities } from "@luxsim/project-io";
 
 type Props = { params: Promise<{ id: string }> };
 
@@ -42,7 +43,7 @@ export default async function ProjectPage({ params }: Props) {
           id: a.id,
           kind: a.kind,
           fileName: a.fileName,
-          metaJson: a.metaJson,
+          metaJson: officialCadAssetMetaJsonWithoutSourceEntities(a.metaJson),
           createdAt: a.createdAt.toISOString(),
         }))}
         />

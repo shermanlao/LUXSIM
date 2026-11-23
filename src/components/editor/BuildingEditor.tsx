@@ -71,6 +71,8 @@ import {
   officialCadLayerNames,
   officialCadLayerMetaIncomplete,
   officialCadEntitiesLackLayerNames,
+  officialCadAssetMetaJsonWithoutSourceEntities,
+  officialHasCadLayerTable,
   officialCompressCadEntities,
   officialExtractVisibleCadEntities,
   officialMetersPerUnitFromAssetMeta,
@@ -343,6 +345,13 @@ function nid(prefix: string) {
   return prefixedId(prefix);
 }
 
+function assetRowWithoutCadSourceEntities(row: AssetRow): AssetRow {
+  return {
+    ...row,
+    metaJson: officialCadAssetMetaJsonWithoutSourceEntities(row.metaJson),
+  };
+}
+
 /** Read native pixel size so plan underlays keep the import aspect ratio. */
 function readImagePixelSize(file: File): Promise<{ width: number; height: number } | null> {
   if (!file.type.startsWith("image/") && !/\.(png|jpe?g|webp)$/i.test(file.name)) {
@@ -487,6 +496,7 @@ export function BuildingEditor({
   const fileRef = useRef<HTMLInputElement>(null);
   const planRef = useRef<HTMLInputElement>(null);
   const cadLayerBackfillAttemptedRef = useRef<Set<string>>(new Set());
+  const cadSourceEntitiesByAssetRef = useRef<Map<string, DxfEntity[]>>(new Map());
   /** Live 3D orbit; flushed into scene.ui.camera3d on save */
   const camera3dRef = useRef<Camera3dView | null>(initialScene.ui.camera3d ?? null);
   const lastSavedRef = useRef<ProjectSnapshot>(
@@ -1948,11 +1958,6 @@ export function BuildingEditor({
           }
         | null
         | undefined;
-      setAssets((a) => [
-        ...(rasterAsset ? [rasterAsset] : []),
-        asset,
-        ...a,
-      ]);
       const meta = JSON.parse(asset.metaJson || "{}") as {
         entities?: DxfEntity[];
         layers?: OfficialDxfLayer[];
@@ -1962,6 +1967,14 @@ export function BuildingEditor({
         metersPerUnit?: number;
         insunits?: number | null;
       };
+      if (Array.isArray(meta.entities) && meta.entities.length) {
+        cadSourceEntitiesByAssetRef.current.set(asset.id, meta.entities);
+      }
+      setAssets((a) => [
+        ...(rasterAsset ? [assetRowWithoutCadSourceEntities(rasterAsset)] : []),
+        assetRowWithoutCadSourceEntities(asset),
+        ...a,
+      ]);
       const pixelSize =
         asset.kind === "image" ? await readImagePixelSize(file) : null;
       let sourceWidthPx = pixelSize?.width ?? raster?.widthPx ?? meta.widthPx;
@@ -2017,18 +2030,66 @@ export function BuildingEditor({
     }
   }
 
+  function cadSourceEntitiesFromAsset(assetId?: string | null): DxfEntity[] {
+    if (!assetId) return [];
+    const cached = cadSourceEntitiesByAssetRef.current.get(assetId);
+    if (cached && cached.length) return cached;
+    const planAsset = assets.find((a) => a.id === assetId);
+    if (!planAsset) return [];
+    try {
+      const meta = JSON.parse(planAsset.metaJson || "{}") as { entities?: DxfEntity[] };
+      if (Array.isArray(meta.entities) && meta.entities.length) {
+        cadSourceEntitiesByAssetRef.current.set(assetId, meta.entities);
+        return meta.entities;
+      }
+    } catch {
+      /* fall through */
+    }
+    return [];
+  }
+
   function cadSourceEntities(target = underlay): DxfEntity[] {
     if (!target) return [];
-    const planAsset = assets.find((a) => a.id === target.assetId);
-    if (planAsset) {
-      try {
-        const meta = JSON.parse(planAsset.metaJson || "{}") as { entities?: DxfEntity[] };
-        if (Array.isArray(meta.entities) && meta.entities.length) return meta.entities;
-      } catch {
-        /* use the live compressed list below */
-      }
-    }
+    const fromAsset = cadSourceEntitiesFromAsset(target.assetId);
+    if (fromAsset.length) return fromAsset;
     return target.dxfEntities ?? [];
+  }
+
+  function planLayerTable(target = underlay): OfficialDxfLayer[] | undefined {
+    if (!target) return undefined;
+    if (officialHasCadLayerTable(target.dxfLayers)) return target.dxfLayers;
+    const planAsset = assets.find((a) => a.id === target.assetId);
+    if (!planAsset) return target.dxfLayers;
+    try {
+      const meta = JSON.parse(planAsset.metaJson || "{}") as { layers?: OfficialDxfLayer[] };
+      if (officialHasCadLayerTable(meta.layers)) return meta.layers;
+    } catch {
+      /* use the underlay table */
+    }
+    return target.dxfLayers;
+  }
+
+  async function ensureCadSourceEntities(target = underlay): Promise<DxfEntity[]> {
+    if (!target) return [];
+    const local = cadSourceEntitiesFromAsset(target.assetId);
+    if (local.length) return local;
+    if (readOnly || shareBasePath || !target.assetId) {
+      return target.dxfEntities ?? [];
+    }
+    const res = await fetch(
+      `/api/projects/${projectId}/assets/${target.assetId}/cad-source-entities`
+    );
+    let data: { entities?: DxfEntity[]; error?: string } = {};
+    try {
+      data = (await res.json()) as { entities?: DxfEntity[]; error?: string };
+    } catch {
+      /* use the status below */
+    }
+    if (!res.ok || !Array.isArray(data.entities) || !data.entities.length) {
+      throw new Error(data.error || "Could not update plan layers");
+    }
+    cadSourceEntitiesByAssetRef.current.set(target.assetId, data.entities);
+    return data.entities;
   }
 
   function renderCurrentPlanFile() {
@@ -2072,13 +2133,18 @@ export function BuildingEditor({
           return;
         }
         const asset = data.asset;
-        setAssets((rows) => rows.map((row) => (row.id === asset.id ? asset : row)));
         let nextMeta: { entities?: DxfEntity[]; layers?: OfficialDxfLayer[] } = {};
         try {
           nextMeta = JSON.parse(asset.metaJson || "{}") as typeof nextMeta;
         } catch {
           nextMeta = {};
         }
+        if (Array.isArray(nextMeta.entities) && nextMeta.entities.length) {
+          cadSourceEntitiesByAssetRef.current.set(asset.id, nextMeta.entities);
+        }
+        setAssets((rows) =>
+          rows.map((row) => (row.id === asset.id ? assetRowWithoutCadSourceEntities(asset) : row))
+        );
         patchScene(
           (s) => ({
             ...s,
@@ -2112,11 +2178,21 @@ export function BuildingEditor({
 
   async function applyPlanLayers() {
     if (readOnly || !underlay || !officialHasParsedCadLinework(underlay)) return;
-    const source = cadSourceEntities(underlay);
     const hidden = layerDraftHidden ?? underlay.hiddenLayers ?? [];
     setUploading(true);
     try {
       await officialWait.run(OFFICIAL_WAIT_COPY.applyingPlanLayers, async () => {
+        let source: DxfEntity[];
+        try {
+          source = await ensureCadSourceEntities(underlay);
+        } catch (error) {
+          setStatus(error instanceof Error ? error.message : "Could not update plan layers");
+          return;
+        }
+        if (!source.length) {
+          setStatus("Could not update plan layers");
+          return;
+        }
         const extracted = officialExtractVisibleCadEntities(source, hidden);
         const compressed = officialCompressCadEntities(extracted);
         patchScene((s) => ({
@@ -3625,7 +3701,7 @@ export function BuildingEditor({
             )}
             {underlay && officialHasParsedCadLinework(underlay) && (
               <PlanLayerPanel
-                layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
+                layerNames={officialCadLayerNames(cadSourceEntities(underlay), planLayerTable(underlay))}
                 hiddenLayers={layerDraftHidden ?? underlay.hiddenLayers ?? []}
                 disabled={uploading}
                 onHiddenLayersChange={setLayerDraftHidden}
@@ -3640,7 +3716,7 @@ export function BuildingEditor({
               {renderCurrentPlanFile()}
               {officialHasParsedCadLinework(underlay) ? (
                 <PlanLayerPanel
-                  layerNames={officialCadLayerNames(cadSourceEntities(underlay), underlay.dxfLayers)}
+                  layerNames={officialCadLayerNames(cadSourceEntities(underlay), planLayerTable(underlay))}
                   hiddenLayers={underlay?.hiddenLayers ?? []}
                   disabled
                   readOnlyList

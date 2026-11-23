@@ -6,6 +6,9 @@ import {
   parseDxfLayers,
   parseDxfTextLabels,
   officialMetersPerUnitFromInsUnits,
+  officialCadAssetMetaJsonWithoutSourceEntities,
+  officialCadAssetMetaWithoutSourceEntities,
+  officialEnsureCadLayerTable,
   dxfBounds,
   importIfcText,
   projectAssetKindAllowed,
@@ -34,7 +37,12 @@ export async function GET(_req: Request, { params }: Params) {
       where: { projectId: id },
       orderBy: { createdAt: "desc" },
     });
-    return NextResponse.json(assets);
+    return NextResponse.json(
+      assets.map((asset) => ({
+        ...asset,
+        metaJson: officialCadAssetMetaJsonWithoutSourceEntities(asset.metaJson),
+      }))
+    );
   } catch (e) {
     const authRes = apiErrorResponse(e);
     if (authRes.status !== 500) return authRes;
@@ -93,7 +101,7 @@ export async function POST(req: Request, { params }: Params) {
         meta.bounds = dxfBounds(entities);
         meta.insunits = insunits;
         meta.metersPerUnit = officialMetersPerUnitFromInsUnits(insunits);
-        meta.layers = parseDxfLayers(text);
+        meta.layers = officialEnsureCadLayerTable(parseDxfLayers(text), entities);
         meta.textLabels = parseDxfTextLabels(text);
         fileKey = await saveTextFile("assets", file.name, text);
       } else {
@@ -121,7 +129,7 @@ export async function POST(req: Request, { params }: Params) {
       meta.bounds = parsed.bounds;
       meta.insunits = parsed.insunits;
       meta.metersPerUnit = parsed.metersPerUnit;
-      meta.layers = parsed.layers;
+      meta.layers = officialEnsureCadLayerTable(parsed.layers, parsed.entities);
       meta.textLabels = parseDxfTextLabels(parsed.dxfText);
       meta.conversion = "dxf";
     } else {
@@ -132,13 +140,14 @@ export async function POST(req: Request, { params }: Params) {
       }
     }
 
+    const persistableMeta = officialCadAssetMetaWithoutSourceEntities(meta);
     const asset = await prisma.projectAsset.create({
       data: {
         projectId: id,
         kind,
         fileKey,
         fileName: file.name,
-        metaJson: JSON.stringify(meta),
+        metaJson: JSON.stringify(persistableMeta),
       },
     });
 

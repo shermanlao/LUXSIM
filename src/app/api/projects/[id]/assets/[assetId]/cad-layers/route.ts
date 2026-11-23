@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { apiErrorResponse } from "@/lib/api-error";
 import { requireProjectAccess } from "@/lib/session";
 import { absolutePath } from "@/lib/storage";
+import { officialCadAssetMetaWithoutSourceEntities } from "@luxsim/project-io";
 import {
   OfficialCadLayerBackfillError,
   officialBackfillStoredCadLayerMeta,
@@ -54,7 +55,8 @@ export async function POST(_req: Request, { params }: Params) {
       return NextResponse.json({ asset });
     }
 
-    const metaJson = JSON.stringify(loaded.meta);
+    const persistable = officialCadAssetMetaWithoutSourceEntities(loaded.meta);
+    const metaJson = JSON.stringify(persistable);
     const updated = await prisma.projectAsset.update({
       where: { id: asset.id },
       data: { metaJson },
@@ -62,7 +64,9 @@ export async function POST(_req: Request, { params }: Params) {
     return NextResponse.json({
       asset: {
         ...updated,
-        metaJson,
+        // One-time response still includes source entities so the editor can
+        // rebuild visible linework after backfill. They are not persisted.
+        metaJson: JSON.stringify(loaded.meta),
       },
     });
   } catch (e) {

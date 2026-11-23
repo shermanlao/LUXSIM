@@ -635,6 +635,11 @@ export {
 } from "./official-cad-layer-backfill";
 
 export {
+  officialCadAssetMetaJsonWithoutSourceEntities,
+  officialCadAssetMetaWithoutSourceEntities,
+} from "./official-cad-asset-meta";
+
+export {
   OFFICIAL_CAD_COMPRESS_TOL_M,
   officialCadEntityPointCount,
   officialCompressCadEntities,

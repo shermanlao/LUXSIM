@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
-import { normalizeResults, normalizeScene } from "@luxsim/project-io";
+import {
+  normalizeResults,
+  normalizeScene,
+  officialCadAssetMetaJsonWithoutSourceEntities,
+} from "@luxsim/project-io";
 import { loadPublicShareByToken } from "@/lib/load-public-share";
 import { prisma } from "@/lib/prisma";
 
@@ -47,7 +51,7 @@ export async function GET(_req: Request, { params }: Params) {
         id: a.id,
         kind: a.kind,
         fileName: a.fileName,
-        metaJson: a.metaJson,
+        metaJson: officialCadAssetMetaJsonWithoutSourceEntities(a.metaJson),
         createdAt: a.createdAt,
       })),
       luminaires: luminaires.map((l) => {
