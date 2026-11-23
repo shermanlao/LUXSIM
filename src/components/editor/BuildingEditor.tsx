@@ -277,6 +277,8 @@ import { TopView2D } from "./TopView2D";
 import { PlanLayerPanel } from "./PlanLayerPanel";
 import { ElevationView2D } from "./ElevationView2D";
 import { editorWorkflowRailPlacement } from "@/lib/editor-workflow-panels";
+import { officialShouldPromptBuildBefore3d } from "@/lib/official-needs-build-before-3d";
+import { BuildModelFirstDialog } from "./BuildModelFirstDialog";
 import { DiscardResultsDialog } from "./DiscardResultsDialog";
 import { SaveReminderDialog } from "./SaveReminderDialog";
 import { FixtureLightConePreview } from "./FixtureLightConePreview";
@@ -409,6 +411,7 @@ export function BuildingEditor({
   const [pendingDiscardRoomIds, setPendingDiscardRoomIds] = useState<string[] | null>(null);
   const pendingFixtureApplyRef = useRef<(() => void) | null>(null);
   const [saveReminderOpen, setSaveReminderOpen] = useState(false);
+  const [buildModelFirstOpen, setBuildModelFirstOpen] = useState(false);
   const reminderEpochRef = useRef<number | null>(null);
   const [reminderGeneration, setReminderGeneration] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -3083,6 +3086,10 @@ export function BuildingEditor({
 
   function switchOfficialView(mode: ViewMode) {
     if (!shouldWaitForOfficialViewSwitch(viewMode, mode)) return;
+    if (officialShouldPromptBuildBefore3d(viewMode, mode, scene)) {
+      setBuildModelFirstOpen(true);
+      return;
+    }
     const ready = new Promise<void>((resolve) => {
       viewReadyResolverRef.current = resolve;
     });
@@ -4710,6 +4717,10 @@ export function BuildingEditor({
           <span className="ml-3 opacity-70">Assets: {assets.map((a) => a.fileName).join(", ")}</span>
         )}
       </div>
+      <BuildModelFirstDialog
+        open={buildModelFirstOpen}
+        onDismiss={() => setBuildModelFirstOpen(false)}
+      />
       <DiscardResultsDialog
         open={pendingDiscardRoomIds != null && !readOnly}
         onConfirm={confirmDiscardResults}
