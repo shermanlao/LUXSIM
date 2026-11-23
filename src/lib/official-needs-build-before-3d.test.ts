@@ -8,6 +8,7 @@ import {
   BUILD_MODEL_FIRST_OK_LABEL,
   BUILD_MODEL_FIRST_TITLE_EN,
   BUILD_MODEL_FIRST_TITLE_ZH,
+  officialHasValidStoreyContour,
   officialNeedsBuildBefore3d,
   officialShouldPromptBuildBefore3d,
 } from "./official-needs-build-before-3d";
@@ -30,11 +31,34 @@ describe("officialNeedsBuildBefore3d", () => {
     expect(officialNeedsBuildBefore3d(scene)).toBe(true);
   });
 
-  it("is true when there are no storeys or no rooms", () => {
+  it("is true when there is no storey contour and no rooms", () => {
     const base = defaultSceneV2();
     expect(officialNeedsBuildBefore3d({ storeys: [], rooms: [] })).toBe(true);
     expect(officialNeedsBuildBefore3d(withRooms(base, [], []))).toBe(true);
     expect(officialNeedsBuildBefore3d(withRooms(base, []))).toBe(true);
+    expect(officialHasValidStoreyContour(base)).toBe(false);
+  });
+
+  it("is false when any storey has a valid storey contour even with zero rooms", () => {
+    const base = defaultSceneV2();
+    const withContour: ProjectSceneV2 = {
+      ...base,
+      storeys: [
+        {
+          ...base.storeys[0]!,
+          outline: [
+            { x: 0, y: 0 },
+            { x: 10, y: 0 },
+            { x: 10, y: 8 },
+            { x: 0, y: 8 },
+          ],
+        },
+      ],
+      rooms: [],
+    };
+    expect(officialHasValidStoreyContour(withContour)).toBe(true);
+    expect(officialNeedsBuildBefore3d(withContour)).toBe(false);
+    expect(officialShouldPromptBuildBefore3d("top", "persp3d", withContour)).toBe(false);
   });
 
   it("is false when any storey has been kept and at least one room exists on any storey", () => {
@@ -112,10 +136,10 @@ describe("build-model-first dialog copy and wiring", () => {
     expect(BUILD_MODEL_FIRST_TITLE_EN).toBe("Build the model first");
     expect(BUILD_MODEL_FIRST_TITLE_ZH).toBe("請先建立模型");
     expect(BUILD_MODEL_FIRST_BODY_EN).toBe(
-      "Add a storey and at least one room before opening the 3D view.",
+      "Add a storey contour or at least one room before opening the 3D view.",
     );
     expect(BUILD_MODEL_FIRST_BODY_ZH).toBe(
-      "請先新增樓層並建立至少一個房間，再開啟 3D 視圖。",
+      "請先新增樓層輪廓或至少一個房間，再開啟 3D 視圖。",
     );
     expect(BUILD_MODEL_FIRST_OK_LABEL).toBe("OK");
     expect(dialog).toContain('role="dialog"');

@@ -14,7 +14,7 @@ type Props = {
   onDismiss: () => void;
 };
 
-/** Explains that 3D needs a built storey and at least one room; does not switch the view. */
+/** Explains that 3D needs a storey contour or at least one room; does not switch the view. */
 export function BuildModelFirstDialog({ open, onDismiss }: Props) {
   useEffect(() => {
     if (!open) return;
