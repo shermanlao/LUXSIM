@@ -143,6 +143,7 @@ describe("user guide", () => {
     expect(headings[0]).toMatch(/使用手冊 \/ User guide/);
     expect(headings).toContain("工作區名稱 / Workspace name");
     expect(headings).toContain("平面圖視野 / Plan view");
+    expect(headings).toContain("工作分頁與面板 / Workflow panels");
     expect(headings).toContain("畫房 / Draw room");
     expect(headings).toContain("樓層輪廓 / Draw storey contour");
     expect(headings).toContain("復原與重做 / Undo and Redo");
@@ -206,7 +207,32 @@ describe("user guide", () => {
     expect(guide).toMatch(/At rest, the right property panel does not show the full Generate LDT form/);
     expect(guide).toMatch(/Luminaire library\*\* page still keeps its inline \*\*Generate LDT\*\* form/);
     expect(guide).toMatch(/不是編輯器右側的按鈕與對話框/);
+    expect(guide).toMatch(/在 \*\*Light\*\* 模式，右側屬性欄的 \*\*Fixture library\*\*/);
+    expect(guide).toMatch(/In \*\*Light\*\* mode, the right-hand \*\*Fixture library\*\*/);
+    expect(guide).toMatch(/只在 Light 分頁出現，不在 Construction/);
+    expect(guide).toMatch(/The library is on the Light tab only, not on Construction/);
+    expect(guide).not.toMatch(/在 \*\*Construction\*\* 或 \*\*Light\*\* 模式/);
+    expect(guide).not.toMatch(/In \*\*Construction\*\* or \*\*Light\*\* mode/);
     expect(guide).not.toMatch(/DIALux/);
+  });
+
+  it("documents tab-specific left, right, and bottom panels and a Calculation-only scale bar", () => {
+    expect(guide).toMatch(/工作分頁與面板 \/ Workflow panels/);
+    expect(guide).toMatch(/沒有內容的左欄或右欄會整欄收起，畫布會跟著加寬/);
+    expect(guide).toMatch(/If a rail has no content on that tab, it hides and the canvas grows/);
+    expect(guide).toMatch(/偽色／灰階刻度條只在 \*\*Calculation\*\* 分頁出現/);
+    expect(guide).toMatch(/the false-colour \/ greyscale scale bar under the view appears only on \*\*Calculation\*\*/);
+    expect(guide).toMatch(/only the scale bar is hidden off Calculation/);
+    expect(guide).toMatch(/其他分頁即使已開啟偽色或灰階疊加，也不會顯示刻度條/);
+    expect(guide).toMatch(/\*\*Fixtures in project\*\* 表也只在 Light 分頁顯示/);
+    expect(guide).toMatch(/The \*\*Fixtures in project\*\* table at the bottom is also Light-only/);
+    expect(guide).toMatch(/隱藏整條左欄/);
+    expect(guide).toMatch(/the entire left rail is hidden/);
+    expect(guide).toMatch(/Documentation & export/);
+    expect(guide).toMatch(/工作面、網格間距與維護係數不在此分頁/);
+    expect(guide).toMatch(/Workplane, grid spacing, and maintenance factor are not shown here/);
+    expect(guide).not.toMatch(/DIALux/);
+    expect(guide).not.toMatch(/\bevo\b/i);
   });
 
   it("documents library photometry drop, display names, and multi-file import", () => {
@@ -595,8 +621,8 @@ describe("user guide", () => {
   });
 
   it("documents Copy storey for duplicating the current storey in the same building", () => {
-    expect(guide).toMatch(/use \*\*Copy storey\*\* in the \*\*Building\*\* panel/);
-    expect(guide).toMatch(/可在左側 \*\*Building\*\* 按 \*\*Copy storey\*\*/);
+    expect(guide).toMatch(/use \*\*Copy storey\*\* in the \*\*Building\*\* panel on the \*\*Construction\*\* tab/);
+    expect(guide).toMatch(/可在 \*\*Construction\*\* 分頁左側 \*\*Building\*\* 按 \*\*Copy storey\*\*/);
     expect(guide).toMatch(/named \*\*Copy of \{name\}\*\*/);
     expect(guide).toMatch(/新樓層名稱為 \*\*Copy of \{名稱\}\*\*/);
     expect(guide).toMatch(/source elevation \+ source storey height/);

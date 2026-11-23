@@ -205,7 +205,11 @@ describe("BuildingEditor Room height wiring", () => {
     expect(applyFn).toContain("activeRoom");
     expect(properties).toContain('id="roomHeightMm"');
     expect(properties).toContain("applyRoomHeightMm");
-    expect(properties).toMatch(/No room selected[\s\S]*Building/);
+    expect(properties).toContain('data-construction-room-props=""');
+    expect(src).toContain(
+      'showRightConstructionRoom = workflow === "construction" && !selected && !!activeRoom',
+    );
+    expect(src).not.toMatch(/No room selected[\s\S]*Building/);
     expect(src).not.toMatch(/storeys:[\s\S]{0,80}heightM:\s*(next|heightM)/);
   });
 });

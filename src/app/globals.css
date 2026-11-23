@@ -693,12 +693,39 @@ body:has(.cad-editor-root) header nav {
   overflow: hidden;
 }
 
+.cad-body.cad-body--no-left {
+  grid-template-columns: minmax(0, 1fr) 288px;
+}
+
+.cad-body.cad-body--no-right {
+  grid-template-columns: 248px minmax(0, 1fr);
+}
+
+.cad-body.cad-body--no-left.cad-body--no-right {
+  grid-template-columns: minmax(0, 1fr);
+}
+
 @media (max-width: 1100px) {
   .cad-body {
     grid-template-columns: 1fr;
     /* Keep the centre canvas visible when the three columns stack.
        Left/right rails cap their row and keep scrolling internally. */
     grid-template-rows: minmax(0, 11rem) minmax(16rem, 1fr) minmax(0, 14rem);
+  }
+
+  .cad-body.cad-body--no-left {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(16rem, 1fr) minmax(0, 14rem);
+  }
+
+  .cad-body.cad-body--no-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(0, 11rem) minmax(16rem, 1fr);
+  }
+
+  .cad-body.cad-body--no-left.cad-body--no-right {
+    grid-template-columns: 1fr;
+    grid-template-rows: minmax(16rem, 1fr);
   }
 }
 

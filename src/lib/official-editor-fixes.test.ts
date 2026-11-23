@@ -146,7 +146,10 @@ describe("official 3D fixture selection", () => {
     expect(scene).toContain("next3dFixtureSelection(selectedId, lum.instanceId)");
     expect(scene).not.toMatch(/onClick=\{\(e\) => \{\s*e\.stopPropagation\(\);\s*onSelect\(null\);/);
     const editor = read("src/components/editor/BuildingEditor.tsx");
-    expect(editor).toContain("{!selected && activeRoom ? (");
+    expect(editor).toContain(
+      'showRightConstructionRoom = workflow === "construction" && !selected && !!activeRoom',
+    );
+    expect(editor).toContain('showRightFixtureProps = workflow === "light" && !!selected');
     expect(editor).toContain("data-fixture-properties");
     expect(scene).toContain("isolateId = scene.ui.activeRoomId");
   });

@@ -17,9 +17,9 @@ describe("official Import plan download", () => {
     expect(editor).toMatch(/Download\s*<\/a>/);
     expect(editor).toContain("function renderCurrentPlanFile");
     expect(editor).toContain("{renderCurrentPlanFile()}");
-    expect(editor).toContain("readOnly && underlay");
+    expect(editor).toContain("showConstructionPlan && readOnly && underlay");
     // Upload stays hidden in view-only; download is available beside the read-only list.
-    expect(editor).toMatch(/workflow !== "construction" \|\| readOnly \? "cad-panel-hidden"/);
+    expect(editor).toContain("showConstructionPlan && !readOnly");
     expect(officialPlanAssetFileUrl("/api/projects/p", "a1", { download: true })).toContain(
       "?download=1"
     );

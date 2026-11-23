@@ -104,25 +104,33 @@ describe("room property formatting", () => {
 
 describe("BuildingEditor Properties wiring", () => {
   const src = readSrc("src/components/editor/BuildingEditor.tsx");
-  const roomBranchStart = src.indexOf("{!selected && activeRoom ? (");
-  const roomBranchEnd = src.indexOf("No room selected. Set Room height in the Building panel");
+  const constructionStart = src.indexOf('data-construction-room-props=""');
+  const calculationStart = src.indexOf('data-calculation-room-props=""');
+  const fixtureStart = src.indexOf('data-fixture-properties=""');
 
   it("shows Area and Origin only on the selected-room Properties path", () => {
-    expect(roomBranchStart).toBeGreaterThan(0);
-    expect(roomBranchEnd).toBeGreaterThan(roomBranchStart);
-    const selected = src.slice(roomBranchStart, roomBranchEnd);
-    const unselected = src.slice(roomBranchEnd);
+    expect(constructionStart).toBeGreaterThan(0);
+    expect(calculationStart).toBeGreaterThan(constructionStart);
+    expect(fixtureStart).toBeGreaterThan(calculationStart);
+    const selected = src.slice(constructionStart, calculationStart);
+    const calc = src.slice(calculationStart, fixtureStart);
+    const after = src.slice(fixtureStart);
     expect(selected).toContain("formatAreaM2(roomAreaM2(activeRoom))");
-    expect(selected).toContain('Origin (first corner)');
+    expect(selected).toContain("Origin (first corner)");
     expect(selected).toContain("formatOriginMetres(activeRoom.polygon[0])");
     expect(selected).toContain("shouldShowBoundingMin");
     expect(selected).toContain("roomBounds(activeRoom)");
     expect(selected).toContain("Bounding min");
-    expect(unselected).not.toContain('>Area<');
-    expect(unselected).not.toContain("Origin (first corner)");
-    expect(unselected).not.toContain("Bounding min");
-    expect(src).toContain("No room selected. Set Room height in the Building panel");
-    expect(src).toContain("Area and origin appear after a room is selected.");
+    // Calculation may repeat Area for context, but origin / bounding min stay on Construction.
+    expect(calc).not.toContain("Origin (first corner)");
+    expect(calc).not.toContain("Bounding min");
+    expect(after).not.toContain("Origin (first corner)");
+    expect(after).not.toContain("Bounding min");
+    expect(src).toContain(
+      'showRightConstructionRoom = workflow === "construction" && !selected && !!activeRoom',
+    );
+    expect(src).not.toContain("No room selected. Set Room height in the Building panel");
+    expect(src).not.toContain("Area and origin appear after a room is selected.");
   });
 
   it("uses official roomAreaM2 / roomBounds and does not start leftover Method 1 UX ports", () => {

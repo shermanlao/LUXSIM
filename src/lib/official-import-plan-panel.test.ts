@@ -22,9 +22,9 @@ describe("official Import plan panel and DWG status", () => {
     expect(importTitle).toBeGreaterThan(aside);
     expect(buildingTitle).toBeGreaterThan(importTitle);
     const window = editor.slice(aside, buildingTitle);
-    expect(window).toMatch(
-      /workflow !== "construction" \|\| readOnly \? "cad-panel-hidden"/
-    );
+    expect(window).toContain("showConstructionPlan && !readOnly");
+    expect(window).toContain("showConstructionPlan && readOnly && underlay");
+    expect(window).not.toContain("cad-panel-hidden");
     expect(window).toContain('accept=".png,.jpg,.jpeg,.webp,.pdf,.dxf,.dwg,.ifc"');
     expect(window).toContain("Image / PDF / DXF / DWG / IFC");
     expect(window).toContain("void importPlan(");

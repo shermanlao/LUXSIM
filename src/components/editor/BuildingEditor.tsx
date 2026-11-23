@@ -2939,6 +2939,7 @@ export function BuildingEditor({
       setLinePickActive(false);
       setCirclePickActive(false);
       setPolygonPickActive(false);
+      setGenerateLdtOpen(false);
     }
     if (workflow !== "construction") {
       setBooleanPick(EMPTY_OFFICIAL_TWO_ROOM_PICK);
@@ -3081,6 +3082,26 @@ export function BuildingEditor({
       }
     });
   }
+
+  const showLeftRail = workflow !== "export";
+  const showConstructionPlan = workflow === "construction";
+  const showConstructionEditors = workflow === "construction";
+  const showConstructionTools = workflow === "construction" && !readOnly;
+  const showRightConstructionRoom = workflow === "construction" && !selected && !!activeRoom;
+  const showRightCalculationRoom = workflow === "calculation" && !!activeRoom;
+  const showRightFixtureProps = workflow === "light" && !!selected;
+  const showRightFixtureLibrary = workflow === "light";
+  const showRightIsolines = workflow === "calculation";
+  const showRightDocumentation = workflow === "export";
+  const showRightRail =
+    showRightConstructionRoom ||
+    showRightCalculationRoom ||
+    showRightFixtureProps ||
+    showRightFixtureLibrary ||
+    showRightIsolines ||
+    showRightDocumentation;
+  const showFixturesTable = workflow === "light";
+  const showResultsStrip = workflow === "calculation";
 
   const viewport = (
     <div
@@ -3324,8 +3345,9 @@ export function BuildingEditor({
         />
       )}
       </div>
-      {((viewMode === "persp3d" && (display3d === "falsecolor" || display3d === "greyscale")) ||
-        ((viewMode === "top") && planShowFalseColor && results)) && (
+      {workflow === "calculation" &&
+        ((viewMode === "persp3d" && (display3d === "falsecolor" || display3d === "greyscale")) ||
+          (viewMode === "top" && planShowFalseColor && results)) && (
         <FalseColorLegend
           emin={autoScale.minLux}
           emax={autoScale.maxLux}
@@ -3454,13 +3476,13 @@ export function BuildingEditor({
         <p className="workflow-banner">Select a room in the building tree — luminaires need a closed space.</p>
       )}
 
-      <div className="cad-body">
+      <div
+        className={`cad-body${showLeftRail ? "" : " cad-body--no-left"}${showRightRail ? "" : " cad-body--no-right"}`}
+      >
+        {showLeftRail && (
         <aside className="cad-left space-y-1">
-          <div
-            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
-            }`}
-          >
+          {showConstructionPlan && !readOnly && (
+          <div className="border-t border-[#3d5563] pt-2 space-y-2">
             <p className="cad-section-title">Import plan</p>
             <input
               ref={planRef}
@@ -3529,8 +3551,9 @@ export function BuildingEditor({
               />
             )}
           </div>
+          )}
 
-          {readOnly && underlay ? (
+          {showConstructionPlan && readOnly && underlay ? (
             <div className="border-t border-[#3d5563] pt-2 space-y-2">
               {renderCurrentPlanFile()}
               {officialHasParsedCadLinework(underlay) ? (
@@ -3545,7 +3568,7 @@ export function BuildingEditor({
           ) : null}
 
           <p className="cad-section-title">Building</p>
-          {!readOnly && (
+          {showConstructionEditors && !readOnly && (
             <>
               <button type="button" className="btn btn-secondary w-full !text-xs" onClick={addStorey}>
                 Add storey
@@ -3611,7 +3634,7 @@ export function BuildingEditor({
             ))}
           </ul>
 
-          {activeStorey && (
+          {showConstructionEditors && activeStorey && (
             <div className="border-t border-[#3d5563] pt-2 space-y-2">
               <p className="text-xs font-semibold text-white/95">{activeStorey.name}</p>
               <label className="label" htmlFor="storeyElevationM">
@@ -3653,6 +3676,7 @@ export function BuildingEditor({
             </div>
           )}
 
+          {showConstructionEditors && (
           <div className="border-t border-[#3d5563] pt-2 space-y-2">
             <div className="flex items-center justify-between">
               <label className="label mb-0" htmlFor="buildingRoomHeightMm">
@@ -3672,12 +3696,10 @@ export function BuildingEditor({
               onChange={(e) => applyRoomHeightMm(e.target.value)}
              />
           </div>
+          )}
 
-          <div
-            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "construction" || readOnly ? "cad-panel-hidden" : ""
-            }`}
-          >
+          {showConstructionTools && (
+          <div className="border-t border-[#3d5563] pt-2 space-y-2">
             <h3 className="font-semibold text-sm text-white/95">Tools</h3>
             {(
               [
@@ -3913,18 +3935,20 @@ export function BuildingEditor({
                />
             </div>
           </div>
+          )}
 
         </aside>
+        )}
 
         <section className="cad-center">
           <div className="cad-viewport-wrap">
             {viewport}
           </div>
 
+          {showFixturesTable && (
           <div
-            className={`shrink-0 px-2 pb-2 max-h-40 overflow-auto ${
-              workflow !== "light" && workflow !== "calculation" ? "cad-panel-hidden" : ""
-            }`}
+            className="shrink-0 px-2 pb-2 max-h-40 overflow-auto"
+            data-fixtures-in-project=""
           >
             <p className="cad-section-title">Fixtures in project ({scene.instances.length})</p>
             <table className="cad-fixtures-table">
@@ -3982,11 +4006,12 @@ export function BuildingEditor({
               </tbody>
             </table>
           </div>
+          )}
         </section>
 
+        {showRightRail && (
         <aside className="cad-right space-y-2">
-          <p className="cad-section-title">Properties</p>
-          {workflow === "calculation" && (
+          {showRightIsolines && (
             <details className="cad-props-card isoline-levels-panel" data-isoline-levels-panel="">
               <summary className="cursor-pointer text-xs font-semibold">
                 Isoline levels / 等照度線數值
@@ -4002,12 +4027,11 @@ export function BuildingEditor({
               />
             </details>
           )}
-          {!selected && activeRoom ? (
-            <div
-              className={`cad-props-card space-y-2 ${
-                workflow !== "construction" && workflow !== "calculation" ? "cad-panel-hidden" : ""
-              }`}
-            >
+          {(showRightConstructionRoom || showRightCalculationRoom || showRightFixtureProps) && (
+            <p className="cad-section-title">Properties</p>
+          )}
+          {showRightConstructionRoom && (
+            <div className="cad-props-card space-y-2" data-construction-room-props="">
               <p className="text-xs font-semibold">{activeRoom.name}</p>
               <div className="flex items-center justify-between">
                 <label className="label mb-0" htmlFor="roomHeightMm">
@@ -4038,6 +4062,43 @@ export function BuildingEditor({
                   </p>
                 </>
               )}
+              {(["floor", "ceiling", "walls"] as const).map((face) => (
+                <div key={face}>
+                  <label className="label">ρ {face}</label>
+                  <OfficialMaybeInput
+                  readOnly={readOnly}
+                    className="input"
+                    type="number"
+                    step={0.05}
+                    min={0}
+                    max={1}
+                    value={activeRoom.reflectance[face]}
+                    onChange={(e) => {
+                      const v = Number(e.target.value);
+                      if (!Number.isFinite(v)) return;
+                      const rho = clampReflectance(v);
+                      patchScene((s) => ({
+                        ...s,
+                        rooms: s.rooms.map((r) =>
+                          r.id === activeRoom.id
+                            ? {
+                                ...r,
+                                reflectance: { ...r.reflectance, [face]: rho },
+                              }
+                            : r
+                        ),
+                      }));
+                    }}
+                   />
+                </div>
+              ))}
+            </div>
+          )}
+          {showRightCalculationRoom && (
+            <div className="cad-props-card space-y-2" data-calculation-room-props="">
+              <p className="text-xs font-semibold">{activeRoom.name}</p>
+              <p className="label mb-0">Area</p>
+              <p className="text-sm tabular-nums">{formatAreaM2(roomAreaM2(activeRoom))}</p>
               <div className="flex items-center justify-between gap-2">
                 <label className="label mb-0">Workplane (m)</label>
                 <label className="flex items-center gap-1 text-[11px] text-[var(--muted)]">
@@ -4075,36 +4136,6 @@ export function BuildingEditor({
                   }));
                 }}
                />
-              {(["floor", "ceiling", "walls"] as const).map((face) => (
-                <div key={face}>
-                  <label className="label">ρ {face}</label>
-                  <OfficialMaybeInput
-                  readOnly={readOnly}
-                    className="input"
-                    type="number"
-                    step={0.05}
-                    min={0}
-                    max={1}
-                    value={activeRoom.reflectance[face]}
-                    onChange={(e) => {
-                      const v = Number(e.target.value);
-                      if (!Number.isFinite(v)) return;
-                      const rho = clampReflectance(v);
-                      patchScene((s) => ({
-                        ...s,
-                        rooms: s.rooms.map((r) =>
-                          r.id === activeRoom.id
-                            ? {
-                                ...r,
-                                reflectance: { ...r.reflectance, [face]: rho },
-                              }
-                            : r
-                        ),
-                      }));
-                    }}
-                   />
-                </div>
-              ))}
               <label className="label">Grid spacing (m)</label>
               <OfficialMaybeInput
                   readOnly={readOnly}
@@ -4241,14 +4272,9 @@ export function BuildingEditor({
                 </div>
               )}
             </div>
-          ) : !selected ? (
-            <p className="text-xs text-[var(--muted)]">
-              No room selected. Set Room height in the Building panel for the next room
-              you draw or create. Area and origin appear after a room is selected.
-            </p>
-          ) : null}
+          )}
 
-          {selected && (
+          {showRightFixtureProps && (
             <div
               className="cad-props-card space-y-2"
               data-fixture-properties=""
@@ -4434,11 +4460,8 @@ export function BuildingEditor({
             />
           )}
 
-          <div
-            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "light" && workflow !== "construction" ? "cad-panel-hidden" : ""
-            }`}
-          >
+          {showRightFixtureLibrary && (
+          <div className="border-t border-[#3d5563] pt-2 space-y-2" data-fixture-library="">
             <p className="cad-section-title">Fixture library</p>
 {!readOnly && (
             <>
@@ -4531,12 +4554,10 @@ export function BuildingEditor({
             )}
           </ul>
           </div>
+          )}
 
-          <div
-            className={`border-t border-[#3d5563] pt-2 space-y-2 ${
-              workflow !== "export" ? "cad-panel-hidden" : ""
-            }`}
-          >
+          {showRightDocumentation && (
+          <div className="border-t border-[#3d5563] pt-2 space-y-2" data-documentation-export="">
             <p className="cad-section-title">Documentation &amp; export</p>
             {!readOnly && (
               <ProjectSharePanel projectId={projectId} />
@@ -4565,9 +4586,12 @@ export function BuildingEditor({
             </>
             )}
           </div>
+          )}
         </aside>
+        )}
       </div>
 
+      {showResultsStrip && (
       <EditorResultsStrip
         results={stripResults}
         en12464Check={activeRoom ? en12464Check : null}
@@ -4582,6 +4606,7 @@ export function BuildingEditor({
         roomName={activeRoom?.name ?? activeStorey?.name ?? null}
         scope={activeRoom ? "room" : activeStorey ? "storey" : "room"}
       />
+      )}
 
       <div className="cad-status-bar">
         {status || (readOnly ? "View only · browse this project — editing is not allowed" : "Click Save to keep your work · Undo / Redo (Ctrl+Z, Ctrl+Y or Ctrl+Shift+Z) · Top view: drop fixtures into rooms")}
