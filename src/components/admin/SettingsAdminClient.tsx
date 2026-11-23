@@ -211,11 +211,12 @@ export function SettingsAdminClient() {
                 const next = e.target.value === "openai" ? "openai" : "xai";
                 setAiProvider(next);
                 if (
+                  aiModel === "grok-4.7" ||
                   aiModel === "grok-2-vision-latest" ||
                   aiModel === "gpt-4o" ||
                   aiModel.trim() === ""
                 ) {
-                  setAiModel(next === "openai" ? "gpt-4o" : "grok-2-vision-latest");
+                  setAiModel(next === "openai" ? "gpt-4o" : "grok-4.7");
                 }
               }}
             >

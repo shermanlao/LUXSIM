@@ -80,8 +80,10 @@ function storeyOutline(
 /**
  * Cheap outer boundary of the main visible linework cluster on this storey.
  * Returns null when the storey already has a contour, has no usable linework,
- * or no valid outer ring can be formed. Does not overwrite an existing contour
- * and does not enumerate inner ceiling-grid faces.
+ * or no valid outer ring can be formed. This helper does not overwrite an
+ * existing contour. The explicit Create from plan / Create rooms from DXF
+ * command may replace a previous official contour. Does not enumerate inner
+ * ceiling-grid faces.
  */
 export function officialSuggestStoreyOutlineFromPlan(
   scene: ProjectSceneV2,
@@ -189,6 +191,7 @@ export type OfficialApplyFromPlanGeometryResult = {
   scene: ProjectSceneV2;
   created: number;
   outlineCreated: boolean;
+  outlineReplaced: boolean;
 };
 
 /**
@@ -204,12 +207,14 @@ export function officialApplyFromPlanGeometry(
   const existing = storeyOutline(scene, storeyId);
   let next = scene;
   let outlineCreated = false;
+  let outlineReplaced = false;
   const keepExisting = input.keepExistingOutline !== false;
   if (input.outline && input.outline.length >= 3 && (!existing || !keepExisting)) {
     const set = officialSetStoreyOutline(next, storeyId, input.outline);
     if (set.ok) {
       next = set.scene;
       outlineCreated = set.created;
+      outlineReplaced = set.replaced;
     }
   }
 
@@ -234,13 +239,15 @@ export function officialApplyFromPlanGeometry(
     created += 1;
   }
 
-  return { scene: next, created, outlineCreated };
+  return { scene: next, created, outlineCreated, outlineReplaced };
 }
 
 export type OfficialBuildFromPlanInput = {
   heightM: number;
   nextStoreyId: () => string;
   nextRoomId: () => string;
+  /** When true, replace a previous official contour. Default true. */
+  replaceExistingOutline?: boolean;
 };
 
 export type OfficialBuildFromPlanResult = {
@@ -248,6 +255,7 @@ export type OfficialBuildFromPlanResult = {
   created: number;
   outlineCreated: boolean;
   outlineExisting: boolean;
+  outlineReplaced: boolean;
   outlineFailed: boolean;
   layoutFound: boolean;
   status: string;
@@ -257,7 +265,8 @@ export type OfficialBuildFromPlanResult = {
 /**
  * Create the official storey contour first, then rooms from a layout plan on
  * the active storey. Same path as Create rooms from DXF and Create from plan.
- * Does not overwrite existing rooms or an existing contour. Heavy callers
+ * Does not overwrite existing rooms. An explicit run replaces a previous
+ * official contour unless replaceExistingOutline is false. Heavy callers
  * should run this off the browser main thread (official server route).
  */
 export function officialBuildStoreyAndRoomsFromPlan(
@@ -268,23 +277,28 @@ export function officialBuildStoreyAndRoomsFromPlan(
   const storeyId = nextBase.ui.activeStoreyId;
   const underlay = nextBase.underlays.find((u) => u.storeyId === storeyId);
   const world = officialDxfWorldEntitiesForRooms(underlay);
-  const geometry = officialBuildFromPlanGeometry(world, storeyOutline(nextBase, storeyId));
+  const replace = input.replaceExistingOutline !== false;
+  const existing = replace ? null : storeyOutline(nextBase, storeyId);
+  const geometry = officialBuildFromPlanGeometry(world, existing);
   const applied = officialApplyFromPlanGeometry(nextBase, {
     outline: geometry.outline,
     rooms: geometry.rooms,
     heightM: input.heightM,
     nextRoomId: input.nextRoomId,
+    keepExistingOutline: !replace,
   });
   return {
     scene: applied.scene,
     created: applied.created,
     outlineCreated: applied.outlineCreated,
     outlineExisting: geometry.outlineExisting,
+    outlineReplaced: applied.outlineReplaced,
     outlineFailed: geometry.outlineFailed,
     layoutFound: geometry.layoutFound,
     status: formatOfficialFromPlanStatus({
       outlineCreated: applied.outlineCreated,
-      outlineExisting: geometry.outlineExisting,
+      outlineExisting: geometry.outlineExisting && !applied.outlineReplaced,
+      outlineReplaced: applied.outlineReplaced,
       outlineFailed: geometry.outlineFailed,
       created: applied.created,
       roomSource: geometry.layoutFound ? "layout" : "none",

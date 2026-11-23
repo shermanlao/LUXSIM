@@ -7,7 +7,7 @@ import { getRoomAnalysisAiRuntimeConfig } from "@/lib/site-settings";
 
 type Params = { params: Promise<{ id: string }> };
 
-export const maxDuration = 60;
+export const maxDuration = 180;
 
 export async function POST(req: Request, { params }: Params) {
   try {
@@ -41,6 +41,7 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({
       configured: result.configured,
       failed: result.failed,
+      failReason: result.failReason,
       rooms: result.rooms,
     });
   } catch (e) {

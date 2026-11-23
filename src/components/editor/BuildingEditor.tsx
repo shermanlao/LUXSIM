@@ -96,6 +96,7 @@ import {
   type Display3dMode,
   type DxfEntity,
   type OfficialDxfTextLabel,
+  type OfficialFromPlanAiFailReason,
   type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
@@ -1157,7 +1158,7 @@ export function BuildingEditor({
                 offsetY: underlay.offsetY,
               }
             : null,
-          existingOutline,
+          replaceExistingOutline: true,
         }),
       });
       const local = (await res.json().catch(() => ({}))) as {
@@ -1178,16 +1179,19 @@ export function BuildingEditor({
       let next = prepared;
       let created = 0;
       let outlineCreated = false;
+      let outlineReplaced = false;
       const apply = (outline: { x: number; y: number }[] | null | undefined, rooms: { x: number; y: number }[][]) => {
         const applied = officialApplyFromPlanGeometry(next, {
           outline: outline ?? null,
           rooms,
           heightM,
           nextRoomId: () => nid("room"),
+          keepExistingOutline: false,
         });
         next = applied.scene;
         created += applied.created;
         outlineCreated = outlineCreated || applied.outlineCreated;
+        outlineReplaced = outlineReplaced || applied.outlineReplaced;
       };
 
       if (local.layoutFound) {
@@ -1195,7 +1199,8 @@ export function BuildingEditor({
         setStatus(
           formatOfficialFromPlanStatus({
             outlineCreated,
-            outlineExisting: Boolean(local.outlineExisting),
+            outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+            outlineReplaced,
             outlineFailed: Boolean(local.outlineFailed),
             created,
             roomSource: "layout",
@@ -1219,6 +1224,7 @@ export function BuildingEditor({
           const ai = (await aiRes.json().catch(() => ({}))) as {
             configured?: boolean;
             failed?: boolean;
+            failReason?: OfficialFromPlanAiFailReason;
             rooms?: { x: number; y: number }[][];
             error?: string;
           };
@@ -1226,18 +1232,24 @@ export function BuildingEditor({
             setStatus(
               formatOfficialFromPlanStatus({
                 outlineCreated,
-                outlineExisting: Boolean(local.outlineExisting),
+                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+                outlineReplaced,
                 outlineFailed: Boolean(local.outlineFailed),
                 created: 0,
                 roomSource: "none",
                 aiFailed: true,
+                aiFailReason:
+                  aiRes.status === 408
+                    ? "timeout"
+                    : undefined,
               })
             );
           } else if (!ai.configured) {
             setStatus(
               formatOfficialFromPlanStatus({
                 outlineCreated,
-                outlineExisting: Boolean(local.outlineExisting),
+                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+                outlineReplaced,
                 outlineFailed: Boolean(local.outlineFailed),
                 created: 0,
                 roomSource: "none",
@@ -1249,12 +1261,20 @@ export function BuildingEditor({
             setStatus(
               formatOfficialFromPlanStatus({
                 outlineCreated,
-                outlineExisting: Boolean(local.outlineExisting),
+                outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+                outlineReplaced,
                 outlineFailed: Boolean(local.outlineFailed),
                 created,
                 roomSource: ai.failed && created === 0 ? "none" : "ai",
                 aiConfigured: true,
                 aiFailed: Boolean(ai.failed) && created === 0,
+                aiFailReason:
+                  ai.failReason === "timeout" ||
+                  ai.failReason === "model-unavailable" ||
+                  ai.failReason === "provider-error" ||
+                  ai.failReason === "invalid-response"
+                    ? ai.failReason
+                    : undefined,
               })
             );
           }
@@ -1262,7 +1282,8 @@ export function BuildingEditor({
           setStatus(
             formatOfficialFromPlanStatus({
               outlineCreated,
-              outlineExisting: Boolean(local.outlineExisting),
+              outlineExisting: Boolean(existingOutline) && !outlineReplaced && !outlineCreated,
+              outlineReplaced,
               outlineFailed: Boolean(local.outlineFailed),
               created: 0,
               roomSource: "none",
@@ -1274,6 +1295,7 @@ export function BuildingEditor({
       const changed =
         created > 0 ||
         outlineCreated ||
+        outlineReplaced ||
         next.storeys.length !== scene.storeys.length ||
         next.ui.activeStoreyId !== scene.ui.activeStoreyId;
       if (changed) {

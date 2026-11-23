@@ -10,9 +10,34 @@ export type RoomAnalysisAiProvider = (typeof ROOM_ANALYSIS_AI_PROVIDERS)[number]
 
 export const DEFAULT_ROOM_ANALYSIS_AI_PROVIDER: RoomAnalysisAiProvider = "xai";
 export const DEFAULT_ROOM_ANALYSIS_AI_MODELS: Record<RoomAnalysisAiProvider, string> = {
-  xai: "grok-2-vision-latest",
+  xai: "grok-4.7",
   openai: "gpt-4o",
 };
+
+/** Retired xAI chat / vision ids that must not be sent to the live API. */
+const RETIRED_XAI_CHAT_MODELS = new Set([
+  "grok-2",
+  "grok-2-1212",
+  "grok-2-image-1212",
+  "grok-2-latest",
+  "grok-2-vision",
+  "grok-2-vision-1212",
+  "grok-2-vision-latest",
+  "grok-beta",
+  "grok-vision-beta",
+]);
+
+/** Map a stored or default model id to one the provider still accepts. */
+export function canonicalRoomAnalysisAiModel(
+  provider: RoomAnalysisAiProvider,
+  model: string
+): string {
+  const raw = model.trim() || DEFAULT_ROOM_ANALYSIS_AI_MODELS[provider];
+  if (provider === "xai" && RETIRED_XAI_CHAT_MODELS.has(raw.toLowerCase())) {
+    return DEFAULT_ROOM_ANALYSIS_AI_MODELS.xai;
+  }
+  return raw;
+}
 
 export const DEFAULT_ROOM_ANALYSIS_AI_MODEL =
   DEFAULT_ROOM_ANALYSIS_AI_MODELS[DEFAULT_ROOM_ANALYSIS_AI_PROVIDER];
@@ -139,8 +164,7 @@ export function resolveRoomAnalysisAiConfig(input: {
   storedKey: string;
 }): ResolvedRoomAnalysisAiConfig {
   const provider = input.provider;
-  const model =
-    input.model.trim() || DEFAULT_ROOM_ANALYSIS_AI_MODELS[provider];
+  const model = canonicalRoomAnalysisAiModel(provider, input.model);
   if (!input.enabled) {
     return {
       enabled: false,

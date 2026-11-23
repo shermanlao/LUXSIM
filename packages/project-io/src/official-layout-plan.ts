@@ -201,6 +201,109 @@ function mainBuildingCluster(clusters: Cluster[]): Cluster | null {
   return best;
 }
 
+/** Minimum gap for merging endpoint-disconnected islands of the same plate. */
+const SPATIAL_MERGE_MIN_GAP_M = 2;
+
+/** Also allow a gap of this fraction of the longest cluster's bounding box. */
+const SPATIAL_MERGE_GAP_FRACTION = 0.1;
+
+function bboxSeparation(
+  a: { minX: number; minY: number; maxX: number; maxY: number },
+  b: { minX: number; minY: number; maxX: number; maxY: number }
+): number {
+  const dx = Math.max(0, a.minX - b.maxX, b.minX - a.maxX);
+  const dy = Math.max(0, a.minY - b.maxY, b.minY - a.maxY);
+  return Math.hypot(dx, dy);
+}
+
+function spatialMergeGapM(clusters: Cluster[]): number {
+  let best: Cluster | null = null;
+  for (const cluster of clusters) {
+    if (!best || cluster.length > best.length) best = cluster;
+  }
+  if (!best) return SPATIAL_MERGE_MIN_GAP_M;
+  const box = boundsOfSegments(best.segments);
+  if (!box) return SPATIAL_MERGE_MIN_GAP_M;
+  const scale = Math.max(box.maxX - box.minX, box.maxY - box.minY);
+  return Math.max(SPATIAL_MERGE_MIN_GAP_M, scale * SPATIAL_MERGE_GAP_FRACTION);
+}
+
+/**
+ * Merge endpoint clusters whose bounding boxes overlap or sit within a modest
+ * gap, so a ceiling grid of disconnected tiles still forms one floor plate,
+ * while far-away title-block scraps stay separate.
+ */
+function mergeSpatiallyNearbyClusters(clusters: Cluster[]): Cluster[] {
+  if (clusters.length <= 1) return clusters;
+  const gap = spatialMergeGapM(clusters);
+  const boxes = clusters.map((cluster) => boundsOfSegments(cluster.segments));
+  const parent = clusters.map((_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]!]!;
+      i = parent[i]!;
+    }
+    return i;
+  };
+  const unite = (a: number, b: number) => {
+    const pa = find(a);
+    const pb = find(b);
+    if (pa !== pb) parent[pb] = pa;
+  };
+
+  const cell = Math.max(gap, 0.5);
+  const buckets = new Map<string, number[]>();
+  clusters.forEach((_, i) => {
+    const box = boxes[i];
+    if (!box) return;
+    const c0 = Math.floor((box.minX - gap) / cell);
+    const c1 = Math.floor((box.maxX + gap) / cell);
+    const r0 = Math.floor((box.minY - gap) / cell);
+    const r1 = Math.floor((box.maxY + gap) / cell);
+    for (let cy = r0; cy <= r1; cy++) {
+      for (let cx = c0; cx <= c1; cx++) {
+        const key = `${cx},${cy}`;
+        const bucket = buckets.get(key);
+        if (bucket) bucket.push(i);
+        else buckets.set(key, [i]);
+      }
+    }
+  });
+
+  const seen = new Set<string>();
+  for (const bucket of buckets.values()) {
+    for (let i = 0; i < bucket.length; i++) {
+      const ia = bucket[i]!;
+      const ba = boxes[ia];
+      if (!ba) continue;
+      for (let j = i + 1; j < bucket.length; j++) {
+        const ib = bucket[j]!;
+        if (ia === ib) continue;
+        const pair = ia < ib ? `${ia}:${ib}` : `${ib}:${ia}`;
+        if (seen.has(pair)) continue;
+        seen.add(pair);
+        const bb = boxes[ib];
+        if (!bb) continue;
+        if (bboxSeparation(ba, bb) <= gap) unite(ia, ib);
+      }
+    }
+  }
+
+  const merged = new Map<number, Cluster>();
+  clusters.forEach((cluster, i) => {
+    const root = find(i);
+    let next = merged.get(root);
+    if (!next) {
+      next = { segments: [], entities: [], length: 0 };
+      merged.set(root, next);
+    }
+    next.segments.push(...cluster.segments);
+    next.entities.push(...cluster.entities);
+    next.length += cluster.length;
+  });
+  return [...merged.values()];
+}
+
 function boundsOfSegments(
   segs: ReadonlyArray<[Vec2, Vec2]>
 ): { minX: number; minY: number; maxX: number; maxY: number } | null {
@@ -450,43 +553,58 @@ function largestContainingClosedRing(
     y: (a.y + b.y) / 2,
   }));
   const sample = downsamplePoints(midpoints, 80);
+  const pickBest = (rings: ReadonlyArray<Vec2[]>): Vec2[] | null => {
+    let best: Vec2[] | null = null;
+    let bestArea = 0;
+    for (const ring of rings) {
+      const valid = officialValidateSimplePolygon(ring);
+      if (!valid.ok) continue;
+      const area = ringAreaM2(valid.ring);
+      if (area < Math.max(DXF_FROM_PLAN_ROOM_MIN_AREA_M2, bboxArea * 0.4)) continue;
+      // A drawing frame around the whole sheet is much larger than the plate.
+      if (area > bboxArea * 2.5) continue;
+      const contained = sample.filter((p) =>
+        pointInOrOnRing(p, valid.ring, CLUSTER_SNAP_M)
+      ).length;
+      if (contained < sample.length * 0.7) continue;
+      if (area > bestArea) {
+        best = valid.ring;
+        bestArea = area;
+      }
+    }
+    return best;
+  };
+
   const closedRings: Vec2[][] = [];
   for (const entity of entities) {
     if (!officialDxfPolylineClosed(entity)) continue;
     const ring = officialDxfClosedRingVertices(entity);
     if (ring) closedRings.push(ring);
   }
-  for (const ring of officialDxfSimpleLineLoopRings(entities)) {
-    closedRings.push(ring);
+  const fromPolylines = pickBest(closedRings);
+  if (fromPolylines) return fromPolylines;
+
+  // Reconstructing every line loop on a dense ceiling grid is too heavy for
+  // this cheap outline path. Only try it on a modest cluster.
+  if (segs.length <= NETWORK_FACE_MAX_SEGMENTS) {
+    const fromLoops = pickBest(officialDxfSimpleLineLoopRings(entities));
+    if (fromLoops) return fromLoops;
   }
-  let best: Vec2[] | null = null;
-  let bestArea = 0;
-  for (const ring of closedRings) {
-    const valid = officialValidateSimplePolygon(ring);
-    if (!valid.ok) continue;
-    const area = ringAreaM2(valid.ring);
-    if (area < Math.max(DXF_FROM_PLAN_ROOM_MIN_AREA_M2, bboxArea * 0.4)) continue;
-    const contained = sample.filter((p) =>
-      pointInOrOnRing(p, valid.ring, CLUSTER_SNAP_M)
-    ).length;
-    if (contained < sample.length * 0.7) continue;
-    if (area > bestArea) {
-      best = valid.ring;
-      bestArea = area;
-    }
-  }
-  return best;
+  return null;
 }
 
 /**
- * Cheap outer boundary of the main visible linework cluster. Uses a large
- * closed outline when one already exists, otherwise a coarse occupancy-grid
- * outer ring, otherwise a convex hull. Does not enumerate inner network faces.
+ * Cheap outer boundary of the main visible linework cluster. Endpoint
+ * clusters that lie next to each other are merged so a disconnected ceiling
+ * grid still counts as one floor plate. Prefers a large already-closed
+ * outline only when it encloses most of that merged cluster (never an inner
+ * courtyard). Otherwise a coarse occupancy-grid outer ring, otherwise a
+ * convex hull. Does not enumerate inner network faces.
  */
 export function officialCheapStoreyOutlineFromLinework(
   entities: ReadonlyArray<DxfEntity>
 ): Vec2[] | null {
-  const clusters = clusterVisibleLinework(entities);
+  const clusters = mergeSpatiallyNearbyClusters(clusterVisibleLinework(entities));
   const main = mainBuildingCluster(clusters);
   if (!main) return null;
 
@@ -737,31 +855,43 @@ export function officialFindLayoutRoomsFromPlan(
   };
 }
 
+export type OfficialFromPlanAiFailReason =
+  | "timeout"
+  | "model-unavailable"
+  | "provider-error"
+  | "invalid-response";
+
 export type OfficialFromPlanStatusFlags = {
   outlineCreated: boolean;
   outlineExisting: boolean;
+  outlineReplaced?: boolean;
   outlineFailed: boolean;
   created: number;
   roomSource: "layout" | "ai" | "none";
   aiConfigured?: boolean;
   aiFailed?: boolean;
+  aiFailReason?: OfficialFromPlanAiFailReason;
 };
 
 export function formatOfficialFromPlanStatus(flags: OfficialFromPlanStatusFlags): string {
   const contourEn = flags.outlineCreated
     ? "Storey contour created."
-    : flags.outlineExisting
-      ? "Storey contour left unchanged."
-      : flags.outlineFailed
-        ? "A storey contour could not be created from the plan."
-        : "No storey contour was set.";
+    : flags.outlineReplaced
+      ? "Storey contour updated."
+      : flags.outlineExisting
+        ? "Storey contour left unchanged."
+        : flags.outlineFailed
+          ? "A storey contour could not be created from the plan."
+          : "No storey contour was set.";
   const contourZh = flags.outlineCreated
     ? "已建立樓層輪廓。"
-    : flags.outlineExisting
-      ? "樓層輪廓維持不變。"
-      : flags.outlineFailed
-        ? "無法從圖則建立樓層輪廓。"
-        : "未設定樓層輪廓。";
+    : flags.outlineReplaced
+      ? "已更新樓層輪廓。"
+      : flags.outlineExisting
+        ? "樓層輪廓維持不變。"
+        : flags.outlineFailed
+          ? "無法從圖則建立樓層輪廓。"
+          : "未設定樓層輪廓。";
 
   let roomsEn = "";
   let roomsZh = "";
@@ -789,11 +919,23 @@ export function formatOfficialFromPlanStatus(flags: OfficialFromPlanStatusFlags)
       roomsZh = " 找不到房間佈局圖，AI 也未能辨認出房間。";
     }
   } else if (flags.aiFailed) {
-    roomsEn = " No room layout plan was found, and AI analysis failed. No rooms were added.";
-    roomsZh = " 找不到房間佈局圖，而且 AI 辨認失敗。沒有新增房間。";
+    if (flags.aiFailReason === "model-unavailable") {
+      roomsEn =
+        " No room layout plan was found, and AI analysis failed because the configured model is not available. No rooms were added.";
+      roomsZh = " 找不到房間佈局圖，而且 AI 辨認失敗（已設定的模型無法使用）。沒有新增房間。";
+    } else if (flags.aiFailReason === "timeout") {
+      roomsEn =
+        " No room layout plan was found, and AI analysis timed out. No rooms were added.";
+      roomsZh = " 找不到房間佈局圖，而且 AI 辨認逾時。沒有新增房間。";
+    } else {
+      roomsEn = " No room layout plan was found, and AI analysis failed. No rooms were added.";
+      roomsZh = " 找不到房間佈局圖，而且 AI 辨認失敗。沒有新增房間。";
+    }
   } else if (flags.aiConfigured === false) {
-    roomsEn = " No room layout plan was found, and AI analysis is not configured.";
-    roomsZh = " 找不到房間佈局圖，而且尚未設定 AI 辨認。";
+    roomsEn =
+      " No room layout plan was found, and AI analysis is not configured. A site administrator must enable Room-analysis AI in Admin → Settings and save an API key.";
+    roomsZh =
+      " 找不到房間佈局圖，而且尚未設定 AI 辨認。請網站管理員在「管理 → 設定」啟用房間辨認 AI 並儲存 API 金鑰。";
   } else {
     roomsEn = " No room layout plan was found.";
     roomsZh = " 找不到房間佈局圖。";

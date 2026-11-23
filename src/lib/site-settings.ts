@@ -11,6 +11,7 @@ import {
   encryptRoomAnalysisAiKey,
   maskRoomAnalysisAiKey,
   parseRoomAnalysisAiEnabled,
+  canonicalRoomAnalysisAiModel,
   parseRoomAnalysisAiModel,
   parseRoomAnalysisAiProvider,
   resolveRoomAnalysisAiConfig,
@@ -120,10 +121,12 @@ export function settingsFromRows(rows: { key: string; value: string }[]): SiteSe
     parseRoomAnalysisAiProvider(map.get(SETTING_ROOM_ANALYSIS_AI_PROVIDER)) ??
     DEFAULT_SITE_SETTINGS.roomAnalysisAiProvider;
   const storedModel = parseRoomAnalysisAiModel(map.get(SETTING_ROOM_ANALYSIS_AI_MODEL));
-  const model =
+  const model = canonicalRoomAnalysisAiModel(
+    provider,
     storedModel && storedModel.length > 0
       ? storedModel
-      : DEFAULT_SITE_SETTINGS.roomAnalysisAiModel;
+      : DEFAULT_SITE_SETTINGS.roomAnalysisAiModel
+  );
   const plainKey = decryptRoomAnalysisAiKey(map.get(SETTING_ROOM_ANALYSIS_AI_KEY));
   return {
     publicRegistration: reg ?? DEFAULT_SITE_SETTINGS.publicRegistration,

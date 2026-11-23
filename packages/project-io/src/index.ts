@@ -210,6 +210,7 @@ export type {
   OfficialPlanLayerSummary,
   OfficialFindLayoutRoomsResult,
   OfficialFromPlanStatusFlags,
+  OfficialFromPlanAiFailReason,
 } from "./official-layout-plan";
 export { importIfcText } from "./ifc-import";
 export type { IfcImportResult } from "./ifc-import";

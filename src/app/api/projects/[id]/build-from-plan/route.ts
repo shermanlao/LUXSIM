@@ -20,10 +20,15 @@ export async function POST(req: Request, { params }: Params) {
     const body = (await req.json().catch(() => ({}))) as {
       underlay?: OfficialDxfRoomsUnderlay | null;
       existingOutline?: Vec2[] | null;
+      replaceExistingOutline?: boolean;
     };
 
     const world = officialDxfWorldEntitiesForRooms(body.underlay ?? null);
-    const result = officialBuildFromPlanGeometry(world, body.existingOutline ?? null);
+    const replace = body.replaceExistingOutline === true;
+    const result = officialBuildFromPlanGeometry(
+      world,
+      replace ? null : (body.existingOutline ?? null)
+    );
     return NextResponse.json({
       outline: result.outline,
       outlineCreated: result.outlineCreated,

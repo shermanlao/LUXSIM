@@ -7,14 +7,22 @@ import {
   type ResolvedRoomAnalysisAiConfig,
 } from "@/lib/room-analysis-ai-settings";
 
+export type AnalyseRoomsAiFailReason =
+  | "timeout"
+  | "model-unavailable"
+  | "provider-error"
+  | "invalid-response";
+
 export type AnalyseRoomsAiResult = {
   configured: boolean;
   failed: boolean;
   rooms: Vec2[][];
+  failReason?: AnalyseRoomsAiFailReason;
 };
 
 const IMAGE_MAX_EDGE = 1600;
-const REQUEST_TIMEOUT_MS = 60_000;
+const REQUEST_TIMEOUT_MS = 120_000;
+const RETRY_DELAY_MS = 1_500;
 
 function renderPlanPng(summary: OfficialRoomAnalysisSummary): {
   buffer: Buffer;
@@ -202,42 +210,115 @@ export async function analyseRoomsWithConfiguredAi(
   }
 
   const url = `${roomAnalysisAiBaseUrl(config.provider)}/chat/completions`;
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: config.model,
-        temperature: 0,
-        response_format: { type: "json_object" },
-        messages: [
-          { role: "system", content: skill },
-          { role: "user", content: userContent },
-        ],
-      }),
-      signal: controller.signal,
-    });
-    if (!res.ok) {
-      return { configured: true, failed: true, rooms: [] };
+  const payload: Record<string, unknown> = {
+    model: config.model,
+    temperature: 0,
+    response_format: { type: "json_object" },
+    messages: [
+      { role: "system", content: skill },
+      { role: "user", content: userContent },
+    ],
+  };
+  if (config.provider === "xai") {
+    payload.reasoning_effort = "low";
+  }
+
+  const classifyProviderError = (
+    status: number,
+    bodyText: string
+  ): AnalyseRoomsAiFailReason => {
+    const lower = bodyText.toLowerCase();
+    if (
+      status === 404 ||
+      /model[_\s-]?not[_\s-]?found|retired|does not exist|unknown model|invalid model/.test(
+        lower
+      )
+    ) {
+      return "model-unavailable";
     }
-    const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: unknown } }>;
-    };
-    const content = data.choices?.[0]?.message?.content;
-    const text = typeof content === "string" ? content : "";
-    if (!text.trim()) return { configured: true, failed: true, rooms: [] };
-    const parsed = parseRoomPolygons(extractJsonObject(text));
+    return "provider-error";
+  };
+
+  const redactProviderBody = (raw: string): string => {
+    return raw
+      .replace(/Bearer\s+[A-Za-z0-9._\-]+/gi, "Bearer [redacted]")
+      .replace(
+        /("(?:api[_-]?key|authorization|token|secret)"\s*:\s*")[^"]*(")/gi,
+        "$1[redacted]$2"
+      )
+      .slice(0, 500);
+  };
+
+  const requestOnce = async (): Promise<
+    | { ok: true; text: string }
+    | { ok: false; reason: AnalyseRoomsAiFailReason }
+  > => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${config.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal: controller.signal,
+      });
+      if (!res.ok) {
+        const bodyText = await res.text().catch(() => "");
+        const reason = classifyProviderError(res.status, bodyText);
+        console.error("Room-analysis AI request failed", {
+          provider: config.provider,
+          model: config.model,
+          status: res.status,
+          body: redactProviderBody(bodyText),
+        });
+        return { ok: false, reason };
+      }
+      const data = (await res.json()) as {
+        choices?: Array<{ message?: { content?: unknown } }>;
+      };
+      const content = data.choices?.[0]?.message?.content;
+      const text = typeof content === "string" ? content : "";
+      if (!text.trim()) {
+        return { ok: false, reason: "invalid-response" };
+      }
+      return { ok: true, text };
+    } catch (err) {
+      const timedOut =
+        (err instanceof Error && err.name === "AbortError") ||
+        (typeof err === "object" &&
+          err !== null &&
+          "name" in err &&
+          (err as { name?: string }).name === "AbortError");
+      if (!timedOut) {
+        console.error("Room-analysis AI request error", {
+          provider: config.provider,
+          model: config.model,
+          name: err instanceof Error ? err.name : "Error",
+        });
+      }
+      return { ok: false, reason: timedOut ? "timeout" : "provider-error" };
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+
+  try {
+    let result = await requestOnce();
+    if (!result.ok && result.reason === "provider-error") {
+      await new Promise((resolve) => setTimeout(resolve, RETRY_DELAY_MS));
+      result = await requestOnce();
+    }
+    if (!result.ok) {
+      return { configured: true, failed: true, rooms: [], failReason: result.reason };
+    }
+    const parsed = parseRoomPolygons(extractJsonObject(result.text));
     const mapped = mapAnalysedRoomRingsToMetres(parsed, summary, rendered);
     const rooms = officialFilterFromPlanRoomRings(mapped, outline ?? summary.contour);
     return { configured: true, failed: false, rooms };
   } catch {
-    return { configured: true, failed: true, rooms: [] };
-  } finally {
-    clearTimeout(timer);
+    return { configured: true, failed: true, rooms: [], failReason: "invalid-response" };
   }
 }

@@ -48,9 +48,9 @@ A first-party cookie (`luxsim_vid`) identifies a visitor across the day, and is 
 
 ## Room-analysis AI
 
-On `/admin/settings`, a site administrator can enable **Room-analysis AI**, choose a provider (xAI or OpenAI) and model, and save an API key. This is the official way to configure the fallback used by **Create rooms from DXF** and **Create from plan** when no room or architectural layout can be found in the imported drawing.
+On `/admin/settings`, a site administrator can enable **Room-analysis AI**, choose a provider (xAI or OpenAI) and model, and save an API key. This is the official way to configure the fallback used by **Create rooms from DXF** and **Create from plan** when no room or architectural layout can be found in the imported drawing. The default models are `grok-4.7` (xAI) and `gpt-4o` (OpenAI). Retired xAI Grok 2 vision aliases such as `grok-2-vision-latest` are automatically treated as `grok-4.7`, because those older model ids are no longer accepted by the provider.
 
-The saved key is stored on the server and is never shown again in the form. The page shows only a masked hint (for example `••••ab12`) and allows the key to be replaced or removed. Regular project users cannot see or edit this setting, and `GET /api/site` does not include it. The analyse-rooms API reads this admin setting; an optional environment variable (`XAI_API_KEY` or `OPENAI_API_KEY`, matching the chosen provider) is only a fallback when AI is enabled and no admin key has been saved. If AI is not enabled, or no key is available, the editor keeps the storey contour and does not invent rooms.
+The saved key is stored on the server and is never shown again in the form. The page shows only a masked hint (for example `••••ab12`) and allows the key to be replaced or removed. Regular project users cannot see or edit this setting, and `GET /api/site` does not include it. The analyse-rooms API reads this admin setting; an optional environment variable (`XAI_API_KEY` or `OPENAI_API_KEY`, matching the chosen provider) is only a fallback when AI is enabled and no admin key has been saved. If AI is not enabled, or no key is available, analysis does not run, the editor keeps the storey contour, the status bar says that a site administrator must enable Room-analysis AI and save an API key, and no rooms are invented.
 
 ## Report website
 
