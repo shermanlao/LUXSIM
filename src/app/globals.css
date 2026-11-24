@@ -1192,23 +1192,56 @@ body:has(.cad-editor-root) header nav {
   -webkit-appearance: none;
   appearance: none;
   pointer-events: auto;
-  width: 10px;
+  width: 12px;
   height: 16px;
   margin-top: 1px;
-  border-radius: 2px;
+  border-radius: 1px 1px 0 0;
   background: #f5f7f8;
   border: 1px solid #1b2a33;
+  clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
   box-shadow: 0 0 0 1px rgba(15, 28, 36, 0.35);
   cursor: ew-resize;
 }
 .falsecolor-range::-moz-range-thumb {
   pointer-events: auto;
-  width: 10px;
+  width: 12px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: 1px 1px 0 0;
   background: #f5f7f8;
   border: 1px solid #1b2a33;
+  clip-path: polygon(0 0, 100% 0, 100% 58%, 50% 100%, 0 58%);
   cursor: ew-resize;
+}
+.falsecolor-handle-input {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  width: 2.85rem;
+  height: 1.15rem;
+  padding: 0 0.12rem;
+  border: 1px solid #3a5160;
+  border-radius: 2px;
+  background: #12202a;
+  color: #f5a020;
+  font-size: 10px;
+  line-height: 1.15rem;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  pointer-events: auto;
+  box-shadow: 0 1px 2px rgba(8, 16, 22, 0.35);
+}
+.falsecolor-handle-input:focus {
+  outline: 1px solid #c45c26;
+  outline-offset: 0;
+}
+.falsecolor-handle-input::-webkit-outer-spin-button,
+.falsecolor-handle-input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.falsecolor-handle-input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 .falsecolor-range:focus-visible::-webkit-slider-thumb {
   outline: 2px solid #c45c26;

@@ -11,8 +11,8 @@ export function falseColorScalesEqual(a: FalseColorScale, b: FalseColorScale): b
   return (
     left.minLux === right.minLux &&
     left.maxLux === right.maxLux &&
-    almostEqual(left.tMin ?? 0, right.tMin ?? 0) &&
-    almostEqual(left.tMax ?? 1, right.tMax ?? 1)
+    almostEqual(left.winMin ?? left.minLux, right.winMin ?? right.minLux) &&
+    almostEqual(left.winMax ?? left.maxLux, right.winMax ?? right.maxLux)
   );
 }
 

@@ -4,7 +4,7 @@ import { polarPlane, polarToXY } from "../../photometry/src/interpolate";
 import { formatCct, formatDimensions, luminaireBody, resolvedFlux } from "../../photometry/src/flux";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import { roomAreaM2 } from "./geometry";
-import { legendStopsForScale, luxToRgb, OFFICIAL_FALSE_COLOR_SCALE, type FalseColorScale } from "./isolux-map";
+import { falseColorBarTicks, luxToRgb, normalizeFalseColorMapping, OFFICIAL_FALSE_COLOR_SCALE, type FalseColorScale } from "./isolux-map";
 import { choosePlanLayout, drawLightingPlan, storeysWithRooms, unionRoomBounds } from "./lighting-plan";
 import {
   REPORT_CALC_TYPE,
@@ -237,17 +237,17 @@ class ReportPdfBuilder {
   }
 
   private drawLuxLegend(y: number, _emin?: number, _emax?: number): number {
-    const domain = OFFICIAL_FALSE_COLOR_SCALE;
-    const range = this.input.colorScale ?? domain;
-    const stops = legendStopsForScale(range);
-    if (stops.length < 2) return y;
-    const barW = Math.min(this.contentWidth() * 0.62, 18 + stops.length * 16);
+    const range = normalizeFalseColorMapping(this.input.colorScale ?? OFFICIAL_FALSE_COLOR_SCALE);
+    const ticks = falseColorBarTicks(range.minLux, range.maxLux);
+    if (ticks.length < 2) return y;
+    const barW = Math.min(this.contentWidth() * 0.62, 18 + ticks.length * 16);
     const barH = 4.2;
     const slices = Math.max(96, Math.round(barW * 8));
     const lastSlice = Math.max(1, slices - 1);
+    const span = range.maxLux - range.minLux;
     for (let i = 0; i < slices; i += 1) {
       const t = i / lastSlice;
-      const lux = domain.minLux + t * (domain.maxLux - domain.minLux);
+      const lux = range.minLux + t * span;
       const [r, g, b] = luxToRgb(lux, range);
       this.doc.setFillColor(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
       const x = MARGIN + (i / slices) * barW;
@@ -258,10 +258,10 @@ class ReportPdfBuilder {
     this.doc.rect(MARGIN, y, barW, barH, "S");
     this.font("normal", TYPE.caption);
     setReportRgb(this.doc, "text", MUTED);
-    const last = stops.length - 1;
-    stops.forEach((s, i) => {
-      const label = i === last ? `${s.lux} [lx]` : String(s.lux);
-      const x = MARGIN + (i / last) * barW;
+    const last = ticks.length - 1;
+    ticks.forEach((lux, i) => {
+      const label = i === last ? `${lux} [lx]` : String(lux);
+      const x = span > 0 ? MARGIN + ((lux - range.minLux) / span) * barW : MARGIN;
       const align = i === 0 ? "left" : i === last ? "right" : "center";
       this.doc.text(label, x, y + barH + 4, { align });
     });

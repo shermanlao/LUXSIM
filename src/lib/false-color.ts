@@ -10,12 +10,15 @@ export {
   isoluxLevels,
   DIALUX_LUX_STOPS,
   normalizeFalseColorScale,
-  normalizeFalseColorHandles,
+  normalizeFalseColorBar,
+  normalizeFalseColorWindow,
   normalizeFalseColorMapping,
   isFalseColorScale,
   OFFICIAL_FALSE_COLOR_SCALE,
   OFFICIAL_FALSE_COLOR_CHART_TICKS,
-  OFFICIAL_FALSE_COLOR_MIN_T_SPAN,
+  FALSE_COLOR_BAR_MIN,
+  FALSE_COLOR_BAR_MAX,
+  falseColorBarTicks,
 } from "@luxsim/project-io";
 export type { FalseColorScale } from "@luxsim/project-io";
 
