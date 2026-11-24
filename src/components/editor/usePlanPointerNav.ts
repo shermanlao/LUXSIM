@@ -2,7 +2,14 @@
 
 import { useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
+  captureSvgViewportToCanvas,
+  hidePlanNavSnapshot,
+  showPlanNavSnapshot,
+  snapshotViewKey,
+} from "@/lib/plan-nav-snapshot";
+import {
   PLAN_PAN_BUTTON,
+  livePlanNavCssTransform,
   livePlanNavTransformAttr,
   panPlanBy,
   planViewTransform,
@@ -20,17 +27,19 @@ type PlanPointerNavOpts = {
   fitOy: number;
   fitScale: number;
   setPlanView: Dispatch<SetStateAction<PlanZoom>>;
-  /** Untransformed view host; used for pointer-to-view mapping. */
+  /** Untransformed view host; used for pointer-to-view mapping and nav events. */
   hostRef: RefObject<HTMLElement | null>;
+  /** Viewport-sized canvas that shows a bitmap snapshot during pan/zoom. */
+  snapshotRef?: RefObject<HTMLCanvasElement | null>;
   /** Set true while a middle-button pan is in progress so left-click tools stay idle. */
   panningRef?: RefObject<boolean>;
-  /** World-space (or already-projected) plan content that should follow live pan/zoom. */
+  /** World-space (or already-projected) plan content, used only as a fallback. */
   navGroupRef?: RefObject<SVGGElement | null>;
   /** Latest view, including an in-progress pan or zoom. Event handlers should read this. */
   liveViewRef?: RefObject<PlanZoom>;
   /** View last committed to React state (the coordinates currently drawn). */
   committedViewRef?: RefObject<PlanZoom>;
-  /** React-committed view; used to clear the live SVG transform after a redraw. */
+  /** React-committed view; used to clear the live transform after a redraw. */
   planView: PlanZoom;
 };
 
@@ -40,14 +49,18 @@ export const PLAN_NAV_WHEEL_COMMIT_MS = 80;
 const CAPTURE_NONPASSIVE = { capture: true, passive: false } as const;
 const CAPTURE = { capture: true } as const;
 
+function samePlanView(a: PlanZoom, b: PlanZoom): boolean {
+  return a.zoom === b.zoom && a.panX === b.panX && a.panY === b.panY;
+}
+
 /**
  * Official view navigation: wheel zooms toward the cursor, and holding the
  * middle (scroll-wheel) button pans. Left-click is not used to pan.
- * Pan and zoom update an SVG group transform immediately (once per frame)
- * and only commit React state when the gesture finishes, so a dense plan
- * does not rebuild on every move. A CSS compositing layer is not used,
- * because promoting the whole CAD + false-colour SVG to a GPU texture
- * made the editor lag.
+ *
+ * During a gesture the visible viewport is captured once to a bitmap. That
+ * snapshot is CSS-transformed once per frame, and the dense live SVG is hidden
+ * so it is not re-rasterized on every move. React state is committed when the
+ * gesture finishes, then the live SVG is shown at the new view.
  */
 export function usePlanPointerNav(
   svgRef: RefObject<SVGSVGElement | null>,
@@ -61,6 +74,14 @@ export function usePlanPointerNav(
   const wheelTimerRef = useRef<number | null>(null);
   const rafRef = useRef<number | null>(null);
   const pendingLiveRef = useRef<PlanZoom | null>(null);
+  const snapshotActiveRef = useRef(false);
+  const snapshotPendingRef = useRef(0);
+  const snapshotWarmReadyRef = useRef(false);
+  const snapshotWarmKeyRef = useRef("");
+  const idleCaptureRef = useRef<number | null>(null);
+  const gestureActiveRef = useRef(false);
+  const endSnapshotRef = useRef<() => void>(() => {});
+  const scheduleWarmRef = useRef<() => void>(() => {});
 
   useLayoutEffect(() => {
     const view = opts.planView;
@@ -69,11 +90,14 @@ export function usePlanPointerNav(
     gestureCommittedRef.current = view;
     gestureLiveRef.current = view;
     opts.navGroupRef?.current?.removeAttribute("transform");
+    endSnapshotRef.current();
+    scheduleWarmRef.current();
   }, [opts.planView, opts.liveViewRef, opts.committedViewRef, opts.navGroupRef]);
 
   useEffect(() => {
-    const el = svgRef.current;
-    if (!el) return;
+    const svg = svgRef.current;
+    const host = optsRef.current.hostRef.current;
+    if (!svg || !host) return;
 
     const screenOf = (view: PlanZoom) => {
       const o = optsRef.current;
@@ -81,8 +105,7 @@ export function usePlanPointerNav(
     };
 
     const hostBox = () => {
-      const host = optsRef.current.hostRef.current;
-      const rect = (host ?? el).getBoundingClientRect();
+      const rect = host.getBoundingClientRect();
       return { left: rect.left, top: rect.top, width: rect.width, height: rect.height };
     };
 
@@ -92,12 +115,41 @@ export function usePlanPointerNav(
     const readLive = (): PlanZoom | null =>
       gestureLiveRef.current ?? optsRef.current.liveViewRef?.current ?? readCommitted();
 
+    const cancelIdleCapture = () => {
+      if (idleCaptureRef.current == null) return;
+      const cancelIdle = window.cancelIdleCallback;
+      if (typeof cancelIdle === "function") cancelIdle(idleCaptureRef.current);
+      else window.clearTimeout(idleCaptureRef.current);
+      idleCaptureRef.current = null;
+    };
+
+    const endSnapshot = () => {
+      snapshotActiveRef.current = false;
+      hidePlanNavSnapshot(optsRef.current.snapshotRef?.current ?? null, svg);
+    };
+    endSnapshotRef.current = endSnapshot;
+
     const paintLive = (view: PlanZoom) => {
       gestureLiveRef.current = view;
       if (optsRef.current.liveViewRef) optsRef.current.liveViewRef.current = view;
-      const g = optsRef.current.navGroupRef?.current;
       const committed = readCommitted();
-      if (!g || !committed) return;
+      if (!committed) return;
+      const o = optsRef.current;
+      const canvas = o.snapshotRef?.current;
+      if (snapshotActiveRef.current && canvas) {
+        const box = hostBox();
+        const cssX = box.width > 0 ? box.width / o.viewW : 1;
+        const cssY = box.height > 0 ? box.height / o.viewH : 1;
+        canvas.style.transform = livePlanNavCssTransform(screenOf(committed), screenOf(view), cssX, cssY);
+        o.navGroupRef?.current?.removeAttribute("transform");
+        return;
+      }
+      if (snapshotPendingRef.current !== 0) {
+        // Wait for the bitmap; do not transform the dense live SVG.
+        return;
+      }
+      const g = o.navGroupRef?.current;
+      if (!g) return;
       const attr = livePlanNavTransformAttr(screenOf(committed), screenOf(view));
       if (attr) g.setAttribute("transform", attr);
       else g.removeAttribute("transform");
@@ -130,6 +182,77 @@ export function usePlanPointerNav(
       if (next) paintLive(next);
     };
 
+    const currentSnapshotKey = (box = hostBox()) => {
+      const view = readCommitted();
+      const o = optsRef.current;
+      if (!view) return "";
+      return snapshotViewKey(view, box.width, box.height, o.viewW, o.viewH);
+    };
+
+    const activateSnapshot = () => {
+      const canvas = optsRef.current.snapshotRef?.current;
+      if (!canvas) return false;
+      showPlanNavSnapshot(canvas, svg);
+      snapshotActiveRef.current = true;
+      snapshotWarmReadyRef.current = true;
+      snapshotWarmKeyRef.current = currentSnapshotKey();
+      return true;
+    };
+
+    const startCapture = (forGesture: boolean) => {
+      const canvas = optsRef.current.snapshotRef?.current;
+      if (!canvas) return;
+      const box = hostBox();
+      if (!(box.width > 0) || !(box.height > 0)) return;
+      const key = currentSnapshotKey(box);
+      if (forGesture && snapshotWarmReadyRef.current && snapshotWarmKeyRef.current === key) {
+        activateSnapshot();
+        const view = readLive();
+        if (view) paintLive(view);
+        return;
+      }
+      const token = snapshotPendingRef.current + 1;
+      snapshotPendingRef.current = token;
+      void captureSvgViewportToCanvas(svg, canvas, box.width, box.height).then((ok) => {
+        if (snapshotPendingRef.current !== token) return;
+        snapshotPendingRef.current = 0;
+        if (!ok) {
+          snapshotWarmReadyRef.current = false;
+          snapshotWarmKeyRef.current = "";
+          if (forGesture && gestureActiveRef.current) {
+            const view = readLive();
+            if (view) paintLive(view);
+          }
+          return;
+        }
+        snapshotWarmReadyRef.current = true;
+        snapshotWarmKeyRef.current = key;
+        if (forGesture && gestureActiveRef.current) {
+          activateSnapshot();
+          const view = readLive();
+          if (view) paintLive(view);
+        }
+      });
+    };
+
+    const scheduleWarmSnapshot = () => {
+      cancelIdleCapture();
+      if (gestureActiveRef.current || snapshotActiveRef.current) return;
+      const run = () => {
+        idleCaptureRef.current = null;
+        if (gestureActiveRef.current || snapshotActiveRef.current) return;
+        const key = currentSnapshotKey();
+        if (snapshotWarmReadyRef.current && snapshotWarmKeyRef.current === key) return;
+        startCapture(false);
+      };
+      if (typeof window.requestIdleCallback === "function") {
+        idleCaptureRef.current = window.requestIdleCallback(run, { timeout: 240 });
+      } else {
+        idleCaptureRef.current = window.setTimeout(run, 50);
+      }
+    };
+    scheduleWarmRef.current = scheduleWarmSnapshot;
+
     const clearWheelTimer = () => {
       if (wheelTimerRef.current != null) {
         window.clearTimeout(wheelTimerRef.current);
@@ -146,7 +269,13 @@ export function usePlanPointerNav(
       gestureLiveRef.current = view;
       if (optsRef.current.liveViewRef) optsRef.current.liveViewRef.current = view;
       if (optsRef.current.committedViewRef) optsRef.current.committedViewRef.current = view;
+      gestureActiveRef.current = false;
+      const current = optsRef.current.planView;
       optsRef.current.setPlanView(view);
+      if (samePlanView(current, view)) {
+        endSnapshot();
+        scheduleWarmSnapshot();
+      }
     };
 
     const beginGesture = () => {
@@ -154,6 +283,12 @@ export function usePlanPointerNav(
         const current = readLive();
         if (current) gestureCommittedRef.current = current;
       }
+      if (gestureActiveRef.current && (snapshotActiveRef.current || snapshotPendingRef.current !== 0)) {
+        return;
+      }
+      gestureActiveRef.current = true;
+      cancelIdleCapture();
+      startCapture(true);
     };
 
     const onWheel = (e: WheelEvent) => {
@@ -220,8 +355,8 @@ export function usePlanPointerNav(
       panBoxW = box.width;
       panBoxH = box.height;
       pointerId = e.pointerId;
-      el.setPointerCapture(e.pointerId);
-      el.style.cursor = "grabbing";
+      host.setPointerCapture(e.pointerId);
+      host.style.cursor = "grabbing";
     };
 
     const onPointerMove = (e: PointerEvent) => {
@@ -248,11 +383,11 @@ export function usePlanPointerNav(
       setPanning(false);
       pointerId = -1;
       try {
-        el.releasePointerCapture(e.pointerId);
+        host.releasePointerCapture(e.pointerId);
       } catch {
         /* already released */
       }
-      el.style.cursor = "";
+      host.style.cursor = "";
       commitLive();
     };
 
@@ -260,39 +395,45 @@ export function usePlanPointerNav(
       if (!panning) return;
       setPanning(false);
       pointerId = -1;
-      el.style.cursor = "";
+      host.style.cursor = "";
       commitLive();
     };
 
     const onDocMiddleDown = (e: MouseEvent) => {
       if (e.button !== PLAN_PAN_BUTTON) return;
-      const host = optsRef.current.hostRef.current ?? el;
       const target = e.target;
       if (target instanceof Node && host.contains(target)) {
         e.preventDefault();
       }
     };
 
-    el.addEventListener("wheel", onWheel, CAPTURE_NONPASSIVE);
-    el.addEventListener("pointerdown", onPointerDown, CAPTURE_NONPASSIVE);
-    el.addEventListener("pointermove", onPointerMove, CAPTURE_NONPASSIVE);
-    el.addEventListener("pointerup", endPan, CAPTURE);
-    el.addEventListener("pointercancel", endPan, CAPTURE);
-    el.addEventListener("lostpointercapture", onLostCapture);
-    el.addEventListener("auxclick", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
-    el.addEventListener("mousedown", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
+    host.addEventListener("wheel", onWheel, CAPTURE_NONPASSIVE);
+    host.addEventListener("pointerdown", onPointerDown, CAPTURE_NONPASSIVE);
+    host.addEventListener("pointermove", onPointerMove, CAPTURE_NONPASSIVE);
+    host.addEventListener("pointerup", endPan, CAPTURE);
+    host.addEventListener("pointercancel", endPan, CAPTURE);
+    host.addEventListener("lostpointercapture", onLostCapture);
+    host.addEventListener("auxclick", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
+    host.addEventListener("mousedown", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
     window.addEventListener("mousedown", onDocMiddleDown, CAPTURE_NONPASSIVE);
+    scheduleWarmSnapshot();
     return () => {
       clearWheelTimer();
       cancelRaf();
-      el.removeEventListener("wheel", onWheel, CAPTURE_NONPASSIVE);
-      el.removeEventListener("pointerdown", onPointerDown, CAPTURE_NONPASSIVE);
-      el.removeEventListener("pointermove", onPointerMove, CAPTURE_NONPASSIVE);
-      el.removeEventListener("pointerup", endPan, CAPTURE);
-      el.removeEventListener("pointercancel", endPan, CAPTURE);
-      el.removeEventListener("lostpointercapture", onLostCapture);
-      el.removeEventListener("auxclick", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
-      el.removeEventListener("mousedown", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
+      cancelIdleCapture();
+      snapshotPendingRef.current += 1;
+      endSnapshot();
+      endSnapshotRef.current = () => {};
+      scheduleWarmRef.current = () => {};
+      host.style.cursor = "";
+      host.removeEventListener("wheel", onWheel, CAPTURE_NONPASSIVE);
+      host.removeEventListener("pointerdown", onPointerDown, CAPTURE_NONPASSIVE);
+      host.removeEventListener("pointermove", onPointerMove, CAPTURE_NONPASSIVE);
+      host.removeEventListener("pointerup", endPan, CAPTURE);
+      host.removeEventListener("pointercancel", endPan, CAPTURE);
+      host.removeEventListener("lostpointercapture", onLostCapture);
+      host.removeEventListener("auxclick", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
+      host.removeEventListener("mousedown", preventMiddleAutoScroll, CAPTURE_NONPASSIVE);
       window.removeEventListener("mousedown", onDocMiddleDown, CAPTURE_NONPASSIVE);
     };
   }, [svgRef]);

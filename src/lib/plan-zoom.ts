@@ -169,3 +169,20 @@ export function livePlanNavTransformAttr(
   if (Math.abs(k - 1) < 1e-12 && Math.abs(tx) < 1e-9 && Math.abs(ty) < 1e-9) return "";
   return `translate(${tx} ${ty}) scale(${k})`;
 }
+
+/**
+ * CSS transform for a viewport-sized snapshot canvas that already shows the
+ * committed view. Applied only to that bitmap, never to the live plan SVG.
+ */
+export function livePlanNavCssTransform(
+  committed: PlanScreenTransform,
+  live: PlanScreenTransform,
+  cssPerViewX: number,
+  cssPerViewY: number
+): string {
+  const { tx, ty, k } = livePlanNavTransform(committed, live);
+  if (Math.abs(k - 1) < 1e-12 && Math.abs(tx) < 1e-9 && Math.abs(ty) < 1e-9) return "";
+  const x = tx * cssPerViewX;
+  const y = ty * cssPerViewY;
+  return `translate3d(${x}px, ${y}px, 0) scale(${k})`;
+}

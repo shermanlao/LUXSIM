@@ -57,8 +57,9 @@ export function OrbitViewBridge({
     const captureNonPassive = { capture: true, passive: false } as const;
     const onDown = (e: PointerEvent | MouseEvent) => {
       if (e.button === 1) {
+        // Prevent browser autoscroll, but do not stop the event — OrbitControls
+        // listens on the same canvas and must still receive middle-button pan.
         e.preventDefault();
-        e.stopPropagation();
       }
       if (e.button === 0 || e.button === 1 || e.button === 2) {
         navigating.current = true;

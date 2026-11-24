@@ -48,6 +48,7 @@ export function ElevationView2D({
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const navGroupRef = useRef<SVGGElement | null>(null);
+  const navSnapshotRef = useRef<HTMLCanvasElement | null>(null);
   const liveViewRef = useRef(planView);
   const committedViewRef = useRef(planView);
   const grabOffset = useRef({ a: 0, z: 0 });
@@ -101,6 +102,7 @@ export function ElevationView2D({
     fitScale,
     setPlanView,
     hostRef,
+    snapshotRef: navSnapshotRef,
     panningRef,
     navGroupRef,
     liveViewRef,
@@ -138,6 +140,13 @@ export function ElevationView2D({
         onDropLuminaire(luminaireId, w.a, Math.max(0.1, Math.min(height - 0.05, w.z)));
       }}
     >
+      <canvas
+        ref={navSnapshotRef}
+        data-plan-nav-snapshot=""
+        className="pointer-events-none absolute inset-0"
+        style={{ display: "none", transformOrigin: "0 0" }}
+        aria-hidden
+      />
       <svg ref={svgRef} viewBox={`0 0 ${viewW} ${viewH}`} className="w-full h-full">
         <rect width={viewW} height={viewH} fill="#0f1c24" />
         <g ref={navGroupRef} data-plan-nav-layer="">

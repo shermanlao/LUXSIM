@@ -217,6 +217,7 @@ export function TopView2D({
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const navGroupRef = useRef<SVGGElement | null>(null);
+  const navSnapshotRef = useRef<HTMLCanvasElement | null>(null);
   const liveViewRef = useRef(planView);
   const committedViewRef = useRef(planView);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -886,6 +887,7 @@ export function TopView2D({
     fitScale,
     setPlanView,
     hostRef,
+    snapshotRef: navSnapshotRef,
     panningRef,
     navGroupRef,
     liveViewRef,
@@ -927,6 +929,13 @@ export function TopView2D({
         onDropLuminaire(luminaireId, snapped.x, snapped.y);
       }}
     >
+      <canvas
+        ref={navSnapshotRef}
+        data-plan-nav-snapshot=""
+        className="pointer-events-none absolute inset-0"
+        style={{ display: "none", transformOrigin: "0 0" }}
+        aria-hidden
+      />
       <svg
         ref={svgRef}
         viewBox={`0 0 ${viewW} ${viewH}`}
