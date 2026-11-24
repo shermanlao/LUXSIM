@@ -1,4 +1,4 @@
-/** Shared false-color scale — project-wide stepped illuminance colour bands. */
+/** Shared false-color scale — project-wide continuous illuminance colour scale. */
 
 export {
   luxToRgb,

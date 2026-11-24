@@ -34,7 +34,7 @@ export function FalseColorLegend({
   tone?: "light" | "dark";
   /** "bar" is a short, full-width strip under the 3D window. */
   layout?: "card" | "bar";
-  /** Greyscale uses a grey gradient and title; false colour uses nine discrete bands. */
+  /** Greyscale uses a grey gradient and title; false colour uses a continuous nine-stop scale. */
   palette?: IsoluxPalette;
 }) {
   const fallback = normalizeFalseColorScale(
@@ -58,7 +58,6 @@ export function FalseColorLegend({
   const gradient = `linear-gradient(90deg, ${stops
     .map((s, i) => `${s.color} ${(i / Math.max(stops.length - 1, 1)) * 100}%`)
     .join(", ")})`;
-  const banded = palette !== "greyscale";
 
   const domainMax = useMemo(() => {
     const raw = Math.max(current.maxLux, fallback.maxLux, 500);
@@ -157,26 +156,11 @@ export function FalseColorLegend({
         ) : null}
 
         <div className="relative flex-1 min-w-0">
-          {banded ? (
-            <div
-              className={`flex w-full overflow-hidden rounded-sm border ${dark ? "border-[#3a5160]" : "border-[var(--line)]"} ${isBar ? "h-2.5" : "h-3.5"}`}
-              aria-hidden
-            >
-              {stops.map((s, i) => (
-                <div
-                  key={`${s.lux}-${i}`}
-                  className="h-full min-w-0 flex-1"
-                  style={{ background: s.color }}
-                />
-              ))}
-            </div>
-          ) : (
-            <div
-              className={`w-full rounded-sm border ${dark ? "border-[#3a5160]" : "border-[var(--line)]"} ${isBar ? "h-2" : "h-3"}`}
-              style={{ background: gradient }}
-              aria-hidden
-            />
-          )}
+          <div
+            className={`w-full rounded-sm border ${dark ? "border-[#3a5160]" : "border-[var(--line)]"} ${isBar ? "h-2.5" : "h-3.5"}`}
+            style={{ background: gradient }}
+            aria-hidden
+          />
           {interactive && (
             <div className="relative h-3">
               <input
@@ -209,9 +193,9 @@ export function FalseColorLegend({
               />
             </div>
           )}
-          <div className={`mt-0.5 flex text-[10px] tabular-nums ${dark ? "text-[#8fa3ad]" : "text-[var(--muted)]"}`}>
+          <div className={`mt-0.5 flex justify-between text-[10px] tabular-nums ${dark ? "text-[#8fa3ad]" : "text-[var(--muted)]"}`}>
             {stops.map((s, i) => (
-              <span key={`${s.lux}-${i}`} className="min-w-0 flex-1 truncate text-center">
+              <span key={`${s.lux}-${i}`}>
                 {formatLux(s.lux)}
                 {i === stops.length - 1 && !interactive ? " lx" : ""}
               </span>

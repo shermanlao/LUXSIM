@@ -5,7 +5,7 @@ import type { RoomV2 } from "./types";
 
 /**
  * Workplane cell colour for the official report figure.
- * Uses the same official 0–2500 lx stepped colour bands as `drawLuxLegend`.
+ * Uses the same official 0–2500 lx continuous colour scale as `drawLuxLegend`.
  */
 export function workplaneFalseColorRgb(lux: number): [number, number, number] {
   return luxToRgb(lux);

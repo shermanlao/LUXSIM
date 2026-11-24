@@ -4,7 +4,7 @@ import { polarPlane, polarToXY } from "../../photometry/src/interpolate";
 import { formatCct, formatDimensions, luminaireBody, resolvedFlux } from "../../photometry/src/flux";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import { roomAreaM2 } from "./geometry";
-import { legendStopsForScale, OFFICIAL_FALSE_COLOR_SCALE } from "./isolux-map";
+import { legendStopsForScale, luxToRgb, OFFICIAL_FALSE_COLOR_SCALE } from "./isolux-map";
 import { choosePlanLayout, drawLightingPlan, storeysWithRooms, unionRoomBounds } from "./lighting-plan";
 import {
   REPORT_CALC_TYPE,
@@ -235,24 +235,32 @@ class ReportPdfBuilder {
   }
 
   private drawLuxLegend(y: number, _emin?: number, _emax?: number): number {
-    const stops = legendStopsForScale(OFFICIAL_FALSE_COLOR_SCALE);
+    const range = OFFICIAL_FALSE_COLOR_SCALE;
+    const stops = legendStopsForScale(range);
     if (stops.length < 2) return y;
     const barW = Math.min(this.contentWidth() * 0.62, 18 + stops.length * 16);
     const barH = 4.2;
-    const cell = barW / stops.length;
-    for (let i = 0; i < stops.length; i += 1) {
-      const c = stops[i]!.color;
-      const m = /rgb\((\d+),\s*(\d+),\s*(\d+)\)/.exec(c);
-      if (m) this.doc.setFillColor(Number(m[1]), Number(m[2]), Number(m[3]));
-      this.doc.rect(MARGIN + i * cell, y, cell, barH, "F");
+    const slices = Math.max(96, Math.round(barW * 8));
+    const lastSlice = Math.max(1, slices - 1);
+    for (let i = 0; i < slices; i += 1) {
+      const t = i / lastSlice;
+      const lux = range.minLux + t * (range.maxLux - range.minLux);
+      const [r, g, b] = luxToRgb(lux, range);
+      this.doc.setFillColor(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
+      const x = MARGIN + (i / slices) * barW;
+      const w = barW / slices + 0.08;
+      this.doc.rect(x, y, w, barH, "F");
     }
     this.doc.setDrawColor(180);
     this.doc.rect(MARGIN, y, barW, barH, "S");
     this.font("normal", TYPE.caption);
     setReportRgb(this.doc, "text", MUTED);
+    const last = stops.length - 1;
     stops.forEach((s, i) => {
-      const label = i === stops.length - 1 ? `${s.lux} [lx]` : String(s.lux);
-      this.doc.text(label, MARGIN + (i + 0.5) * cell, y + barH + 4, { align: "center" });
+      const label = i === last ? `${s.lux} [lx]` : String(s.lux);
+      const x = MARGIN + (i / last) * barW;
+      const align = i === 0 ? "left" : i === last ? "right" : "center";
+      this.doc.text(label, x, y + barH + 4, { align });
     });
     this.doc.setTextColor(0);
     return y + barH + 8;

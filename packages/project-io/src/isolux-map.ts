@@ -5,8 +5,8 @@ import type { FixtureInstance, RoomV2, Vec2 } from "./types";
 import { pointInPolygon, roomBounds } from "./geometry";
 
 /**
- * Nine stepped false-colour bands, mapped evenly across the current min–max lux
- * scale. Colours are constant between stops (not a smoothly interpolated heat ramp).
+ * Nine official false-colour stops, mapped evenly across the current min–max lux
+ * scale. Colours between adjacent stops are interpolated smoothly.
  */
 export const OFFICIAL_FALSE_COLOR_BANDS: readonly { r: number; g: number; b: number }[] = [
   { r: 0, g: 0, b: 0 },
@@ -27,7 +27,7 @@ export interface FalseColorScale {
   maxLux: number;
 }
 
-/** Official default illuminance scale. The nine colour bands stretch across this range until the user changes min/max. */
+/** Official default illuminance scale. The nine colour stops stretch across this range until the user changes min/max. */
 export const OFFICIAL_FALSE_COLOR_SCALE: FalseColorScale = {
   minLux: 0,
   maxLux: 2500,
@@ -51,7 +51,7 @@ function roundBandLux(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-/** Evenly spaced lux values at the nine official colour-band edges. */
+/** Evenly spaced lux values at the nine official colour-stop positions. */
 export function officialFalseColorBandLuxes(minLux: number, maxLux: number): number[] {
   const range = normalizeFalseColorScale(minLux, maxLux);
   const last = OFFICIAL_FALSE_COLOR_BAND_COUNT - 1;
@@ -73,7 +73,7 @@ function officialBandRgb(index: number): [number, number, number] {
 }
 
 /**
- * Historical export name for the official 0–2500 lx band edges.
+ * Historical export name for the official 0–2500 lx colour-stop positions.
  * Not shown in the app UI.
  */
 export const DIALUX_LUX_STOPS: { lux: number; r: number; g: number; b: number }[] =
@@ -82,7 +82,20 @@ export const DIALUX_LUX_STOPS: { lux: number; r: number; g: number; b: number }[
   );
 
 function paletteRgbAtT(t: number): [number, number, number] {
-  return officialBandRgb(officialFalseColorBandIndex(t));
+  const last = OFFICIAL_FALSE_COLOR_BAND_COUNT - 1;
+  const u = Math.min(1, Math.max(0, t));
+  if (u <= 0) return officialBandRgb(0);
+  if (u >= 1) return officialBandRgb(last);
+  const x = u * last;
+  const i = Math.min(last - 1, Math.floor(x));
+  const f = x - i;
+  const a = OFFICIAL_FALSE_COLOR_BANDS[i]!;
+  const b = OFFICIAL_FALSE_COLOR_BANDS[i + 1]!;
+  return [
+    (a.r + (b.r - a.r) * f) / 255,
+    (a.g + (b.g - a.g) * f) / 255,
+    (a.b + (b.b - a.b) * f) / 255,
+  ];
 }
 
 function absoluteLuxToRgb(lux: number): [number, number, number] {
@@ -96,7 +109,7 @@ export type IsoluxPalette = "falsecolor" | "greyscale";
 /**
  * sRGB greyscale endpoints. The floor is high enough that after an sRGB→linear
  * conversion (colour-managed 3D / CanvasTexture) the low end stays visible,
- * instead of collapsing to near-black. The official false-colour bands are unchanged
+ * instead of collapsing to near-black. The official false-colour scale is unchanged
  * by this greyscale range.
  */
 export const GREYSCALE_SRGB_MIN = 0.42;
@@ -137,7 +150,7 @@ export function srgbToLinearChannel(c: number): number {
   return ((c + 0.055) / 1.055) ** 2.4;
 }
 
-/** luxToRgb values converted to linear-light so a colour-managed renderer shows the official bands. */
+/** luxToRgb values converted to linear-light so a colour-managed renderer shows the official scale. */
 export function luxToRgbLinear(
   lux: number,
   scale?: FalseColorScale | number,
@@ -169,7 +182,7 @@ export function isoluxLevels(emin: number, emax: number): number[] {
   return levels;
 }
 
-/** Tick labels and colours at the nine official false-colour band edges (or greyscale at those lux values). */
+/** Tick labels and colours at the nine official false-colour stops (or greyscale at those lux values). */
 export function legendStopsForScale(
   scale: FalseColorScale,
   palette: IsoluxPalette = "falsecolor"
