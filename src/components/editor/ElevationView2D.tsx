@@ -100,6 +100,7 @@ export function ElevationView2D({
     fitOy,
     fitScale,
     setPlanView,
+    hostRef,
     panningRef,
     navGroupRef,
     liveViewRef,
@@ -125,7 +126,8 @@ export function ElevationView2D({
   return (
     <div
       ref={hostRef}
-      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
+      className="relative w-full h-full min-h-0 overflow-hidden bg-[#0f1c24]"
+      style={{ touchAction: "none" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
