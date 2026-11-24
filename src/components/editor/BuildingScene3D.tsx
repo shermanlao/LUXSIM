@@ -239,7 +239,6 @@ export function BuildingScene3D({
   initialView,
   photometry,
   falseColorScale,
-  falseColorLongSide,
   showValueLabels = false,
   showIsolines = false,
   showWorkplane = true,
@@ -260,8 +259,6 @@ export function BuildingScene3D({
   initialView: Camera3dView | null;
   photometry?: Record<string, PhotometricData>;
   falseColorScale?: FalseColorScale;
-  /** Live false-colour bitmap long side. Defaults to the official 800. */
-  falseColorLongSide?: number;
   showValueLabels?: boolean;
   showIsolines?: boolean;
   showWorkplane?: boolean;
@@ -293,11 +290,12 @@ export function BuildingScene3D({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [storeyId, isolateId, elev]);
   const startPosition = useRef(startView.position);
+  const startTarget = useRef(startView.target);
 
   return (
     <div
       className={`relative w-full ${className}`}
-      style={{ background: EDITOR_BG, touchAction: "none" }}
+      style={{ background: EDITOR_BG }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -381,7 +379,6 @@ export function BuildingScene3D({
                     scale={falseColorScale}
                     palette={palette}
                     showWorkplane={showWorkplane}
-                    targetLongSide={falseColorLongSide}
                   />
                 )}
                 <FalseColorWalls
@@ -441,12 +438,12 @@ export function BuildingScene3D({
 
         <OrbitControls
           makeDefault
+          target={startTarget.current}
           minPolarAngle={0.2}
           maxPolarAngle={Math.PI / 2 - 0.05}
           minDistance={0.05}
           enableZoom
           enablePan
-          enableDamping={false}
           screenSpacePanning
           mouseButtons={{
             LEFT: THREE.MOUSE.ROTATE,

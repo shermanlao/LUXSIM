@@ -382,13 +382,12 @@ export function createOfficialFalseColorWorkplane(
   elevationM: number,
   scale?: FalseColorScale,
   palette: IsoluxPalette = "falsecolor",
-  showWorkplane = true,
-  targetLongSide = 800
+  showWorkplane = true
 ): { geometry: THREE.BufferGeometry; material: THREE.MeshBasicMaterial; texture: THREE.CanvasTexture } | null {
   if (typeof document === "undefined") return null;
   const model = officialIsoluxModelForRoom(room, results, {
     mode: "falsecolor",
-    targetLongSide,
+    targetLongSide: 800,
     colorScale: scale,
     includeContours: false,
     includeValueLabels: false,

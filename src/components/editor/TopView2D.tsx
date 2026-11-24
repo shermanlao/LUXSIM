@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useViewElementSize } from "@/lib/use-view-element-size";
 import { usePlanPointerNav } from "./usePlanPointerNav";
 import type { DxfEntity, FalseColorScale, ProjectSceneV2, ResultsV2, RoomV2, RcpDetectionProposal, Vec2 } from "@luxsim/project-io";
@@ -86,8 +86,6 @@ import {
   PLAN_PAN_BUTTON,
   planViewTransform,
 } from "@/lib/plan-zoom";
-import { officialPlanIsoluxModels } from "@/lib/plan-falsecolor-layer";
-import { paintStaticPlanLayer, PLAN_DXF_STROKE } from "@/lib/plan-static-raster";
 import type { PhotometricData } from "@luxsim/photometry";
 import { planSymbolGeom } from "./LuminaireBody";
 
@@ -151,8 +149,6 @@ type Props = {
   showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
-  /** Live false-colour bitmap long side. Defaults to the official 800. */
-  falseColorLongSide?: number;
   /** View-only: select is allowed, edit handles and moves are not. */
   readOnly?: boolean;
 };
@@ -213,7 +209,6 @@ export function TopView2D({
   showIsolines = false,
   showValueLabels = false,
   falseColorScale,
-  falseColorLongSide,
   readOnly = false,
 }: Props) {
   const anyFilletPickActive = filletPickActive || filletAllPickActive;
@@ -222,11 +217,6 @@ export function TopView2D({
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const navGroupRef = useRef<SVGGElement | null>(null);
-  const navSnapshotRef = useRef<HTMLCanvasElement | null>(null);
-  const staticRasterRef = useRef<HTMLCanvasElement | null>(null);
-  const staticPaintGenRef = useRef(0);
-  const underlayImageRef = useRef<HTMLImageElement | null>(null);
-  const [underlayImageGen, setUnderlayImageGen] = useState(0);
   const liveViewRef = useRef(planView);
   const committedViewRef = useRef(planView);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -337,24 +327,6 @@ export function TopView2D({
     };
   }, [underlay, underlayUrl, onUnderlaySourceSize]);
 
-  useEffect(() => {
-    if (!underlayUrl || !underlay || !isDisplayableRasterUnderlay(underlay)) {
-      underlayImageRef.current = null;
-      setUnderlayImageGen((n) => n + 1);
-      return;
-    }
-    const img = new Image();
-    img.decoding = "async";
-    underlayImageRef.current = img;
-    const mark = () => setUnderlayImageGen((n) => n + 1);
-    img.onload = mark;
-    img.onerror = mark;
-    img.src = underlayUrl;
-    return () => {
-      if (underlayImageRef.current === img) underlayImageRef.current = null;
-    };
-  }, [underlay, underlayUrl]);
-
   const underlaySize = useMemo(() => {
     if (!underlay || !(sourceWidthPx && sourceHeightPx)) return null;
     return underlayWorldSize({
@@ -400,15 +372,7 @@ export function TopView2D({
     };
   };
 
-  const dxfWorldEntities = useMemo(
-    () => officialDxfEntitiesToWorld(dxfEntities, underlay),
-    [dxfEntities, underlay]
-  );
-  const dxfStrokePolylines = useMemo(
-    () =>
-      dxfWorldEntities.map((ent) => officialDxfPolylineStrokePoints(ent)).filter((pts) => pts.length >= 2),
-    [dxfWorldEntities]
-  );
+  const dxfWorldEntities = officialDxfEntitiesToWorld(dxfEntities, underlay);
   const snapEntities = officialDxfSnapEntities(underlay, dxfWorldEntities);
 
   function snappedWorldAt(clientX: number, clientY: number): { x: number; y: number; hit: DxfSnapHit | null } {
@@ -897,103 +861,22 @@ export function TopView2D({
     beginVertexStretch(roomId, resolved.vertexIndex, resolved.polygon, original);
   }
 
-  const underlayScreen = useMemo(() => {
-    if (!underlay || !underlaySize) return null;
-    return {
-      x: ox + (underlay.offsetX - world.minX) * scale,
-      y:
-        oy +
-        (world.minY + world.depth - (underlay.offsetY + underlaySize.heightM)) * scale,
-      width: underlaySize.widthM * scale,
-      height: underlaySize.heightM * scale,
-      flipImageX: false,
-      flipImageY: true,
-    };
-  }, [underlay, underlaySize, ox, oy, scale, world.minX, world.minY, world.depth]);
-
-  const falseColorModels = useMemo(() => {
-    if (!results || !showFalseColor) return [];
-    return officialPlanIsoluxModels({
-      rooms,
-      results,
-      fixtures: scene.instances,
-      showFalseColor: true,
-      showIsolines: false,
-      showValueLabels: false,
-      colorScale: falseColorScale,
-      targetLongSide: falseColorLongSide,
-    }).map(({ model }) => model);
-  }, [results, showFalseColor, rooms, scene.instances, falseColorScale, falseColorLongSide]);
-
-  const roomFillLayers = useMemo(
-    () =>
-      rooms.map((room) => ({
-        polygon: room.polygon,
-        fill:
-          room.id === scene.ui.activeRoomId
-            ? "rgba(31,111,139,0.25)"
-            : "rgba(42,59,70,0.55)",
-      })),
-    [rooms, scene.ui.activeRoomId]
-  );
+  const underlayScreen =
+    underlay && underlaySize
+      ? {
+          x: ox + (underlay.offsetX - world.minX) * scale,
+          y:
+            oy +
+            (world.minY + world.depth - (underlay.offsetY + underlaySize.heightM)) * scale,
+          width: underlaySize.widthM * scale,
+          height: underlaySize.heightM * scale,
+          flipImageX: false,
+          flipImageY: true,
+        }
+      : null;
 
   const liveMm =
     last && preview ? Math.round(mToMm(Math.hypot(preview.x - last.x, preview.y - last.y))) : null;
-
-  useLayoutEffect(() => {
-    const canvas = staticRasterRef.current;
-    const host = hostRef.current;
-    if (!canvas || !host) return;
-    const box = host.getBoundingClientRect();
-    const underlayImage = underlayImageRef.current;
-    const underlayReady =
-      underlay &&
-      underlayScreen &&
-      underlayImage &&
-      underlayImage.complete &&
-      underlayImage.naturalWidth > 0
-        ? {
-            image: underlayImage,
-            x: underlayScreen.x,
-            y: underlayScreen.y,
-            width: underlayScreen.width,
-            height: underlayScreen.height,
-            flipImageX: underlayScreen.flipImageX,
-            flipImageY: underlayScreen.flipImageY,
-            opacity: underlay.opacity,
-          }
-        : null;
-    const ok = paintStaticPlanLayer(canvas, {
-      cssWidth: box.width,
-      cssHeight: box.height,
-      viewW,
-      viewH,
-      background: "#0f1c24",
-      underlay: underlayReady,
-      polylines: dxfStrokePolylines,
-      toScreen,
-      roomFills: roomFillLayers,
-      falseColor: falseColorModels,
-      falseColorOpacity: 0.92,
-      stroke: PLAN_DXF_STROKE,
-    });
-    if (ok) staticPaintGenRef.current += 1;
-  }, [
-    dxfStrokePolylines,
-    underlay,
-    underlayScreen,
-    underlayImageGen,
-    roomFillLayers,
-    falseColorModels,
-    viewW,
-    viewH,
-    ox,
-    oy,
-    scale,
-    world.minX,
-    world.minY,
-    world.depth,
-  ]);
 
   usePlanPointerNav(svgRef, {
     viewW,
@@ -1002,10 +885,6 @@ export function TopView2D({
     fitOy,
     fitScale,
     setPlanView,
-    hostRef,
-    snapshotRef: navSnapshotRef,
-    staticRasterRef,
-    contentKeyRef: staticPaintGenRef,
     panningRef,
     navGroupRef,
     liveViewRef,
@@ -1016,8 +895,7 @@ export function TopView2D({
   return (
     <div
       ref={hostRef}
-      className="relative w-full h-full min-h-0 overflow-hidden bg-[#0f1c24]"
-      style={{ touchAction: "none" }}
+      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
       onDragOver={(e) => e.preventDefault()}
       onMouseLeave={() => {
         snapMarkerRef.current?.setHit(null);
@@ -1047,20 +925,6 @@ export function TopView2D({
         onDropLuminaire(luminaireId, snapped.x, snapped.y);
       }}
     >
-      <canvas
-        ref={staticRasterRef}
-        data-plan-static-raster=""
-        className="pointer-events-none absolute inset-0"
-        style={{ display: "block", transformOrigin: "0 0" }}
-        aria-hidden
-      />
-      <canvas
-        ref={navSnapshotRef}
-        data-plan-nav-snapshot=""
-        className="pointer-events-none absolute inset-0"
-        style={{ display: "none", transformOrigin: "0 0" }}
-        aria-hidden
-      />
       <svg
         ref={svgRef}
         viewBox={`0 0 ${viewW} ${viewH}`}
@@ -1151,8 +1015,46 @@ export function TopView2D({
           }
         }}
       >
-        <rect data-plan-bg="true" width={viewW} height={viewH} fill="transparent" />
+        <rect data-plan-bg="true" width={viewW} height={viewH} fill="#0f1c24" />
         <g ref={navGroupRef} data-plan-nav-layer="">
+
+        {underlayUrl && underlay && underlayScreen && (() => {
+          const fx = underlayScreen.flipImageX ? -1 : 1;
+          const fy = underlayScreen.flipImageY ? -1 : 1;
+          const tx =
+            underlayScreen.x + (fx === -1 ? underlayScreen.width : 0);
+          const ty =
+            underlayScreen.y + (fy === -1 ? underlayScreen.height : 0);
+          return (
+            <g transform={`translate(${tx} ${ty}) scale(${fx} ${fy})`}>
+              <image
+                href={underlayUrl}
+                x={0}
+                y={0}
+                width={underlayScreen.width}
+                height={underlayScreen.height}
+                opacity={underlay.opacity}
+                preserveAspectRatio="none"
+              />
+            </g>
+          );
+        })()}
+
+        {dxfWorldEntities.map((ent, idx) => {
+          const pts = officialDxfPolylineStrokePoints(ent).map((p) =>
+            toScreen(p.x, p.y)
+          );
+          if (pts.length < 2) return null;
+          return (
+            <polyline
+              key={idx}
+              fill="none"
+              stroke="#6a8a9a"
+              strokeWidth={1}
+              points={pts.map((p) => `${p.x},${p.y}`).join(" ")}
+            />
+          );
+        })}
 
         {rooms.map((room) => {
           const active = room.id === scene.ui.activeRoomId;
@@ -1160,7 +1062,7 @@ export function TopView2D({
             <polygon
               key={room.id}
               points={polyPoints(room)}
-              fill="transparent"
+              fill={active ? "rgba(31,111,139,0.25)" : "rgba(42,59,70,0.55)"}
               stroke={active ? "#c45c26" : "#8aa0ad"}
               strokeWidth={active ? 2 : 1}
               style={{
@@ -1514,8 +1416,6 @@ export function TopView2D({
             viewOy={oy}
             viewScale={scale}
             colorScale={falseColorScale}
-            targetLongSide={falseColorLongSide}
-            showFieldImages={false}
           />
         )}
 

@@ -231,7 +231,6 @@ import {
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
 import { officialWriteCachedProjectOpen } from "@/lib/official-project-open-cache";
-import { useEditorDisplayQuality } from "@/lib/editor-display-quality";
 import { saveReminderDue, startSaveReminderEpoch } from "@/lib/save-reminder";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
@@ -3343,7 +3342,6 @@ export function BuildingEditor({
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
-  const { falseColorLongSide } = useEditorDisplayQuality();
   const viewScaleRef = useRef(scale);
   viewScaleRef.current = scale;
   useEffect(() => {
@@ -3547,7 +3545,6 @@ export function BuildingEditor({
           showIsolines={planShowIsolines}
           showValueLabels={planValueLabels}
           falseColorScale={scale}
-          falseColorLongSide={falseColorLongSide}
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           selectedId={selectedId}
@@ -3664,7 +3661,6 @@ export function BuildingEditor({
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
           falseColorScale={scale}
-          falseColorLongSide={falseColorLongSide}
           showValueLabels={planValueLabels}
           showIsolines={planShowIsolines}
           showWorkplane={showWorkplane}

@@ -6,10 +6,8 @@ import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import { legendStopsForScale, normalizeFalseColorScale } from "@/lib/false-color";
 
 function formatLux(value: number): string {
-  if (!Number.isFinite(value)) return "";
-  const rounded = Math.round(value * 10) / 10;
-  if (Math.abs(rounded - Math.round(rounded)) < 1e-6) return String(Math.round(rounded));
-  return rounded.toFixed(1);
+  if (value >= 100 || Number.isInteger(value)) return String(Math.round(value));
+  return value.toFixed(1);
 }
 
 export function FalseColorLegend({
@@ -34,7 +32,7 @@ export function FalseColorLegend({
   tone?: "light" | "dark";
   /** "bar" is a short, full-width strip under the 3D window. */
   layout?: "card" | "bar";
-  /** Greyscale uses a grey gradient and title; false colour uses a continuous nine-stop scale. */
+  /** Greyscale uses a grey gradient and title; the official false-colour ramp is unchanged. */
   palette?: IsoluxPalette;
 }) {
   const fallback = normalizeFalseColorScale(
@@ -157,7 +155,7 @@ export function FalseColorLegend({
 
         <div className="relative flex-1 min-w-0">
           <div
-            className={`w-full rounded-sm border ${dark ? "border-[#3a5160]" : "border-[var(--line)]"} ${isBar ? "h-2.5" : "h-3.5"}`}
+            className={`w-full rounded-sm border ${dark ? "border-[#3a5160]" : "border-[var(--line)]"} ${isBar ? "h-2" : "h-3"}`}
             style={{ background: gradient }}
             aria-hidden
           />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import type {
   FalseColorScale,
   IsoluxModel,
@@ -22,20 +22,6 @@ function pointsAttr(pts: ScreenPt[]): string {
   return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 }
 
-function canvasPngToBlobUrl(canvas: HTMLCanvasElement): string | null {
-  const dataUrl = canvas.toDataURL("image/png");
-  const comma = dataUrl.indexOf(",");
-  if (comma < 0) return null;
-  const binary = atob(dataUrl.slice(comma + 1));
-  const bytes = new Uint8Array(binary.length);
-  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
-  return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
-}
-
-/**
- * Short blob URL for a workplane bitmap. A data URL must not be placed in the
- * live SVG — those strings are huge and make pan snapshots / DOM updates lag.
- */
 function fieldImageHref(model: IsoluxModel): string | null {
   if (typeof document === "undefined") return null;
   if (model.field.length < model.width * model.height * 4) return null;
@@ -47,7 +33,7 @@ function fieldImageHref(model: IsoluxModel): string | null {
   const image = new ImageData(model.width, model.height);
   image.data.set(model.field);
   ctx.putImageData(image, 0, 0);
-  return canvasPngToBlobUrl(canvas);
+  return canvas.toDataURL("image/png");
 }
 
 export function PlanIsoluxOverlay({
@@ -59,8 +45,6 @@ export function PlanIsoluxOverlay({
   showValueLabels,
   toScreen,
   colorScale,
-  targetLongSide,
-  showFieldImages = true,
 }: {
   scene: ProjectSceneV2;
   rooms: RoomV2[];
@@ -76,10 +60,6 @@ export function PlanIsoluxOverlay({
   viewOy?: number;
   viewScale?: number;
   colorScale?: FalseColorScale;
-  /** Live false-colour bitmap long side. Defaults to the official 800. */
-  targetLongSide?: number;
-  /** When false, field bitmaps are painted on the static plan raster instead. */
-  showFieldImages?: boolean;
 }) {
   const isolineSettings = isolineSettingsFromUi(scene.ui);
   const models = useMemo(
@@ -93,7 +73,6 @@ export function PlanIsoluxOverlay({
         showValueLabels,
         colorScale,
         isolineSettings,
-        targetLongSide,
       }),
     [
       rooms,
@@ -105,12 +84,11 @@ export function PlanIsoluxOverlay({
       showValueLabels,
       isolineSettings.mode,
       isolineSettings.levels,
-      targetLongSide,
     ]
   );
 
   const fieldImages = useMemo(() => {
-    if (!showFalseColor || !showFieldImages) return [] as { room: RoomV2; model: IsoluxModel; href: string }[];
+    if (!showFalseColor) return [] as { room: RoomV2; model: IsoluxModel; href: string }[];
     const out: { room: RoomV2; model: IsoluxModel; href: string }[] = [];
     for (const { room, model } of models) {
       const href = fieldImageHref(model);
@@ -118,21 +96,13 @@ export function PlanIsoluxOverlay({
     }
     return out;
     // Field bitmaps are baked once per isolux model — not when the committed view pan/zoom changes.
-  }, [models, showFalseColor, showFieldImages]);
-
-  useEffect(() => {
-    const urls = fieldImages.map((item) => item.href).filter((href) => href.startsWith("blob:"));
-    return () => {
-      for (const href of urls) URL.revokeObjectURL(href);
-    };
-  }, [fieldImages]);
+  }, [models, showFalseColor]);
 
   if (models.length === 0 && fieldImages.length === 0) return null;
 
   return (
     <g data-plan-isolux-overlay="" pointerEvents="none">
       {showFalseColor &&
-        showFieldImages &&
         fieldImages.map(({ room, model, href }) => {
           const rect = isoluxFieldScreenRect(model.world, model.width, model.height, toScreen);
           if (!rect) return null;
