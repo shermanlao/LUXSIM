@@ -1,9 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
-import { legendStopsForScale, normalizeFalseColorScale } from "@/lib/false-color";
+import {
+  officialChartLegendStops,
+  normalizeFalseColorScale,
+  OFFICIAL_FALSE_COLOR_SCALE,
+  OFFICIAL_FALSE_COLOR_CHART_TICKS,
+} from "@/lib/false-color";
 import { FALSE_COLOR_SCALE_APPLY_PROMPT } from "@/lib/false-color-scale-commit";
 
 function formatLux(value: number): string {
@@ -58,17 +63,14 @@ export function FalseColorLegend({
   }, [committed.minLux, committed.maxLux]);
 
   const current = draft;
-  const stops = legendStopsForScale(current, palette);
+  const stops = officialChartLegendStops(palette);
   const hasResults = Boolean(results) || eminProp != null || emaxProp != null || scale != null;
   const gradient = `linear-gradient(90deg, ${stops
     .map((s, i) => `${s.color} ${(i / Math.max(stops.length - 1, 1)) * 100}%`)
     .join(", ")})`;
 
-  const domainMax = useMemo(() => {
-    const raw = Math.max(current.maxLux, fallback.maxLux, 500);
-    const nice = [200, 250, 500, 750, 1000, 1500, 2000, 2500, 5000];
-    return nice.find((v) => v >= raw) ?? Math.ceil(raw / 500) * 500;
-  }, [current.maxLux, fallback.maxLux]);
+  const domainMax = OFFICIAL_FALSE_COLOR_SCALE.maxLux;
+  const domainMin = OFFICIAL_FALSE_COLOR_SCALE.minLux;
 
   const interactive = typeof onChange === "function";
   const dark = tone === "dark" || layout === "bar";
@@ -159,7 +161,8 @@ export function FalseColorLegend({
           <input
             id="falsecolor-min"
             type="number"
-            min={0}
+            min={domainMin}
+            max={domainMax}
             step={1}
             value={Math.round(current.minLux)}
             onChange={(e) => onMinInput(e.target.value)}
@@ -187,7 +190,7 @@ export function FalseColorLegend({
             <div className="relative h-3">
               <input
                 type="range"
-                min={0}
+                min={domainMin}
                 max={domainMax}
                 step={1}
                 value={Math.min(current.minLux, current.maxLux - 1)}
@@ -201,7 +204,7 @@ export function FalseColorLegend({
               />
               <input
                 type="range"
-                min={0}
+                min={domainMin}
                 max={domainMax}
                 step={1}
                 value={Math.max(current.maxLux, current.minLux + 1)}
@@ -216,10 +219,10 @@ export function FalseColorLegend({
             </div>
           )}
           <div className={`mt-0.5 flex justify-between text-[10px] tabular-nums ${dark ? "text-[#8fa3ad]" : "text-[var(--muted)]"}`}>
-            {stops.map((s, i) => (
-              <span key={`${s.lux}-${i}`}>
-                {formatLux(s.lux)}
-                {i === stops.length - 1 && !interactive ? " lx" : ""}
+            {OFFICIAL_FALSE_COLOR_CHART_TICKS.map((lux, i) => (
+              <span key={lux}>
+                {formatLux(lux)}
+                {i === OFFICIAL_FALSE_COLOR_CHART_TICKS.length - 1 && !interactive ? " lx" : ""}
               </span>
             ))}
           </div>
@@ -229,7 +232,8 @@ export function FalseColorLegend({
           <input
             id="falsecolor-max"
             type="number"
-            min={0}
+            min={domainMin}
+            max={domainMax}
             step={1}
             value={Math.round(current.maxLux)}
             onChange={(e) => onMaxInput(e.target.value)}

@@ -239,6 +239,7 @@ export function BuildingScene3D({
   initialView,
   photometry,
   falseColorScale,
+  showIlluminanceField = true,
   showValueLabels = false,
   showIsolines = false,
   showWorkplane = true,
@@ -259,6 +260,8 @@ export function BuildingScene3D({
   initialView: Camera3dView | null;
   photometry?: Record<string, PhotometricData>;
   falseColorScale?: FalseColorScale;
+  /** When false, hide the false-colour / greyscale field meshes. Isolines stay. */
+  showIlluminanceField?: boolean;
   showValueLabels?: boolean;
   showIsolines?: boolean;
   showWorkplane?: boolean;
@@ -362,7 +365,8 @@ export function BuildingScene3D({
           </group>
         ))}
 
-        {(display3d === "falsecolor" || display3d === "greyscale") &&
+        {showIlluminanceField &&
+          (display3d === "falsecolor" || display3d === "greyscale") &&
           results &&
           rooms.map((room) => {
             const res = results.byRoomId[room.id];

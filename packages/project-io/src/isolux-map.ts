@@ -5,8 +5,10 @@ import type { FixtureInstance, RoomV2, Vec2 } from "./types";
 import { pointInPolygon, roomBounds } from "./geometry";
 
 /**
- * Nine official false-colour stops, mapped evenly across the current min–max lux
- * scale. Colours between adjacent stops are interpolated smoothly.
+ * Nine official false-colour stops on the official 0–2500 lx chart.
+ * Colours between adjacent stops are interpolated smoothly. A user min–max
+ * window selects and clamps a range within this chart; it does not stretch
+ * the palette so that min becomes the first stop and max the last.
  */
 export const OFFICIAL_FALSE_COLOR_BANDS: readonly { r: number; g: number; b: number }[] = [
   { r: 0, g: 0, b: 0 },
@@ -27,17 +29,26 @@ export interface FalseColorScale {
   maxLux: number;
 }
 
-/** Official default illuminance scale. The nine colour stops stretch across this range until the user changes min/max. */
+/** Official 0–2500 lx domain of the false-colour / greyscale chart. */
 export const OFFICIAL_FALSE_COLOR_SCALE: FalseColorScale = {
   minLux: 0,
   maxLux: 2500,
 };
 
+/** Even lux labels under the official chart (not the selected window). */
+export const OFFICIAL_FALSE_COLOR_CHART_TICKS = [0, 500, 1000, 1500, 2000, 2500] as const;
+
 export function normalizeFalseColorScale(minLux: number, maxLux: number): FalseColorScale {
-  const a = Number.isFinite(minLux) ? minLux : 0;
-  const b = Number.isFinite(maxLux) ? maxLux : a + 1;
-  const lo = Math.max(0, Math.min(a, b));
-  const hi = Math.max(lo + 1, Math.max(a, b));
+  const domainLo = OFFICIAL_FALSE_COLOR_SCALE.minLux;
+  const domainHi = OFFICIAL_FALSE_COLOR_SCALE.maxLux;
+  const a = Number.isFinite(minLux) ? minLux : domainLo;
+  const b = Number.isFinite(maxLux) ? maxLux : domainHi;
+  const lo = Math.max(domainLo, Math.min(a, b, domainHi));
+  const hi = Math.min(domainHi, Math.max(a, b, domainLo));
+  if (hi <= lo) {
+    if (lo >= domainHi) return { minLux: Math.max(domainLo, domainHi - 1), maxLux: domainHi };
+    return { minLux: lo, maxLux: Math.min(domainHi, lo + 1) };
+  }
   return { minLux: lo, maxLux: hi };
 }
 
@@ -98,10 +109,22 @@ function paletteRgbAtT(t: number): [number, number, number] {
   ];
 }
 
-function absoluteLuxToRgb(lux: number): [number, number, number] {
+function officialPaletteT(lux: number): number {
   const range = OFFICIAL_FALSE_COLOR_SCALE;
-  const t = (lux - range.minLux) / (range.maxLux - range.minLux);
-  return paletteRgbAtT(t);
+  const span = range.maxLux - range.minLux;
+  if (!(span > 0)) return 0;
+  return (lux - range.minLux) / span;
+}
+
+function clampLuxToWindow(lux: number, scale?: FalseColorScale | number): number {
+  const window = isFalseColorScale(scale)
+    ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
+    : OFFICIAL_FALSE_COLOR_SCALE;
+  return Math.max(window.minLux, Math.min(window.maxLux, lux));
+}
+
+function absoluteLuxToRgb(lux: number): [number, number, number] {
+  return paletteRgbAtT(officialPaletteT(lux));
 }
 
 export type IsoluxPalette = "falsecolor" | "greyscale";
@@ -116,16 +139,12 @@ export const GREYSCALE_SRGB_MIN = 0.42;
 export const GREYSCALE_SRGB_MAX = 1;
 
 /**
- * Map illuminance to greyscale.
- * When a scale is provided, minLux and maxLux are stretched across the full
- * grey range so the legend and the 3D surfaces stay in lock-step.
+ * Map illuminance to greyscale on the official 0–2500 lx ramp.
+ * A scale window clamps to the grey at the left/right handle (the official t
+ * at that lux), not a stretch that forces min to the floor and max to white.
  */
 export function luxToGrey(lux: number, scale?: FalseColorScale | number): [number, number, number] {
-  const range = isFalseColorScale(scale)
-    ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
-    : { minLux: 0, maxLux: 2500 };
-  const span = Math.max(1e-9, range.maxLux - range.minLux);
-  const t = Math.max(0, Math.min(1, (lux - range.minLux) / span));
+  const t = Math.max(0, Math.min(1, officialPaletteT(clampLuxToWindow(lux, scale))));
   const g = GREYSCALE_SRGB_MIN + (GREYSCALE_SRGB_MAX - GREYSCALE_SRGB_MIN) * t;
   return [g, g, g];
 }
@@ -137,9 +156,7 @@ export function luxToRgb(
 ): [number, number, number] {
   if (palette === "greyscale") return luxToGrey(lux, scale);
   if (isFalseColorScale(scale)) {
-    const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
-    const t = (lux - range.minLux) / (range.maxLux - range.minLux);
-    return paletteRgbAtT(t);
+    return paletteRgbAtT(officialPaletteT(clampLuxToWindow(lux, scale)));
   }
   return absoluteLuxToRgb(lux);
 }
@@ -156,14 +173,15 @@ export function falseColorRgbaLut(
   scale?: FalseColorScale,
   palette: IsoluxPalette = "falsecolor"
 ): Uint8ClampedArray {
+  const domain = OFFICIAL_FALSE_COLOR_SCALE;
   const range = isFalseColorScale(scale)
     ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
-    : OFFICIAL_FALSE_COLOR_SCALE;
+    : domain;
   const lut = new Uint8ClampedArray(FALSE_COLOR_LUT_SIZE * 4);
   const last = FALSE_COLOR_LUT_SIZE - 1;
-  const span = range.maxLux - range.minLux;
+  const span = domain.maxLux - domain.minLux;
   for (let i = 0; i <= last; i += 1) {
-    const lux = range.minLux + (i / last) * span;
+    const lux = domain.minLux + (i / last) * span;
     const [r, g, b] = luxToRgb(lux, range, palette);
     const j = i * 4;
     lut[j] = Math.round(r * 255);
@@ -177,14 +195,13 @@ export function falseColorRgbaLut(
 function lutSampleRgba(
   lut: Uint8ClampedArray,
   lux: number,
-  minLux: number,
-  maxLux: number,
   dest: Uint8ClampedArray,
   offset: number
 ) {
   const last = (lut.length >> 2) - 1;
-  const span = maxLux - minLux;
-  const t = span > 0 ? (lux - minLux) / span : 0;
+  const domain = OFFICIAL_FALSE_COLOR_SCALE;
+  const span = domain.maxLux - domain.minLux;
+  const t = span > 0 ? (lux - domain.minLux) / span : 0;
   const i = t <= 0 ? 0 : t >= 1 ? last : (t * last) | 0;
   const j = i * 4;
   dest[offset] = lut[j]!;
@@ -231,16 +248,29 @@ export function isoluxLevels(emin: number, emax: number): number[] {
   return levels;
 }
 
-/** Tick labels and colours at the nine official false-colour stops (or greyscale at those lux values). */
+/**
+ * Tick labels at the official 0–2500 colour-stop luxes, coloured with the
+ * official palette and the given window clamp (for field / report legends).
+ */
 export function legendStopsForScale(
   scale: FalseColorScale,
   palette: IsoluxPalette = "falsecolor"
 ): { lux: number; color: string }[] {
   const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
-  return officialFalseColorBandLuxes(range.minLux, range.maxLux).map((lux) => ({
+  return officialFalseColorBandLuxes(
+    OFFICIAL_FALSE_COLOR_SCALE.minLux,
+    OFFICIAL_FALSE_COLOR_SCALE.maxLux
+  ).map((lux) => ({
     lux,
     color: rgbCss(luxToRgb(lux, range, palette)),
   }));
+}
+
+/** Full official chart stops with no window clamp — used by the scale-bar picker. */
+export function officialChartLegendStops(
+  palette: IsoluxPalette = "falsecolor"
+): { lux: number; color: string }[] {
+  return legendStopsForScale(OFFICIAL_FALSE_COLOR_SCALE, palette);
 }
 
 export type IsoluxMode = "falsecolor" | "isolines";
@@ -606,7 +636,7 @@ export function buildIsoluxModel(
       const lux = sampleLux(grid, b, x, y);
       const i = (py * width + px) * 4;
       if (mode === "falsecolor" && colourLut) {
-        lutSampleRgba(colourLut, lux, colourRange.minLux, colourRange.maxLux, field, i);
+        lutSampleRgba(colourLut, lux, field, i);
       }
     }
   }

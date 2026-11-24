@@ -5,10 +5,13 @@ export {
   rgbCss,
   legendStopsForRange,
   legendStopsForScale,
+  officialChartLegendStops,
   isoluxLevels,
   DIALUX_LUX_STOPS,
   normalizeFalseColorScale,
   isFalseColorScale,
+  OFFICIAL_FALSE_COLOR_SCALE,
+  OFFICIAL_FALSE_COLOR_CHART_TICKS,
 } from "@luxsim/project-io";
 export type { FalseColorScale } from "@luxsim/project-io";
 

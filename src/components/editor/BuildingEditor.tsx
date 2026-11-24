@@ -3070,6 +3070,7 @@ export function BuildingEditor({
       if (!res) continue;
       const snap = await gridToFalseColorJpegDataUrlAsync(room, res, {
         yieldTo: officialWaitYield,
+        colorScale: scale,
       });
       if (snap) falseColorSnapshots[room.id] = snap;
       await officialWaitYield();
@@ -3089,6 +3090,7 @@ export function BuildingEditor({
             results,
             photometry,
             overviewCamera: fitOverviewCamera(scene),
+            falseColorScale: scale,
           },
           officialWaitYield
         ),
@@ -3136,6 +3138,7 @@ export function BuildingEditor({
         photometry,
         wattsById,
         falseColorSnapshots,
+        colorScale: scale,
         isoluxSnapshots,
         projectPerspectiveGreyscale,
         projectPerspectiveFalseColor,
@@ -3564,6 +3567,7 @@ export function BuildingEditor({
           variant="top"
           results={results}
           showFalseColor={planShowFalseColor}
+          paintFalseColorField={planShowFalseColor && !scaleDirty}
           showIsolines={planShowIsolines}
           showValueLabels={planValueLabels}
           falseColorScale={scale}
@@ -3683,6 +3687,7 @@ export function BuildingEditor({
           viewRef={camera3dRef}
           initialView={scene.ui.camera3d ?? camera3dRef.current}
           falseColorScale={scale}
+          showIlluminanceField={!scaleDirty}
           showValueLabels={planValueLabels}
           showIsolines={planShowIsolines}
           showWorkplane={showWorkplane}

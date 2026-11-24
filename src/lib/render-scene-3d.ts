@@ -12,6 +12,7 @@ import {
   OFFICIAL_FALSE_COLOR_SCALE,
   type Camera3dView,
   type Display3dMode,
+  type FalseColorScale,
   type ProjectSceneV2,
   type ResultsV2,
   type RoomV2,
@@ -124,6 +125,7 @@ export interface RenderBuilding3dOpts {
   width?: number;
   height?: number;
   quality?: number;
+  falseColorScale?: FalseColorScale;
 }
 
 function renderMode(
@@ -141,6 +143,7 @@ function renderMode(
     storeyId: opts.storeyId,
     isolateRoomId: opts.isolateRoomId,
     highlightRoomId: opts.highlightRoomId ?? null,
+    falseColorScale: opts.falseColorScale ?? OFFICIAL_FALSE_COLOR_SCALE,
   });
   try {
     const jpegOpts = {
@@ -175,6 +178,7 @@ export function renderOfficialReport3dIsolines(
     storeyId: opts.storeyId,
     isolateRoomId: opts.isolateRoomId,
     highlightRoomId: opts.highlightRoomId ?? null,
+    falseColorScale: opts.falseColorScale ?? OFFICIAL_FALSE_COLOR_SCALE,
   });
   const workplaneDisposables: Array<{ dispose: () => void }> = [];
   let isolineOverlay: { hasOverlay: boolean; dispose: () => void } = {
@@ -190,7 +194,7 @@ export function renderOfficialReport3dIsolines(
         room,
         res,
         built.elevationM,
-        OFFICIAL_FALSE_COLOR_SCALE,
+        opts.falseColorScale ?? OFFICIAL_FALSE_COLOR_SCALE,
         "greyscale"
       );
       if (!official) continue;
@@ -280,6 +284,7 @@ export function renderAllReport3dViews(opts: {
   overviewHeight?: number;
   roomWidth?: number;
   roomHeight?: number;
+  falseColorScale?: FalseColorScale;
 }): {
   projectGreyscale: string;
   projectFalseColor: string;
@@ -293,6 +298,7 @@ export function renderAllReport3dViews(opts: {
     scene: opts.scene,
     results: opts.results,
     photometry: opts.photometry,
+    falseColorScale: opts.falseColorScale,
     camera: opts.overviewCamera ?? fitOverviewCamera(opts.scene, storeyId),
     storeyId,
     width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
@@ -311,6 +317,7 @@ export function renderAllReport3dViews(opts: {
       scene: opts.scene,
       results: opts.results,
       photometry: opts.photometry,
+      falseColorScale: opts.falseColorScale,
       room,
       elevationM: storey?.elevationM ?? 0,
       width: opts.roomWidth ?? REPORT_3D_ROOM_WIDTH,
@@ -323,6 +330,7 @@ export function renderAllReport3dViews(opts: {
         scene: opts.scene,
         results: opts.results,
         photometry: opts.photometry,
+        falseColorScale: opts.falseColorScale,
         camera: pair.camera,
         storeyId: room.storeyId,
         isolateRoomId: room.id,
@@ -353,6 +361,7 @@ export async function renderAllReport3dViewsAsync(
     overviewHeight?: number;
     roomWidth?: number;
     roomHeight?: number;
+    falseColorScale?: FalseColorScale;
   },
   yieldTo: () => Promise<void> = () => Promise.resolve()
 ): Promise<{
@@ -371,6 +380,7 @@ export async function renderAllReport3dViewsAsync(
       scene: opts.scene,
       results: opts.results,
       photometry: opts.photometry,
+      falseColorScale: opts.falseColorScale,
       camera: opts.overviewCamera ?? fitOverviewCamera(opts.scene, storeyId),
       storeyId,
       width: opts.overviewWidth ?? REPORT_3D_OVERVIEW_WIDTH,
@@ -393,6 +403,7 @@ export async function renderAllReport3dViewsAsync(
         scene: opts.scene,
         results: opts.results,
         photometry: opts.photometry,
+        falseColorScale: opts.falseColorScale,
         isolateRoomId: room.id,
         highlightRoomId: null as string | null,
         storeyId: room.storeyId,

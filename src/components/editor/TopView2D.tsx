@@ -147,6 +147,8 @@ type Props = {
   /** Calculation results for the plan isolux / value-label overlay. */
   results?: ResultsV2 | null;
   showFalseColor?: boolean;
+  /** When false, omit the colour / greyscale field from the static plan bitmap. Isolines stay. */
+  paintFalseColorField?: boolean;
   showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
@@ -207,6 +209,7 @@ export function TopView2D({
   onFilletAllPickCancel,
   results = null,
   showFalseColor = true,
+  paintFalseColorField,
   showIsolines = false,
   showValueLabels = false,
   falseColorScale,
@@ -970,7 +973,7 @@ export function TopView2D({
       roomFills: roomFillLayers,
       falseColor: isoluxModels,
       falseColorOpacity: 0.92,
-      showFalseColor,
+      showFalseColor: paintFalseColorField ?? showFalseColor,
       showIsolines,
       showValueLabels,
       stroke: PLAN_DXF_STROKE,
@@ -984,6 +987,7 @@ export function TopView2D({
     roomFillLayers,
     isoluxModels,
     showFalseColor,
+    paintFalseColorField,
     showIsolines,
     showValueLabels,
     viewW,

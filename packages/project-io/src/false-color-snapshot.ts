@@ -1,14 +1,18 @@
 import type { CalcResults } from "../../solver/src/types";
 import { pointInPolygon, roomBounds } from "./geometry";
 import { luxToRgb } from "./isolux-map";
+import type { FalseColorScale } from "./isolux-map";
 import type { RoomV2 } from "./types";
 
 /**
  * Workplane cell colour for the official report figure.
- * Uses the same official 0–2500 lx continuous colour scale as `drawLuxLegend`.
+ * Official 0–2500 palette, clamped to the applied min–max window when given.
  */
-export function workplaneFalseColorRgb(lux: number): [number, number, number] {
-  return luxToRgb(lux);
+export function workplaneFalseColorRgb(
+  lux: number,
+  scale?: FalseColorScale
+): [number, number, number] {
+  return luxToRgb(lux, scale);
 }
 
 export type OfficialYield = () => Promise<void>;
@@ -125,6 +129,7 @@ function paintFalseColor(
   samples: number,
   width: number,
   height: number,
+  scale?: FalseColorScale,
   onRow?: (j: number) => void
 ) {
   const { grid } = results;
@@ -168,7 +173,7 @@ function paintFalseColor(
         setPx(px, py, OUTSIDE);
         continue;
       }
-      const [r, g, bch] = workplaneFalseColorRgb(lux);
+      const [r, g, bch] = workplaneFalseColorRgb(lux, scale);
       setPx(px, py, [Math.round(r * 255), Math.round(g * 255), Math.round(bch * 255)]);
     }
   }
@@ -182,6 +187,7 @@ export type FalseColorSnapshotOpts = {
   quality?: number;
   format?: "jpeg" | "png";
   createCanvas?: OfficialFalseColorCanvasFactory;
+  colorScale?: FalseColorScale;
 };
 
 function encodeFalseColor(
@@ -209,7 +215,7 @@ export function gridToFalseColorJpegDataUrl(
   if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  paintFalseColor(ctx, room, results, samples, width, height);
+  paintFalseColor(ctx, room, results, samples, width, height, opts?.colorScale);
   return encodeFalseColor(canvas, opts);
 }
 
@@ -233,6 +239,7 @@ export async function gridToFalseColorJpegDataUrlAsync(
   if (!canvas) return null;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+  const colorScale = opts?.colorScale;
 
   // paintFalseColor is sync; yield by painting in row bands instead.
   const image = ctx.createImageData(width, height);
@@ -273,7 +280,7 @@ export async function gridToFalseColorJpegDataUrlAsync(
         setPx(px, py, OUTSIDE);
         continue;
       }
-      const [r, g, bch] = workplaneFalseColorRgb(lux);
+      const [r, g, bch] = workplaneFalseColorRgb(lux, colorScale);
       setPx(px, py, [Math.round(r * 255), Math.round(g * 255), Math.round(bch * 255)]);
     }
   }

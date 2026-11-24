@@ -4,7 +4,7 @@ import { polarPlane, polarToXY } from "../../photometry/src/interpolate";
 import { formatCct, formatDimensions, luminaireBody, resolvedFlux } from "../../photometry/src/flux";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import { roomAreaM2 } from "./geometry";
-import { legendStopsForScale, luxToRgb, OFFICIAL_FALSE_COLOR_SCALE } from "./isolux-map";
+import { legendStopsForScale, luxToRgb, OFFICIAL_FALSE_COLOR_SCALE, type FalseColorScale } from "./isolux-map";
 import { choosePlanLayout, drawLightingPlan, storeysWithRooms, unionRoomBounds } from "./lighting-plan";
 import {
   REPORT_CALC_TYPE,
@@ -60,6 +60,8 @@ export interface ReportInput {
   wattsById?: Record<string, number | null | undefined>;
   /** data URLs keyed by roomId */
   falseColorSnapshots?: Record<string, string>;
+  /** Applied editor colour window. Official 0–2500 palette, clamped to this range. */
+  colorScale?: FalseColorScale;
   /** Isolux line drawing (white background) for Summary pages */
   isoluxSnapshots?: Record<string, string>;
   planSnapshots?: Record<string, string>;
@@ -235,7 +237,8 @@ class ReportPdfBuilder {
   }
 
   private drawLuxLegend(y: number, _emin?: number, _emax?: number): number {
-    const range = OFFICIAL_FALSE_COLOR_SCALE;
+    const domain = OFFICIAL_FALSE_COLOR_SCALE;
+    const range = this.input.colorScale ?? domain;
     const stops = legendStopsForScale(range);
     if (stops.length < 2) return y;
     const barW = Math.min(this.contentWidth() * 0.62, 18 + stops.length * 16);
@@ -244,7 +247,7 @@ class ReportPdfBuilder {
     const lastSlice = Math.max(1, slices - 1);
     for (let i = 0; i < slices; i += 1) {
       const t = i / lastSlice;
-      const lux = range.minLux + t * (range.maxLux - range.minLux);
+      const lux = domain.minLux + t * (domain.maxLux - domain.minLux);
       const [r, g, b] = luxToRgb(lux, range);
       this.doc.setFillColor(Math.round(r * 255), Math.round(g * 255), Math.round(b * 255));
       const x = MARGIN + (i / slices) * barW;
