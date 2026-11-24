@@ -248,6 +248,7 @@ import {
   isTypingField,
 } from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { FalseColorScaleApplyPrompt } from "./FalseColorScaleApplyPrompt";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { EditorChromeToggle } from "./EditorChromeToggle";
 import {
@@ -304,7 +305,7 @@ import { officialFormatPlanUploadAt } from "@/lib/official-plan-upload-label";
 import { officialPlanAssetFileUrl } from "@/lib/official-content-disposition";
 import { OfficialMaybeInput, OfficialMaybeSelect } from "@/components/editor/OfficialViewField";
 import { officialViewSwitchReady, shouldWaitForOfficialViewSwitch } from "@/lib/official-view-switch";
-import { shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
+import { falseColorScalesEqual, shouldApplyViewFalseColorScale } from "@/lib/false-color-scale-commit";
 import { HelpTip } from "@/components/HelpTip";
 import { libraryConeLabel, luminaireListLabel } from "@/lib/luminaire-origin";
 import {
@@ -3342,6 +3343,7 @@ export function BuildingEditor({
   const planIsoluxControls = planIsoluxControlState(results, currentStoreyRoomIds());
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
+  const [pendingScale, setPendingScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
   useEditorPerformanceMonitor();
   const viewScaleRef = useRef(scale);
@@ -3350,11 +3352,29 @@ export function BuildingEditor({
     if (!scalePinned) setScale(autoScale);
   }, [autoScale, scalePinned]);
 
+  const scaleDirty = shouldApplyViewFalseColorScale(scale, pendingScale);
+  const scaleApplyPalette =
+    viewMode === "persp3d" && display3d === "greyscale" ? "greyscale" : "falsecolor";
+  const showScaleApplyPrompt =
+    scaleDirty &&
+    ((viewMode === "top" && planShowFalseColor && Boolean(results)) ||
+      (viewMode === "persp3d" && (display3d === "falsecolor" || display3d === "greyscale")));
+
+  function setPendingViewFalseColorScale(next: FalseColorScale) {
+    setPendingScale((prev) => (falseColorScalesEqual(prev, next) ? prev : next));
+  }
+
   function commitViewFalseColorScale(next: FalseColorScale, pinned: boolean) {
+    setPendingScale(next);
     setScalePinned(pinned);
     if (!shouldApplyViewFalseColorScale(viewScaleRef.current, next)) return;
     setScale(next);
     void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {});
+  }
+
+  function applyViewFalseColorScale() {
+    const next = pendingScale;
+    commitViewFalseColorScale(next, !falseColorScalesEqual(next, autoScale));
   }
 
   function commitIsolineSettings(next: IsolineLevelSettings) {
@@ -3669,6 +3689,12 @@ export function BuildingEditor({
           onViewReady={markOfficialViewReady}
         />
       )}
+      {showScaleApplyPrompt && (
+        <FalseColorScaleApplyPrompt
+          palette={scaleApplyPalette}
+          onApply={applyViewFalseColorScale}
+        />
+      )}
       </div>
       {workflow === "calculation" &&
         ((viewMode === "persp3d" && (display3d === "falsecolor" || display3d === "greyscale")) ||
@@ -3677,12 +3703,14 @@ export function BuildingEditor({
           emin={autoScale.minLux}
           emax={autoScale.maxLux}
           results={activeResults}
-          scale={scale}
-          onChange={(next) => commitViewFalseColorScale(next, true)}
-          onReset={() => commitViewFalseColorScale(autoScale, false)}
+          scale={pendingScale}
+          onChange={setPendingViewFalseColorScale}
+          onReset={() => setPendingViewFalseColorScale(autoScale)}
+          onApply={applyViewFalseColorScale}
+          canApply={scaleDirty}
           layout="bar"
           tone="dark"
-          palette={viewMode === "persp3d" && display3d === "greyscale" ? "greyscale" : "falsecolor"}
+          palette={scaleApplyPalette}
         />
       )}
     </div>

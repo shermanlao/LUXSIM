@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CalcResults } from "@luxsim/solver";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import { legendStopsForScale, normalizeFalseColorScale } from "@/lib/false-color";
+import { FALSE_COLOR_SCALE_APPLY_PROMPT } from "@/lib/false-color-scale-commit";
 
 function formatLux(value: number): string {
   if (!Number.isFinite(value)) return "";
@@ -19,6 +20,8 @@ export function FalseColorLegend({
   scale,
   onChange,
   onReset,
+  onApply,
+  canApply = false,
   compact = false,
   tone = "light",
   layout = "card",
@@ -30,6 +33,8 @@ export function FalseColorLegend({
   scale?: FalseColorScale;
   onChange?: (scale: FalseColorScale) => void;
   onReset?: () => void;
+  onApply?: () => void;
+  canApply?: boolean;
   compact?: boolean;
   tone?: "light" | "dark";
   /** "bar" is a short, full-width strip under the 3D window. */
@@ -73,6 +78,7 @@ export function FalseColorLegend({
     const next = normalizeFalseColorScale(minLux, maxLux);
     draftRef.current = next;
     setDraft(next);
+    onChange?.(next);
   }
 
   function beginInteract() {
@@ -120,9 +126,25 @@ export function FalseColorLegend({
           <button
             type="button"
             className={`text-[10px] underline-offset-2 hover:underline ${dark ? "text-[#c5d0d6]" : "text-[var(--muted)]"}`}
-            onClick={onReset}
+            onClick={() => {
+              interactingRef.current = false;
+              onReset();
+            }}
           >
             Reset
+          </button>
+        )}
+        {onApply && canApply && (
+          <button
+            type="button"
+            className={`text-[10px] rounded-sm px-1.5 py-0.5 font-semibold ${
+              dark
+                ? "bg-[#c45c26] text-[#f5f7f8] hover:bg-[#d56a30]"
+                : "bg-[var(--accent)] text-white"
+            }`}
+            onClick={onApply}
+          >
+            {FALSE_COLOR_SCALE_APPLY_PROMPT.applyEn} / {FALSE_COLOR_SCALE_APPLY_PROMPT.applyZh}
           </button>
         )}
       </div>
