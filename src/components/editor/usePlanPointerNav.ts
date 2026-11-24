@@ -3,6 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
   captureSvgViewportToCanvas,
+  copyPlanCanvas,
   hidePlanNavSnapshot,
   showPlanNavSnapshot,
   snapshotViewKey,
@@ -31,6 +32,10 @@ type PlanPointerNavOpts = {
   hostRef: RefObject<HTMLElement | null>;
   /** Viewport-sized canvas that shows a bitmap snapshot during pan/zoom. */
   snapshotRef?: RefObject<HTMLCanvasElement | null>;
+  /** Static CAD/underlay raster shown at rest; reused as the snapshot base. */
+  staticRasterRef?: RefObject<HTMLCanvasElement | null>;
+  /** Bumps when the static raster is repainted so a warm snapshot is recaptured. */
+  contentKeyRef?: RefObject<number | string>;
   /** Set true while a middle-button pan is in progress so left-click tools stay idle. */
   panningRef?: RefObject<boolean>;
   /** World-space (or already-projected) plan content, used only as a fallback. */
@@ -58,9 +63,11 @@ function samePlanView(a: PlanZoom, b: PlanZoom): boolean {
  * middle (scroll-wheel) button pans. Left-click is not used to pan.
  *
  * During a gesture the visible viewport is captured once to a bitmap. That
- * snapshot is CSS-transformed once per frame, and the dense live SVG is hidden
- * so it is not re-rasterized on every move. React state is committed when the
- * gesture finishes, then the live SVG is shown at the new view.
+ * snapshot is CSS-transformed once per frame, and the live SVG is taken out of
+ * rendering (display:none) so it is not re-rasterized on every move. React
+ * state is committed when the gesture finishes, then the live SVG is shown at
+ * the new view. A static CAD/underlay raster, when present, is the capture base
+ * and is also hidden while the snapshot is moving.
  */
 export function usePlanPointerNav(
   svgRef: RefObject<SVGSVGElement | null>,
@@ -125,7 +132,11 @@ export function usePlanPointerNav(
 
     const endSnapshot = () => {
       snapshotActiveRef.current = false;
-      hidePlanNavSnapshot(optsRef.current.snapshotRef?.current ?? null, svg);
+      hidePlanNavSnapshot(
+        optsRef.current.snapshotRef?.current ?? null,
+        svg,
+        optsRef.current.staticRasterRef?.current ?? null
+      );
     };
     endSnapshotRef.current = endSnapshot;
 
@@ -186,13 +197,14 @@ export function usePlanPointerNav(
       const view = readCommitted();
       const o = optsRef.current;
       if (!view) return "";
-      return snapshotViewKey(view, box.width, box.height, o.viewW, o.viewH);
+      const content = o.contentKeyRef ? String(o.contentKeyRef.current ?? "") : "";
+      return `${snapshotViewKey(view, box.width, box.height, o.viewW, o.viewH)}:${content}`;
     };
 
     const activateSnapshot = () => {
       const canvas = optsRef.current.snapshotRef?.current;
       if (!canvas) return false;
-      showPlanNavSnapshot(canvas, svg);
+      showPlanNavSnapshot(canvas, svg, optsRef.current.staticRasterRef?.current ?? null);
       snapshotActiveRef.current = true;
       snapshotWarmReadyRef.current = true;
       snapshotWarmKeyRef.current = currentSnapshotKey();
@@ -205,15 +217,25 @@ export function usePlanPointerNav(
       const box = hostBox();
       if (!(box.width > 0) || !(box.height > 0)) return;
       const key = currentSnapshotKey(box);
+      const baseCanvas = optsRef.current.staticRasterRef?.current ?? null;
       if (forGesture && snapshotWarmReadyRef.current && snapshotWarmKeyRef.current === key) {
         activateSnapshot();
         const view = readLive();
         if (view) paintLive(view);
         return;
       }
+      // Start moving immediately on a static CAD raster so a slow SVG
+      // serialize cannot freeze the first frames of the gesture.
+      if (forGesture && baseCanvas && copyPlanCanvas(baseCanvas, canvas, box.width, box.height)) {
+        activateSnapshot();
+        const view = readLive();
+        if (view) paintLive(view);
+      }
       const token = snapshotPendingRef.current + 1;
       snapshotPendingRef.current = token;
-      void captureSvgViewportToCanvas(svg, canvas, box.width, box.height).then((ok) => {
+      void captureSvgViewportToCanvas(svg, canvas, box.width, box.height, {
+        baseCanvas,
+      }).then((ok) => {
         if (snapshotPendingRef.current !== token) return;
         snapshotPendingRef.current = 0;
         if (!ok) {

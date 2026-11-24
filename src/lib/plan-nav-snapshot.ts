@@ -1,9 +1,44 @@
 /** Viewport bitmap capture for live plan pan/zoom. Not applied to the live SVG. */
 
-const SNAPSHOT_DPR_CAP = 2;
+export const PLAN_SNAPSHOT_DPR_CAP = 2;
 
 function roundPx(value: number): number {
   return Math.max(1, Math.round(value));
+}
+
+/** Size a viewport canvas to the CSS box at a capped device pixel ratio. */
+export function sizePlanCanvas(
+  canvas: HTMLCanvasElement,
+  cssWidth: number,
+  cssHeight: number
+): { pixelW: number; pixelH: number; dpr: number } | null {
+  if (!(cssWidth > 0) || !(cssHeight > 0)) return null;
+  const dpr = Math.min(window.devicePixelRatio || 1, PLAN_SNAPSHOT_DPR_CAP);
+  const pixelW = roundPx(cssWidth * dpr);
+  const pixelH = roundPx(cssHeight * dpr);
+  if (canvas.width !== pixelW) canvas.width = pixelW;
+  if (canvas.height !== pixelH) canvas.height = pixelH;
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  return { pixelW, pixelH, dpr };
+}
+
+/** Copy an already-painted plan canvas into the gesture snapshot canvas. */
+export function copyPlanCanvas(
+  source: HTMLCanvasElement,
+  dest: HTMLCanvasElement,
+  cssWidth: number,
+  cssHeight: number
+): boolean {
+  if (source.width < 1 || source.height < 1) return false;
+  const sized = sizePlanCanvas(dest, cssWidth, cssHeight);
+  if (!sized) return false;
+  const ctx = dest.getContext("2d");
+  if (!ctx) return false;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.clearRect(0, 0, sized.pixelW, sized.pixelH);
+  ctx.drawImage(source, 0, 0, sized.pixelW, sized.pixelH);
+  return true;
 }
 
 function stripRasterImages(root: SVGSVGElement) {
@@ -147,32 +182,37 @@ export async function captureSvgViewportToCanvas(
   svg: SVGSVGElement,
   canvas: HTMLCanvasElement,
   cssWidth: number,
-  cssHeight: number
+  cssHeight: number,
+  opts?: { baseCanvas?: HTMLCanvasElement | null }
 ): Promise<boolean> {
-  if (!(cssWidth > 0) || !(cssHeight > 0)) return false;
-  const dpr = Math.min(window.devicePixelRatio || 1, SNAPSHOT_DPR_CAP);
-  const pixelW = roundPx(cssWidth * dpr);
-  const pixelH = roundPx(cssHeight * dpr);
-  if (canvas.width !== pixelW) canvas.width = pixelW;
-  if (canvas.height !== pixelH) canvas.height = pixelH;
-  canvas.style.width = `${cssWidth}px`;
-  canvas.style.height = `${cssHeight}px`;
+  const sized = sizePlanCanvas(canvas, cssWidth, cssHeight);
+  if (!sized) return false;
+  const { pixelW, pixelH } = sized;
 
   const ctx = canvas.getContext("2d");
   if (!ctx) return false;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.clearRect(0, 0, pixelW, pixelH);
 
-  const bg = svg.querySelector("[data-plan-bg]");
-  ctx.fillStyle = bg?.getAttribute("fill") || "#0f1c24";
-  ctx.fillRect(0, 0, pixelW, pixelH);
+  const base = opts?.baseCanvas;
+  const usedBase = Boolean(base && base.width > 0 && base.height > 0);
+  if (usedBase && base) {
+    ctx.drawImage(base, 0, 0, pixelW, pixelH);
+  } else {
+    const bg = svg.querySelector("[data-plan-bg]");
+    const fill = bg?.getAttribute("fill");
+    ctx.fillStyle = fill && fill !== "none" && fill !== "transparent" ? fill : "#0f1c24";
+    ctx.fillRect(0, 0, pixelW, pixelH);
+  }
 
   const images = Array.from(svg.querySelectorAll("image")) as SVGImageElement[];
   const underlay = images.filter((el) => !el.hasAttribute("data-plan-falsecolor-image"));
   const falseColor = images.filter((el) => el.hasAttribute("data-plan-falsecolor-image"));
   const hasOverlay = Boolean(overlayNode(svg));
 
-  for (const el of underlay) drawLiveSvgImage(ctx, el, svg, pixelW, pixelH);
+  if (!usedBase) {
+    for (const el of underlay) drawLiveSvgImage(ctx, el, svg, pixelW, pixelH);
+  }
 
   const below = prepareSvgClone(svg, cssWidth, cssHeight);
   stripRasterImages(below);
@@ -213,17 +253,33 @@ export function snapshotViewKey(
   ].join(":");
 }
 
-export function showPlanNavSnapshot(canvas: HTMLCanvasElement, svg: SVGSVGElement) {
+export function showPlanNavSnapshot(
+  canvas: HTMLCanvasElement,
+  svg: SVGSVGElement,
+  staticCanvas?: HTMLCanvasElement | null
+) {
   canvas.style.display = "block";
   canvas.style.willChange = "transform";
+  // display:none takes the dense (or leftover) SVG out of rendering.
+  // visibility:hidden alone still leaves the tree in the layer.
+  svg.style.display = "none";
   svg.style.visibility = "hidden";
+  if (staticCanvas) staticCanvas.style.display = "none";
 }
 
-export function hidePlanNavSnapshot(canvas: HTMLCanvasElement | null, svg: SVGSVGElement | null) {
+export function hidePlanNavSnapshot(
+  canvas: HTMLCanvasElement | null,
+  svg: SVGSVGElement | null,
+  staticCanvas?: HTMLCanvasElement | null
+) {
   if (canvas) {
     canvas.style.transform = "";
     canvas.style.willChange = "";
     canvas.style.display = "none";
   }
-  if (svg) svg.style.visibility = "";
+  if (svg) {
+    svg.style.display = "";
+    svg.style.visibility = "";
+  }
+  if (staticCanvas) staticCanvas.style.display = "block";
 }
