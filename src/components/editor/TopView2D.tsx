@@ -217,6 +217,7 @@ export function TopView2D({
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const navGroupRef = useRef<SVGGElement | null>(null);
+  const navLayerRef = useRef<HTMLDivElement | null>(null);
   const liveViewRef = useRef(planView);
   const committedViewRef = useRef(planView);
   const [draft, setDraft] = useState<Vec2[]>([]);
@@ -885,8 +886,10 @@ export function TopView2D({
     fitOy,
     fitScale,
     setPlanView,
+    hostRef,
     panningRef,
     navGroupRef,
+    navLayerRef,
     liveViewRef,
     committedViewRef,
     planView,
@@ -895,7 +898,8 @@ export function TopView2D({
   return (
     <div
       ref={hostRef}
-      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
+      className="relative w-full h-full min-h-0 overflow-hidden bg-[#0f1c24]"
+      style={{ touchAction: "none" }}
       onDragOver={(e) => e.preventDefault()}
       onMouseLeave={() => {
         snapMarkerRef.current?.setHit(null);
@@ -925,6 +929,12 @@ export function TopView2D({
         onDropLuminaire(luminaireId, snapped.x, snapped.y);
       }}
     >
+      <div
+        ref={navLayerRef}
+        className="h-full w-full"
+        data-plan-nav-layer=""
+        style={{ transformOrigin: "0 0" }}
+      >
       <svg
         ref={svgRef}
         viewBox={`0 0 ${viewW} ${viewH}`}
@@ -1766,6 +1776,7 @@ export function TopView2D({
         <DxfSnapMarkerLayer toScreen={toScreen} apiRef={snapMarkerRef} />
         </g>
       </svg>
+      </div>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
         {variant === "bottom" ? "Bottom" : "Top"} view · scroll to zoom
         {planView.zoom !== 1 ? " · double-click empty area to reset" : ""}

@@ -53,8 +53,13 @@ export function OrbitViewBridge({
 
   useLayoutEffect(() => {
     const el = gl.domElement;
+    el.style.touchAction = "none";
+    const captureNonPassive = { capture: true, passive: false } as const;
     const onDown = (e: PointerEvent | MouseEvent) => {
-      if (e.button === 1) e.preventDefault();
+      if (e.button === 1) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
       if (e.button === 0 || e.button === 1 || e.button === 2) {
         navigating.current = true;
       }
@@ -62,15 +67,24 @@ export function OrbitViewBridge({
     const onUp = () => {
       navigating.current = false;
     };
-    el.addEventListener("pointerdown", onDown, { capture: true });
-    el.addEventListener("mousedown", onDown, { capture: true });
-    el.addEventListener("auxclick", onDown, { capture: true });
+    const onDocMiddleDown = (e: MouseEvent) => {
+      if (e.button !== 1) return;
+      const target = e.target;
+      if (target instanceof Node && (el === target || el.contains(target))) {
+        e.preventDefault();
+      }
+    };
+    el.addEventListener("pointerdown", onDown, captureNonPassive);
+    el.addEventListener("mousedown", onDown, captureNonPassive);
+    el.addEventListener("auxclick", onDown, captureNonPassive);
+    window.addEventListener("mousedown", onDocMiddleDown, captureNonPassive);
     window.addEventListener("pointerup", onUp);
     window.addEventListener("mouseup", onUp);
     return () => {
-      el.removeEventListener("pointerdown", onDown, { capture: true });
-      el.removeEventListener("mousedown", onDown, { capture: true });
-      el.removeEventListener("auxclick", onDown, { capture: true });
+      el.removeEventListener("pointerdown", onDown, captureNonPassive);
+      el.removeEventListener("mousedown", onDown, captureNonPassive);
+      el.removeEventListener("auxclick", onDown, captureNonPassive);
+      window.removeEventListener("mousedown", onDocMiddleDown, captureNonPassive);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("mouseup", onUp);
     };

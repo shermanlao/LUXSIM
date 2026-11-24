@@ -48,6 +48,7 @@ export function ElevationView2D({
   const panningRef = useRef(false);
   const [planView, setPlanView] = useState(DEFAULT_PLAN_ZOOM);
   const navGroupRef = useRef<SVGGElement | null>(null);
+  const navLayerRef = useRef<HTMLDivElement | null>(null);
   const liveViewRef = useRef(planView);
   const committedViewRef = useRef(planView);
   const grabOffset = useRef({ a: 0, z: 0 });
@@ -100,8 +101,10 @@ export function ElevationView2D({
     fitOy,
     fitScale,
     setPlanView,
+    hostRef,
     panningRef,
     navGroupRef,
+    navLayerRef,
     liveViewRef,
     committedViewRef,
     planView,
@@ -125,7 +128,8 @@ export function ElevationView2D({
   return (
     <div
       ref={hostRef}
-      className="relative w-full h-full min-h-0 bg-[#0f1c24]"
+      className="relative w-full h-full min-h-0 overflow-hidden bg-[#0f1c24]"
+      style={{ touchAction: "none" }}
       onDragOver={(e) => e.preventDefault()}
       onDrop={(e) => {
         e.preventDefault();
@@ -136,6 +140,12 @@ export function ElevationView2D({
         onDropLuminaire(luminaireId, w.a, Math.max(0.1, Math.min(height - 0.05, w.z)));
       }}
     >
+      <div
+        ref={navLayerRef}
+        className="h-full w-full"
+        data-plan-nav-layer=""
+        style={{ transformOrigin: "0 0" }}
+      >
       <svg ref={svgRef} viewBox={`0 0 ${viewW} ${viewH}`} className="w-full h-full">
         <rect width={viewW} height={viewH} fill="#0f1c24" />
         <g ref={navGroupRef} data-plan-nav-layer="">
@@ -229,6 +239,7 @@ export function ElevationView2D({
         })}
         </g>
       </svg>
+      </div>
       <div className="absolute bottom-2 left-2 text-[10px] text-white/60">
         {(mode === "front" ? "Front (X-Z)" : "Side (Y-Z)") +
           " · drag fixtures vertically" +
