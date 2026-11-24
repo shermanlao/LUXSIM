@@ -3,7 +3,6 @@
 import { useEffect, useLayoutEffect, useRef, type Dispatch, type RefObject, type SetStateAction } from "react";
 import {
   PLAN_PAN_BUTTON,
-  livePlanNavCssTransform,
   livePlanNavTransformAttr,
   panPlanBy,
   planViewTransform,
@@ -21,17 +20,12 @@ type PlanPointerNavOpts = {
   fitOy: number;
   fitScale: number;
   setPlanView: Dispatch<SetStateAction<PlanZoom>>;
-  /** Untransformed view host; used for pointer-to-view mapping during a live CSS pan. */
+  /** Untransformed view host; used for pointer-to-view mapping. */
   hostRef: RefObject<HTMLElement | null>;
   /** Set true while a middle-button pan is in progress so left-click tools stay idle. */
   panningRef?: RefObject<boolean>;
   /** World-space (or already-projected) plan content that should follow live pan/zoom. */
   navGroupRef?: RefObject<SVGGElement | null>;
-  /**
-   * HTML layer around the SVG. Live pan/zoom is applied as a CSS translate3d
-   * so a dense plan can be composited instead of repainted on every move.
-   */
-  navLayerRef?: RefObject<HTMLElement | null>;
   /** Latest view, including an in-progress pan or zoom. Event handlers should read this. */
   liveViewRef?: RefObject<PlanZoom>;
   /** View last committed to React state (the coordinates currently drawn). */
@@ -49,8 +43,11 @@ const CAPTURE = { capture: true } as const;
 /**
  * Official view navigation: wheel zooms toward the cursor, and holding the
  * middle (scroll-wheel) button pans. Left-click is not used to pan.
- * Pan and zoom update a compositing CSS transform immediately and only commit
- * React state when the gesture finishes, so a dense plan does not redraw every move.
+ * Pan and zoom update an SVG group transform immediately (once per frame)
+ * and only commit React state when the gesture finishes, so a dense plan
+ * does not rebuild on every move. A CSS compositing layer is not used,
+ * because promoting the whole CAD + false-colour SVG to a GPU texture
+ * made the editor lag.
  */
 export function usePlanPointerNav(
   svgRef: RefObject<SVGSVGElement | null>,
@@ -65,22 +62,14 @@ export function usePlanPointerNav(
   const rafRef = useRef<number | null>(null);
   const pendingLiveRef = useRef<PlanZoom | null>(null);
 
-  const clearLiveCss = (layer: HTMLElement | null | undefined, group: SVGGElement | null | undefined) => {
-    if (layer) {
-      layer.style.transform = "";
-      layer.style.willChange = "";
-    }
-    group?.removeAttribute("transform");
-  };
-
   useLayoutEffect(() => {
     const view = opts.planView;
     if (opts.liveViewRef) opts.liveViewRef.current = view;
     if (opts.committedViewRef) opts.committedViewRef.current = view;
     gestureCommittedRef.current = view;
     gestureLiveRef.current = view;
-    clearLiveCss(opts.navLayerRef?.current, opts.navGroupRef?.current);
-  }, [opts.planView, opts.liveViewRef, opts.committedViewRef, opts.navGroupRef, opts.navLayerRef]);
+    opts.navGroupRef?.current?.removeAttribute("transform");
+  }, [opts.planView, opts.liveViewRef, opts.committedViewRef, opts.navGroupRef]);
 
   useEffect(() => {
     const el = svgRef.current;
@@ -106,21 +95,9 @@ export function usePlanPointerNav(
     const paintLive = (view: PlanZoom) => {
       gestureLiveRef.current = view;
       if (optsRef.current.liveViewRef) optsRef.current.liveViewRef.current = view;
+      const g = optsRef.current.navGroupRef?.current;
       const committed = readCommitted();
-      if (!committed) return;
-      const o = optsRef.current;
-      const box = hostBox();
-      const cssX = box.width > 0 ? box.width / o.viewW : 1;
-      const cssY = box.height > 0 ? box.height / o.viewH : 1;
-      const layer = o.navLayerRef?.current;
-      if (layer) {
-        const css = livePlanNavCssTransform(screenOf(committed), screenOf(view), cssX, cssY);
-        layer.style.transform = css;
-        o.navGroupRef?.current?.removeAttribute("transform");
-        return;
-      }
-      const g = o.navGroupRef?.current;
-      if (!g) return;
+      if (!g || !committed) return;
       const attr = livePlanNavTransformAttr(screenOf(committed), screenOf(view));
       if (attr) g.setAttribute("transform", attr);
       else g.removeAttribute("transform");
@@ -177,8 +154,6 @@ export function usePlanPointerNav(
         const current = readLive();
         if (current) gestureCommittedRef.current = current;
       }
-      const layer = optsRef.current.navLayerRef?.current;
-      if (layer) layer.style.willChange = "transform";
     };
 
     const onWheel = (e: WheelEvent) => {
