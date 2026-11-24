@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import type {
   FalseColorScale,
   IsoluxModel,
@@ -22,6 +22,20 @@ function pointsAttr(pts: ScreenPt[]): string {
   return pts.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
 }
 
+function canvasPngToBlobUrl(canvas: HTMLCanvasElement): string | null {
+  const dataUrl = canvas.toDataURL("image/png");
+  const comma = dataUrl.indexOf(",");
+  if (comma < 0) return null;
+  const binary = atob(dataUrl.slice(comma + 1));
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+  return URL.createObjectURL(new Blob([bytes], { type: "image/png" }));
+}
+
+/**
+ * Short blob URL for a workplane bitmap. A data URL must not be placed in the
+ * live SVG — those strings are huge and make pan snapshots / DOM updates lag.
+ */
 function fieldImageHref(model: IsoluxModel): string | null {
   if (typeof document === "undefined") return null;
   if (model.field.length < model.width * model.height * 4) return null;
@@ -33,7 +47,7 @@ function fieldImageHref(model: IsoluxModel): string | null {
   const image = new ImageData(model.width, model.height);
   image.data.set(model.field);
   ctx.putImageData(image, 0, 0);
-  return canvas.toDataURL("image/png");
+  return canvasPngToBlobUrl(canvas);
 }
 
 export function PlanIsoluxOverlay({
@@ -97,6 +111,13 @@ export function PlanIsoluxOverlay({
     return out;
     // Field bitmaps are baked once per isolux model — not when the committed view pan/zoom changes.
   }, [models, showFalseColor]);
+
+  useEffect(() => {
+    const urls = fieldImages.map((item) => item.href).filter((href) => href.startsWith("blob:"));
+    return () => {
+      for (const href of urls) URL.revokeObjectURL(href);
+    };
+  }, [fieldImages]);
 
   if (models.length === 0 && fieldImages.length === 0) return null;
 

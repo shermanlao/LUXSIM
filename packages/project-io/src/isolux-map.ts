@@ -144,6 +144,48 @@ export function luxToRgb(
   return absoluteLuxToRgb(lux);
 }
 
+/** Entries in the precomputed field LUT. Fine enough to stay visually continuous. */
+const FALSE_COLOR_LUT_SIZE = 2048;
+
+/**
+ * Precompute a 0–1 scale LUT so a workplane field can be coloured without
+ * calling luxToRgb on every pixel. The displayed ramp stays the same continuous
+ * interpolation.
+ */
+export function falseColorRgbaLut(
+  scale?: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
+): Uint8ClampedArray {
+  const range = isFalseColorScale(scale)
+    ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
+    : OFFICIAL_FALSE_COLOR_SCALE;
+  const lut = new Uint8ClampedArray(FALSE_COLOR_LUT_SIZE * 4);
+  const last = FALSE_COLOR_LUT_SIZE - 1;
+  const span = range.maxLux - range.minLux;
+  for (let i = 0; i <= last; i += 1) {
+    const lux = range.minLux + (i / last) * span;
+    const [r, g, b] = luxToRgb(lux, range, palette);
+    const j = i * 4;
+    lut[j] = Math.round(r * 255);
+    lut[j + 1] = Math.round(g * 255);
+    lut[j + 2] = Math.round(b * 255);
+    lut[j + 3] = 255;
+  }
+  return lut;
+}
+
+function lutSampleRgba(lut: Uint8ClampedArray, lux: number, minLux: number, maxLux: number, dest: Uint8ClampedArray, offset: number) {
+  const last = (lut.length >> 2) - 1;
+  const span = maxLux - minLux;
+  const t = span > 0 ? (lux - minLux) / span : 0;
+  const i = t <= 0 ? 0 : t >= 1 ? last : (t * last) | 0;
+  const j = i * 4;
+  dest[offset] = lut[j]!;
+  dest[offset + 1] = lut[j + 1]!;
+  dest[offset + 2] = lut[j + 2]!;
+  dest[offset + 3] = 255;
+}
+
 /** Convert an sRGB channel in 0–1 to linear-light, for Three.js vertex colours. */
 export function srgbToLinearChannel(c: number): number {
   if (c <= 0.04045) return c / 12.92;
@@ -544,6 +586,10 @@ export function buildIsoluxModel(
   });
 
   const field = new Uint8ClampedArray(width * height * 4);
+  const colourRange = opts?.colorScale
+    ? normalizeFalseColorScale(opts.colorScale.minLux, opts.colorScale.maxLux)
+    : OFFICIAL_FALSE_COLOR_SCALE;
+  const colourLut = mode === "falsecolor" ? falseColorRgbaLut(colourRange, opts?.palette) : null;
   for (let py = 0; py < height; py += 1) {
     const y = maxY - (py + 0.5) / scale;
     for (let px = 0; px < width; px += 1) {
@@ -552,12 +598,8 @@ export function buildIsoluxModel(
       if (!inWorkplane(pt, room.polygon, wallZone)) continue;
       const lux = sampleLux(grid, b, x, y);
       const i = (py * width + px) * 4;
-      if (mode === "falsecolor") {
-        const [r, g, bc] = luxToRgb(lux, opts?.colorScale, opts?.palette);
-        field[i] = Math.round(r * 255);
-        field[i + 1] = Math.round(g * 255);
-        field[i + 2] = Math.round(bc * 255);
-        field[i + 3] = 255;
+      if (mode === "falsecolor" && colourLut) {
+        lutSampleRgba(colourLut, lux, colourRange.minLux, colourRange.maxLux, field, i);
       }
     }
   }
