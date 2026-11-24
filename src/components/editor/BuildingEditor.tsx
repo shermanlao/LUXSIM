@@ -231,6 +231,7 @@ import {
   type ProjectSnapshot,
 } from "@/lib/project-autosave";
 import { officialWriteCachedProjectOpen } from "@/lib/official-project-open-cache";
+import { useEditorPerformanceMonitor } from "@/lib/editor-display-quality";
 import { saveReminderDue, startSaveReminderEpoch } from "@/lib/save-reminder";
 import { useAccountSettings } from "@/components/AccountSettingsProvider";
 import {
@@ -3342,6 +3343,7 @@ export function BuildingEditor({
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
+  useEditorPerformanceMonitor();
   const viewScaleRef = useRef(scale);
   viewScaleRef.current = scale;
   useEffect(() => {
