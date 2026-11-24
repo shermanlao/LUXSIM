@@ -1,4 +1,4 @@
-/** Shared false-color scale — project-wide DIALux-style illuminance colours. */
+/** Shared false-color scale — project-wide stepped illuminance colour bands. */
 
 export {
   luxToRgb,

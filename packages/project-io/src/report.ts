@@ -4,7 +4,7 @@ import { polarPlane, polarToXY } from "../../photometry/src/interpolate";
 import { formatCct, formatDimensions, luminaireBody, resolvedFlux } from "../../photometry/src/flux";
 import type { ProjectSceneV2, ResultsV2, RoomV2 } from "./types";
 import { roomAreaM2 } from "./geometry";
-import { legendStopsForRange } from "./isolux-map";
+import { legendStopsForScale, OFFICIAL_FALSE_COLOR_SCALE } from "./isolux-map";
 import { choosePlanLayout, drawLightingPlan, storeysWithRooms, unionRoomBounds } from "./lighting-plan";
 import {
   REPORT_CALC_TYPE,
@@ -234,8 +234,8 @@ class ReportPdfBuilder {
     return y + dh;
   }
 
-  private drawLuxLegend(y: number, emin: number, emax: number): number {
-    const stops = legendStopsForRange(emin, emax);
+  private drawLuxLegend(y: number, _emin?: number, _emax?: number): number {
+    const stops = legendStopsForScale(OFFICIAL_FALSE_COLOR_SCALE);
     if (stops.length < 2) return y;
     const barW = Math.min(this.contentWidth() * 0.62, 18 + stops.length * 16);
     const barH = 4.2;
