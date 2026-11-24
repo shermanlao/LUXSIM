@@ -1,34 +1,36 @@
-/** DIALux-style isolux / false-color map (content standard, not a visual clone). */
+/** Official isolux / false-colour map. */
 
 import type { CalcResults } from "../../solver/src/types";
 import type { FixtureInstance, RoomV2, Vec2 } from "./types";
 import { pointInPolygon, roomBounds } from "./geometry";
 
-/** Project-wide illuminance colour stops, sampled from official DIALux evo reports. */
-export const DIALUX_LUX_STOPS: { lux: number; r: number; g: number; b: number }[] = [
-  { lux: 0, r: 18, g: 90, b: 18 },
-  { lux: 56, r: 115, g: 221, b: 1 },
-  { lux: 80, r: 82, g: 223, b: 119 },
-  { lux: 115, r: 223, g: 255, b: 84 },
-  { lux: 166, r: 255, g: 255, b: 1 },
-  { lux: 240, r: 255, g: 221, b: 139 },
-  { lux: 346, r: 255, g: 180, b: 27 },
-  { lux: 500, r: 255, g: 137, b: 1 },
-  { lux: 1170, r: 224, g: 28, b: 28 },
-  { lux: 2500, r: 130, g: 0, b: 0 },
+/**
+ * Nine official false-colour stops, mapped evenly across the current min–max lux
+ * scale. Colours between adjacent stops are interpolated smoothly.
+ */
+export const OFFICIAL_FALSE_COLOR_BANDS: readonly { r: number; g: number; b: number }[] = [
+  { r: 0, g: 0, b: 0 },
+  { r: 170, g: 1, b: 254 },
+  { r: 2, g: 0, b: 255 },
+  { r: 2, g: 255, b: 250 },
+  { r: 3, g: 253, b: 5 },
+  { r: 251, g: 255, b: 0 },
+  { r: 252, g: 170, b: 2 },
+  { r: 255, g: 0, b: 1 },
+  { r: 255, g: 255, b: 255 },
 ];
 
-const LABELED_STOPS = DIALUX_LUX_STOPS.filter((s) => s.lux > 0);
+export const OFFICIAL_FALSE_COLOR_BAND_COUNT = OFFICIAL_FALSE_COLOR_BANDS.length;
 
 export interface FalseColorScale {
   minLux: number;
   maxLux: number;
 }
 
-/** Official absolute illuminance ramp: first to last DIALUX_LUX_STOPS (0–2500 lx). */
+/** Official default illuminance scale. The nine colour stops stretch across this range until the user changes min/max. */
 export const OFFICIAL_FALSE_COLOR_SCALE: FalseColorScale = {
-  minLux: DIALUX_LUX_STOPS[0]!.lux,
-  maxLux: DIALUX_LUX_STOPS[DIALUX_LUX_STOPS.length - 1]!.lux,
+  minLux: 0,
+  maxLux: 2500,
 };
 
 export function normalizeFalseColorScale(minLux: number, maxLux: number): FalseColorScale {
@@ -45,35 +47,61 @@ export function isFalseColorScale(value: unknown): value is FalseColorScale {
   return Number.isFinite(rec.minLux) && Number.isFinite(rec.maxLux);
 }
 
-function absoluteLuxToRgb(lux: number): [number, number, number] {
-  const v = Math.max(0, lux);
-  const stops = DIALUX_LUX_STOPS;
-  if (v <= stops[0]!.lux) {
-    return [stops[0]!.r / 255, stops[0]!.g / 255, stops[0]!.b / 255];
-  }
-  const last = stops[stops.length - 1]!;
-  if (v >= last.lux) {
-    return [last.r / 255, last.g / 255, last.b / 255];
-  }
-  let i = 0;
-  while (i < stops.length - 1 && stops[i + 1]!.lux < v) i += 1;
-  const a = stops[i]!;
-  const b = stops[i + 1]!;
-  const la = Math.log(Math.max(a.lux, 0.1));
-  const lb = Math.log(b.lux);
-  const t = (Math.log(Math.max(v, 0.1)) - la) / (lb - la);
+function roundBandLux(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
+/** Evenly spaced lux values at the nine official colour-stop positions. */
+export function officialFalseColorBandLuxes(minLux: number, maxLux: number): number[] {
+  const range = normalizeFalseColorScale(minLux, maxLux);
+  const last = OFFICIAL_FALSE_COLOR_BAND_COUNT - 1;
+  return OFFICIAL_FALSE_COLOR_BANDS.map((_, i) =>
+    roundBandLux(range.minLux + (i / last) * (range.maxLux - range.minLux))
+  );
+}
+
+export function officialFalseColorBandIndex(t: number): number {
+  const last = OFFICIAL_FALSE_COLOR_BAND_COUNT - 1;
+  const u = Math.min(1, Math.max(0, t));
+  if (u >= 1) return last;
+  return Math.floor(u * last);
+}
+
+function officialBandRgb(index: number): [number, number, number] {
+  const stop = OFFICIAL_FALSE_COLOR_BANDS[Math.min(OFFICIAL_FALSE_COLOR_BAND_COUNT - 1, Math.max(0, index))]!;
+  return [stop.r / 255, stop.g / 255, stop.b / 255];
+}
+
+/**
+ * Historical export name for the official 0–2500 lx colour-stop positions.
+ * Not shown in the app UI.
+ */
+export const DIALUX_LUX_STOPS: { lux: number; r: number; g: number; b: number }[] =
+  officialFalseColorBandLuxes(OFFICIAL_FALSE_COLOR_SCALE.minLux, OFFICIAL_FALSE_COLOR_SCALE.maxLux).map(
+    (lux, i) => ({ lux, ...OFFICIAL_FALSE_COLOR_BANDS[i]! })
+  );
+
+function paletteRgbAtT(t: number): [number, number, number] {
+  const last = OFFICIAL_FALSE_COLOR_BAND_COUNT - 1;
+  const u = Math.min(1, Math.max(0, t));
+  if (u <= 0) return officialBandRgb(0);
+  if (u >= 1) return officialBandRgb(last);
+  const x = u * last;
+  const i = Math.min(last - 1, Math.floor(x));
+  const f = x - i;
+  const a = OFFICIAL_FALSE_COLOR_BANDS[i]!;
+  const b = OFFICIAL_FALSE_COLOR_BANDS[i + 1]!;
   return [
-    (a.r + (b.r - a.r) * t) / 255,
-    (a.g + (b.g - a.g) * t) / 255,
-    (a.b + (b.b - a.b) * t) / 255,
+    (a.r + (b.r - a.r) * f) / 255,
+    (a.g + (b.g - a.g) * f) / 255,
+    (a.b + (b.b - a.b) * f) / 255,
   ];
 }
 
-function paletteRgbAtT(t: number): [number, number, number] {
-  const u = Math.min(1, Math.max(0, t));
-  const first = DIALUX_LUX_STOPS[0]!.lux;
-  const last = DIALUX_LUX_STOPS[DIALUX_LUX_STOPS.length - 1]!.lux;
-  return absoluteLuxToRgb(first + u * (last - first));
+function absoluteLuxToRgb(lux: number): [number, number, number] {
+  const range = OFFICIAL_FALSE_COLOR_SCALE;
+  const t = (lux - range.minLux) / (range.maxLux - range.minLux);
+  return paletteRgbAtT(t);
 }
 
 export type IsoluxPalette = "falsecolor" | "greyscale";
@@ -81,7 +109,8 @@ export type IsoluxPalette = "falsecolor" | "greyscale";
 /**
  * sRGB greyscale endpoints. The floor is high enough that after an sRGB→linear
  * conversion (colour-managed 3D / CanvasTexture) the low end stays visible,
- * instead of collapsing to near-black. The official false-colour ramp is unchanged.
+ * instead of collapsing to near-black. The official false-colour scale is unchanged
+ * by this greyscale range.
  */
 export const GREYSCALE_SRGB_MIN = 0.42;
 export const GREYSCALE_SRGB_MAX = 1;
@@ -115,13 +144,62 @@ export function luxToRgb(
   return absoluteLuxToRgb(lux);
 }
 
+/** Entries in the precomputed field LUT. Fine enough to stay visually continuous. */
+const FALSE_COLOR_LUT_SIZE = 2048;
+
+/**
+ * Precompute a 0–1 scale LUT so a workplane field can be coloured without
+ * calling luxToRgb on every pixel. The displayed ramp stays the same continuous
+ * interpolation.
+ */
+export function falseColorRgbaLut(
+  scale?: FalseColorScale,
+  palette: IsoluxPalette = "falsecolor"
+): Uint8ClampedArray {
+  const range = isFalseColorScale(scale)
+    ? normalizeFalseColorScale(scale.minLux, scale.maxLux)
+    : OFFICIAL_FALSE_COLOR_SCALE;
+  const lut = new Uint8ClampedArray(FALSE_COLOR_LUT_SIZE * 4);
+  const last = FALSE_COLOR_LUT_SIZE - 1;
+  const span = range.maxLux - range.minLux;
+  for (let i = 0; i <= last; i += 1) {
+    const lux = range.minLux + (i / last) * span;
+    const [r, g, b] = luxToRgb(lux, range, palette);
+    const j = i * 4;
+    lut[j] = Math.round(r * 255);
+    lut[j + 1] = Math.round(g * 255);
+    lut[j + 2] = Math.round(b * 255);
+    lut[j + 3] = 255;
+  }
+  return lut;
+}
+
+function lutSampleRgba(
+  lut: Uint8ClampedArray,
+  lux: number,
+  minLux: number,
+  maxLux: number,
+  dest: Uint8ClampedArray,
+  offset: number
+) {
+  const last = (lut.length >> 2) - 1;
+  const span = maxLux - minLux;
+  const t = span > 0 ? (lux - minLux) / span : 0;
+  const i = t <= 0 ? 0 : t >= 1 ? last : (t * last) | 0;
+  const j = i * 4;
+  dest[offset] = lut[j]!;
+  dest[offset + 1] = lut[j + 1]!;
+  dest[offset + 2] = lut[j + 2]!;
+  dest[offset + 3] = 255;
+}
+
 /** Convert an sRGB channel in 0–1 to linear-light, for Three.js vertex colours. */
 export function srgbToLinearChannel(c: number): number {
   if (c <= 0.04045) return c / 12.92;
   return ((c + 0.055) / 1.055) ** 2.4;
 }
 
-/** luxToRgb values converted to linear-light so a colour-managed renderer shows the official ramp. */
+/** luxToRgb values converted to linear-light so a colour-managed renderer shows the official scale. */
 export function luxToRgbLinear(
   lux: number,
   scale?: FalseColorScale | number,
@@ -136,23 +214,7 @@ export function rgbCss([r, g, b]: [number, number, number]): string {
 }
 
 export function legendStopsForRange(emin: number, emax: number): { lux: number; color: string }[] {
-  const lo = Math.max(0, Math.min(emin, emax));
-  const hi = Math.max(emin, emax, lo + 1);
-  let start = 0;
-  for (let i = 0; i < LABELED_STOPS.length; i += 1) {
-    if (LABELED_STOPS[i]!.lux <= lo) start = i;
-  }
-  let end = start;
-  for (let i = 0; i < LABELED_STOPS.length; i += 1) {
-    if (LABELED_STOPS[i]!.lux < hi) end = i;
-  }
-  end = Math.min(LABELED_STOPS.length - 1, Math.max(end + 1, start + 1));
-  if (lo < LABELED_STOPS[0]!.lux) start = 0;
-  const slice = LABELED_STOPS.slice(start, end + 1);
-  return (slice.length >= 2 ? slice : LABELED_STOPS.slice(0, 3)).map((s) => ({
-    lux: s.lux,
-    color: rgbCss([s.r / 255, s.g / 255, s.b / 255]),
-  }));
+  return legendStopsForScale(normalizeFalseColorScale(emin, emax));
 }
 
 export function isoluxLevels(emin: number, emax: number): number[] {
@@ -169,20 +231,16 @@ export function isoluxLevels(emin: number, emax: number): number[] {
   return levels;
 }
 
-/** Tick labels and colours for an interactive false-colour or greyscale scale bar. */
+/** Tick labels and colours at the nine official false-colour stops (or greyscale at those lux values). */
 export function legendStopsForScale(
   scale: FalseColorScale,
   palette: IsoluxPalette = "falsecolor"
 ): { lux: number; color: string }[] {
   const range = normalizeFalseColorScale(scale.minLux, scale.maxLux);
-  const ticks = [range.minLux, ...isoluxLevels(range.minLux, range.maxLux), range.maxLux];
-  const uniq: number[] = [];
-  for (const v of ticks) {
-    const rounded = Math.round(v * 10) / 10;
-    if (!uniq.some((u) => Math.abs(u - rounded) < 1e-6)) uniq.push(rounded);
-  }
-  if (uniq.length < 2) uniq.push(range.maxLux);
-  return uniq.map((lux) => ({ lux, color: rgbCss(luxToRgb(lux, range, palette)) }));
+  return officialFalseColorBandLuxes(range.minLux, range.maxLux).map((lux) => ({
+    lux,
+    color: rgbCss(luxToRgb(lux, range, palette)),
+  }));
 }
 
 export type IsoluxMode = "falsecolor" | "isolines";
@@ -535,6 +593,10 @@ export function buildIsoluxModel(
   });
 
   const field = new Uint8ClampedArray(width * height * 4);
+  const colourRange = opts?.colorScale
+    ? normalizeFalseColorScale(opts.colorScale.minLux, opts.colorScale.maxLux)
+    : OFFICIAL_FALSE_COLOR_SCALE;
+  const colourLut = mode === "falsecolor" ? falseColorRgbaLut(colourRange, opts?.palette) : null;
   for (let py = 0; py < height; py += 1) {
     const y = maxY - (py + 0.5) / scale;
     for (let px = 0; px < width; px += 1) {
@@ -543,12 +605,8 @@ export function buildIsoluxModel(
       if (!inWorkplane(pt, room.polygon, wallZone)) continue;
       const lux = sampleLux(grid, b, x, y);
       const i = (py * width + px) * 4;
-      if (mode === "falsecolor") {
-        const [r, g, bc] = luxToRgb(lux, opts?.colorScale, opts?.palette);
-        field[i] = Math.round(r * 255);
-        field[i + 1] = Math.round(g * 255);
-        field[i + 2] = Math.round(bc * 255);
-        field[i + 3] = 255;
+      if (mode === "falsecolor" && colourLut) {
+        lutSampleRgba(colourLut, lux, colourRange.minLux, colourRange.maxLux, field, i);
       }
     }
   }
@@ -628,7 +686,7 @@ export function buildIsoluxModel(
     roomOutline: room.polygon.map(toPx),
     workplaneOutline: insetPolygon(room.polygon, wallZone).map(toPx),
     fixtures,
-    legendStops: legendStopsForRange(results.summary.emin, results.summary.emax),
+    legendStops: legendStopsForScale(opts?.colorScale ?? OFFICIAL_FALSE_COLOR_SCALE, opts?.palette),
     fontPx: Math.max(12, Math.min(22, width / 70)),
     world: { minX, minY, maxX, maxY, scale },
   };
