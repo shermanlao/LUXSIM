@@ -6,12 +6,16 @@ export {
   legendStopsForRange,
   legendStopsForScale,
   officialChartLegendStops,
+  officialPaletteTForLux,
   isoluxLevels,
   DIALUX_LUX_STOPS,
   normalizeFalseColorScale,
+  normalizeFalseColorHandles,
+  normalizeFalseColorMapping,
   isFalseColorScale,
   OFFICIAL_FALSE_COLOR_SCALE,
   OFFICIAL_FALSE_COLOR_CHART_TICKS,
+  OFFICIAL_FALSE_COLOR_MIN_T_SPAN,
 } from "@luxsim/project-io";
 export type { FalseColorScale } from "@luxsim/project-io";
 

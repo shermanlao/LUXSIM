@@ -65,7 +65,7 @@ export function officialPlanIsoluxModelKey(input: {
   isolineSettings?: Pick<IsolineLevelSettings, "mode" | "levels"> | null;
 }): string {
   const scale = input.colorScale
-    ? `${input.colorScale.minLux}:${input.colorScale.maxLux}`
+    ? `${input.colorScale.minLux}:${input.colorScale.maxLux}:${input.colorScale.tMin ?? 0}:${input.colorScale.tMax ?? 1}`
     : "";
   const isolines =
     input.isolineSettings?.mode === "custom"

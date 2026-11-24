@@ -5,6 +5,7 @@ import type { CalcResults } from "@luxsim/solver";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import {
   officialChartLegendStops,
+  normalizeFalseColorMapping,
   normalizeFalseColorScale,
   OFFICIAL_FALSE_COLOR_SCALE,
   OFFICIAL_FALSE_COLOR_CHART_TICKS,
@@ -16,6 +17,16 @@ function formatLux(value: number): string {
   const rounded = Math.round(value * 10) / 10;
   if (Math.abs(rounded - Math.round(rounded)) < 1e-6) return String(Math.round(rounded));
   return rounded.toFixed(1);
+}
+
+const CHART_SLIDER_MAX = OFFICIAL_FALSE_COLOR_SCALE.maxLux - OFFICIAL_FALSE_COLOR_SCALE.minLux;
+
+function tToSlider(t: number): number {
+  return Math.round(Math.max(0, Math.min(1, t)) * CHART_SLIDER_MAX);
+}
+
+function sliderToT(value: number): number {
+  return Math.max(0, Math.min(1, value / CHART_SLIDER_MAX));
 }
 
 export function FalseColorLegend({
@@ -48,10 +59,10 @@ export function FalseColorLegend({
   palette?: IsoluxPalette;
 }) {
   const fallback = normalizeFalseColorScale(
-    eminProp ?? results?.summary.emin ?? 56,
-    emaxProp ?? results?.summary.emax ?? 500
+    eminProp ?? results?.summary.emin ?? OFFICIAL_FALSE_COLOR_SCALE.minLux,
+    emaxProp ?? results?.summary.emax ?? OFFICIAL_FALSE_COLOR_SCALE.maxLux
   );
-  const committed = scale ? normalizeFalseColorScale(scale.minLux, scale.maxLux) : fallback;
+  const committed = scale ? normalizeFalseColorMapping(scale) : fallback;
   const [draft, setDraft] = useState(committed);
   const draftRef = useRef(draft);
   draftRef.current = draft;
@@ -60,7 +71,7 @@ export function FalseColorLegend({
   useEffect(() => {
     if (interactingRef.current) return;
     setDraft(committed);
-  }, [committed.minLux, committed.maxLux]);
+  }, [committed.minLux, committed.maxLux, committed.tMin, committed.tMax]);
 
   const current = draft;
   const stops = officialChartLegendStops(palette);
@@ -71,16 +82,36 @@ export function FalseColorLegend({
 
   const domainMax = OFFICIAL_FALSE_COLOR_SCALE.maxLux;
   const domainMin = OFFICIAL_FALSE_COLOR_SCALE.minLux;
+  const tMin = current.tMin ?? 0;
+  const tMax = current.tMax ?? 1;
 
   const interactive = typeof onChange === "function";
   const dark = tone === "dark" || layout === "bar";
   const isBar = layout === "bar";
 
-  function preview(minLux: number, maxLux: number) {
-    const next = normalizeFalseColorScale(minLux, maxLux);
-    draftRef.current = next;
-    setDraft(next);
-    onChange?.(next);
+  function setDraftScale(next: FalseColorScale) {
+    const normalized = normalizeFalseColorMapping(next);
+    draftRef.current = normalized;
+    setDraft(normalized);
+    onChange?.(normalized);
+  }
+
+  function previewLux(minLux: number, maxLux: number) {
+    setDraftScale({
+      minLux,
+      maxLux,
+      tMin,
+      tMax,
+    });
+  }
+
+  function previewHandles(nextTMin: number, nextTMax: number) {
+    setDraftScale({
+      minLux: current.minLux,
+      maxLux: current.maxLux,
+      tMin: nextTMin,
+      tMax: nextTMax,
+    });
   }
 
   function beginInteract() {
@@ -96,14 +127,14 @@ export function FalseColorLegend({
     const n = Number(value);
     if (!Number.isFinite(n)) return;
     beginInteract();
-    preview(n, current.maxLux);
+    previewLux(n, current.maxLux);
   }
 
   function onMaxInput(value: string) {
     const n = Number(value);
     if (!Number.isFinite(n)) return;
     beginInteract();
-    preview(current.minLux, n);
+    previewLux(current.minLux, n);
   }
 
   const shell = isBar
@@ -190,31 +221,31 @@ export function FalseColorLegend({
             <div className="relative h-3">
               <input
                 type="range"
-                min={domainMin}
-                max={domainMax}
+                min={0}
+                max={CHART_SLIDER_MAX}
                 step={1}
-                value={Math.min(current.minLux, current.maxLux - 1)}
+                value={Math.min(tToSlider(tMin), tToSlider(tMax) - 1)}
                 onPointerDown={beginInteract}
-                onChange={(e) => preview(Number(e.target.value), current.maxLux)}
+                onChange={(e) => previewHandles(sliderToT(Number(e.target.value)), tMax)}
                 onPointerUp={commitDraft}
                 onPointerCancel={commitDraft}
                 onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--min"
-                aria-label="Minimum lux"
+                aria-label="Lower colour"
               />
               <input
                 type="range"
-                min={domainMin}
-                max={domainMax}
+                min={0}
+                max={CHART_SLIDER_MAX}
                 step={1}
-                value={Math.max(current.maxLux, current.minLux + 1)}
+                value={Math.max(tToSlider(tMax), tToSlider(tMin) + 1)}
                 onPointerDown={beginInteract}
-                onChange={(e) => preview(current.minLux, Number(e.target.value))}
+                onChange={(e) => previewHandles(tMin, sliderToT(Number(e.target.value)))}
                 onPointerUp={commitDraft}
                 onPointerCancel={commitDraft}
                 onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--max"
-                aria-label="Maximum lux"
+                aria-label="Upper colour"
               />
             </div>
           )}

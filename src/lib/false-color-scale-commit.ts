@@ -1,10 +1,19 @@
 import type { FalseColorScale } from "@luxsim/project-io";
-import { normalizeFalseColorScale } from "@luxsim/project-io";
+import { normalizeFalseColorMapping } from "@luxsim/project-io";
+
+function almostEqual(a: number, b: number): boolean {
+  return Math.abs(a - b) < 1e-9;
+}
 
 export function falseColorScalesEqual(a: FalseColorScale, b: FalseColorScale): boolean {
-  const left = normalizeFalseColorScale(a.minLux, a.maxLux);
-  const right = normalizeFalseColorScale(b.minLux, b.maxLux);
-  return left.minLux === right.minLux && left.maxLux === right.maxLux;
+  const left = normalizeFalseColorMapping(a);
+  const right = normalizeFalseColorMapping(b);
+  return (
+    left.minLux === right.minLux &&
+    left.maxLux === right.maxLux &&
+    almostEqual(left.tMin ?? 0, right.tMin ?? 0) &&
+    almostEqual(left.tMax ?? 1, right.tMax ?? 1)
+  );
 }
 
 /**
