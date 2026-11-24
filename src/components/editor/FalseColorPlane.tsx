@@ -16,6 +16,7 @@ export function FalseColorPlane({
   scale,
   palette = "falsecolor",
   showWorkplane = true,
+  targetLongSide = 800,
 }: {
   room: RoomV2;
   results: CalcResults;
@@ -23,10 +24,21 @@ export function FalseColorPlane({
   scale?: FalseColorScale;
   palette?: IsoluxPalette;
   showWorkplane?: boolean;
+  /** Live false-colour bitmap long side. Defaults to the official 800. */
+  targetLongSide?: number;
 }) {
   const official = useMemo(
-    () => createOfficialFalseColorWorkplane(room, results, elevationM, scale, palette, showWorkplane),
-    [room, results, elevationM, scale, palette, showWorkplane]
+    () =>
+      createOfficialFalseColorWorkplane(
+        room,
+        results,
+        elevationM,
+        scale,
+        palette,
+        showWorkplane,
+        targetLongSide
+      ),
+    [room, results, elevationM, scale, palette, showWorkplane, targetLongSide]
   );
   const fallback = useMemo(
     () =>

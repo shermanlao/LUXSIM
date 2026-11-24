@@ -239,6 +239,7 @@ export function BuildingScene3D({
   initialView,
   photometry,
   falseColorScale,
+  falseColorLongSide,
   showValueLabels = false,
   showIsolines = false,
   showWorkplane = true,
@@ -259,6 +260,8 @@ export function BuildingScene3D({
   initialView: Camera3dView | null;
   photometry?: Record<string, PhotometricData>;
   falseColorScale?: FalseColorScale;
+  /** Live false-colour bitmap long side. Defaults to the official 800. */
+  falseColorLongSide?: number;
   showValueLabels?: boolean;
   showIsolines?: boolean;
   showWorkplane?: boolean;
@@ -378,6 +381,7 @@ export function BuildingScene3D({
                     scale={falseColorScale}
                     palette={palette}
                     showWorkplane={showWorkplane}
+                    targetLongSide={falseColorLongSide}
                   />
                 )}
                 <FalseColorWalls

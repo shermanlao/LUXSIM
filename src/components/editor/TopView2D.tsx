@@ -149,6 +149,8 @@ type Props = {
   showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
+  /** Live false-colour bitmap long side. Defaults to the official 800. */
+  falseColorLongSide?: number;
   /** View-only: select is allowed, edit handles and moves are not. */
   readOnly?: boolean;
 };
@@ -209,6 +211,7 @@ export function TopView2D({
   showIsolines = false,
   showValueLabels = false,
   falseColorScale,
+  falseColorLongSide,
   readOnly = false,
 }: Props) {
   const anyFilletPickActive = filletPickActive || filletAllPickActive;
@@ -1427,6 +1430,7 @@ export function TopView2D({
             viewOy={oy}
             viewScale={scale}
             colorScale={falseColorScale}
+            targetLongSide={falseColorLongSide}
           />
         )}
 

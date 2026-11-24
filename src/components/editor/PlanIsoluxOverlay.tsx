@@ -59,6 +59,7 @@ export function PlanIsoluxOverlay({
   showValueLabels,
   toScreen,
   colorScale,
+  targetLongSide,
 }: {
   scene: ProjectSceneV2;
   rooms: RoomV2[];
@@ -74,6 +75,8 @@ export function PlanIsoluxOverlay({
   viewOy?: number;
   viewScale?: number;
   colorScale?: FalseColorScale;
+  /** Live false-colour bitmap long side. Defaults to the official 800. */
+  targetLongSide?: number;
 }) {
   const isolineSettings = isolineSettingsFromUi(scene.ui);
   const models = useMemo(
@@ -87,6 +90,7 @@ export function PlanIsoluxOverlay({
         showValueLabels,
         colorScale,
         isolineSettings,
+        targetLongSide,
       }),
     [
       rooms,
@@ -98,6 +102,7 @@ export function PlanIsoluxOverlay({
       showValueLabels,
       isolineSettings.mode,
       isolineSettings.levels,
+      targetLongSide,
     ]
   );
 
