@@ -266,9 +266,10 @@ function officialPaletteT(lux: number): number {
 }
 
 /**
- * Palette t for lux L: map luxLeft → tLeft and luxRight → tRight, then
- * extrapolate with the same slope and clamp t to [0, 1]. The bar range
- * only sets how the official palette is painted on the scale bar.
+ * Palette t for lux L. Between the handle anchors, interpolate tLeft→tRight.
+ * Outside the anchors, stretch the remaining palette to the bar ends:
+ * luxRight→barMax maps tRight→1, and barMin→luxLeft maps 0→tLeft.
+ * The bar itself still paints the official palette linearly across [barMin, barMax].
  */
 export function officialPaletteTForLux(lux: number, scale?: FalseColorScale | number): number {
   const mapping = normalizeFalseColorMapping(scale);
@@ -276,12 +277,28 @@ export function officialPaletteTForLux(lux: number, scale?: FalseColorScale | nu
   const tRight = Number(mapping.tMax ?? 1);
   const luxLeft = Number(mapping.winMin ?? mapping.minLux);
   const luxRight = Number(mapping.winMax ?? mapping.maxLux);
-  const span = luxRight - luxLeft;
-  if (!(span > 0) || !Number.isFinite(tLeft) || !Number.isFinite(tRight)) {
-    return Math.max(0, Math.min(1, Number.isFinite(tLeft) ? tLeft : 0));
+  const barMin = Number(mapping.minLux);
+  const barMax = Number(mapping.maxLux);
+  const clamp01 = (value: number) => Math.max(0, Math.min(1, value));
+  if (!Number.isFinite(tLeft) || !Number.isFinite(tRight)) return 0;
+
+  if (lux <= luxLeft) {
+    if (luxLeft <= barMin) return clamp01(tLeft);
+    if (lux <= barMin) return 0;
+    const span = luxLeft - barMin;
+    if (!(span > 0)) return 0;
+    return clamp01((tLeft * (lux - barMin)) / span);
   }
-  const t = tLeft + ((lux - luxLeft) * (tRight - tLeft)) / span;
-  return Math.max(0, Math.min(1, t));
+  if (lux >= luxRight) {
+    if (luxRight >= barMax) return clamp01(tRight);
+    if (lux >= barMax) return 1;
+    const span = barMax - luxRight;
+    if (!(span > 0)) return clamp01(tRight);
+    return clamp01(tRight + ((1 - tRight) * (lux - luxRight)) / span);
+  }
+  const span = luxRight - luxLeft;
+  if (!(span > 0)) return clamp01(tLeft);
+  return clamp01(tLeft + ((tRight - tLeft) * (lux - luxLeft)) / span);
 }
 
 function absoluteLuxToRgb(lux: number): [number, number, number] {

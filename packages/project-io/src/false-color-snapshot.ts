@@ -6,7 +6,7 @@ import type { RoomV2 } from "./types";
 
 /**
  * Workplane cell colour for the official report figure.
- * Official 0–2500 palette, clamped to the applied min–max window when given.
+ * Official palette via the applied bar range, handle positions, and lux anchors.
  */
 export function workplaneFalseColorRgb(
   lux: number,
