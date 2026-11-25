@@ -103,6 +103,19 @@ export function PlanUnderlay3D({
 
   const floorY = elevationM - 0.02;
 
+  const dxfLines = useMemo(() => {
+    return officialDxfEntitiesToWorld(dxfEntities, underlay).flatMap((ent, idx) => {
+      const stroke = officialDxfPolylineStrokePoints(ent);
+      if (stroke.length < 2) return [];
+      return [
+        {
+          key: `dxf-${idx}`,
+          points: stroke.map((pt) => [pt.x, floorY + 0.005, pt.y] as [number, number, number]),
+        },
+      ];
+    });
+  }, [dxfEntities, underlay, floorY]);
+
   const geometry = useMemo(() => {
     if (!size) return null;
     const geo = new THREE.PlaneGeometry(size.widthM, size.heightM);
@@ -143,24 +156,17 @@ export function PlanUnderlay3D({
         </mesh>
       )}
 
-      {officialDxfEntitiesToWorld(dxfEntities, underlay).map((ent, idx) => {
-        const stroke = officialDxfPolylineStrokePoints(ent);
-        if (stroke.length < 2) return null;
-        const points = stroke.map(
-          (p) => [p.x, floorY + 0.005, p.y] as [number, number, number]
-        );
-        return (
+      {dxfLines.map((line) => (
           <Line
-            key={`dxf-${idx}`}
-            points={points}
+            key={line.key}
+            points={line.points}
             color="#6a8a9a"
             lineWidth={1}
             transparent
             opacity={Math.min(1, underlay.opacity + 0.1)}
             depthWrite={false}
           />
-        );
-      })}
+      ))}
     </group>
   );
 }

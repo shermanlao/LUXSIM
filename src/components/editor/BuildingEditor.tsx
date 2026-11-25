@@ -333,6 +333,10 @@ const BuildingScene3D = dynamic(
   }
 );
 
+function preloadOfficialScene3d() {
+  void import("./BuildingScene3D");
+}
+
 type LumRow = {
   id: string;
   name: string;
@@ -3416,6 +3420,18 @@ export function BuildingEditor({
   }
 
   const viewReadyResolverRef = useRef<(() => void) | null>(null);
+  const [keepScene3dForProjectId, setKeepScene3dForProjectId] = useState<string | null>(null);
+  const [scene3dReadyGeneration, setScene3dReadyGeneration] = useState(0);
+  const scene3dActive = viewMode === "persp3d";
+  const mountScene3d = scene3dActive || keepScene3dForProjectId === projectId;
+
+  useEffect(() => {
+    preloadOfficialScene3d();
+  }, []);
+
+  useEffect(() => {
+    if (viewMode === "persp3d") setKeepScene3dForProjectId(projectId);
+  }, [viewMode, projectId]);
 
   function markOfficialViewReady() {
     const resolve = viewReadyResolverRef.current;
@@ -3434,6 +3450,12 @@ export function BuildingEditor({
     });
     void officialWait.run(OFFICIAL_WAIT_COPY.loadingView, async () => {
       flushSync(() => {
+        if (mode === "persp3d" || viewMode === "persp3d") {
+          setKeepScene3dForProjectId(projectId);
+        }
+        if (mode === "persp3d") {
+          setScene3dReadyGeneration((n) => n + 1);
+        }
         patchSceneUi((s) => ({
           ...s,
           ui: {
@@ -3694,7 +3716,17 @@ export function BuildingEditor({
           onBeginMoveInstance={beginMoveInstance}
         />
       )}
-      {viewMode === "persp3d" && (
+      {/* Keep the WebGL scene after the first 3D visit so later switches do not remount it. */}
+      {mountScene3d && (
+        <div
+          className="absolute inset-0"
+          style={{
+            visibility: scene3dActive ? "visible" : "hidden",
+            pointerEvents: scene3dActive ? "auto" : "none",
+            zIndex: scene3dActive ? 1 : 0,
+          }}
+          aria-hidden={!scene3dActive}
+        >
         <BuildingScene3D
           readOnly={readOnly}
           scene={scene}
@@ -3715,9 +3747,12 @@ export function BuildingEditor({
           showValueLabels={planValueLabels}
           showIsolines={planShowIsolines}
           showWorkplane={showWorkplane}
+          active={scene3dActive}
+          viewReadyGeneration={scene3dReadyGeneration}
           onViewReady={markOfficialViewReady}
           onFalseColorFieldReady={markScaleFieldReady}
         />
+        </div>
       )}
       {showScaleApplyPrompt && (
         <FalseColorScaleApplyPrompt

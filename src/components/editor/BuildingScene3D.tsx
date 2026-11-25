@@ -214,11 +214,24 @@ function ViewportSync() {
   return null;
 }
 
-function ViewReadySignal({ onViewReady }: { onViewReady?: () => void }) {
-  const called = useRef(false);
+function ViewReadySignal({
+  active = true,
+  generation = 0,
+  onViewReady,
+}: {
+  active?: boolean;
+  generation?: number;
+  onViewReady?: () => void;
+}) {
+  const { invalidate } = useThree();
+  const last = useRef<number | null>(null);
+  useLayoutEffect(() => {
+    if (active) invalidate();
+  }, [active, generation, invalidate]);
   useFrame(() => {
-    if (called.current || !onViewReady) return;
-    called.current = true;
+    if (!active || !onViewReady) return;
+    if (last.current === generation) return;
+    last.current = generation;
     onViewReady();
   });
   return null;
@@ -260,6 +273,8 @@ export function BuildingScene3D({
   showValueLabels = false,
   showIsolines = false,
   showWorkplane = true,
+  active = true,
+  viewReadyGeneration = 0,
   onViewReady,
   onFalseColorFieldReady,
   readOnly = false,
@@ -283,6 +298,10 @@ export function BuildingScene3D({
   showValueLabels?: boolean;
   showIsolines?: boolean;
   showWorkplane?: boolean;
+  /** When false, keep the WebGL tree mounted but pause rendering and input. */
+  active?: boolean;
+  /** Bumped each time the 3D view is shown so onViewReady can fire again. */
+  viewReadyGeneration?: number;
   onViewReady?: () => void;
   /** Called after a frame with the applied false-colour / greyscale field. */
   onFalseColorFieldReady?: () => void;
@@ -342,11 +361,16 @@ export function BuildingScene3D({
           position: startPosition.current,
           fov: 45,
         }}
+        frameloop={active ? "always" : "never"}
         gl={{ preserveDrawingBuffer: true, antialias: true }}
         style={{ position: "absolute", inset: 0 }}
         resize={{ debounce: 0 }}
       >
-        <ViewReadySignal onViewReady={onViewReady} />
+        <ViewReadySignal
+          active={active}
+          generation={viewReadyGeneration}
+          onViewReady={onViewReady}
+        />
         <ScaleFieldReadySignal
           token={`${showIlluminanceField}:${falseColorScale?.minLux}:${falseColorScale?.maxLux}:${falseColorScale?.tMin}:${falseColorScale?.tMax}:${falseColorScale?.winMin}:${falseColorScale?.winMax}`}
           onReady={onFalseColorFieldReady}
@@ -470,6 +494,7 @@ export function BuildingScene3D({
           minPolarAngle={0.2}
           maxPolarAngle={Math.PI / 2 - 0.05}
           minDistance={0.05}
+          enabled={active}
           enableZoom
           enablePan
           screenSpacePanning
