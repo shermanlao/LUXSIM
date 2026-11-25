@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 320" role="img" aria-labelledby="t d">
-  <title id="t">Scale-bar end range and handle lux inputs</title>
-  <desc id="d">The end boxes are the lux range of the whole scale bar, here 0 and 2500. Each white handle has its own compact lux field that moves with it, here 100 and 500. Colour follows the bar range: values below 100 use colours to the left of the left handle, and values above 500 use colours to the right of the right handle.</desc>
+  <title id="t">Scale-bar end range and colour-handle lux anchors</title>
+  <desc id="d">The end boxes are the lux range of the whole scale bar, here 0 and 2500. The left white handle sits on black with lux anchor 0. The right white handle sits on official red, with lux anchor 500, which need not match the tick under the handle. Colour maps 0–500 lx from black to red.</desc>
   <rect width="840" height="320" fill="#0f1c24"/>
   <g font-family="Inter, Segoe UI, sans-serif">
     <rect x="20" y="12" width="800" height="188" rx="6" fill="#0a1218" stroke="#2a3842"/>
@@ -18,7 +18,7 @@
       </linearGradient>
     </defs>
     <rect x="40" y="28" width="760" height="124" fill="#163038"/>
-    <text x="60" y="52" fill="#8aa0ad" font-size="11">Plan colour field hidden while the bar range or handle values are pending</text>
+    <text x="60" y="52" fill="#8aa0ad" font-size="11">Plan colour field hidden while the bar range, handles, or lux anchors are pending</text>
     <rect x="250" y="64" width="340" height="80" rx="8" fill="rgba(15,23,29,0.95)" stroke="#2a3842"/>
     <text x="420" y="90" text-anchor="middle" fill="#e8eef2" font-size="16" font-weight="650">Apply to change false colour</text>
     <text x="420" y="112" text-anchor="middle" fill="#c5d0d6" font-size="15">套用以更改偽色</text>
@@ -32,14 +32,14 @@
     <text x="771" y="226" text-anchor="middle" fill="#f5f7f8" font-size="9" font-weight="600">Apply / 套用</text>
     <rect x="28" y="250" width="36" height="16" rx="2" fill="#12202a" stroke="#3a5160"/>
     <text x="46" y="262" text-anchor="middle" fill="#e8eef2" font-size="9">0</text>
-    <!-- handle lux fields at 100 lx (4%) and 500 lx (20%) on a 0–2500 bar -->
-    <rect x="89.2" y="247" width="36" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
-    <text x="107.2" y="258" text-anchor="middle" fill="#f5a020" font-size="8">100</text>
-    <rect x="198" y="247" width="36" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
-    <text x="216" y="258" text-anchor="middle" fill="#f5a020" font-size="8">500</text>
+    <!-- left handle at t=0 (black); right handle at official red t=0.875, x=80+0.875*680=675 -->
+    <rect x="80" y="247" width="32" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="96" y="258" text-anchor="middle" fill="#f5a020" font-size="8">0</text>
+    <rect x="657" y="247" width="36" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="675" y="258" text-anchor="middle" fill="#f5a020" font-size="8">500</text>
     <rect x="80" y="264" width="680" height="10" rx="2" fill="url(#fcbar)" stroke="#3a5160"/>
-    <polygon points="101.2,264 113.2,264 107.2,274" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
-    <polygon points="210,264 222,264 216,274" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
+    <polygon points="80,264 92,264 86,274" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
+    <polygon points="669,264 681,264 675,274" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
     <rect x="776" y="250" width="36" height="16" rx="2" fill="#12202a" stroke="#3a5160"/>
     <text x="794" y="262" text-anchor="middle" fill="#e8eef2" font-size="9">2500</text>
     <text x="80" y="292" fill="#8fa3ad" font-size="9">0</text>

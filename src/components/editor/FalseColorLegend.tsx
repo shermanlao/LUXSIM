@@ -50,6 +50,16 @@ function tickAlign(i: number, last: number): string {
   return "translateX(-50%)";
 }
 
+const CHART_SLIDER_MAX = OFFICIAL_FALSE_COLOR_SCALE.maxLux - OFFICIAL_FALSE_COLOR_SCALE.minLux;
+
+function tToSlider(t: number): number {
+  return Math.round(Math.max(0, Math.min(1, t)) * CHART_SLIDER_MAX);
+}
+
+function sliderToT(value: number): number {
+  return Math.max(0, Math.min(1, value / CHART_SLIDER_MAX));
+}
+
 export function FalseColorLegend({
   results,
   emin: eminProp,
@@ -92,10 +102,10 @@ export function FalseColorLegend({
   useEffect(() => {
     if (interactingRef.current) return;
     setDraft(committed);
-  }, [committed.minLux, committed.maxLux, committed.winMin, committed.winMax]);
+  }, [committed.minLux, committed.maxLux, committed.tMin, committed.tMax, committed.winMin, committed.winMax]);
 
   const current = draft;
-  const stops = officialChartLegendStops(palette, current);
+  const stops = officialChartLegendStops(palette);
   const hasResults = Boolean(results) || eminProp != null || emaxProp != null || scale != null;
   const gradient = `linear-gradient(90deg, ${stops
     .map((s, i) => `${s.color} ${(i / Math.max(stops.length - 1, 1)) * 100}%`)
@@ -103,13 +113,15 @@ export function FalseColorLegend({
 
   const barMin = current.minLux;
   const barMax = current.maxLux;
+  const tMin = current.tMin ?? 0;
+  const tMax = current.tMax ?? 1;
   const winMin = current.winMin ?? barMin;
   const winMax = current.winMax ?? barMax;
   const span = Math.max(barMax - barMin, 1e-9);
   const step = barStep(span);
-  const minHandleGap = Math.max(step, Math.min(1, span / 2500));
-  const pctMin = ((winMin - barMin) / span) * 100;
-  const pctMax = ((winMax - barMin) / span) * 100;
+  const anchorStep = barStep(Math.max(Math.abs(winMax - winMin), 1));
+  const pctMin = tMin * 100;
+  const pctMax = tMax * 100;
   const ticks = falseColorBarTicks(barMin, barMax);
 
   const interactive = typeof onChange === "function";
@@ -123,22 +135,27 @@ export function FalseColorLegend({
     onChange?.(normalized);
   }
 
-  function previewBar(minLux: number, maxLux: number) {
-    setDraftScale({
-      minLux,
-      maxLux,
-      winMin,
-      winMax,
-    });
+  function fullScale(partial: Partial<FalseColorScale> & Pick<FalseColorScale, "minLux" | "maxLux">): FalseColorScale {
+    return {
+      minLux: partial.minLux,
+      maxLux: partial.maxLux,
+      tMin: partial.tMin ?? tMin,
+      tMax: partial.tMax ?? tMax,
+      winMin: partial.winMin ?? winMin,
+      winMax: partial.winMax ?? winMax,
+    };
   }
 
-  function previewWindow(nextWinMin: number, nextWinMax: number) {
-    setDraftScale({
-      minLux: barMin,
-      maxLux: barMax,
-      winMin: nextWinMin,
-      winMax: nextWinMax,
-    });
+  function previewBar(minLux: number, maxLux: number) {
+    setDraftScale(fullScale({ minLux, maxLux, tMin, tMax, winMin, winMax }));
+  }
+
+  function previewHandles(nextTMin: number, nextTMax: number) {
+    setDraftScale(fullScale({ minLux: barMin, maxLux: barMax, tMin: nextTMin, tMax: nextTMax, winMin, winMax }));
+  }
+
+  function previewAnchors(nextWinMin: number, nextWinMax: number) {
+    setDraftScale(fullScale({ minLux: barMin, maxLux: barMax, tMin, tMax, winMin: nextWinMin, winMax: nextWinMax }));
   }
 
   function beginInteract() {
@@ -168,14 +185,14 @@ export function FalseColorLegend({
     const n = Number(value);
     if (!Number.isFinite(n)) return;
     beginInteract();
-    previewWindow(n, winMax);
+    previewAnchors(n, winMax);
   }
 
   function onWinMaxInput(value: string) {
     const n = Number(value);
     if (!Number.isFinite(n)) return;
     beginInteract();
-    previewWindow(winMin, n);
+    previewAnchors(winMin, n);
   }
 
   const shell = isBar
@@ -255,9 +272,9 @@ export function FalseColorLegend({
             <div className="relative h-[1.2rem] mb-0.5 pointer-events-none">
               <input
                 type="number"
-                min={barMin}
-                max={winMax - minHandleGap}
-                step={step}
+                min={FALSE_COLOR_BAR_MIN}
+                max={FALSE_COLOR_BAR_MAX}
+                step={anchorStep}
                 value={luxInputValue(winMin)}
                 onChange={(e) => onWinMinInput(e.target.value)}
                 onBlur={commitDraft}
@@ -270,13 +287,13 @@ export function FalseColorLegend({
                 }}
                 className="falsecolor-handle-input"
                 style={handleInputStyle(pctMin, pctMax)}
-                aria-label="Lower handle lux"
+                aria-label="Lower colour lux anchor"
               />
               <input
                 type="number"
-                min={winMin + minHandleGap}
-                max={barMax}
-                step={step}
+                min={FALSE_COLOR_BAR_MIN}
+                max={FALSE_COLOR_BAR_MAX}
+                step={anchorStep}
                 value={luxInputValue(winMax)}
                 onChange={(e) => onWinMaxInput(e.target.value)}
                 onBlur={commitDraft}
@@ -289,7 +306,7 @@ export function FalseColorLegend({
                 }}
                 className="falsecolor-handle-input"
                 style={handleInputStyle(pctMax, pctMin)}
-                aria-label="Upper handle lux"
+                aria-label="Upper colour lux anchor"
               />
             </div>
           )}
@@ -302,31 +319,31 @@ export function FalseColorLegend({
             <div className="relative h-3">
               <input
                 type="range"
-                min={barMin}
-                max={barMax}
-                step={step}
-                value={Math.min(winMin, winMax - minHandleGap)}
+                min={0}
+                max={CHART_SLIDER_MAX}
+                step={1}
+                value={Math.min(tToSlider(tMin), tToSlider(tMax) - 1)}
                 onPointerDown={beginInteract}
-                onChange={(e) => previewWindow(Number(e.target.value), winMax)}
+                onChange={(e) => previewHandles(sliderToT(Number(e.target.value)), tMax)}
                 onPointerUp={commitDraft}
                 onPointerCancel={commitDraft}
                 onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--min"
-                aria-label="Lower handle lux"
+                aria-label="Lower colour"
               />
               <input
                 type="range"
-                min={barMin}
-                max={barMax}
-                step={step}
-                value={Math.max(winMax, winMin + minHandleGap)}
+                min={0}
+                max={CHART_SLIDER_MAX}
+                step={1}
+                value={Math.max(tToSlider(tMax), tToSlider(tMin) + 1)}
                 onPointerDown={beginInteract}
-                onChange={(e) => previewWindow(winMin, Number(e.target.value))}
+                onChange={(e) => previewHandles(tMin, sliderToT(Number(e.target.value)))}
                 onPointerUp={commitDraft}
                 onPointerCancel={commitDraft}
                 onKeyUp={commitDraft}
                 className="falsecolor-range falsecolor-range--max"
-                aria-label="Upper handle lux"
+                aria-label="Upper colour"
               />
             </div>
           )}
