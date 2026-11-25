@@ -14,6 +14,14 @@ import {
   OFFICIAL_FALSE_COLOR_SCALE,
 } from "@/lib/false-color";
 import { FALSE_COLOR_SCALE_APPLY_PROMPT } from "@/lib/false-color-scale-commit";
+import {
+  FALSE_COLOR_TEMPLATE_COPY,
+  type FalseColorScaleTemplate,
+} from "@/lib/false-color-scale-templates";
+import {
+  FalseColorScaleDeleteTemplateDialog,
+  FalseColorScaleSaveTemplateDialog,
+} from "./FalseColorScaleTemplateDialogs";
 
 function formatLux(value: number): string {
   if (!Number.isFinite(value)) return "";
@@ -155,6 +163,12 @@ export function FalseColorLegend({
   tone = "light",
   layout = "card",
   palette = "falsecolor",
+  templates = [],
+  templatesEnabled = false,
+  templatesError = null,
+  onSaveTemplate,
+  onLoadTemplate,
+  onDeleteTemplate,
 }: {
   results?: CalcResults | null;
   emin?: number;
@@ -170,6 +184,16 @@ export function FalseColorLegend({
   layout?: "card" | "bar";
   /** Greyscale uses a grey gradient and title; false colour uses a continuous nine-stop scale. */
   palette?: IsoluxPalette;
+  templates?: readonly FalseColorScaleTemplate[];
+  templatesEnabled?: boolean;
+  templatesError?: string | null;
+  onSaveTemplate?: (
+    name: string,
+    scale: FalseColorScale,
+    palette: IsoluxPalette
+  ) => Promise<{ ok: true; id: string } | { ok: false }>;
+  onLoadTemplate?: (template: FalseColorScaleTemplate) => void;
+  onDeleteTemplate?: (templateId: string) => Promise<boolean> | boolean;
 }) {
   const fallback = normalizeFalseColorScale(
     eminProp ?? results?.summary.emin ?? OFFICIAL_FALSE_COLOR_SCALE.minLux,
@@ -180,11 +204,21 @@ export function FalseColorLegend({
   const draftRef = useRef(draft);
   draftRef.current = draft;
   const interactingRef = useRef(false);
+  const [saveOpen, setSaveOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (interactingRef.current) return;
     setDraft(committed);
   }, [committed.minLux, committed.maxLux, committed.tMin, committed.tMax, committed.winMin, committed.winMax]);
+
+  useEffect(() => {
+    if (selectedTemplateId && !templates.some((template) => template.id === selectedTemplateId)) {
+      setSelectedTemplateId("");
+    }
+  }, [templates, selectedTemplateId]);
 
   const current = draft;
   const stops = officialChartLegendStops(palette);
@@ -326,6 +360,51 @@ export function FalseColorLegend({
         )}
       </div>
 
+      {templatesEnabled ? (
+        <div className="falsecolor-template-row" data-falsecolor-templates="">
+          <select
+            className="falsecolor-template-select"
+            aria-label={FALSE_COLOR_TEMPLATE_COPY.templates}
+            value={selectedTemplateId}
+            disabled={busy}
+            onChange={(e) => {
+              const id = e.target.value;
+              setSelectedTemplateId(id);
+              const template = templates.find((item) => item.id === id);
+              if (!template) return;
+              interactingRef.current = false;
+              onLoadTemplate?.(template);
+            }}
+          >
+            <option value="">{FALSE_COLOR_TEMPLATE_COPY.selectPlaceholder}</option>
+            {templates.map((template) => (
+              <option key={template.id} value={template.id}>
+                {template.name}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className="falsecolor-template-btn"
+            disabled={busy}
+            onClick={() => setSaveOpen(true)}
+          >
+            {FALSE_COLOR_TEMPLATE_COPY.saveAs}
+          </button>
+          <button
+            type="button"
+            className="falsecolor-template-btn"
+            disabled={busy || !selectedTemplateId}
+            onClick={() => {
+              if (selectedTemplateId) setDeleteId(selectedTemplateId);
+            }}
+          >
+            {FALSE_COLOR_TEMPLATE_COPY.delete}
+          </button>
+          {templatesError ? <span className="falsecolor-template-row-error">{templatesError}</span> : null}
+        </div>
+      ) : null}
+
       <div className="flex items-center gap-2">
         {interactive ? (
           <LuxNumberField
@@ -440,6 +519,45 @@ export function FalseColorLegend({
           />
         ) : null}
       </div>
+      {templatesEnabled ? (
+        <>
+          <FalseColorScaleSaveTemplateDialog
+            open={saveOpen}
+            templates={templates}
+            onCancel={() => setSaveOpen(false)}
+            onSave={(name) => {
+              if (!onSaveTemplate) return;
+              setBusy(true);
+              void Promise.resolve(onSaveTemplate(name, draftRef.current, palette)).then((result) => {
+                if (result && result.ok) {
+                  setSelectedTemplateId(result.id);
+                  setSaveOpen(false);
+                }
+              }).finally(() => {
+                setBusy(false);
+              });
+            }}
+          />
+          <FalseColorScaleDeleteTemplateDialog
+            open={Boolean(deleteId)}
+            templateName={templates.find((item) => item.id === deleteId)?.name ?? ""}
+            onCancel={() => setDeleteId(null)}
+            onConfirm={() => {
+              if (!deleteId || !onDeleteTemplate) return;
+              const id = deleteId;
+              setBusy(true);
+              void Promise.resolve(onDeleteTemplate(id)).then((ok) => {
+                if (ok !== false) {
+                  setDeleteId(null);
+                  setSelectedTemplateId((current) => (current === id ? "" : current));
+                }
+              }).finally(() => {
+                setBusy(false);
+              });
+            }}
+          />
+        </>
+      ) : null}
     </div>
   );
 }

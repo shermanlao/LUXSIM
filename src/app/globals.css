@@ -1252,6 +1252,97 @@ body:has(.cad-editor-root) header nav {
   outline-offset: 1px;
 }
 
+.falsecolor-template-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  margin: 0 0 0.35rem;
+}
+.falsecolor-template-select {
+  max-width: 11rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 2px;
+  border: 1px solid #3a5160;
+  background: #12202a;
+  color: #e8eef2;
+  font-size: 10px;
+}
+.falsecolor-template-btn {
+  font-size: 10px;
+  color: #c5d0d6;
+  text-underline-offset: 2px;
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+}
+.falsecolor-template-btn:hover:not(:disabled) {
+  text-decoration: underline;
+}
+.falsecolor-template-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.falsecolor-template-row-error {
+  font-size: 10px;
+  color: #e8a07a;
+}
+.falsecolor-template-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(15, 28, 36, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+}
+.falsecolor-template-dialog {
+  width: min(26rem, 100%);
+  background: #0a1218;
+  border: 1px solid #2a3842;
+  border-radius: 2px;
+  color: #e8eef2;
+  padding: 1.25rem 1.4rem 1.15rem;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.35);
+}
+.falsecolor-template-dialog h2 {
+  margin: 0 0 0.2rem;
+  font-size: 1.45rem;
+  color: #f0f4f6;
+}
+.falsecolor-template-dialog p,
+.falsecolor-template-dialog .label {
+  margin: 0 0 0.45rem;
+  color: #d5dee3;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+.falsecolor-template-dialog .input {
+  width: 100%;
+  margin-bottom: 0.6rem;
+}
+.falsecolor-template-zh {
+  color: #b8c8d0 !important;
+}
+.falsecolor-template-hint {
+  font-size: 0.85rem !important;
+  color: #b8c8d0;
+  margin: 0 0 0.25rem !important;
+}
+.falsecolor-template-error {
+  color: #e8a07a !important;
+  font-size: 0.85rem !important;
+}
+.falsecolor-template-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
 /* Header account / sign-out: visible on light marketing header and dark project header.
    Uses currentColor + transparent fill so a dark header cannot produce a white pill
    with light text (the earlier false-colour control contrast bug). */

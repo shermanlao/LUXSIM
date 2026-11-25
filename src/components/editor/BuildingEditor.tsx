@@ -249,6 +249,8 @@ import {
   isTypingField,
 } from "@/lib/editor-undo";
 import { FalseColorLegend } from "./FalseColorLegend";
+import { useFalseColorScaleTemplates } from "./useFalseColorScaleTemplates";
+import { templateScaleFromRecord } from "@/lib/false-color-scale-templates";
 import { FalseColorScaleApplyPrompt } from "./FalseColorScaleApplyPrompt";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { EditorChromeToggle } from "./EditorChromeToggle";
@@ -3349,6 +3351,8 @@ export function BuildingEditor({
   const [scale, setScale] = useState<FalseColorScale>(autoScale);
   const [pendingScale, setPendingScale] = useState<FalseColorScale>(autoScale);
   const [scalePinned, setScalePinned] = useState(false);
+  const scaleTemplatesEnabled = !readOnly && !shareBasePath;
+  const scaleTemplates = useFalseColorScaleTemplates(projectId, scaleTemplatesEnabled);
   useEditorPerformanceMonitor();
   const viewScaleRef = useRef(scale);
   viewScaleRef.current = scale;
@@ -3737,6 +3741,30 @@ export function BuildingEditor({
           layout="bar"
           tone="dark"
           palette={scaleApplyPalette}
+          templates={scaleTemplates.templates}
+          templatesEnabled={scaleTemplatesEnabled}
+          templatesError={scaleTemplates.error}
+          onLoadTemplate={(template) => {
+            setPendingViewFalseColorScale(templateScaleFromRecord(template));
+          }}
+          onSaveTemplate={async (name, scale, palette) => {
+            const result = await scaleTemplates.saveTemplate(name, scale, palette);
+            if (!result.ok) {
+              setStatus(result.error);
+              return { ok: false as const };
+            }
+            setStatus(null);
+            return { ok: true as const, id: result.template.id };
+          }}
+          onDeleteTemplate={async (templateId) => {
+            const result = await scaleTemplates.deleteTemplate(templateId);
+            if (!result.ok) {
+              setStatus(result.error);
+              return false;
+            }
+            setStatus(null);
+            return true;
+          }}
         />
       )}
     </div>
