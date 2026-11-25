@@ -342,6 +342,8 @@ function preloadOfficialScene3d() {
   void import("./BuildingScene3D");
 }
 
+const EMPTY_DXF_ENTITIES: DxfEntity[] = [];
+
 type LumRow = {
   id: string;
   name: string;
@@ -590,7 +592,7 @@ export function BuildingEditor({
   const underlayUrl = underlayDisplayAssetId
     ? `${assetApiBase}/assets/${underlayDisplayAssetId}/file`
     : null;
-  const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? [];
+  const dxfEntities: DxfEntity[] = underlay?.dxfEntities ?? EMPTY_DXF_ENTITIES;
 
   useEffect(() => {
     const warnings = takeImportLuxsimWarnings(projectId);
@@ -3481,6 +3483,9 @@ export function BuildingEditor({
   const [scene3dReadyGeneration, setScene3dReadyGeneration] = useState(0);
   const scene3dActive = viewMode === "persp3d";
   const mountScene3d = scene3dActive || keepScene3dForProjectId === projectId;
+  const [keepTopViewForProjectId, setKeepTopViewForProjectId] = useState<string | null>(null);
+  const topViewActive = viewMode === "top";
+  const mountTopView = topViewActive || keepTopViewForProjectId === projectId;
 
   useEffect(() => {
     preloadOfficialScene3d();
@@ -3488,6 +3493,10 @@ export function BuildingEditor({
 
   useEffect(() => {
     if (viewMode === "persp3d") setKeepScene3dForProjectId(projectId);
+  }, [viewMode, projectId]);
+
+  useEffect(() => {
+    if (viewMode === "top") setKeepTopViewForProjectId(projectId);
   }, [viewMode, projectId]);
 
   function markOfficialViewReady() {
@@ -3512,6 +3521,9 @@ export function BuildingEditor({
         }
         if (mode === "persp3d") {
           setScene3dReadyGeneration((n) => n + 1);
+        }
+        if (mode === "top" || viewMode === "top") {
+          setKeepTopViewForProjectId(projectId);
         }
         patchSceneUi((s) => ({
           ...s,
@@ -3662,7 +3674,17 @@ export function BuildingEditor({
         )}
       </div>
       <div className="relative flex-1 min-h-0 bg-[#0a1218]">
-      {(viewMode === "top") && (
+      {/* Keep the static plan after the first Top visit so later switches do not rebuild it. */}
+      {mountTopView && (
+        <div
+          className="absolute inset-0"
+          style={{
+            visibility: topViewActive ? "visible" : "hidden",
+            pointerEvents: topViewActive ? "auto" : "none",
+            zIndex: topViewActive ? 1 : 0,
+          }}
+          aria-hidden={!topViewActive}
+        >
         <TopView2D
           readOnly={readOnly}
           scene={scene}
@@ -3721,7 +3743,9 @@ export function BuildingEditor({
           rcpProposals={scene.rcpProposals ?? []}
           showRcpOverlay={showRcpOverlay && workflow === "light"}
           selectedRcpId={selectedRcpId}
+          active={topViewActive}
         />
+        </div>
       )}
       {viewMode === "front" && (
         <ElevationView2D

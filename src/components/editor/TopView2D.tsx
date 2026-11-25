@@ -156,6 +156,8 @@ type Props = {
   onFalseColorFieldReady?: () => void;
   /** View-only: select is allowed, edit handles and moves are not. */
   readOnly?: boolean;
+  /** When false, keep the plan mounted but ignore window shortcuts and pointer input. */
+  active?: boolean;
 };
 
 function isTypingField(el: EventTarget | null) {
@@ -217,6 +219,7 @@ export function TopView2D({
   falseColorScale,
   onFalseColorFieldReady,
   readOnly = false,
+  active = true,
 }: Props) {
   const anyFilletPickActive = filletPickActive || filletAllPickActive;
   const hostRef = useRef<HTMLDivElement>(null);
@@ -467,7 +470,7 @@ export function TopView2D({
   }
 
   useEffect(() => {
-    if (!drawing) return;
+    if (!active || !drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (e.key === "Shift") {
@@ -519,7 +522,7 @@ export function TopView2D({
       window.removeEventListener("keyup", onUp);
     };
     // commitPoint uses latest draft/preview via closure; lengthBuf + draft keep it current
-  }, [drawing, drawingContour, lengthBuf, last, preview, draft, willClose]);
+  }, [active, drawing, drawingContour, lengthBuf, last, preview, draft, willClose]);
 
   useEffect(() => {
     setActiveVertex((current) => {
@@ -533,7 +536,7 @@ export function TopView2D({
   }, [scene.ui.activeRoomId, scene.rooms]);
 
   useEffect(() => {
-    if (drawing) return;
+    if (!active || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (
@@ -583,6 +586,7 @@ export function TopView2D({
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [
+    active,
     drawing,
     rooms,
     scene.ui.tool,
@@ -600,7 +604,7 @@ export function TopView2D({
   ]);
 
   useEffect(() => {
-    if (!linePickActive || !linePick || drawing) return;
+    if (!active || !linePickActive || !linePick || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (e.key !== "Escape") return;
@@ -612,10 +616,10 @@ export function TopView2D({
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [linePickActive, linePick, drawing, onLinePickChange]);
+  }, [active, linePickActive, linePick, drawing, onLinePickChange]);
 
   useEffect(() => {
-    if (!unionPickActive || drawing) return;
+    if (!active || !unionPickActive || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (e.key === "Enter" && unionPickMode === "distribute") {
@@ -632,10 +636,10 @@ export function TopView2D({
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [unionPickActive, unionPickMode, drawing, onUnionPickCancel, onDistributeApply]);
+  }, [active, unionPickActive, unionPickMode, drawing, onUnionPickCancel, onDistributeApply]);
 
   useEffect(() => {
-    if (!anyFilletPickActive || drawing) return;
+    if (!active || !anyFilletPickActive || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (e.key !== "Escape") return;
@@ -647,6 +651,7 @@ export function TopView2D({
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [
+    active,
     anyFilletPickActive,
     filletAllPickActive,
     drawing,
@@ -655,7 +660,7 @@ export function TopView2D({
   ]);
 
   useEffect(() => {
-    if (!circlePickActive || !circlePick || drawing) return;
+    if (!active || !circlePickActive || !circlePick || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       if (e.key !== "Escape") return;
@@ -666,10 +671,10 @@ export function TopView2D({
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [circlePickActive, circlePick, drawing, onCirclePickChange]);
+  }, [active, circlePickActive, circlePick, drawing, onCirclePickChange]);
 
   useEffect(() => {
-    if (!polygonPickActive || drawing) return;
+    if (!active || !polygonPickActive || drawing) return;
     const onKey = (e: KeyboardEvent) => {
       if (isTypingField(e.target)) return;
       const current = polygonPickRef.current;
@@ -693,7 +698,7 @@ export function TopView2D({
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [polygonPickActive, polygonPick, drawing, onPolygonPickChange]);
+  }, [active, polygonPickActive, polygonPick, drawing, onPolygonPickChange]);
 
   function closeSnapMAt(clientX: number, clientY: number): number {
     return polygonPathCloseSnapM(worldMetresPerCssPixel(toWorld, clientX, clientY));
