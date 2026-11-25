@@ -224,6 +224,23 @@ function ViewReadySignal({ onViewReady }: { onViewReady?: () => void }) {
   return null;
 }
 
+function ScaleFieldReadySignal({
+  token,
+  onReady,
+}: {
+  token: string;
+  onReady?: () => void;
+}) {
+  const last = useRef<string | null>(null);
+  useFrame(() => {
+    if (!onReady) return;
+    if (last.current === token) return;
+    last.current = token;
+    onReady();
+  });
+  return null;
+}
+
 export function BuildingScene3D({
   scene,
   results,
@@ -244,6 +261,7 @@ export function BuildingScene3D({
   showIsolines = false,
   showWorkplane = true,
   onViewReady,
+  onFalseColorFieldReady,
   readOnly = false,
 }: {
   scene: ProjectSceneV2;
@@ -266,6 +284,8 @@ export function BuildingScene3D({
   showIsolines?: boolean;
   showWorkplane?: boolean;
   onViewReady?: () => void;
+  /** Called after a frame with the applied false-colour / greyscale field. */
+  onFalseColorFieldReady?: () => void;
   readOnly?: boolean;
 }) {
   const storeyId = scene.ui.activeStoreyId;
@@ -327,6 +347,10 @@ export function BuildingScene3D({
         resize={{ debounce: 0 }}
       >
         <ViewReadySignal onViewReady={onViewReady} />
+        <ScaleFieldReadySignal
+          token={`${showIlluminanceField}:${falseColorScale?.minLux}:${falseColorScale?.maxLux}:${falseColorScale?.tMin}:${falseColorScale?.tMax}:${falseColorScale?.winMin}:${falseColorScale?.winMax}`}
+          onReady={onFalseColorFieldReady}
+        />
         <ViewportSync />
         <MirroredFrontFace />
         <color attach="background" args={[EDITOR_BG]} />

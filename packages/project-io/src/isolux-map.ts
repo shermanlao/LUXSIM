@@ -142,12 +142,17 @@ export function normalizeFalseColorScale(
   return normalizeFalseColorMapping({ minLux, maxLux, winMin, winMax, tMin, tMax });
 }
 
+function finiteNumber(value: unknown): number | undefined {
+  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN;
+  return Number.isFinite(n) ? n : undefined;
+}
+
 function hasFiniteHandleT(scale: FalseColorScale): boolean {
-  return Number.isFinite(scale.tMin) || Number.isFinite(scale.tMax);
+  return finiteNumber(scale.tMin) != null || finiteNumber(scale.tMax) != null;
 }
 
 function hasFiniteAnchors(scale: FalseColorScale): boolean {
-  return Number.isFinite(scale.winMin) || Number.isFinite(scale.winMax);
+  return finiteNumber(scale.winMin) != null || finiteNumber(scale.winMax) != null;
 }
 
 /**
@@ -168,8 +173,8 @@ export function normalizeFalseColorMapping(scale?: FalseColorScale | number | nu
   if (hasT && hasWin) {
     return assembledScale(
       normalizeFalseColorBar(scale.minLux, scale.maxLux),
-      normalizeFalseColorHandles(scale.tMin, scale.tMax),
-      normalizeFalseColorAnchors(scale.winMin, scale.winMax)
+      normalizeFalseColorHandles(finiteNumber(scale.tMin), finiteNumber(scale.tMax)),
+      normalizeFalseColorAnchors(finiteNumber(scale.winMin), finiteNumber(scale.winMax))
     );
   }
   if (hasT && !hasWin) {
@@ -267,12 +272,14 @@ function officialPaletteT(lux: number): number {
  */
 export function officialPaletteTForLux(lux: number, scale?: FalseColorScale | number): number {
   const mapping = normalizeFalseColorMapping(scale);
-  const tLeft = mapping.tMin ?? 0;
-  const tRight = mapping.tMax ?? 1;
-  const luxLeft = mapping.winMin ?? mapping.minLux;
-  const luxRight = mapping.winMax ?? mapping.maxLux;
+  const tLeft = Number(mapping.tMin ?? 0);
+  const tRight = Number(mapping.tMax ?? 1);
+  const luxLeft = Number(mapping.winMin ?? mapping.minLux);
+  const luxRight = Number(mapping.winMax ?? mapping.maxLux);
   const span = luxRight - luxLeft;
-  if (!(span > 0)) return Math.max(0, Math.min(1, tLeft));
+  if (!(span > 0) || !Number.isFinite(tLeft) || !Number.isFinite(tRight)) {
+    return Math.max(0, Math.min(1, Number.isFinite(tLeft) ? tLeft : 0));
+  }
   const t = tLeft + ((lux - luxLeft) * (tRight - tLeft)) / span;
   return Math.max(0, Math.min(1, t));
 }

@@ -28,6 +28,88 @@ function luxInputValue(value: number): number {
   return rounded;
 }
 
+
+function LuxNumberField({
+  id,
+  value,
+  min,
+  max,
+  step,
+  className,
+  style,
+  ariaLabel,
+  onValueChange,
+  onBegin,
+  onCommit,
+}: {
+  id?: string;
+  value: number;
+  min?: number;
+  max?: number;
+  step?: number;
+  className?: string;
+  style?: CSSProperties;
+  ariaLabel?: string;
+  onValueChange: (n: number) => void;
+  onBegin: () => void;
+  onCommit: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [text, setText] = useState("");
+  const display = editing ? text : String(luxInputValue(value));
+
+  function parseOrZero(raw: string): number {
+    if (raw === "" || raw === ".") return 0;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function commitText(raw: string) {
+    onValueChange(parseOrZero(raw));
+    setEditing(false);
+    onCommit();
+  }
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      min={min}
+      max={max}
+      step={step}
+      value={display}
+      aria-label={ariaLabel}
+      className={className}
+      style={style}
+      onFocus={(e) => {
+        setEditing(true);
+        setText(String(luxInputValue(value)));
+        e.currentTarget.select();
+        onBegin();
+      }}
+      onChange={(e) => {
+        const raw = e.target.value;
+        if (raw !== "" && !/^\d*\.?\d*$/.test(raw)) return;
+        setText(raw);
+        onBegin();
+        if (raw !== "" && raw !== ".") {
+          const n = Number(raw);
+          if (Number.isFinite(n)) onValueChange(n);
+        }
+      }}
+      onBlur={(e) => commitText(e.currentTarget.value)}
+      onKeyDown={(e) => {
+        if (e.key === "Enter") {
+          commitText(e.currentTarget.value);
+          e.currentTarget.blur();
+        }
+      }}
+    />
+  );
+}
+
 function handleInputStyle(pct: number, matePct?: number): CSSProperties {
   let transform = "translateX(-50%)";
   if (pct <= 8) transform = "translateX(0)";
@@ -246,67 +328,46 @@ export function FalseColorLegend({
 
       <div className="flex items-center gap-2">
         {interactive ? (
-          <input
+          <LuxNumberField
             id="falsecolor-bar-min"
-            type="number"
             min={FALSE_COLOR_BAR_MIN}
             max={FALSE_COLOR_BAR_MAX}
             step={step}
-            value={luxInputValue(barMin)}
-            onChange={(e) => onBarMinInput(e.target.value)}
-            onBlur={commitDraft}
-            onPointerUp={commitDraft}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                commitDraft();
-                e.currentTarget.blur();
-              }
-            }}
+            value={barMin}
+            onValueChange={(n) => onBarMinInput(String(n))}
+            onBegin={beginInteract}
+            onCommit={commitDraft}
             className={endBoxClass}
-            aria-label="Scale-bar minimum lux"
+            ariaLabel="Scale-bar minimum lux"
           />
         ) : null}
 
         <div className="relative flex-1 min-w-0">
           {interactive && (
             <div className="relative h-[1.2rem] mb-0.5 pointer-events-none">
-              <input
-                type="number"
+              <LuxNumberField
                 min={FALSE_COLOR_BAR_MIN}
                 max={FALSE_COLOR_BAR_MAX}
                 step={anchorStep}
-                value={luxInputValue(winMin)}
-                onChange={(e) => onWinMinInput(e.target.value)}
-                onBlur={commitDraft}
-                onPointerUp={commitDraft}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commitDraft();
-                    e.currentTarget.blur();
-                  }
-                }}
+                value={winMin}
+                onValueChange={(n) => onWinMinInput(String(n))}
+                onBegin={beginInteract}
+                onCommit={commitDraft}
                 className="falsecolor-handle-input"
                 style={handleInputStyle(pctMin, pctMax)}
-                aria-label="Lower colour lux anchor"
+                ariaLabel="Lower colour lux anchor"
               />
-              <input
-                type="number"
+              <LuxNumberField
                 min={FALSE_COLOR_BAR_MIN}
                 max={FALSE_COLOR_BAR_MAX}
                 step={anchorStep}
-                value={luxInputValue(winMax)}
-                onChange={(e) => onWinMaxInput(e.target.value)}
-                onBlur={commitDraft}
-                onPointerUp={commitDraft}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    commitDraft();
-                    e.currentTarget.blur();
-                  }
-                }}
+                value={winMax}
+                onValueChange={(n) => onWinMaxInput(String(n))}
+                onBegin={beginInteract}
+                onCommit={commitDraft}
                 className="falsecolor-handle-input"
                 style={handleInputStyle(pctMax, pctMin)}
-                aria-label="Upper colour lux anchor"
+                ariaLabel="Upper colour lux anchor"
               />
             </div>
           )}
@@ -365,24 +426,17 @@ export function FalseColorLegend({
         </div>
 
         {interactive ? (
-          <input
+          <LuxNumberField
             id="falsecolor-bar-max"
-            type="number"
             min={FALSE_COLOR_BAR_MIN}
             max={FALSE_COLOR_BAR_MAX}
             step={step}
-            value={luxInputValue(barMax)}
-            onChange={(e) => onBarMaxInput(e.target.value)}
-            onBlur={commitDraft}
-            onPointerUp={commitDraft}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                commitDraft();
-                e.currentTarget.blur();
-              }
-            }}
+            value={barMax}
+            onValueChange={(n) => onBarMaxInput(String(n))}
+            onBegin={beginInteract}
+            onCommit={commitDraft}
             className={endBoxClass}
-            aria-label="Scale-bar maximum lux"
+            ariaLabel="Scale-bar maximum lux"
           />
         ) : null}
       </div>

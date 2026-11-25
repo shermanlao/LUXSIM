@@ -152,6 +152,8 @@ type Props = {
   showIsolines?: boolean;
   showValueLabels?: boolean;
   falseColorScale?: FalseColorScale;
+  /** Called after the static plan bitmap has been painted with the applied field. */
+  onFalseColorFieldReady?: () => void;
   /** View-only: select is allowed, edit handles and moves are not. */
   readOnly?: boolean;
 };
@@ -213,6 +215,7 @@ export function TopView2D({
   showIsolines = false,
   showValueLabels = false,
   falseColorScale,
+  onFalseColorFieldReady,
   readOnly = false,
 }: Props) {
   const anyFilletPickActive = filletPickActive || filletAllPickActive;
@@ -224,6 +227,8 @@ export function TopView2D({
   const navSnapshotRef = useRef<HTMLCanvasElement | null>(null);
   const staticRasterRef = useRef<HTMLCanvasElement | null>(null);
   const staticPaintGenRef = useRef(0);
+  const onFalseColorFieldReadyRef = useRef(onFalseColorFieldReady);
+  onFalseColorFieldReadyRef.current = onFalseColorFieldReady;
   const underlayImageRef = useRef<HTMLImageElement | null>(null);
   const [underlayImageGen, setUnderlayImageGen] = useState(0);
   const liveViewRef = useRef(planView);
@@ -910,6 +915,9 @@ export function TopView2D({
     };
   }, [underlay, underlaySize, ox, oy, scale, world.minX, world.minY, world.depth]);
 
+  const isoluxScaleKey = falseColorScale
+    ? `${falseColorScale.minLux}:${falseColorScale.maxLux}:${falseColorScale.tMin ?? 0}:${falseColorScale.tMax ?? 1}:${falseColorScale.winMin ?? falseColorScale.minLux}:${falseColorScale.winMax ?? falseColorScale.maxLux}`
+    : "";
   const isoluxModels = useMemo(() => {
     if (!results || (!showFalseColor && !showIsolines && !showValueLabels)) return [];
     return officialPlanIsoluxModels({
@@ -921,7 +929,9 @@ export function TopView2D({
       showValueLabels,
       colorScale: falseColorScale,
     }).map(({ model }) => model);
-  }, [results, showFalseColor, showIsolines, showValueLabels, rooms, scene.instances, falseColorScale]);
+    // Rebuild when any of the six applied scale numbers change, not only object identity.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [results, showFalseColor, showIsolines, showValueLabels, rooms, scene.instances, isoluxScaleKey]);
 
   const roomFillLayers = useMemo(
     () =>
@@ -978,7 +988,12 @@ export function TopView2D({
       showValueLabels,
       stroke: PLAN_DXF_STROKE,
     });
-    if (ok) staticPaintGenRef.current += 1;
+    if (ok) {
+      staticPaintGenRef.current += 1;
+      if (paintFalseColorField ?? showFalseColor) {
+        onFalseColorFieldReadyRef.current?.();
+      }
+    }
   }, [
     dxfStrokePolylines,
     underlay,

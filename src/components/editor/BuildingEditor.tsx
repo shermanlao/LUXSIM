@@ -87,6 +87,7 @@ import {
   mToMm,
   parseLengthToM,
   OFFICIAL_FALSE_COLOR_SCALE,
+  normalizeFalseColorMapping,
   rectPolygon,
   roomAreaM2,
   roomBounds,
@@ -3367,12 +3368,30 @@ export function BuildingEditor({
     setPendingScale((prev) => (falseColorScalesEqual(prev, next) ? prev : next));
   }
 
+  const scaleFieldReadyResolverRef = useRef<(() => void) | null>(null);
+
+  function markScaleFieldReady() {
+    const resolve = scaleFieldReadyResolverRef.current;
+    scaleFieldReadyResolverRef.current = null;
+    resolve?.();
+  }
+
   function commitViewFalseColorScale(next: FalseColorScale, pinned: boolean) {
-    setPendingScale(next);
+    const applied = normalizeFalseColorMapping(next);
+    setPendingScale(applied);
     setScalePinned(pinned);
-    if (!shouldApplyViewFalseColorScale(viewScaleRef.current, next)) return;
-    setScale(next);
-    void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {});
+    if (!shouldApplyViewFalseColorScale(viewScaleRef.current, applied)) return;
+    const ready = new Promise<void>((resolve) => {
+      scaleFieldReadyResolverRef.current = resolve;
+    });
+    void officialWait.run(OFFICIAL_WAIT_COPY.updatingScale, async () => {
+      flushSync(() => {
+        setScale(applied);
+      });
+      await officialWaitYield();
+      await officialWaitAfterPaint();
+      await officialViewSwitchReady(ready);
+    });
   }
 
   function applyViewFalseColorScale() {
@@ -3571,6 +3590,7 @@ export function BuildingEditor({
           showIsolines={planShowIsolines}
           showValueLabels={planValueLabels}
           falseColorScale={scale}
+          onFalseColorFieldReady={markScaleFieldReady}
           underlayUrl={underlayUrl}
           dxfEntities={dxfEntities}
           selectedId={selectedId}
@@ -3692,6 +3712,7 @@ export function BuildingEditor({
           showIsolines={planShowIsolines}
           showWorkplane={showWorkplane}
           onViewReady={markOfficialViewReady}
+          onFalseColorFieldReady={markScaleFieldReady}
         />
       )}
       {showScaleApplyPrompt && (
