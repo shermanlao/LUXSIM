@@ -251,6 +251,11 @@ import {
 import { FalseColorLegend } from "./FalseColorLegend";
 import { useFalseColorScaleTemplates } from "./useFalseColorScaleTemplates";
 import { templateScaleFromRecord } from "@/lib/false-color-scale-templates";
+import {
+  parseStoredFalseColorScale,
+  parseStoredFalseColorScaleTemplateId,
+  storedFalseColorScale,
+} from "@luxsim/project-io";
 import { FalseColorScaleApplyPrompt } from "./FalseColorScaleApplyPrompt";
 import { EditorResultsStrip } from "./EditorResultsStrip";
 import { EditorChromeToggle } from "./EditorChromeToggle";
@@ -3352,17 +3357,45 @@ export function BuildingEditor({
   const isolineSettings = isolineSettingsFromUi(scene.ui);
   const planIsoluxControls = planIsoluxControlState(results, currentStoreyRoomIds());
   const autoScale = OFFICIAL_FALSE_COLOR_SCALE;
-  const [scale, setScale] = useState<FalseColorScale>(autoScale);
-  const [pendingScale, setPendingScale] = useState<FalseColorScale>(autoScale);
-  const [scalePinned, setScalePinned] = useState(false);
+  const openedScale = parseStoredFalseColorScale(initialScene.ui.falseColorScale);
+  const openedTemplateId = parseStoredFalseColorScaleTemplateId(initialScene.ui.falseColorScaleTemplateId) ?? "";
+  const initialRememberedScale = openedScale ?? autoScale;
+  const [scale, setScale] = useState<FalseColorScale>(initialRememberedScale);
+  const [pendingScale, setPendingScale] = useState<FalseColorScale>(initialRememberedScale);
+  const [scalePinned, setScalePinned] = useState(
+    openedScale ? !falseColorScalesEqual(openedScale, autoScale) : false
+  );
+  const [inUseTemplateId, setInUseTemplateId] = useState(openedTemplateId);
   const scaleTemplatesEnabled = !readOnly && !shareBasePath;
   const scaleTemplates = useFalseColorScaleTemplates(projectId, scaleTemplatesEnabled);
+  const reconciledOpenTemplateRef = useRef(false);
   useEditorPerformanceMonitor();
   const viewScaleRef = useRef(scale);
   viewScaleRef.current = scale;
   useEffect(() => {
     if (!scalePinned) setScale(autoScale);
   }, [autoScale, scalePinned]);
+
+  useEffect(() => {
+    if (reconciledOpenTemplateRef.current) return;
+    if (!scaleTemplatesEnabled) {
+      reconciledOpenTemplateRef.current = true;
+      return;
+    }
+    if (!scaleTemplates.ready) return;
+    reconciledOpenTemplateRef.current = true;
+    if (!openedTemplateId) return;
+    const template = scaleTemplates.templates.find((item) => item.id === openedTemplateId);
+    if (!template) {
+      setInUseTemplateId("");
+      return;
+    }
+    const next = templateScaleFromRecord(template);
+    setInUseTemplateId(openedTemplateId);
+    setPendingScale((prev) => (falseColorScalesEqual(prev, next) ? prev : next));
+    setScale((prev) => (falseColorScalesEqual(prev, next) ? prev : next));
+    setScalePinned(!falseColorScalesEqual(next, autoScale));
+  }, [autoScale, openedTemplateId, scaleTemplates.ready, scaleTemplates.templates, scaleTemplatesEnabled]);
 
   const scaleDirty = shouldApplyViewFalseColorScale(scale, pendingScale);
   const scaleApplyPalette =
@@ -3402,9 +3435,33 @@ export function BuildingEditor({
     });
   }
 
+  function matchingRememberedTemplateId(next: FalseColorScale, templateId: string): string | null {
+    if (!templateId) return null;
+    const template = scaleTemplates.templates.find((item) => item.id === templateId);
+    if (!template) return null;
+    return falseColorScalesEqual(templateScaleFromRecord(template), next) ? templateId : null;
+  }
+
+  function writeScaleMemoryToScene(next: FalseColorScale, templateId: string | null) {
+    const stored = storedFalseColorScale(next);
+    patchSceneUi((s) => ({
+      ...s,
+      ui: {
+        ...s.ui,
+        falseColorScale: stored,
+        falseColorScaleTemplateId: templateId,
+      },
+    }));
+  }
+
   function applyViewFalseColorScale() {
     const next = pendingScale;
+    const rememberedId = matchingRememberedTemplateId(next, inUseTemplateId);
     commitViewFalseColorScale(next, !falseColorScalesEqual(next, autoScale));
+    writeScaleMemoryToScene(next, rememberedId);
+    if (scaleTemplatesEnabled) {
+      void scaleTemplates.rememberScale(next, rememberedId, scaleApplyPalette);
+    }
   }
 
   function commitIsolineSettings(next: IsolineLevelSettings) {
@@ -3779,7 +3836,10 @@ export function BuildingEditor({
           templates={scaleTemplates.templates}
           templatesEnabled={scaleTemplatesEnabled}
           templatesError={scaleTemplates.error}
+          selectedTemplateId={inUseTemplateId}
+          onSelectedTemplateIdChange={setInUseTemplateId}
           onLoadTemplate={(template) => {
+            setInUseTemplateId(template.id);
             setPendingViewFalseColorScale(templateScaleFromRecord(template));
           }}
           onSaveTemplate={async (name, scale, palette) => {
@@ -3789,6 +3849,9 @@ export function BuildingEditor({
               return { ok: false as const };
             }
             setStatus(null);
+            setInUseTemplateId(result.template.id);
+            writeScaleMemoryToScene(scale, result.template.id);
+            commitViewFalseColorScale(scale, !falseColorScalesEqual(scale, autoScale));
             return { ok: true as const, id: result.template.id };
           }}
           onDeleteTemplate={async (templateId) => {
@@ -3798,6 +3861,7 @@ export function BuildingEditor({
               return false;
             }
             setStatus(null);
+            if (inUseTemplateId === templateId) setInUseTemplateId("");
             return true;
           }}
         />

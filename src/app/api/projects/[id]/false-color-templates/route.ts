@@ -1,12 +1,13 @@
 import { NextResponse } from "next/server";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
 import { apiErrorResponse } from "@/lib/api-error";
+import { lastUsedFromScale } from "@/lib/false-color-scale-memory";
 import {
   FALSE_COLOR_TEMPLATE_COPY,
   parseFalseColorScaleTemplates,
   saveFalseColorScaleTemplate,
 } from "@/lib/false-color-scale-templates";
-import { getOrgSettings, setOrgSettings } from "@/lib/org-settings";
+import { getOrgSettings, mergeProjectFalseColorScaleMemory, setOrgSettings } from "@/lib/org-settings";
 import { requireProjectAccess } from "@/lib/session";
 
 type Params = { params: Promise<{ id: string }> };
@@ -49,10 +50,13 @@ export async function POST(req: Request, { params }: Params) {
     if (!result.ok) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
+    const lastUsed = lastUsedFromScale(result.template, result.template.id, palette);
     const next = await setOrgSettings(access.orgId, {
       ...settings,
       falseColorScaleTemplates: result.templates,
+      lastUsedFalseColorScale: lastUsed,
     });
+    await mergeProjectFalseColorScaleMemory(id, lastUsed);
     return NextResponse.json({
       ...templatesJson(next.falseColorScaleTemplates),
       template: result.template,

@@ -8,8 +8,8 @@ type Params = { params: Promise<{ id: string; templateId: string }> };
 
 export async function DELETE(_req: Request, { params }: Params) {
   try {
-    const { id, templateId } = await params;
-    const access = await requireProjectAccess(id);
+    const { id: _projectId, templateId } = await params;
+    const access = await requireProjectAccess(_projectId);
     if (!access.role) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
@@ -18,9 +18,13 @@ export async function DELETE(_req: Request, { params }: Params) {
     if (!result.ok) {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
+    const lastUsed = settings.lastUsedFalseColorScale;
+    const nextLastUsed =
+      lastUsed && lastUsed.templateId === templateId ? { ...lastUsed, templateId: null } : lastUsed;
     const next = await setOrgSettings(access.orgId, {
       ...settings,
       falseColorScaleTemplates: result.templates,
+      lastUsedFalseColorScale: nextLastUsed,
     });
     return NextResponse.json({ templates: next.falseColorScaleTemplates });
   } catch (e) {

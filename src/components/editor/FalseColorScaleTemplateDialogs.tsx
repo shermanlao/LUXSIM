@@ -10,6 +10,12 @@ import {
   type FalseColorScaleTemplate,
 } from "@/lib/false-color-scale-templates";
 
+function useStableCallback<T extends (...args: never[]) => unknown>(fn: T): T {
+  const ref = useRef(fn);
+  ref.current = fn;
+  return useRef((...args: Parameters<T>) => ref.current(...args)).current as T;
+}
+
 export function FalseColorScaleSaveTemplateDialog({
   open,
   templates,
@@ -23,24 +29,36 @@ export function FalseColorScaleSaveTemplateDialog({
 }) {
   const [name, setName] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [composing, setComposing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const wasOpenRef = useRef(false);
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const onSaveStable = useStableCallback(onSave);
 
   useEffect(() => {
+    const justOpened = open && !wasOpenRef.current;
+    wasOpenRef.current = open;
     if (!open) return;
-    setName("");
-    setError(null);
-    const t = window.setTimeout(() => inputRef.current?.focus(), 0);
+    if (justOpened) {
+      setName("");
+      setError(null);
+      setComposing(false);
+    }
+    const focusTimer = justOpened
+      ? window.setTimeout(() => inputRef.current?.focus(), 0)
+      : undefined;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      onCancel();
+      onCancelRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => {
-      window.clearTimeout(t);
+      if (focusTimer != null) window.clearTimeout(focusTimer);
       window.removeEventListener("keydown", onKey);
     };
-  }, [open, onCancel]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -48,16 +66,17 @@ export function FalseColorScaleSaveTemplateDialog({
   const willOverwrite = Boolean(trimmed && findFalseColorScaleTemplateByName(templates, trimmed));
 
   function submit() {
+    if (composing) return;
     const parsed = normalizeFalseColorTemplateName(name);
     if (!parsed) {
       setError(FALSE_COLOR_TEMPLATE_COPY.emptyName);
       return;
     }
-    onSave(parsed);
+    onSaveStable(parsed);
   }
 
   return (
-    <div className="falsecolor-template-backdrop" role="presentation" onClick={onCancel}>
+    <div className="falsecolor-template-backdrop" role="presentation" onClick={() => onCancelRef.current()}>
       <div
         className="falsecolor-template-dialog"
         role="dialog"
@@ -79,11 +98,19 @@ export function FalseColorScaleSaveTemplateDialog({
           value={name}
           placeholder={FALSE_COLOR_TEMPLATE_COPY.namePlaceholder}
           maxLength={80}
+          autoComplete="off"
+          onCompositionStart={() => setComposing(true)}
+          onCompositionEnd={(e) => {
+            setComposing(false);
+            setName(e.currentTarget.value);
+            setError(null);
+          }}
           onChange={(e) => {
             setName(e.target.value);
             setError(null);
           }}
           onKeyDown={(e) => {
+            if (e.nativeEvent.isComposing || e.keyCode === 229) return;
             if (e.key === "Enter") {
               e.preventDefault();
               submit();
@@ -102,7 +129,7 @@ export function FalseColorScaleSaveTemplateDialog({
         </p>
         {error ? <p className="falsecolor-template-error">{error}</p> : null}
         <div className="falsecolor-template-actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+          <button type="button" className="btn btn-secondary" onClick={() => onCancelRef.current()}>
             {FALSE_COLOR_TEMPLATE_COPY.cancel}
           </button>
           <button type="button" className="btn" onClick={submit}>
@@ -125,21 +152,26 @@ export function FalseColorScaleDeleteTemplateDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const onCancelRef = useRef(onCancel);
+  onCancelRef.current = onCancel;
+  const onConfirmRef = useRef(onConfirm);
+  onConfirmRef.current = onConfirm;
+
   useEffect(() => {
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
-      onCancel();
+      onCancelRef.current();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [open, onCancel]);
+  }, [open]);
 
   if (!open) return null;
 
   return (
-    <div className="falsecolor-template-backdrop" role="presentation" onClick={onCancel}>
+    <div className="falsecolor-template-backdrop" role="presentation" onClick={() => onCancelRef.current()}>
       <div
         className="falsecolor-template-dialog"
         role="dialog"
@@ -157,10 +189,10 @@ export function FalseColorScaleDeleteTemplateDialog({
           <p className="falsecolor-template-zh">{deleteTemplateBodyZh(templateName)}</p>
         </div>
         <div className="falsecolor-template-actions">
-          <button type="button" className="btn btn-secondary" onClick={onCancel}>
+          <button type="button" className="btn btn-secondary" onClick={() => onCancelRef.current()}>
             {FALSE_COLOR_TEMPLATE_COPY.cancel}
           </button>
-          <button type="button" className="btn btn-accent" onClick={onConfirm}>
+          <button type="button" className="btn btn-accent" onClick={() => onConfirmRef.current()}>
             {FALSE_COLOR_TEMPLATE_COPY.confirmDelete}
           </button>
         </div>

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiErrorResponse } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
 import { defaultScene } from "@/lib/scene";
+import { getOrgSettings } from "@/lib/org-settings";
 import { getUserOrgIds, requireOrgContext, requireUser } from "@/lib/session";
 
 export async function GET() {
@@ -47,11 +48,20 @@ export async function POST(req: Request) {
   try {
     const body = createSchema.parse(await req.json().catch(() => ({})));
     const { orgId } = await requireOrgContext(body.orgId);
+    const scene = defaultScene();
+    const lastUsed = (await getOrgSettings(orgId)).lastUsedFalseColorScale;
+    if (lastUsed) {
+      scene.ui = {
+        ...scene.ui,
+        falseColorScale: lastUsed.scale,
+        falseColorScaleTemplateId: lastUsed.templateId,
+      };
+    }
     const project = await prisma.project.create({
       data: {
         orgId,
         name: body.name,
-        sceneJson: JSON.stringify(defaultScene()),
+        sceneJson: JSON.stringify(scene),
       },
     });
     return NextResponse.json(project);

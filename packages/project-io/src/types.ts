@@ -260,6 +260,20 @@ export interface ProjectSceneV2 {
     isolineLevels?: number[];
     /** User-named isoline level presets for this project. Built-in starters are not stored here. */
     isolinePresets?: IsolinePreset[];
+    /**
+     * Snapshot of the last applied (or saved-as-template) six-number false-colour
+     * / greyscale scale. Absent on older projects, which keep the official default.
+     */
+    falseColorScale?: {
+      minLux: number;
+      maxLux: number;
+      tMin: number;
+      tMax: number;
+      winMin: number;
+      winMax: number;
+    };
+    /** Workspace template in use when the snapshot was remembered; omitted if none. */
+    falseColorScaleTemplateId?: string | null;
   };
 }
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { FalseColorScale, IsoluxPalette } from "@luxsim/project-io";
+import { storedFalseColorScale } from "@luxsim/project-io";
 import {
   FALSE_COLOR_TEMPLATE_COPY,
   parseFalseColorScaleTemplates,
@@ -95,5 +96,26 @@ export function useFalseColorScaleTemplates(projectId: string, enabled: boolean)
     [endpoint]
   );
 
-  return { templates, ready, error, saveTemplate, deleteTemplate };
+  const rememberScale = useCallback(
+    async (scale: FalseColorScale, templateId: string | null, palette: IsoluxPalette): Promise<boolean> => {
+      if (!enabled) return false;
+      try {
+        const res = await fetch(`/api/projects/${projectId}/false-color-scale-memory`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            scale: storedFalseColorScale(scale),
+            templateId,
+            palette,
+          }),
+        });
+        return res.ok;
+      } catch {
+        return false;
+      }
+    },
+    [enabled, projectId]
+  );
+
+  return { templates, ready, error, saveTemplate, deleteTemplate, rememberScale };
 }

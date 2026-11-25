@@ -207,6 +207,74 @@ export function isFalseColorScale(value: unknown): value is FalseColorScale {
   return Number.isFinite(rec.minLux) && Number.isFinite(rec.maxLux);
 }
 
+/** All six numbers in a stable, fully-specified snapshot for project / workspace memory. */
+export function storedFalseColorScale(scale: FalseColorScale): {
+  minLux: number;
+  maxLux: number;
+  tMin: number;
+  tMax: number;
+  winMin: number;
+  winMax: number;
+} {
+  const n = normalizeFalseColorMapping(scale);
+  return {
+    minLux: n.minLux,
+    maxLux: n.maxLux,
+    tMin: n.tMin ?? 0,
+    tMax: n.tMax ?? 1,
+    winMin: n.winMin ?? n.minLux,
+    winMax: n.winMax ?? n.maxLux,
+  };
+}
+
+/**
+ * Parse a remembered six-number scale. Returns null when the field is absent or
+ * incomplete, so older projects are not silently given a default as if remembered.
+ */
+export function parseStoredFalseColorScale(raw: unknown): FalseColorScale | null {
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const rec = raw as Record<string, unknown>;
+  if (
+    finiteNumber(rec.minLux) == null ||
+    finiteNumber(rec.maxLux) == null ||
+    finiteNumber(rec.tMin) == null ||
+    finiteNumber(rec.tMax) == null ||
+    finiteNumber(rec.winMin) == null ||
+    finiteNumber(rec.winMax) == null
+  ) {
+    return null;
+  }
+  return storedFalseColorScale({
+    minLux: rec.minLux as number,
+    maxLux: rec.maxLux as number,
+    tMin: rec.tMin as number,
+    tMax: rec.tMax as number,
+    winMin: rec.winMin as number,
+    winMax: rec.winMax as number,
+  });
+}
+
+export function parseStoredFalseColorScaleTemplateId(raw: unknown): string | null {
+  return typeof raw === "string" && raw.trim() ? raw.trim() : null;
+}
+
+/** Scene.ui fields for a remembered scale. Empty object when nothing was stored. */
+export function falseColorScaleMemoryToUi(ui: {
+  falseColorScale?: unknown;
+  falseColorScaleTemplateId?: unknown;
+}): {
+  falseColorScale?: ReturnType<typeof storedFalseColorScale>;
+  falseColorScaleTemplateId?: string | null;
+} {
+  const scale = parseStoredFalseColorScale(ui.falseColorScale);
+  if (!scale) return {};
+  const templateId = parseStoredFalseColorScaleTemplateId(ui.falseColorScaleTemplateId);
+  return {
+    falseColorScale: storedFalseColorScale(scale),
+    falseColorScaleTemplateId: templateId,
+  };
+}
+
 function roundBandLux(value: number): number {
   return Math.round(value * 10) / 10;
 }

@@ -166,6 +166,8 @@ export function FalseColorLegend({
   templates = [],
   templatesEnabled = false,
   templatesError = null,
+  selectedTemplateId,
+  onSelectedTemplateIdChange,
   onSaveTemplate,
   onLoadTemplate,
   onDeleteTemplate,
@@ -187,6 +189,8 @@ export function FalseColorLegend({
   templates?: readonly FalseColorScaleTemplate[];
   templatesEnabled?: boolean;
   templatesError?: string | null;
+  selectedTemplateId?: string;
+  onSelectedTemplateIdChange?: (id: string) => void;
   onSaveTemplate?: (
     name: string,
     scale: FalseColorScale,
@@ -206,19 +210,15 @@ export function FalseColorLegend({
   const interactingRef = useRef(false);
   const [saveOpen, setSaveOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [uncontrolledTemplateId, setUncontrolledTemplateId] = useState("");
+  const selectedId = selectedTemplateId ?? uncontrolledTemplateId;
+  const setSelectedId = onSelectedTemplateIdChange ?? setUncontrolledTemplateId;
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (interactingRef.current) return;
     setDraft(committed);
   }, [committed.minLux, committed.maxLux, committed.tMin, committed.tMax, committed.winMin, committed.winMax]);
-
-  useEffect(() => {
-    if (selectedTemplateId && !templates.some((template) => template.id === selectedTemplateId)) {
-      setSelectedTemplateId("");
-    }
-  }, [templates, selectedTemplateId]);
 
   const current = draft;
   const stops = officialChartLegendStops(palette);
@@ -365,11 +365,11 @@ export function FalseColorLegend({
           <select
             className="falsecolor-template-select"
             aria-label={FALSE_COLOR_TEMPLATE_COPY.templates}
-            value={selectedTemplateId}
+            value={selectedId}
             disabled={busy}
             onChange={(e) => {
               const id = e.target.value;
-              setSelectedTemplateId(id);
+              setSelectedId(id);
               const template = templates.find((item) => item.id === id);
               if (!template) return;
               interactingRef.current = false;
@@ -394,9 +394,9 @@ export function FalseColorLegend({
           <button
             type="button"
             className="falsecolor-template-btn"
-            disabled={busy || !selectedTemplateId}
+            disabled={busy || !selectedId}
             onClick={() => {
-              if (selectedTemplateId) setDeleteId(selectedTemplateId);
+              if (selectedId) setDeleteId(selectedId);
             }}
           >
             {FALSE_COLOR_TEMPLATE_COPY.delete}
@@ -530,7 +530,7 @@ export function FalseColorLegend({
               setBusy(true);
               void Promise.resolve(onSaveTemplate(name, draftRef.current, palette)).then((result) => {
                 if (result && result.ok) {
-                  setSelectedTemplateId(result.id);
+                  setSelectedId(result.id);
                   setSaveOpen(false);
                 }
               }).finally(() => {
@@ -549,7 +549,7 @@ export function FalseColorLegend({
               void Promise.resolve(onDeleteTemplate(id)).then((ok) => {
                 if (ok !== false) {
                   setDeleteId(null);
-                  setSelectedTemplateId((current) => (current === id ? "" : current));
+                  if (selectedId === id) setSelectedId("");
                 }
               }).finally(() => {
                 setBusy(false);
