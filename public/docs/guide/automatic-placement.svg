@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 300" role="img" aria-labelledby="t d">
+  <title id="t">Automatic placement</title>
+  <desc id="d">Automatic placement plans fixture count from a target illuminance and lays the fixtures out inside the room polygon, including an L-shaped room, then previews the points on the Top view before apply.</desc>
+  <rect width="840" height="300" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="16" width="480" height="210" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <polyline points="60,200 60,50 220,50 220,120 360,120 360,200 60,200" fill="none" stroke="#c45c26" stroke-width="2"/>
+    <g fill="#7ec8e3">
+      <circle cx="90" cy="175" r="5"/>
+      <circle cx="150" cy="175" r="5"/>
+      <circle cx="210" cy="175" r="5"/>
+      <circle cx="270" cy="175" r="5"/>
+      <circle cx="330" cy="175" r="5"/>
+      <circle cx="90" cy="135" r="5"/>
+      <circle cx="150" cy="135" r="5"/>
+      <circle cx="210" cy="135" r="5"/>
+      <circle cx="270" cy="135" r="5"/>
+      <circle cx="330" cy="135" r="5"/>
+      <circle cx="90" cy="85" r="5"/>
+      <circle cx="150" cy="85" r="5"/>
+      <circle cx="200" cy="85" r="5"/>
+    </g>
+    <text x="260" y="80" fill="#8aa0ad" font-size="11">Not placed in the cut-out</text>
+    <text x="60" y="242" fill="#c5d0d6" font-size="12">Preview on the Top view · 在 Top 預覽規劃點</text>
+    <rect x="520" y="16" width="300" height="210" rx="6" fill="#12202a" stroke="#2a3842"/>
+    <text x="536" y="42" fill="#e8eef2" font-size="13">Automatic placement / 自動佈燈</text>
+    <text x="536" y="68" fill="#c5d0d6" font-size="12">1. Select a room in Light mode</text>
+    <text x="536" y="90" fill="#c5d0d6" font-size="12">2. Target Ēm (EN assist default)</text>
+    <text x="536" y="112" fill="#c5d0d6" font-size="12">3. Set max S/Hm if needed</text>
+    <text x="536" y="134" fill="#c5d0d6" font-size="12">4. Preview on Top</text>
+    <text x="536" y="156" fill="#c5d0d6" font-size="12">5. Apply · existing fixtures kept</text>
+    <text x="536" y="186" fill="#8aa0ad" font-size="11">Estimate only — run Calc</text>
+    <text x="536" y="204" fill="#8aa0ad" font-size="11">僅供估算 — 請用 Calc 確認</text>
+    <text x="20" y="268" fill="#e8eef2" font-size="13">Automatic placement fills the usable interior of the room, including L-shaped rooms.</text>
+    <text x="20" y="288" fill="#8aa0ad" font-size="12">自動佈燈會把燈具排進房間可用範圍內，包括 L 形房間，不會放到缺角外的空白處。</text>
+  </g>
+</svg>

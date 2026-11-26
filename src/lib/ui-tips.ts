@@ -1,3 +1,18 @@
+import { STOREY_METRICS_EXPLANATION } from "@luxsim/project-io";
+import { LINE_ARRAY_PICK_HINT, LINE_ARRAY_SPACING_Y_REASON } from "@/lib/line-array-pick";
+import {
+  CIRCLE_ARRAY_PICK_HINT,
+  CIRCLE_ARRAY_ROTATION_REASON,
+  CIRCLE_ARRAY_UNUSED_FIELDS_REASON,
+} from "@/lib/circle-array-pick";
+import {
+  POLYGON_ARRAY_HINT,
+  POLYGON_ARRAY_ROTATION_REASON,
+  POLYGON_ARRAY_UNUSED_FIELDS_REASON,
+} from "@/lib/polygon-array";
+import { AUTOMATIC_PLACEMENT_HINT } from "@/lib/automatic-placement";
+import { PLAN_ISOLUX_HINT } from "@/lib/plan-isolux-display";
+
 export type UiTipSeed = {
   helpKey: string;
   title: string;
@@ -8,16 +23,126 @@ export const UI_TIPS: UiTipSeed[] = [
   {
     helpKey: "tool.drawRoom",
     title: "Draw room (CAD)",
-    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click the first point (or press Enter when near it) to close the room. Esc cancels; Backspace undoes the last corner.",
+    body: "Left-click each corner. Type a length in mm to lock the next point onto a circle around the last corner. Shift constrains to 90°. Click near the first point (or press Enter when the pointer is within the close snap) to close the room. Closing uses the exact start point. Esc cancels; Backspace clears the typed length in one press, then removes the last corner. With a DXF underlay, or a converted DWG underlay, official Top picks snap to endpoints, midpoints, and the nearest point on a segment within 8 CSS pixels, except when the pointer is within the close snap of the first vertex.",
+  },
+  {
+    helpKey: "tool.drawStoreyContour",
+    title: "Draw storey contour",
+    body: "Draw the floor-plate outline of the current storey by clicking corners, the same way as Draw room: type a length in mm to lock the next point, Shift constrains to 90°, click near the first point (or press Enter when the pointer is within the close snap) to close, Esc cancels, and Backspace clears a typed length then the last corner. Closing a valid outline creates or replaces the storey contour as one step; it is not a room, so it does not appear in the room list, luminaire schedule, or calculation. Invalid outlines (fewer than 3 unique corners, self-crossing, or area below 0.01 m²) are refused. You can still draw rooms directly without a contour. Undo and Redo include contour edits.",
   },
   {
     helpKey: "tool.drawRect",
     title: "Rectangle L×W",
-    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. Use Select / move to drag the room into place. For irregular rooms, use Draw room instead.",
+    body: "Enter length and width in millimetres (or with m / cm suffix) and create a rectangle at the storey origin (0, 0). Height comes from the standalone Room height field. After creation, select the room and drag a corner handle to stretch that vertex, or a mid-edge handle to insert a corner. Rooms and storeys are not translated by dragging the fill. Use Select / move to drag fixtures on their own. For irregular rooms, use Draw room instead.",
+  },
+  {
+    helpKey: "tool.createRoomsFromDxf",
+    title: "Create rooms from DXF",
+    body: "With a DXF underlay, or a converted DWG underlay that has linework, on the current storey, this first builds the storey contour from the outer boundary of the main visible linework cluster (it does not overwrite an existing contour), then looks for a room or architectural layout — not a lighting or ceiling grid — and creates rooms of at least 1 m² from closed polylines, simple closed loops, or wall-network faces on layout layers, or from room-sized closed shapes that are not a uniform small grid. A large regular grid of similar small rectangles is skipped. Official rooms are simple polygons without holes: if one room lies fully inside another with no connecting wall, only the inner room is kept. CIRCLE, ARC, ELLIPSE, SPLINE (including a spline that has only fit points), old POLYLINE, and LWPOLYLINE bulges are also traced (curves as polygons). A non-mesh 3D POLYLINE is traced in plan (Z is ignored). Paperspace entities (group 67 = 1) are not displayed, snapped, bounded, or used to create rooms. Polygon-mesh and polyface-mesh POLYLINE entities are also traced in plan (Z is ignored). A 3D extrusion (groups 210/220/230) on CIRCLE, ARC, ELLIPSE, LWPOLYLINE, and 2D POLYLINE is applied when tracing in plan. LINE, SPLINE, 3D POLYLINE, and mesh vertices stay in world coordinates; Z is still ignored after the transform. New rooms use the official defaults (maintenance factor 0.80, no EN template) and the Building Room height. Scale follows the current Calibrate scale. Existing rooms are left unchanged. If no room layout is found, the app tries AI analysis when a site administrator has enabled Room-analysis AI and saved an API key in Admin → Settings. If AI is not configured, the contour is kept and no junk rooms are added. The contour and any new rooms are one undo step.",
+  },
+  {
+    helpKey: "tool.unionRooms",
+    title: "Union rooms",
+    body: "With Select idle, click Union rooms, then choose two rooms on the current storey. If a room is already selected, it is the first (surviving) room and you only pick the second. The first room keeps its name, maintenance factor, EN template, height, and other properties; the second is removed after a successful union. Rooms may overlap in area or share an edge. The command is refused when the rooms are on different storeys, are missing, only touch at a point or not at all, or the union would contain a hole or would not be a single simple room. Esc cancels the pick. Alignment is not included.",
+  },
+  {
+    helpKey: "tool.subtractRooms",
+    title: "Subtract rooms",
+    body: "With Select idle, click Subtract rooms, then choose two rooms on the current storey. If a room is already selected, it is the first (kept) room and you only pick the cutter. The first room keeps its name, maintenance factor, EN template, height, and other properties; its outline becomes first minus second as a single simple ring. The cutter stays in place and is not deleted. The command is refused when the rooms are on different storeys, are missing, are the same room, do not overlap in area (edge-touch or disjoint is not a cut), or the result would be empty, would split into two or more pieces, would contain a hole, would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Fixtures of the kept room whose XY no longer lie in the cut outline are unassigned; cutter fixtures are unchanged. Luminaires are not deleted. Esc cancels the pick. Alignment is not included.",
+  },
+  {
+    helpKey: "tool.intersectRooms",
+    title: "Intersect rooms",
+    body: "With Select idle, click Intersect rooms, then choose two rooms on the current storey. If a room is already selected, it is the first (kept) room and you only pick the second. The first room keeps its name, maintenance factor, EN template, height, and other properties; its outline becomes the overlapping area as a single simple ring. The second room is removed after a successful intersect. The command is refused when the rooms are on different storeys, are missing, are the same room, do not overlap in area (edge-touch or disjoint is not an intersection), or the result would be empty, would split into two or more pieces, would contain a hole, would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Fixtures of either room that still lie in the intersection are assigned to the surviving room; fixtures that fall outside stay on the storey with their room assignment cleared. Luminaires are not deleted. Esc cancels the pick. Alignment is not included.",
+  },
+  {
+    helpKey: "tool.xorRooms",
+    title: "XOR rooms",
+    body: "With Select idle, click XOR rooms, then choose two rooms on the current storey. If a room is already selected, it is the first (kept) room and you only pick the second. The first room keeps its name, maintenance factor, EN template, height, and other properties; its outline becomes the symmetric difference (first XOR second) as a single simple ring. The second room is removed after a successful XOR. The command is refused when the rooms are on different storeys, are missing, are the same room, do not overlap in area (edge-touch or disjoint is not an XOR), or the result would be empty, would split into two or more pieces (typical when both rooms have a remainder), would contain a hole (including a room strictly inside the other), would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². A bite that shares the outer boundary can succeed as a single ring. Fixtures of either room that still lie in the XOR outline are assigned to the surviving room; fixtures that fall outside stay on the storey with their room assignment cleared. Luminaires are not deleted. Esc cancels the pick. Alignment is not included.",
+  },
+  {
+    helpKey: "tool.alignRooms",
+    title: "Align rooms",
+    body: "With Select idle, click Align rooms, then choose two rooms on the current storey. First pick an alignment: Left, Right, Top, Bottom, H centre, or V centre (Left is the default). If a room is already selected, it is the reference and stays put; you only pick the room to move. The second room is translated so the matching edge or centre of its bounding box lines up with the reference; its shape does not change. Both rooms are kept. Fixtures assigned to the moved room follow the same translation. Luminaires are not deleted. The command is refused when the rooms are on different storeys, are missing, are the same room, the room is already aligned, or the move would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Esc cancels the pick. Even spacing / distribute is not included.",
+  },
+  {
+    helpKey: "tool.distributeRooms",
+    title: "Distribute rooms",
+    body: "With Select idle, click Distribute rooms, then click at least three rooms on the current storey and press Enter. First pick an axis: Horizontal or Vertical (Horizontal is the default). If a room is already selected, it is the first room in the set. Rooms are ordered by the leading edge of the bounding box (min X or min Y). The first and last rooms in that order stay put; interior rooms translate so the gaps between consecutive bounding boxes are equal. Shapes do not change. Fixtures assigned to a moved room follow the same translation. Luminaires are not deleted. The command is refused when the rooms are on different storeys, a room is missing, fewer than three rooms are selected, the rooms are already evenly spaced, or a move would cross itself, would have fewer than 3 unique vertices, or would have area below 0.01 m². Esc cancels the pick. Clicking the button again cancels.",
+  },
+  {
+    helpKey: "tool.filletCorner",
+    title: "Fillet corner",
+    body: "With Select idle, click Fillet corner, enter a radius in millimetres, and click a corner handle of a room on the current storey. If a room is already selected, you only pick the corner; otherwise pick the room first, then the corner. A mid-edge insert handle is not a fillet target. The sharp vertex is replaced by a tessellated circular arc. A straight wall can be filleted against an existing arc; official rooms stay plain polygons with no stored bulge. The command is refused when the radius is 0 or negative, the room or corner is missing, the room is on another storey, the corner is already straight, the radius is too large for the adjacent edges or arcs, or the result would cross itself, would have fewer than 3 unique vertices, would have area below 0.01 m², or would not be a single simple room. Fixtures assigned to the room whose XY no longer lie in the filleted outline have their room assignment cleared; fixtures still inside keep their assignment and are not moved. Luminaires are not deleted. Esc cancels the pick. Clicking the button again cancels. Use Fillet all corners to fillet every remaining sharp corner of one room in one command.",
+  },
+  {
+    helpKey: "tool.filletAllCorners",
+    title: "Fillet all corners",
+    body: "With Select idle, click Fillet all corners and enter a radius in millimetres (or with an m / cm suffix; a bare number is millimetres) in the same radius field used by Fillet corner. If a room on the current storey is already selected, the command applies immediately; you do not pick a corner handle. If no room is selected, click a room on the current storey to apply. Mid-edge insert handles are not targets. Already-straight or already-filleted corners are skipped; remaining sharp corners, including line–arc and arc–arc junctions, are filleted in one result polygon, computed against the original outline. The room stays a simple polygon. The command is all-or-nothing: it is refused, with no partial fillet, when the radius is 0 or negative, the room is missing, the room is on another storey, every remaining corner is already straight (no sharp corner to fillet), the radius is too large for the adjacent edges or arcs (including when two fillets would overlap on the same edge or arc), or the result would cross itself, would have fewer than 3 unique vertices, would have area below 0.01 m², or would not be a single simple room. Fixtures assigned to the room whose XY no longer lie in the filleted outline have their room assignment cleared; fixtures still inside keep their assignment and are not moved. Luminaires are not deleted. Esc, or clicking the button again, cancels the pick.",
   },
   {
     helpKey: "tool.roomHeight",
     title: "Room height",
-    body: "Standalone ceiling height in millimetres. Applies to the selected room (polygon or rectangle) and to the next room you draw or create.",
+    body: "Standalone ceiling height in millimetres, under Building (default 2800). Visible before a room exists, and used for the next room you draw or create. If a room is selected, changing it also updates that room’s ceiling. Other rooms stay as they are.",
+  },
+  {
+    helpKey: "tool.copyStorey",
+    title: "Copy storey",
+    body: "Copies the current storey into a new storey in the same building. The source storey is left unchanged. The copy is named Copy of {name} (or Copy of {name} 2, 3, … if that name is taken) and is placed immediately above the source at source elevation + source storey height, so the new floor does not overlap the source slab. If another storey already occupies that elevation, the copy steps up by the source storey height until a free slot is found. Rooms are copied with the same plan polygons, heights, materials, maintenance factor, EN targets, and other official properties, but with new ids. Luminaires on the source storey are copied with the same plan position, mounting height, rotation, and photometry reference; room assignments are remapped to the new rooms. Underlays and calculation results are not copied — run Calculate on the new storey. After a successful copy, the new storey is selected. Ctrl+Z undoes the copy as one step.",
+  },
+  {
+    helpKey: "tool.storeyHeight",
+    title: "Storey elevation and height",
+    body: STOREY_METRICS_EXPLANATION,
+  },
+  {
+    helpKey: "tool.lineArray",
+    title: "Line array",
+    body: `${LINE_ARRAY_PICK_HINT} ${LINE_ARRAY_SPACING_Y_REASON}`,
+  },
+  {
+    helpKey: "tool.circleArray",
+    title: "Circular array",
+    body: `${CIRCLE_ARRAY_PICK_HINT} ${CIRCLE_ARRAY_ROTATION_REASON} ${CIRCLE_ARRAY_UNUSED_FIELDS_REASON}`,
+  },
+  {
+    helpKey: "tool.polygonArray",
+    title: "Polygon array",
+    body: `${POLYGON_ARRAY_HINT} ${POLYGON_ARRAY_ROTATION_REASON} ${POLYGON_ARRAY_UNUSED_FIELDS_REASON}`,
+  },
+  {
+    helpKey: "tool.automaticPlacement",
+    title: "Automatic placement",
+    body: AUTOMATIC_PLACEMENT_HINT,
+  },
+  {
+    helpKey: "view.planIsolux",
+    title: "Isolines and value labels",
+    body: PLAN_ISOLUX_HINT,
+  },
+  {
+    helpKey: "room.maintenanceFactor",
+    title: "Maintenance factor (CIE 97)",
+    body: "LLMF × LSF × LMF × RSMF (each 0.5–1), product clamped 0.5–1. Default product ≈ 0.80. Applies to maintained EN 12464 assist checks only — the lux solver uses initial lamp output.",
+  },
+  {
+    helpKey: "room.en12464",
+    title: "EN 12464-1 assist",
+    body: "Optional maintained illuminance / uniformity / UGR targets for pass-fail hints after Calculate. Design assist only — not certification.",
+  },
+  {
+    helpKey: "light.placeFromPlanCodes",
+    title: "Place from plan codes",
+    body: "In Light mode, Place from plan codes reads lighting-code text (TEXT / MTEXT, including text exploded from INSERT blocks) from the imported DXF or converted DWG on the current storey and matches it with the project code map. Hidden layers are skipped. Accepted but unmapped or ambiguous rows block commit; the app does not guess. Points outside every room on this storey are skipped and are not placed in empty space. Rooms are not changed. Optional Replace prior plan-code fixtures (off by default) only replaces fixtures previously placed by this command on this storey; fixtures you placed by hand are kept. This does not replace Detect from plan (raster OCR) or Import schedule (CSV).",
+  },
+  {
+    helpKey: "calc.storey",
+    title: "Calc storey",
+    body: "Calculates every room on the active storey with the same official client solver as Calc room and Calc all, including wall surfaces. Rooms on other storeys are not recalculated; their existing results are kept. Rooms with no fixtures or missing photometry are skipped and explained in the status, while calculable rooms on this storey still receive results. If the storey has no rooms, or nothing left that can be calculated, the command refuses with a bilingual status and writes nothing new. Hidden on a view-only project.",
+  },
+  {
+    helpKey: "export.dialuxVerification",
+    title: "Verification pack",
+    body: "Downloads rooms.json (height, ρ, MF 0.80 default), schedule.csv with rotation_deg, IES/LDT, geometry.dxf, and results CSV for an independent cross-check. Use closed rooms, normal luminaires, and match MF. Read README.txt inside the zip.",
   },
 ];

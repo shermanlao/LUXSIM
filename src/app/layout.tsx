@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Source_Sans_3 } from "next/font/google";
 import { AppShell } from "@/components/AppShell";
 import { Providers } from "@/components/Providers";
+import { TrafficBeacon } from "@/components/TrafficBeacon";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -17,7 +18,7 @@ const sourceSans = Source_Sans_3({
 export const metadata: Metadata = {
   title: "LUXSIM — Lighting design assist",
   description:
-    "Import IES/LDT, place luminaires in a room, calculate lux/UGR in the browser, export PDF and DIALux packs.",
+    "Import IES/LDT, place luminaires in a room, calculate lux/UGR in the browser, export PDF and a verification pack.",
 };
 
 export default function RootLayout({
@@ -37,6 +38,7 @@ export default function RootLayout({
         }
       >
         <Providers>
+          <TrafficBeacon />
           <AppShell>{children}</AppShell>
         </Providers>
       </body>

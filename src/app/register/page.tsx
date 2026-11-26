@@ -2,11 +2,24 @@
 
 import Link from "next/link";
 import { signIn } from "next-auth/react";
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
 export default function RegisterPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [registrationOpen, setRegistrationOpen] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const res = await fetch("/api/auth/register");
+      const data = (await res.json().catch(() => ({}))) as { open?: boolean };
+      if (!cancelled) setRegistrationOpen(data.open !== false);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,6 +40,7 @@ export default function RegisterPage() {
     if (!res.ok) {
       const data = await res.json().catch(() => ({}));
       setLoading(false);
+      if (res.status === 403) setRegistrationOpen(false);
       setError(data.error || "Registration failed");
       return;
     }
@@ -48,49 +62,63 @@ export default function RegisterPage() {
     <div className="mx-auto max-w-md px-4 py-16">
       <h1 className="display text-4xl mb-2">Create workspace</h1>
       <p className="text-[var(--muted)] mb-8">Start importing IES/LDT and designing rooms</p>
-      <form onSubmit={onSubmit} className="panel p-6 space-y-4">
-        <div>
-          <label className="label" htmlFor="name">
-            Your name
-          </label>
-          <input className="input" id="name" name="name" />
+      {registrationOpen === false ? (
+        <div className="panel p-6 space-y-4">
+          <p>Public registration is closed. Ask a site administrator to create your account.</p>
+          <p className="text-sm text-[var(--muted)]">
+            Already registered?{" "}
+            <Link href="/login" className="text-[var(--accent-2)] underline">
+              Sign in
+            </Link>
+          </p>
         </div>
-        <div>
-          <label className="label" htmlFor="orgName">
-            Organization
-          </label>
-          <input className="input" id="orgName" name="orgName" placeholder="My studio" />
-        </div>
-        <div>
-          <label className="label" htmlFor="email">
-            Email
-          </label>
-          <input className="input" id="email" name="email" type="email" required />
-        </div>
-        <div>
-          <label className="label" htmlFor="password">
-            Password
-          </label>
-          <input
-            className="input"
-            id="password"
-            name="password"
-            type="password"
-            minLength={6}
-            required
-          />
-        </div>
-        {error && <p className="text-sm text-red-700">{error}</p>}
-        <button className="btn btn-accent w-full" disabled={loading}>
-          {loading ? "Creating…" : "Create account"}
-        </button>
-      </form>
-      <p className="mt-4 text-sm text-[var(--muted)]">
-        Already registered?{" "}
-        <Link href="/login" className="text-[var(--accent-2)] underline">
-          Sign in
-        </Link>
-      </p>
+      ) : (
+        <>
+          <form onSubmit={onSubmit} className="panel p-6 space-y-4">
+            <div>
+              <label className="label" htmlFor="name">
+                Your name
+              </label>
+              <input className="input" id="name" name="name" />
+            </div>
+            <div>
+              <label className="label" htmlFor="orgName">
+                Organization
+              </label>
+              <input className="input" id="orgName" name="orgName" placeholder="My studio" />
+            </div>
+            <div>
+              <label className="label" htmlFor="email">
+                Email
+              </label>
+              <input className="input" id="email" name="email" type="email" required />
+            </div>
+            <div>
+              <label className="label" htmlFor="password">
+                Password
+              </label>
+              <input
+                className="input"
+                id="password"
+                name="password"
+                type="password"
+                minLength={6}
+                required
+              />
+            </div>
+            {error && <p className="text-sm text-red-700">{error}</p>}
+            <button className="btn btn-accent w-full" disabled={loading || registrationOpen === null}>
+              {loading ? "Creating…" : "Create account"}
+            </button>
+          </form>
+          <p className="mt-4 text-sm text-[var(--muted)]">
+            Already registered?{" "}
+            <Link href="/login" className="text-[var(--accent-2)] underline">
+              Sign in
+            </Link>
+          </p>
+        </>
+      )}
     </div>
   );
 }

@@ -1,25 +1,26 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { normalizeScene, normalizeResults } from "@luxsim/project-io";
+import { apiErrorResponse } from "@/lib/api-error";
 import { prisma } from "@/lib/prisma";
-import { requireOrgContext } from "@/lib/session";
+import { requireProjectAccess } from "@/lib/session";
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id } = await params;
-    const project = await prisma.project.findFirst({
-      where: { id, orgId },
+    const { project } = await requireProjectAccess(id);
+    const withAssets = await prisma.project.findFirst({
+      where: { id: project.id },
       include: { assets: true },
     });
-    if (!project) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    if (!withAssets) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    const rawScene = JSON.parse(project.sceneJson);
+    const rawScene = JSON.parse(withAssets.sceneJson);
     const scene = normalizeScene(rawScene);
     const results = normalizeResults(
-      project.resultsJson ? JSON.parse(project.resultsJson) : null,
+      withAssets.resultsJson ? JSON.parse(withAssets.resultsJson) : null,
       scene
     );
 
@@ -35,21 +36,17 @@ export async function GET(_req: Request, { params }: Params) {
     }
 
     return NextResponse.json({
-      id: project.id,
-      name: project.name,
-      orgId: project.orgId,
-      createdAt: project.createdAt,
-      updatedAt: project.updatedAt,
+      id: withAssets.id,
+      name: withAssets.name,
+      orgId: withAssets.orgId,
+      createdAt: withAssets.createdAt,
+      updatedAt: withAssets.updatedAt,
       scene,
       results,
-      assets: project.assets,
+      assets: withAssets.assets,
     });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    console.error(e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return apiErrorResponse(e);
   }
 }
 
@@ -61,10 +58,8 @@ const patchSchema = z.object({
 
 export async function PATCH(req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id } = await params;
-    const existing = await prisma.project.findFirst({ where: { id, orgId } });
-    if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project: existing } = await requireProjectAccess(id);
 
     const body = patchSchema.parse(await req.json());
     const scene =
@@ -90,26 +85,17 @@ export async function PATCH(req: Request, { params }: Params) {
       updatedAt: project.updatedAt,
     });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    console.error(e);
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return apiErrorResponse(e);
   }
 }
 
 export async function DELETE(_req: Request, { params }: Params) {
   try {
-    const { orgId } = await requireOrgContext();
     const { id } = await params;
-    const existing = await prisma.project.findFirst({ where: { id, orgId } });
-    if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const { project: existing } = await requireProjectAccess(id);
     await prisma.project.delete({ where: { id } });
     return NextResponse.json({ ok: true });
   } catch (e) {
-    if (e instanceof Error && e.message === "UNAUTHORIZED") {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-    }
-    return NextResponse.json({ error: "Failed" }, { status: 500 });
+    return apiErrorResponse(e);
   }
 }

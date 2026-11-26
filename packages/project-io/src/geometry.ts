@@ -79,6 +79,35 @@ export function roomAreaM2(room: RoomV2): number {
 
 export const CLOSE_START_TOL_M = 0.2;
 
+/**
+ * Official CSS-pixel radius for closing a Draw room or Draw storey contour
+ * draft by returning to the first vertex. Slightly more generous than the
+ * polygon-array path snap (4 px) so a dense plan is easier to close.
+ */
+export const DRAFT_CLOSE_SNAP_CSS_PX = 12;
+
+/** World-metre close radius from the current CSS-pixel size. */
+export function draftCloseSnapM(metresPerCssPx: number, cssPx = DRAFT_CLOSE_SNAP_CSS_PX): number {
+  const m = metresPerCssPx * cssPx;
+  return m > 0 && Number.isFinite(m) ? m : 0.001;
+}
+
+/**
+ * True when a draft with at least three vertices has the pointer (not the
+ * ortho- or length-locked preview, and not a DXF object snap) within the
+ * close-snap of the first vertex.
+ */
+export function pointerPrefersDraftClose(
+  pointer: Vec2,
+  start: Vec2 | null | undefined,
+  draftLength: number,
+  closeSnapM: number
+): boolean {
+  return Boolean(
+    start && draftLength >= 3 && isCloseToStart(pointer, start, closeSnapM)
+  );
+}
+
 export function translatePolygon(poly: Vec2[], dx: number, dy: number): Vec2[] {
   return poly.map((p) => ({ x: p.x + dx, y: p.y + dy }));
 }

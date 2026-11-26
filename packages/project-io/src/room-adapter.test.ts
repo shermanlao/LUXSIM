@@ -4,7 +4,7 @@ import path from "path";
 import { parseIes } from "../../photometry/src/index";
 import { calculate } from "../../solver/src/calculate";
 import { roomToCalcOptions, clipResultsToPolygon } from "./room-adapter";
-import { rectPolygon } from "./geometry";
+import { rectPolygon, roomAreaM2 } from "./geometry";
 import type { RoomV2, FixtureInstance } from "./types";
 
 const fixture = readFileSync(
@@ -51,5 +51,7 @@ describe("roomToCalcOptions", () => {
 
     const clipped = clipResultsToPolygon(room, four);
     expect(clipped.grid.lux.length).toBe(four.grid.lux.length);
+    expect(clipped.summary.areaM2).toBeCloseTo(roomAreaM2(room), 4);
+    expect(clipped.summary.lpd).toBeCloseTo((4 * 30) / roomAreaM2(room), 4);
   });
 });

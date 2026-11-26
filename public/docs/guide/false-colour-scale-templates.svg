@@ -1,0 +1,67 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 360" role="img" aria-labelledby="t d">
+  <title id="t">Save the false-colour scale as a named workspace template</title>
+  <desc id="d">The Calculation scale bar has Templates, Save as template, and Delete next to Reset and Apply. Saving asks for a bilingual name; an existing name overwrites that template. Loading a template updates the pending bar; Apply is still required to recolour the view.</desc>
+  <rect width="840" height="360" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <rect x="20" y="12" width="800" height="126" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <rect x="40" y="24" width="420" height="102" fill="#163038"/>
+    <text x="52" y="46" fill="#8aa0ad" font-size="11">Plan colour field hidden while the loaded template is pending</text>
+    <rect x="100" y="58" width="300" height="54" rx="8" fill="rgba(15,23,29,0.95)" stroke="#2a3842"/>
+    <text x="250" y="78" text-anchor="middle" fill="#e8eef2" font-size="13" font-weight="650">Apply to change false colour</text>
+    <text x="250" y="96" text-anchor="middle" fill="#c5d0d6" font-size="12">套用以更改偽色</text>
+
+    <rect x="480" y="24" width="320" height="102" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <text x="496" y="48" fill="#f0f4f6" font-size="15" font-weight="650">Save as template</text>
+    <text x="496" y="66" fill="#b8c8d0" font-size="13">儲存範本</text>
+    <text x="496" y="88" fill="#d5dee3" font-size="11">Name / 名稱</text>
+    <rect x="496" y="94" width="200" height="20" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="504" y="108" fill="#e8eef2" font-size="11">Office 0–500 red</text>
+
+    <rect x="20" y="150" width="800" height="196" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <text x="36" y="170" fill="#e8eef2" font-size="10" font-weight="600" letter-spacing="0.06em">FALSE-COLOUR SCALE</text>
+    <text x="628" y="170" fill="#8fa3ad" font-size="10">lx</text>
+    <text x="658" y="170" fill="#c5d0d6" font-size="10">Reset</text>
+    <rect x="700" y="158" width="70" height="16" rx="3" fill="#c45c26"/>
+    <text x="735" y="170" text-anchor="middle" fill="#f5f7f8" font-size="9" font-weight="600">Apply / 套用</text>
+
+    <rect x="36" y="182" width="118" height="16" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="44" y="194" fill="#e8eef2" font-size="9">Office 0–500 red</text>
+    <text x="164" y="194" fill="#c5d0d6" font-size="9">Save as template / 儲存範本</text>
+    <text x="332" y="194" fill="#c5d0d6" font-size="9">Delete / 刪除</text>
+    <text x="420" y="194" fill="#8fa3ad" font-size="9">Templates stay in the workspace / 範本保存在工作區</text>
+
+    <defs>
+      <linearGradient id="fcbar2" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="#000000"/>
+        <stop offset="0.125" stop-color="#AA01FE"/>
+        <stop offset="0.25" stop-color="#0200FF"/>
+        <stop offset="0.375" stop-color="#02FFFA"/>
+        <stop offset="0.5" stop-color="#03FD05"/>
+        <stop offset="0.625" stop-color="#FBFF00"/>
+        <stop offset="0.75" stop-color="#FCAA02"/>
+        <stop offset="0.875" stop-color="#FF0001"/>
+        <stop offset="1" stop-color="#FFFFFF"/>
+      </linearGradient>
+    </defs>
+    <rect x="28" y="226" width="36" height="16" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="46" y="238" text-anchor="middle" fill="#e8eef2" font-size="9">0</text>
+    <rect x="80" y="223" width="32" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="96" y="234" text-anchor="middle" fill="#f5a020" font-size="8">0</text>
+    <rect x="657" y="223" width="36" height="14" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="675" y="234" text-anchor="middle" fill="#f5a020" font-size="8">500</text>
+    <rect x="80" y="240" width="680" height="10" rx="2" fill="url(#fcbar2)" stroke="#3a5160"/>
+    <polygon points="80,240 92,240 86,250" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
+    <polygon points="669,240 681,240 675,250" fill="#ffffff" stroke="#1a1a1a" stroke-width="0.8"/>
+    <rect x="776" y="226" width="36" height="16" rx="2" fill="#12202a" stroke="#3a5160"/>
+    <text x="794" y="238" text-anchor="middle" fill="#e8eef2" font-size="9">2500</text>
+    <text x="80" y="268" fill="#8fa3ad" font-size="9">0</text>
+    <text x="216" y="268" text-anchor="middle" fill="#8fa3ad" font-size="9">500</text>
+    <text x="352" y="268" text-anchor="middle" fill="#8fa3ad" font-size="9">1000</text>
+    <text x="488" y="268" text-anchor="middle" fill="#8fa3ad" font-size="9">1500</text>
+    <text x="624" y="268" text-anchor="middle" fill="#8fa3ad" font-size="9">2000</text>
+    <text x="760" y="268" text-anchor="end" fill="#8fa3ad" font-size="9">2500</text>
+    <text x="36" y="296" fill="#8fa3ad" font-size="10">If this name already exists, that template will be updated.</text>
+    <text x="36" y="314" fill="#8fa3ad" font-size="10">若名稱已存在，將更新該範本。Loading sets the pending bar; Apply still recolours the view.</text>
+    <text x="36" y="332" fill="#8fa3ad" font-size="10">載入範本後，刻度條會立即更新為待套用；若與已套用的不同，仍須按 Apply／套用才會重繪圖面。</text>
+  </g>
+</svg>

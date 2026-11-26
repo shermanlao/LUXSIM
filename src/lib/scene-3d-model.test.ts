@@ -1,0 +1,722 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { luxToRgbLinear, pointInPolygon, rectPolygon, type RoomV2, type WallSurfaceResult } from "@luxsim/project-io";
+import * as THREE from "three";
+import { editorOverviewCamera, type ProjectSceneV2 } from "@luxsim/project-io";
+import {
+  FALSE_COLOR_WALL_SHELL_OPACITY,
+  GREYSCALE_WALL_SHELL_OPACITY,
+  ILLUMINANCE_WALL_SHELL_OPACITY,
+  WALL_FALSE_COLOR_INSET_EPSILON_M,
+  WALL_FALSE_COLOR_INSET_M,
+  WALL_SHELL_INNER_INSET_M,
+  WALL_SHELL_OUTER_INSET_M,
+  WALL_SHELL_THICKNESS_M,
+  createCeilingGeometry,
+  createClippedWorkplaneGeometry,
+  createFloorGeometry,
+  createWorkplanePlateGeometry,
+  officialFalseColorWorkplaneHeight,
+  workplaneDisplayHeightM,
+  createPlanHandednessRoot,
+  createWallFalseColorGeometry,
+  createWallGeometry,
+  mirrorPlanX,
+  sampleGridLux,
+  wallShellOpacity,
+  workplaneFalseColorSpacing,
+  workplaneVerticesInsideRoom,
+  WORKPLANE_FALSE_COLOR_MAX_DIVISIONS,
+  WORKPLANE_FALSE_COLOR_MIN_SPACING_M,
+} from "./scene-3d-model";
+import type { CalcResults } from "@luxsim/solver";
+
+function lShapedRoom(): RoomV2 {
+  return {
+    id: "r-l",
+    storeyId: "s1",
+    name: "Reception",
+    polygon: [
+      { x: 0, y: 0 },
+      { x: 6, y: 0 },
+      { x: 6, y: 4 },
+      { x: 3, y: 4 },
+      { x: 3, y: 7 },
+      { x: 0, y: 7 },
+    ],
+    heightM: 2.8,
+    workplaneHeightM: 0.75,
+    reflectance: { floor: 0.2, ceiling: 0.7, walls: 0.5 },
+    calc: { gridSpacing: 0.5, interreflection: false, bounces: 0, computeUgr: false },
+  };
+}
+
+function gridFor(room: RoomV2, fill: number): CalcResults {
+  const nx = 13;
+  const ny = 15;
+  return {
+    grid: {
+      nx,
+      ny,
+      spacing: 0.5,
+      originX: 0.25,
+      originY: 0.25,
+      z: 0.75,
+      lux: Array.from({ length: nx * ny }, () => fill),
+    },
+    summary: { eave: fill, emin: fill, emax: fill, uo: 1, areaM2: 33, totalWatts: 0, lpd: null, ugr: null },
+    version: 1,
+    meta: { interreflection: false, bounces: 0, calculatedAt: "2026-01-01T00:00:00Z", disclaimer: "" },
+  };
+}
+
+describe("clipped false-colour workplane", () => {
+  it("samples lux in world coordinates relative to the room AABB origin", () => {
+    const room: RoomV2 = {
+      ...lShapedRoom(),
+      polygon: rectPolygon(10, 20, 4, 2),
+    };
+    const results = gridFor(room, 0);
+    results.grid.nx = 3;
+    results.grid.ny = 2;
+    results.grid.spacing = 1;
+    results.grid.originX = 0.5;
+    results.grid.originY = 0.5;
+    results.grid.lux = [10, 20, 30, 40, 50, 60];
+    // world x = 10 + 0.5 + i, y = 20 + 0.5 + j
+    expect(sampleGridLux(room, results.grid, 10.5, 20.5)).toBeCloseTo(10, 5);
+    expect(sampleGridLux(room, results.grid, 12.5, 21.5)).toBeCloseTo(60, 5);
+  });
+
+  it("does not place workplane vertices in the missing rectangle of an L-shaped room", () => {
+    const room = lShapedRoom();
+    const results = gridFor(room, 200);
+    const geo = createClippedWorkplaneGeometry(room, results, 0);
+    expect(geo).not.toBeNull();
+    const { inside, total } = workplaneVerticesInsideRoom(geo!, room, 0.05);
+    expect(total).toBeGreaterThanOrEqual(6);
+    expect(inside).toBe(total);
+
+    const pos = geo!.getAttribute("position");
+    let inNotch = 0;
+    for (let i = 0; i < pos.count; i += 1) {
+      const p = { x: pos.getX(i), y: pos.getZ(i) };
+      // The missing rectangle is x>3, y>4 (outside the L).
+      if (p.x > 3.08 && p.y > 4.08 && !pointInPolygon(p, room.polygon)) {
+        inNotch += 1;
+      }
+    }
+    expect(inNotch).toBe(0);
+
+    const index = geo!.getIndex();
+    expect(index).not.toBeNull();
+    let faceInNotch = 0;
+    for (let t = 0; t + 2 < index!.count; t += 3) {
+      const a = index!.getX(t);
+      const b = index!.getX(t + 1);
+      const c = index!.getX(t + 2);
+      const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cy = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+      if (cx > 3.08 && cy > 4.08 && !pointInPolygon({ x: cx, y: cy }, room.polygon)) {
+        faceInNotch += 1;
+      }
+    }
+    expect(faceInNotch).toBe(0);
+    geo!.dispose();
+  });
+
+  it("tessellates a rectangular workplane denser than the four polygon corners", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 3) };
+    const results = gridFor(room, 200);
+    results.grid.nx = 8;
+    results.grid.ny = 6;
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    results.grid.lux = Array.from({ length: 8 * 6 }, () => 200);
+    const geo = createClippedWorkplaneGeometry(room, results, 0.4);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(8);
+    const expectedY = 0.4 + 0.75 + 0.02;
+    for (let i = 0; i < pos.count; i += 1) {
+      expect(pos.getY(i)).toBeCloseTo(expectedY, 5);
+    }
+    const { inside, total } = workplaneVerticesInsideRoom(geo!, room, 0.05);
+    expect(total).toBe(pos.count);
+    expect(inside).toBe(total);
+    geo!.dispose();
+  });
+
+  it("colours an interior illuminance peak, not only the room corners", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 4) };
+    const results = gridFor(room, 100);
+    const nx = 8;
+    const ny = 8;
+    results.grid.nx = nx;
+    results.grid.ny = ny;
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    const lux = Array.from({ length: nx * ny }, () => 100);
+    const peakI = 4;
+    const peakJ = 4;
+    const peakLux = 2000;
+    const peakX = 0 + 0.25 + peakI * 0.5;
+    const peakY = 0 + 0.25 + peakJ * 0.5;
+    lux[peakJ * nx + peakI] = peakLux;
+    results.grid.lux = lux;
+
+    const scale = { minLux: 0, maxLux: peakLux };
+    const geo = createClippedWorkplaneGeometry(room, results, 0, scale);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    const color = geo!.getAttribute("color");
+    expect(pos.count).toBeGreaterThan(8);
+
+    const cornerLux = [
+      sampleGridLux(room, results.grid, 0, 0),
+      sampleGridLux(room, results.grid, 4, 0),
+      sampleGridLux(room, results.grid, 4, 4),
+      sampleGridLux(room, results.grid, 0, 4),
+    ];
+    expect(Math.max(...cornerLux)).toBeLessThan(peakLux * 0.3);
+
+    let bestLux = -Infinity;
+    let bestDist = Infinity;
+    for (let i = 0; i < pos.count; i += 1) {
+      const wx = pos.getX(i);
+      const wy = pos.getZ(i);
+      const sampled = sampleGridLux(room, results.grid, wx, wy);
+      const encoded = luxToRgbLinear(sampled, scale);
+      expect(color.getX(i)).toBeCloseTo(encoded[0], 5);
+      expect(color.getY(i)).toBeCloseTo(encoded[1], 5);
+      expect(color.getZ(i)).toBeCloseTo(encoded[2], 5);
+      bestLux = Math.max(bestLux, sampled);
+      bestDist = Math.min(bestDist, Math.hypot(wx - peakX, wy - peakY));
+    }
+    expect(bestDist).toBeLessThan(0.2);
+    expect(bestLux).toBeGreaterThan(peakLux * 0.85);
+    expect(bestLux).toBeGreaterThan(Math.max(...cornerLux) * 2);
+    geo!.dispose();
+  });
+
+  it("keeps interior vertices and faces inside a non-orthogonal trapezoid", () => {
+    const room: RoomV2 = {
+      ...lShapedRoom(),
+      polygon: [
+        { x: 0, y: 0 },
+        { x: 6, y: 0 },
+        { x: 5, y: 4 },
+        { x: 1, y: 4 },
+      ],
+    };
+    const results = gridFor(room, 180);
+    const geo = createClippedWorkplaneGeometry(room, results, 0);
+    expect(geo).not.toBeNull();
+    const { inside, total } = workplaneVerticesInsideRoom(geo!, room, 0.05);
+    expect(total).toBeGreaterThan(8);
+    expect(inside).toBe(total);
+
+    const pos = geo!.getAttribute("position");
+    let outsideCorner = 0;
+    for (let i = 0; i < pos.count; i += 1) {
+      const p = { x: pos.getX(i), y: pos.getZ(i) };
+      // AABB leftover pockets left of the left slant and right of the right slant, near y=4.
+      if (p.y > 3.5 && (p.x < 0.85 || p.x > 5.15) && !pointInPolygon(p, room.polygon)) {
+        outsideCorner += 1;
+      }
+    }
+    expect(outsideCorner).toBe(0);
+
+    const index = geo!.getIndex();
+    expect(index).not.toBeNull();
+    let faceOutside = 0;
+    for (let t = 0; t + 2 < index!.count; t += 3) {
+      const a = index!.getX(t);
+      const b = index!.getX(t + 1);
+      const c = index!.getX(t + 2);
+      const cx = (pos.getX(a) + pos.getX(b) + pos.getX(c)) / 3;
+      const cy = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+      if (!pointInPolygon({ x: cx, y: cy }, room.polygon)) faceOutside += 1;
+    }
+    expect(faceOutside).toBe(0);
+    geo!.dispose();
+  });
+
+  it("caps workplane spacing so a large room cannot explode", () => {
+    expect(workplaneFalseColorSpacing(0.5, 4, 3)).toBeCloseTo(0.25, 5);
+    expect(workplaneFalseColorSpacing(0.2, 4, 3)).toBeCloseTo(WORKPLANE_FALSE_COLOR_MIN_SPACING_M, 5);
+    const huge = workplaneFalseColorSpacing(0.5, 200, 160);
+    expect(huge).toBeCloseTo(200 / WORKPLANE_FALSE_COLOR_MAX_DIVISIONS, 5);
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 200, 160) };
+    const results = gridFor(room, 150);
+    results.grid.spacing = 0.5;
+    results.grid.originX = 0.25;
+    results.grid.originY = 0.25;
+    const geo = createClippedWorkplaneGeometry(room, results, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(8);
+    expect(pos.count).toBeLessThan(20_000);
+    geo!.dispose();
+  });
+});
+
+
+function fakeWall(
+  id: string,
+  roomId: string,
+  name: string,
+  polyline: { x: number; y: number }[],
+  normals: { x: number; y: number }[],
+  widthM: number,
+  fill = 200
+): WallSurfaceResult {
+  const nu = 3;
+  const nv = 3;
+  return {
+    id,
+    roomId,
+    name,
+    polyline,
+    normals,
+    heightM: 2.8,
+    insetM: 0.25,
+    normal: normals[0]!,
+    widthM,
+    curved: polyline.length > 2,
+    grid: {
+      originU: 0.25,
+      originV: 0.25,
+      spacing: 0.5,
+      nu,
+      nv,
+      lux: Array.from({ length: nu * nv }, () => fill),
+    },
+    summary: { eave: fill, emin: fill, emax: fill, uo: 1, areaM2: widthM * 2.3 },
+  };
+}
+
+describe("vertical wall false-colour geometry", () => {
+  it("follows each wall segment of an L-shaped room and stays out of the notch", () => {
+    const room = lShapedRoom();
+    const walls: WallSurfaceResult[] = [
+      fakeWall("w1", room.id, "Wall 1", [{ x: 0, y: 0 }, { x: 6, y: 0 }], [{ x: 0, y: 1 }], 6),
+      fakeWall("w2", room.id, "Wall 2", [{ x: 6, y: 0 }, { x: 6, y: 4 }], [{ x: -1, y: 0 }], 4),
+      fakeWall("w3", room.id, "Wall 3", [{ x: 6, y: 4 }, { x: 3, y: 4 }], [{ x: 0, y: -1 }], 3),
+      fakeWall("w4", room.id, "Wall 4", [{ x: 3, y: 4 }, { x: 3, y: 7 }], [{ x: -1, y: 0 }], 3),
+      fakeWall("w5", room.id, "Wall 5", [{ x: 3, y: 7 }, { x: 0, y: 7 }], [{ x: 0, y: -1 }], 3),
+      fakeWall("w6", room.id, "Wall 6", [{ x: 0, y: 7 }, { x: 0, y: 0 }], [{ x: 1, y: 0 }], 7),
+    ];
+    let inNotch = 0;
+    let total = 0;
+    for (const w of walls) {
+      const geo = createWallFalseColorGeometry(w, 0, 0.02);
+      expect(geo).not.toBeNull();
+      const pos = geo!.getAttribute("position");
+      for (let i = 0; i < pos.count; i += 1) {
+        total += 1;
+        const x = pos.getX(i);
+        const yPlan = pos.getZ(i);
+        const z = pos.getY(i);
+        expect(z).toBeGreaterThanOrEqual(-1e-6);
+        expect(z).toBeLessThanOrEqual(2.8 + 1e-6);
+        if (x > 3.08 && yPlan > 4.08) inNotch += 1;
+      }
+      geo!.dispose();
+    }
+    expect(total).toBeGreaterThan(20);
+    expect(inNotch).toBe(0);
+  });
+
+  it("follows a curved polyline rather than a bounding-box face", () => {
+    const pts: { x: number; y: number }[] = [];
+    const normals: { x: number; y: number }[] = [];
+    for (let i = 0; i <= 8; i += 1) {
+      const a = (i / 8) * (Math.PI / 2);
+      pts.push({ x: 4 + 2 * Math.cos(a), y: 2 * Math.sin(a) });
+    }
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      const dx = pts[i + 1]!.x - pts[i]!.x;
+      const dy = pts[i + 1]!.y - pts[i]!.y;
+      const L = Math.hypot(dx, dy) || 1;
+      // Inward for this quarter-circle (centre 4,0) is toward the centre.
+      const midX = (pts[i]!.x + pts[i + 1]!.x) / 2;
+      const midY = (pts[i]!.y + pts[i + 1]!.y) / 2;
+      const nx = 4 - midX;
+      const ny = 0 - midY;
+      const nL = Math.hypot(nx, ny) || 1;
+      normals.push({ x: nx / nL, y: ny / nL });
+      void L;
+    }
+    let width = 0;
+    for (let i = 0; i < pts.length - 1; i += 1) {
+      width += Math.hypot(pts[i + 1]!.x - pts[i]!.x, pts[i + 1]!.y - pts[i]!.y);
+    }
+    const wall = fakeWall("curve", "r1", "Wall 1 (curved)", pts, normals, width);
+    const geo = createWallFalseColorGeometry(wall, 0, 0.02);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    expect(pos.count).toBeGreaterThan(8);
+    // Vertices should stay near the radius-2 arc (plus 0.02 inward offset → r≈1.98),
+    // not collapse onto the chord bounding box (x=4..6, y=0..2 as a flat diagonal).
+    let nearArc = 0;
+    for (let i = 0; i < pos.count; i += 1) {
+      const x = pos.getX(i);
+      const y = pos.getZ(i);
+      const r = Math.hypot(x - 4, y - 0);
+      if (Math.abs(r - 1.98) < 0.08) nearArc += 1;
+    }
+    expect(nearArc).toBe(pos.count);
+    geo!.dispose();
+  });
+});
+
+describe("ceiling geometry", () => {
+  it("places a downward-facing ceiling at room height, aligned with the floor plan", () => {
+    const room = lShapedRoom();
+    const elev = 0.5;
+    const ceiling = createCeilingGeometry(room, elev);
+    const floor = createFloorGeometry(room, elev);
+    expect(ceiling).not.toBeNull();
+    expect(floor).not.toBeNull();
+    ceiling!.computeBoundingBox();
+    floor!.computeBoundingBox();
+    const cb = ceiling!.boundingBox!;
+    const fb = floor!.boundingBox!;
+    const expectedY = elev + room.heightM - 0.002;
+    expect(cb.min.y).toBeCloseTo(expectedY, 5);
+    expect(cb.max.y).toBeCloseTo(expectedY, 5);
+    expect(cb.min.x).toBeCloseTo(fb.min.x, 5);
+    expect(cb.max.x).toBeCloseTo(fb.max.x, 5);
+    expect(cb.min.z).toBeCloseTo(fb.min.z, 5);
+    expect(cb.max.z).toBeCloseTo(fb.max.z, 5);
+
+    const normals = ceiling!.getAttribute("normal");
+    expect(normals).toBeTruthy();
+    let ny = 0;
+    for (let i = 0; i < normals!.count; i += 1) ny += normals!.getY(i);
+    expect(ny / normals!.count).toBeLessThan(-0.9);
+  });
+});
+
+
+/** FrontSide is visible when the face normal points toward the eye. */
+function frontSideFacesEye(eye: THREE.Vector3, point: THREE.Vector3, normal: THREE.Vector3): boolean {
+  return new THREE.Vector3().subVectors(eye, point).dot(normal) > 0;
+}
+
+describe("false-colour exterior facing and scale", () => {
+  it("points wall false-colour normals inward so FrontSide is hidden from outside", () => {
+    // South edge of a CCW room: (0,0)→(4,0), inward is +Y (Three.js +Z).
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0, 0.02);
+    expect(geo).not.toBeNull();
+    const normals = geo!.getAttribute("normal");
+    let nz = 0;
+    for (let i = 0; i < normals.count; i += 1) nz += normals.getZ(i);
+    expect(nz / normals.count).toBeGreaterThan(0.9);
+    geo!.dispose();
+  });
+
+  it("recolours workplane vertices when the legend scale changes", () => {
+    const room: RoomV2 = { ...lShapedRoom(), polygon: rectPolygon(0, 0, 4, 4) };
+    const results = gridFor(room, 200);
+    const wide = createClippedWorkplaneGeometry(room, results, 0, { minLux: 0, maxLux: 1000 });
+    const tight = createClippedWorkplaneGeometry(room, results, 0, { minLux: 100, maxLux: 250 });
+    expect(wide).not.toBeNull();
+    expect(tight).not.toBeNull();
+    const cWide = wide!.getAttribute("color");
+    const cTight = tight!.getAttribute("color");
+    expect(cWide.getX(0)).not.toBeCloseTo(cTight.getX(0), 3);
+    const expected = luxToRgbLinear(200, { minLux: 100, maxLux: 250 });
+    expect(cTight.getX(0)).toBeCloseTo(expected[0], 5);
+    expect(cTight.getY(0)).toBeCloseTo(expected[1], 5);
+    expect(cTight.getZ(0)).toBeCloseTo(expected[2], 5);
+    wide!.dispose();
+    tight!.dispose();
+  });
+
+  it("keeps wall shells opaque so exterior façades stay grey", () => {
+    for (const mode of ["falsecolor", "greyscale", "isolines"] as const) {
+      expect(wallShellOpacity(mode)).toBeGreaterThanOrEqual(0.999);
+      expect(wallShellOpacity(mode)).toBe(ILLUMINANCE_WALL_SHELL_OPACITY);
+    }
+    expect(FALSE_COLOR_WALL_SHELL_OPACITY).toBe(1);
+    expect(GREYSCALE_WALL_SHELL_OPACITY).toBe(1);
+    expect(ILLUMINANCE_WALL_SHELL_OPACITY).toBe(1);
+  });
+
+  it("hides FrontSide wall colour from outside and shows it from inside the room", () => {
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    const normals = geo!.getAttribute("normal");
+    const i = Math.floor(pos.count / 2);
+    const point = new THREE.Vector3(pos.getX(i), pos.getY(i), pos.getZ(i));
+    const normal = new THREE.Vector3(normals.getX(i), normals.getY(i), normals.getZ(i)).normalize();
+    expect(normal.z).toBeGreaterThan(0.9);
+    const outside = new THREE.Vector3(2, 1.4, -1);
+    const inside = new THREE.Vector3(2, 1.4, 1);
+    expect(frontSideFacesEye(outside, point, normal)).toBe(false);
+    expect(frontSideFacesEye(inside, point, normal)).toBe(true);
+    geo!.dispose();
+  });
+
+  it("draws editor and capture wall colour on FrontSide only, matching the opaque inward overlay", () => {
+    const walls = readFileSync("src/components/editor/FalseColorWalls.tsx", "utf8");
+    expect(walls).toContain("side={THREE.FrontSide}");
+    expect(walls).not.toMatch(/side=\{THREE\.DoubleSide\}/);
+    expect(walls).not.toMatch(/depthWrite=\{false\}/);
+    expect(walls).not.toMatch(/opacity=\{0\.98\}/);
+    const model = readFileSync("src/lib/scene-3d-model.ts", "utf8");
+    expect(model).toMatch(/const wallFalseColorMat = track\([\s\S]*?side: THREE\.FrontSide/);
+    expect(model).not.toMatch(/False-colour wall overlay sits in the middle of the visual wall thickness/);
+  });
+});
+
+function rectRoom(x: number, y: number, w: number, d: number, heightM = 2.8): RoomV2 {
+  return {
+    ...lShapedRoom(),
+    id: `r-${x}-${y}`,
+    name: "Rect",
+    polygon: rectPolygon(x, y, w, d),
+    heightM,
+  };
+}
+
+function wallPlanVerts(geo: THREE.BufferGeometry): { x: number; y: number; z: number }[] {
+  const pos = geo.getAttribute("position");
+  const out: { x: number; y: number; z: number }[] = [];
+  for (let i = 0; i < pos.count; i += 1) {
+    out.push({ x: pos.getX(i), y: pos.getZ(i), z: pos.getY(i) });
+  }
+  return out;
+}
+
+function uniquePlanVerts(verts: { x: number; y: number }[], digits = 5): { x: number; y: number }[] {
+  const seen = new Set<string>();
+  const out: { x: number; y: number }[] = [];
+  for (const v of verts) {
+    const key = `${v.x.toFixed(digits)},${v.y.toFixed(digits)}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ x: v.x, y: v.y });
+  }
+  return out;
+}
+
+function distToPolygon(p: { x: number; y: number }, polygon: { x: number; y: number }[]): number {
+  let min = Infinity;
+  const n = polygon.length;
+  for (let e = 0; e < n; e += 1) {
+    const a = polygon[e]!;
+    const c = polygon[(e + 1) % n]!;
+    const dx = c.x - a.x;
+    const dy = c.y - a.y;
+    const len2 = dx * dx + dy * dy || 1;
+    const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / len2));
+    min = Math.min(min, Math.hypot(p.x - (a.x + t * dx), p.y - (a.y + t * dy)));
+  }
+  return min;
+}
+
+describe("wall shell slab geometry", () => {
+  it("builds a non-zero-thickness inward slab for a rectangular room", () => {
+    const room = rectRoom(0, 0, 4, 3, 2.8);
+    const elev = 0.4;
+    const geo = createWallGeometry(room, elev);
+    expect(geo).not.toBeNull();
+    const verts = wallPlanVerts(geo!);
+    expect(verts.length).toBeGreaterThan(0);
+
+    const ys = verts.map((v) => v.z);
+    expect(Math.min(...ys)).toBeCloseTo(elev, 5);
+    expect(Math.max(...ys)).toBeCloseTo(elev + room.heightM, 5);
+
+    // South edge (y=0): inner and outer faces are separated by the wall thickness.
+    const south = verts.filter((v) => v.y < 0.05);
+    expect(south.length).toBeGreaterThan(0);
+    const southY = south.map((v) => v.y);
+    const outerY = Math.min(...southY);
+    const innerY = Math.max(...southY);
+    expect(outerY).toBeCloseTo(WALL_SHELL_OUTER_INSET_M, 4);
+    expect(innerY).toBeCloseTo(WALL_SHELL_INNER_INSET_M, 4);
+    expect(innerY - outerY).toBeCloseTo(WALL_SHELL_THICKNESS_M, 4);
+    expect(Math.abs(innerY - outerY)).toBeGreaterThan(WALL_SHELL_THICKNESS_M * 0.9);
+
+    for (const v of uniquePlanVerts(verts)) {
+      const inside = pointInPolygon(v, room.polygon);
+      const near = distToPolygon(v, room.polygon) <= WALL_SHELL_OUTER_INSET_M + 1e-4;
+      expect(inside || near).toBe(true);
+      expect(distToPolygon(v, room.polygon)).toBeGreaterThanOrEqual(WALL_SHELL_OUTER_INSET_M - 1e-4);
+    }
+    geo!.dispose();
+  });
+
+  it("keeps an L-shaped shell closed and out of the missing rectangle", () => {
+    const room = lShapedRoom();
+    const geo = createWallGeometry(room, 0);
+    expect(geo).not.toBeNull();
+    const verts = wallPlanVerts(geo!);
+    const unique = uniquePlanVerts(verts);
+    // Closed shell: an inner and outer vertex at each ring corner.
+    expect(unique.length).toBe(room.polygon.length * 2);
+    let inNotch = 0;
+    for (const v of unique) {
+      if (v.x > 3.08 && v.y > 4.08) inNotch += 1;
+      expect(pointInPolygon(v, room.polygon) || distToPolygon(v, room.polygon) <= WALL_SHELL_OUTER_INSET_M + 1e-4).toBe(
+        true
+      );
+    }
+    expect(inNotch).toBe(0);
+    geo!.dispose();
+  });
+
+  it("insets shared walls of adjacent rooms so their slabs are not coplanar", () => {
+    const left = rectRoom(0, 0, 4, 4);
+    const right = rectRoom(4, 0, 4, 4);
+    const leftGeo = createWallGeometry(left, 0);
+    const rightGeo = createWallGeometry(right, 0);
+    expect(leftGeo).not.toBeNull();
+    expect(rightGeo).not.toBeNull();
+    const leftMaxX = Math.max(...wallPlanVerts(leftGeo!).map((v) => v.x));
+    const rightMinX = Math.min(...wallPlanVerts(rightGeo!).map((v) => v.x));
+    expect(leftMaxX).toBeCloseTo(4 - WALL_SHELL_OUTER_INSET_M, 4);
+    expect(rightMinX).toBeCloseTo(4 + WALL_SHELL_OUTER_INSET_M, 4);
+    expect(rightMinX - leftMaxX).toBeGreaterThan(WALL_SHELL_OUTER_INSET_M);
+    leftGeo!.dispose();
+    rightGeo!.dispose();
+  });
+
+  it("places default false-colour wall geometry just inside the inner shell face", () => {
+    expect(WALL_FALSE_COLOR_INSET_M).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+    expect(WALL_FALSE_COLOR_INSET_M).toBeCloseTo(
+      WALL_SHELL_INNER_INSET_M + WALL_FALSE_COLOR_INSET_EPSILON_M,
+      6
+    );
+    const wall = fakeWall(
+      "south",
+      "r1",
+      "Wall 1",
+      [
+        { x: 0, y: 0 },
+        { x: 4, y: 0 },
+      ],
+      [{ x: 0, y: 1 }],
+      4
+    );
+    const geo = createWallFalseColorGeometry(wall, 0);
+    expect(geo).not.toBeNull();
+    const pos = geo!.getAttribute("position");
+    for (let i = 0; i < pos.count; i += 1) {
+      expect(pos.getZ(i)).toBeCloseTo(WALL_FALSE_COLOR_INSET_M, 4);
+      expect(pos.getZ(i)).toBeGreaterThan(WALL_SHELL_INNER_INSET_M);
+    }
+    geo!.dispose();
+  });
+});
+
+describe("plan handedness in a south look-down", () => {
+  it("puts a west/north room on the left and above a south room, matching Top", () => {
+    const meeting = { x: 5.27, y: 12.7 };
+    const office = { x: 28, y: 5 };
+    const reception = { x: 5, y: 3 };
+    const scene = {
+      schemaVersion: 2,
+      storeys: [{ id: "s1", name: "L9M", elevationM: 0, heightM: 2.8 }],
+      rooms: [
+        { ...lShapedRoom(), id: "meet", name: "Meeting", storeyId: "s1", polygon: [
+          { x: 0.5, y: 10.3 }, { x: 10, y: 10.3 }, { x: 10, y: 15.1 }, { x: 0.5, y: 15.1 },
+        ] },
+        { ...lShapedRoom(), id: "off", name: "Open Office", storeyId: "s1", polygon: [
+          { x: 10, y: 0.5 }, { x: 29, y: 0.5 }, { x: 29, y: 10 }, { x: 10, y: 10 },
+        ] },
+      ],
+      instances: [],
+      ui: { activeStoreyId: "s1", activeRoomId: null },
+    } as unknown as ProjectSceneV2;
+
+    const view = editorOverviewCamera(scene, "s1");
+    expect(view.position[2]).toBeLessThan(view.target[2]);
+
+    const { root, content } = createPlanHandednessRoot(view.target[0]);
+    const marker = (name: string, x: number, y: number) => {
+      const g = new THREE.Object3D();
+      g.name = name;
+      g.position.set(x, 1.2, y);
+      content.add(g);
+    };
+    marker("meeting", meeting.x, meeting.y);
+    marker("office", office.x, office.y);
+    marker("reception", reception.x, reception.y);
+    expect(mirrorPlanX(meeting.x, view.target[0])).toBeCloseTo(2 * view.target[0] - meeting.x);
+
+    root.updateMatrixWorld(true);
+    const cam = new THREE.PerspectiveCamera(45, 16 / 9, 0.05, 800);
+    cam.position.set(...view.position);
+    cam.up.set(0, 1, 0);
+    cam.lookAt(...view.target);
+    cam.updateProjectionMatrix();
+    cam.updateMatrixWorld();
+
+    const ndc = (name: string) => {
+      const obj = content.getObjectByName(name)!;
+      const v = new THREE.Vector3();
+      obj.getWorldPosition(v);
+      v.project(cam);
+      return v;
+    };
+    const m = ndc("meeting");
+    const o = ndc("office");
+    const r = ndc("reception");
+    expect(m.x).toBeLessThan(o.x);
+    expect(m.y).toBeGreaterThan(r.y);
+  });
+});
+
+describe("3D workplane display height", () => {
+  it("follows room.workplaneHeightM immediately, ignoring a stale calculated grid z", () => {
+    const room = lShapedRoom();
+    room.workplaneHeightM = 0.75;
+    const results = {
+      grid: { originX: 0, originY: 0, spacing: 0.5, nx: 2, ny: 2, z: 1.4, lux: [100, 100, 100, 100] },
+    } as CalcResults;
+    expect(workplaneDisplayHeightM(room, 2)).toBe(2 + 0.75 + 0.02);
+    expect(officialFalseColorWorkplaneHeight(room, results, 2)).toBe(2 + 0.75 + 0.02);
+    room.workplaneHeightM = 1.1;
+    expect(officialFalseColorWorkplaneHeight(room, results, 2)).toBe(2 + 1.1 + 0.02);
+    const plate = createWorkplanePlateGeometry(room, 2);
+    expect(plate).not.toBeNull();
+    const pos = plate!.getAttribute("position")!;
+    const ys = Array.from({ length: pos.count }, (_, i) => pos.getY(i));
+    expect(ys.every((y) => Math.abs(y - (2 + 1.1 + 0.02)) < 1e-6)).toBe(true);
+    plate!.dispose();
+    const floor = createFloorGeometry(room, 2);
+    const floorY = floor!.getAttribute("position")!.getY(0);
+    expect(floorY).toBeCloseTo(2.002, 5);
+    floor!.dispose();
+  });
+});

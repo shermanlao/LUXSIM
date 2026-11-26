@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 840 280" role="img" aria-labelledby="t d">
+  <title id="t">Plan view controls</title>
+  <desc id="d">Top, Front, Side and 3D tabs with Fullscreen at the top left of the dark plan. Hold the middle mouse button to pan.</desc>
+  <rect width="840" height="280" fill="#0f1c24"/>
+  <g font-family="Inter, Segoe UI, sans-serif">
+    <g transform="translate(20,16)">
+      <rect x="0" y="0" width="62" height="28" rx="4" fill="#c45c26"/>
+      <text x="31" y="19" text-anchor="middle" fill="#f5f7f8" font-size="12">Top</text>
+      <rect x="66" y="0" width="62" height="28" rx="4" fill="#162630" stroke="#4a6270"/>
+      <text x="97" y="19" text-anchor="middle" fill="#e8eef2" font-size="12">Front</text>
+      <rect x="132" y="0" width="56" height="28" rx="4" fill="#162630" stroke="#4a6270"/>
+      <text x="160" y="19" text-anchor="middle" fill="#e8eef2" font-size="12">Side</text>
+      <rect x="192" y="0" width="48" height="28" rx="4" fill="#162630" stroke="#4a6270"/>
+      <text x="216" y="19" text-anchor="middle" fill="#e8eef2" font-size="12">3D</text>
+      <rect x="248" y="0" width="88" height="28" rx="4" fill="#1f3542" stroke="#4a6270"/>
+      <text x="292" y="19" text-anchor="middle" fill="#e8eef2" font-size="12">Fullscreen</text>
+    </g>
+    <rect x="20" y="56" width="800" height="200" rx="6" fill="#0a1218" stroke="#2a3842"/>
+    <polygon points="80,200 240,200 240,90 80,90" fill="#2a3b46" stroke="#8aa0ad"/>
+    <polygon points="248,200 430,200 430,120 248,120" fill="#2a3b46" stroke="#8aa0ad"/>
+    <circle cx="620" cy="150" r="26" fill="#1f3542" stroke="#8aa0ad" stroke-width="2"/>
+    <circle cx="620" cy="150" r="8" fill="#c45c26"/>
+    <path d="M620 124 v-18 M620 176 v18 M594 150 h-18 M646 150 h18" stroke="#c5d0d6" stroke-width="2"/>
+    <text x="620" y="214" text-anchor="middle" fill="#e8eef2" font-size="13">Hold the middle (scroll-wheel) button and drag to pan</text>
+    <text x="620" y="232" text-anchor="middle" fill="#8aa0ad" font-size="12">按住滑鼠中鍵拖曳以平移圖面 · 不要用左鍵平移</text>
+  </g>
+</svg>
